@@ -787,3 +787,35 @@ def test_normalize_rel_path_and_vendored_qa11x_exclusion(tmp_path: Path) -> None
     assert bp_rep.exit_code == vdc.EXIT_SECURITY_OR_MISSING_REPORT
     assert ".agents/scripts/new_gate.py" in bp_rep.missing_report_files
 
+
+def test_min_branch_cov_100_rejects_large_denominator_float_rounding_bypass(
+    tmp_path: Path,
+) -> None:
+    """19999/20000 ramas (round=100.00) debe fallar cuando min_branch_cov == 100.0."""
+    repo = _init_repo(tmp_path / "branch_exact")
+    _write(repo, "src/big.py", "x = 1\n")
+    _git(repo, "add", "src/big.py")
+    _write(
+        repo,
+        "cov/python.xml",
+        "<coverage><packages><package><classes>"
+        '<class filename="src/big.py"><lines>'
+        '<line number="1" hits="1" branch="true" '
+        'condition-coverage="99% (19999/20000)"/>'
+        "</lines></class></classes></package></packages></coverage>",
+    )
+    rep = vdc.evaluate_diff_coverage(
+        vdc.DiffCoverageConfig(
+            workspace=repo,
+            base_ref="HEAD",
+            min_line_cov=100.0,
+            min_branch_cov=100.0,
+            reports_dir="cov",
+        )
+    )
+    assert rep.exit_code == vdc.EXIT_COVERAGE_FAIL
+    assert rep.status == "FAILED"
+    assert rep.covered_delta_branches == 19999
+    assert rep.total_delta_branches == 20000
+
+

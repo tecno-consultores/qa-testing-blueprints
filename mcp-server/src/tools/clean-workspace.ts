@@ -128,6 +128,32 @@ const SCAN_SUBDIRS = [
   MCP_SERVER_DIR_NAME,
 ];
 
+function isContainedRealPath(rootReal: string, candidateReal: string): boolean {
+  const rel = path.relative(rootReal, candidateReal);
+  return rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel);
+}
+
+function hasSymlinkAncestorSegment(baseDir: string, relPath: string): boolean {
+  const baseReal = fs.existsSync(baseDir) ? fs.realpathSync(baseDir) : path.resolve(baseDir);
+  const parts = relPath.split(/[\\/]/).filter(Boolean);
+  if (parts.length <= 1) {
+    return false;
+  }
+  let cur = baseReal;
+  for (const segment of parts.slice(0, -1)) {
+    cur = path.join(cur, segment);
+    const stat = fs.lstatSync(cur, { throwIfNoEntry: false });
+    if (stat === undefined) {
+      return false;
+    }
+    if (stat.isSymbolicLink()) {
+      return true;
+    }
+  }
+  const parentReal = fs.existsSync(cur) ? fs.realpathSync(cur) : path.resolve(cur);
+  return !isContainedRealPath(baseReal, parentReal);
+}
+
 function entryExistsNoFollow(targetPath: string): fs.Stats | undefined {
   return fs.lstatSync(targetPath, { throwIfNoEntry: false });
 }
@@ -140,6 +166,7 @@ function scanDirectoryForArtifacts(baseDir: string, deepPrune = false, preserveD
 
   for (const name of candidateDirs) {
     if (preserveDist && name === 'dist') continue;
+    if (hasSymlinkAncestorSegment(baseDir, name)) continue;
     const fullPath = path.join(baseDir, name);
     if (entryExistsNoFollow(fullPath) !== undefined) {
       found.push(path.relative(baseDir, fullPath));
@@ -147,6 +174,7 @@ function scanDirectoryForArtifacts(baseDir: string, deepPrune = false, preserveD
   }
 
   for (const file of CANDIDATE_FILE_PATTERNS) {
+    if (hasSymlinkAncestorSegment(baseDir, file)) continue;
     const fullPath = path.join(baseDir, file);
     if (entryExistsNoFollow(fullPath) !== undefined) {
       found.push(path.relative(baseDir, fullPath));
@@ -177,6 +205,18 @@ export function removeTarget(
   baseDir: string,
   relPath: string
 ): { removed: boolean; error?: unknown } {
+  if (
+    !relPath ||
+    relPath.includes('\0') ||
+    path.isAbsolute(relPath) ||
+    relPath.split(/[\\/]/).includes('..') ||
+    hasSymlinkAncestorSegment(baseDir, relPath)
+  ) {
+    return {
+      removed: false,
+      error: new Error(`Ruta insegura o symlink ancestral rechazado: ${relPath}`),
+    };
+  }
   const fullPath = path.join(baseDir, relPath);
   try {
     const stat = fs.lstatSync(fullPath);
@@ -199,8 +239,14 @@ export function executeAlpineFallback(
   if (!baseDir || baseDir.includes('\0') || /(?:^|[\\/])\.\.(?:[\\/]|$)/.test(baseDir)) {
     return false;
   }
+  const dirExists = fs.existsSync(baseDir);
   const safeTargets = targets.filter(
-    (t) => t.length > 0 && !t.includes('..') && !path.isAbsolute(t) && !t.includes('\0')
+    (t) =>
+      t.length > 0 &&
+      !t.includes('..') &&
+      !path.isAbsolute(t) &&
+      !t.includes('\0') &&
+      (!dirExists || !hasSymlinkAncestorSegment(baseDir, t))
   );
   if (safeTargets.length === 0) return false;
   try {

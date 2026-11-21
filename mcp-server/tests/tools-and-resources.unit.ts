@@ -1300,6 +1300,242 @@ describe('Tools and Resources Integration Suite', () => {
       expect(fs.readFileSync(path.join(projDir, '.trivy.yaml'), 'utf8')).toBe('# custom-trivy\n');
       expect(fs.readFileSync(hooksFull, 'utf8')).toContain('custom-hooks');
     });
+
+    it('rejects workspace .agents symlink escape on --target workspace/auto while preserving valid global targets and blocking skill subdir symlinks', async () => {
+      const outsideDir = fs.mkdtempSync(path.join(tmpDir, 'install-outside-'));
+      const wsEsc = path.join(tmpDir, 'ws-agents-escape');
+      const emptyHome = path.join(tmpDir, 'empty-home');
+      const globalHome = path.join(tmpDir, 'global-home');
+      fs.mkdirSync(wsEsc, { recursive: true });
+      fs.mkdirSync(emptyHome, { recursive: true });
+      fs.mkdirSync(path.join(globalHome, '.gemini', 'antigravity'), { recursive: true });
+      fs.symlinkSync(outsideDir, path.join(wsEsc, '.agents'));
+
+      try {
+        await expect(
+          runInstallSkillCli(['--target', 'workspace', '--project-path', wsEsc], fetcher, {
+            cwd: wsEsc,
+            homeDir: emptyHome,
+            log: () => {},
+          })
+        ).rejects.toThrow(/symlink|confinamiento/i);
+        expect(fs.existsSync(path.join(outsideDir, 'skills'))).toBe(false);
+
+        await expect(
+          runInstallSkillCli(
+            ['--target', 'workspace', '--include-scripts', '--project-path', wsEsc],
+            fetcher,
+            { cwd: wsEsc, homeDir: emptyHome, log: () => {} }
+          )
+        ).rejects.toThrow(/symlink|confinamiento/i);
+        expect(fs.existsSync(path.join(outsideDir, 'skills'))).toBe(false);
+
+        await expect(
+          runInstallSkillCli(['--target', 'auto', '--project-path', wsEsc], fetcher, {
+            cwd: wsEsc,
+            homeDir: emptyHome,
+            log: () => {},
+          })
+        ).rejects.toThrow(/symlink|confinamiento/i);
+        expect(fs.existsSync(path.join(outsideDir, 'skills'))).toBe(false);
+
+        // Preserves valid non-workspace global targets even if ws/.agents is symlinked
+        await runInstallSkillCli(['--target', 'antigravity', '--project-path', wsEsc], fetcher, {
+          cwd: wsEsc,
+          homeDir: globalHome,
+          log: () => {},
+        });
+        expect(
+          fs.existsSync(path.join(globalHome, '.gemini', 'config', 'skills', 'qa-11x-architect', 'SKILL.md'))
+        ).toBe(true);
+
+        // Rejects symlink inside global target skill subdirectory
+        const claudeSkills = path.join(globalHome, '.claude', 'skills');
+        fs.mkdirSync(claudeSkills, { recursive: true });
+        fs.symlinkSync(outsideDir, path.join(claudeSkills, 'qa-11x-architect'));
+        await expect(
+          runInstallSkillCli(['--target', 'claude', '--project-path', wsEsc], fetcher, {
+            cwd: wsEsc,
+            homeDir: globalHome,
+            log: () => {},
+          })
+        ).rejects.toThrow(/symlink|confinamiento/i);
+        expect(fs.existsSync(path.join(outsideDir, 'SKILL.md'))).toBe(false);
+      } finally {
+        fs.rmSync(outsideDir, { recursive: true, force: true });
+      }
+    });
+
+    it('rejects intermediate parent symlinks across global targets (PROBE_B) and .bak/.11x-backup symlinks in --include-scripts (PROBE_C)', async () => {
+      const probeRoot = fs.mkdtempSync(path.join(tmpDir, 'probe-bc-'));
+      const bpOrigin = path.join(probeRoot, 'bp-origin');
+      const outsideDir = path.join(probeRoot, 'outside');
+      const ws = path.join(probeRoot, 'ws');
+      fs.mkdirSync(bpOrigin, { recursive: true });
+      fs.mkdirSync(outsideDir, { recursive: true });
+      fs.mkdirSync(ws, { recursive: true });
+
+      const writeBpFile = (relPath: string, content: string): ManifestFileEntry => {
+        const full = path.join(bpOrigin, relPath);
+        fs.mkdirSync(path.dirname(full), { recursive: true });
+        fs.writeFileSync(full, content, 'utf8');
+        return {
+          path: relPath,
+          target_name: relPath,
+          merge_strategy: 'overwrite',
+          sha256: crypto.createHash('sha256').update(content).digest('hex'),
+          size_bytes: Buffer.byteLength(content),
+        };
+      };
+
+      const skillEntry = writeBpFile('.agents/skills/qa-11x-architect/SKILL.md', '# Arch\n');
+      const budgetEntry = writeBpFile('.agents/scripts/_budgets.py', 'SKILL_MAX_BYTES = 20480\n');
+      const lefthookEntry: ManifestFileEntry = {
+        ...writeBpFile('lefthook.yml', 'pre-commit:\n  commands:\n    lint:\n      run: echo lint\n'),
+        merge_strategy: 'surgical_merge',
+      };
+      const probeManifest: Manifest = {
+        schema_version: '1.0.0',
+        blueprint_version: '3.2.0',
+        generated_at_utc: '2026-11-21T00:00:00Z',
+        repository: 'tecno-consultores/qa-testing-blueprints',
+        default_branch: 'main',
+        raw_base_url: 'https://example.invalid',
+        stacks: {},
+        common_files: [lefthookEntry],
+        agent_governance_files: [skillEntry, budgetEntry],
+      };
+      fs.writeFileSync(path.join(bpOrigin, 'manifest.json'), JSON.stringify(probeManifest), 'utf8');
+      const realFetcher = new GitHubFetcher({
+        cacheDir: path.join(probeRoot, 'cache'),
+        localOverridePath: bpOrigin,
+      });
+
+      try {
+        // 1. PROBE_B across every global target when intermediate parent dir is a symlink (skills/ missing)
+        const globalProbeCases: Array<{
+          readonly target: string;
+          readonly setupLink: (homeDir: string, destOutside: string) => void;
+        }> = [
+          {
+            target: 'antigravity',
+            setupLink: (h, out) => {
+              fs.mkdirSync(path.join(h, '.gemini'), { recursive: true });
+              fs.symlinkSync(out, path.join(h, '.gemini', 'config'));
+            },
+          },
+          {
+            target: 'antigravity',
+            setupLink: (h, out) => {
+              fs.mkdirSync(path.join(h, '.gemini'), { recursive: true });
+              fs.symlinkSync(out, path.join(h, '.gemini', 'antigravity'));
+            },
+          },
+          {
+            target: 'claude',
+            setupLink: (h, out) => {
+              fs.symlinkSync(out, path.join(h, '.claude'));
+            },
+          },
+          {
+            target: 'hermes',
+            setupLink: (h, out) => {
+              fs.symlinkSync(out, path.join(h, '.hermes'));
+            },
+          },
+          {
+            target: 'cursor',
+            setupLink: (h, out) => {
+              fs.symlinkSync(out, path.join(h, '.cursor'));
+            },
+          },
+          {
+            target: 'windsurf',
+            setupLink: (h, out) => {
+              fs.mkdirSync(path.join(h, '.codeium'), { recursive: true });
+              fs.symlinkSync(out, path.join(h, '.codeium', 'windsurf'));
+            },
+          },
+          {
+            target: 'codex',
+            setupLink: (h, out) => {
+              fs.symlinkSync(out, path.join(h, '.codex'));
+            },
+          },
+          {
+            target: 'all',
+            setupLink: (h, out) => {
+              fs.mkdirSync(path.join(h, '.gemini'), { recursive: true });
+              fs.symlinkSync(out, path.join(h, '.gemini', 'config'));
+            },
+          },
+          {
+            target: 'auto',
+            setupLink: (h, out) => {
+              fs.symlinkSync(out, path.join(h, '.claude'));
+            },
+          },
+        ];
+
+        for (let idx = 0; idx < globalProbeCases.length; idx += 1) {
+          const spec = globalProbeCases[idx]!;
+          const caseHome = path.join(probeRoot, `home-${idx}`);
+          const caseOut = path.join(probeRoot, `out-${idx}`);
+          fs.mkdirSync(caseHome, { recursive: true });
+          fs.mkdirSync(caseOut, { recursive: true });
+          spec.setupLink(caseHome, caseOut);
+
+          await expect(
+            runInstallSkillCli(['--target', spec.target, '--project-path', ws], realFetcher, {
+              cwd: ws,
+              homeDir: caseHome,
+              log: () => {},
+            })
+          ).rejects.toThrow(/symlink|confinamiento/i);
+          expect(fs.readdirSync(caseOut)).toEqual([]);
+        }
+
+        // 2. PROBE_C (.bak symlink in writeScriptWithBak)
+        const wsBak = path.join(probeRoot, 'ws-bak');
+        const homeBak = path.join(probeRoot, 'home-bak');
+        fs.mkdirSync(path.join(wsBak, '.agents', 'scripts'), { recursive: true });
+        fs.mkdirSync(homeBak, { recursive: true });
+        const staleScript = path.join(wsBak, '.agents', 'scripts', '_budgets.py');
+        const victimBak = path.join(outsideDir, 'victim_bak.txt');
+        fs.writeFileSync(staleScript, '# old stale script\n', 'utf8');
+        fs.writeFileSync(victimBak, 'ORIGINAL_BAK_VICTIM\n', 'utf8');
+        fs.symlinkSync(victimBak, `${staleScript}.bak`);
+
+        await expect(
+          runInstallSkillCli(
+            ['--target', 'workspace', '--include-scripts', '--project-path', wsBak],
+            realFetcher,
+            { cwd: wsBak, homeDir: homeBak, log: () => {} }
+          )
+        ).rejects.toThrow(/symlink|confinamiento/i);
+        expect(fs.readFileSync(victimBak, 'utf8')).toBe('ORIGINAL_BAK_VICTIM\n');
+
+        // 3. PROBE_C2 (.11x-backup symlink in mergeExistingScriptEntry)
+        const wsMerge = path.join(probeRoot, 'ws-merge');
+        fs.mkdirSync(wsMerge, { recursive: true });
+        const existingLf = path.join(wsMerge, 'lefthook.yml');
+        const victimMerge = path.join(outsideDir, 'victim_11x_backup.txt');
+        fs.writeFileSync(existingLf, 'pre-commit:\n  commands:\n    custom:\n      run: echo x\n', 'utf8');
+        fs.writeFileSync(victimMerge, 'ORIGINAL_11X_BACKUP\n', 'utf8');
+        fs.symlinkSync(victimMerge, `${existingLf}.11x-backup`);
+
+        await expect(
+          runInstallSkillCli(
+            ['--target', 'workspace', '--include-scripts', '--project-path', wsMerge],
+            realFetcher,
+            { cwd: wsMerge, homeDir: homeBak, log: () => {} }
+          )
+        ).rejects.toThrow(/symlink|confinamiento/i);
+        expect(fs.readFileSync(victimMerge, 'utf8')).toBe('ORIGINAL_11X_BACKUP\n');
+      } finally {
+        fs.rmSync(probeRoot, { recursive: true, force: true });
+      }
+    });
   });
 
   describe('cleanWorkspace11x and Cleanup Resource Suite', () => {
@@ -1469,6 +1705,25 @@ describe('Tools and Resources Integration Suite', () => {
       expect(real.removed_targets).toContain(path.join('vibe-rescue', '.pytest_cache'));
       expect(real.removed_targets).toContain('test-results');
       expect(fs.lstatSync(danglingRes, { throwIfNoEntry: false })).toBeUndefined();
+    });
+
+    it('bloquea borrado recursivo cuando .agents es un symlink ancestral apuntando fuera del workspace', async () => {
+      const { removeTarget } = await import('../src/tools/clean-workspace.js');
+      const outside = fs.mkdtempSync(path.join(tmpDir, 'outside-agents-'));
+      fs.mkdirSync(path.join(outside, 'artifacts'), { recursive: true });
+      fs.writeFileSync(path.join(outside, 'artifacts', 'keep.txt'), 'KEEP_SAFE\n', 'utf8');
+
+      const ws = fs.mkdtempSync(path.join(tmpDir, 'ws-sym-agents-'));
+      fs.symlinkSync(outside, path.join(ws, '.agents'));
+
+      const res = await cleanWorkspace11x(ws, false, true);
+      expect(res.found_targets).not.toContain('.agents/artifacts');
+      expect(res.removed_targets).not.toContain('.agents/artifacts');
+      expect(fs.existsSync(path.join(outside, 'artifacts', 'keep.txt'))).toBe(true);
+
+      const directRemove = removeTarget(ws, '.agents/artifacts');
+      expect(directRemove.removed).toBe(false);
+      expect(fs.existsSync(path.join(outside, 'artifacts', 'keep.txt'))).toBe(true);
     });
 
     it('retrieves cleanup script resource from BlueprintResources', async () => {

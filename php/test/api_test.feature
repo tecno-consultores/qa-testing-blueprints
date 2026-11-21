@@ -82,3 +82,45 @@ Feature: Validación BDD de Caja Negra de la API REST PHP (8.2-8.5) y Manejo de 
     And match response.amount == '250.00'
     And match response.actor_username == '#string'
     And match response.actor_username != '#regex (?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+
+  Scenario: 8. Consulta de recurso inexistente (virgin_empty) devuelve 404 RFC 7807
+    Given path '/api/v1/transfers/00000000-0000-0000-0000-000000000000'
+    And header X-Tenant-ID = 'tenant-alpha'
+    When method get
+    Then status 404
+    And match responseHeaders['Content-Type'][0] contains 'application/problem+json'
+    And match response.status == 404
+    And match response.title == '#string'
+
+  Scenario: 9. Colisión de Idempotency-Key con payload mutado (degraded_conflict) devuelve 409 RFC 7807
+    * def conflictKey = newIdempotencyKey()
+    Given path '/api/v1/transfers'
+    And header Idempotency-Key = conflictKey
+    And header X-Tenant-ID = 'tenant-alpha'
+    And request { amount: "120.00", currency: "USD", recipient: "USR-11X" }
+    When method post
+    Then status 201
+
+    Given path '/api/v1/transfers'
+    And header Idempotency-Key = conflictKey
+    And header X-Tenant-ID = 'tenant-alpha'
+    And request { amount: "999.99", currency: "USD", recipient: "USR-11X" }
+    When method post
+    Then status 409
+    And match responseHeaders['Content-Type'][0] contains 'application/problem+json'
+    And match response.status == 409
+    And match response.title == '#string'
+
+  Scenario: 10. Aislamiento estricto multi-tenant entre X-Tenant-ID distintos
+    Given path '/api/v1/transfers'
+    And header Idempotency-Key = newIdempotencyKey()
+    And header X-Tenant-ID = 'tenant-alpha'
+    And request { amount: "310.00", currency: "USD", recipient: "USR-ALPHA" }
+    When method post
+    Then status 201
+    * def alphaTransferId = response.id
+
+    Given path '/api/v1/transfers', alphaTransferId
+    And header X-Tenant-ID = 'tenant-beta'
+    When method get
+    Then status 404

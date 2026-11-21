@@ -111,6 +111,27 @@ FORBIDDEN_DOC_PATTERNS: tuple[tuple[str, str], ...] = (
             "(usar 'agent-setup.md' o 'agent-setup.es.md')"
         ),
     ),
+    (
+        r"\bblueprint://calm\b",
+        (
+            "recurso inexistente 'blueprint://calm' "
+            "(el recurso 13 es 'blueprint://skills/tactical-patterns-11x')"
+        ),
+    ),
+    (
+        r"\b(?:Tool|Herramienta)\s+19\s+`?audit_vibe_prototype`?\b",
+        (
+            "Tool 19 mal atribuida a 'audit_vibe_prototype' "
+            "(debe ser 'session_flight_recorder')"
+        ),
+    ),
+    (
+        r"\b(?:Resource|Recurso)\s+13\s+`?blueprint://calm`?\b",
+        (
+            "Resource 13 mal atribuido a 'blueprint://calm' "
+            "(debe ser 'blueprint://skills/tactical-patterns-11x')"
+        ),
+    ),
 )
 
 _AGENT_SETUP_EN_STRICT_TARGETS: tuple[str, ...] = (
@@ -1869,6 +1890,254 @@ def check_global_catalogs_and_geo(root: Path) -> list[str]:
     return errors
 
 
+_NGINX_PUBLIC_IMG_PAT = (
+    r"location\s+~\*\s+\\\.\(\?:ico\|svg\|png\|webmanifest\)\$\s*\{([^}]*)\}"
+)
+_NGINX_IMMUTABLE_PAT = (
+    r"location\s+~\*\s+"
+    r"\\\.\(\?:js\|mjs\|css\|woff2\|woff\|ttf\|webp\|avif\)\$\s*\{([^}]*)\}"
+)
+_NGINX_INDEX_PAT = r"location\s+=\s+/index\.html\s*\{([^}]*)\}"
+_VITEST_COMMENT_RE = re.compile(
+    r"(\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)"
+    r"|(/\*[\s\S]*?\*/|//[^\n]*)"
+)
+_VITEST_REPORTER_RE = re.compile(r"reporter\s*:\s*\[([^\]]+)\]", re.DOTALL)
+
+
+def _strip_js_comments_preserving_strings(src: str) -> str:
+    return _VITEST_COMMENT_RE.sub(
+        lambda m: m.group(1) if m.group(1) is not None else " ",
+        src,
+    )
+
+
+def _check_specs_readme_entries(root: Path) -> list[str]:
+    errors: list[str] = []
+    for rel in ("docs/specs/README.md", "docs/specs/README.es.md"):
+        doc = root / rel
+        if not doc.is_file():
+            continue
+        text = doc.read_text(encoding="utf-8")
+        if "session_flight_recorder" not in text:
+            errors.append(f"{rel}: falta Tool 19 'session_flight_recorder'.")
+        if "blueprint://skills/tactical-patterns-11x" not in text:
+            errors.append(
+                f"{rel}: falta Resource 13 'blueprint://skills/tactical-patterns-11x'."
+            )
+    return errors
+
+
+def _check_mcp_source_registrations(root: Path) -> list[str]:
+    errors: list[str] = []
+    server_ts = root / "mcp-server" / "src" / "server.ts"
+    if server_ts.is_file():
+        server_src = server_ts.read_text(encoding="utf-8")
+        if (
+            "session_flight_recorder" not in server_src
+            and "SESSION_FLIGHT_RECORDER_TOOL" not in server_src
+        ):
+            errors.append("mcp-server/src/server.ts: falta 'session_flight_recorder'.")
+    tactical_ts = (
+        root / "mcp-server" / "src" / "resources" / "tacticalPatternsSkill.ts"
+    )
+    if tactical_ts.is_file() and (
+        "blueprint://skills/tactical-patterns-11x"
+        not in tactical_ts.read_text(encoding="utf-8")
+    ):
+        errors.append(
+            "tacticalPatternsSkill.ts: falta URI "
+            "'blueprint://skills/tactical-patterns-11x'."
+        )
+    return errors
+
+
+def _check_spec_readme_mcp_surface(root: Path) -> list[str]:
+    return [
+        *_check_specs_readme_entries(root),
+        *_check_mcp_source_registrations(root),
+    ]
+
+
+def _validate_single_nginx_corp(fe_stack: str, nginx_conf: str) -> list[str]:
+    errors: list[str] = []
+    public_match = re.search(_NGINX_PUBLIC_IMG_PAT, nginx_conf)
+    if not public_match or (
+        'add_header Cross-Origin-Resource-Policy "cross-origin" always;'
+        not in public_match.group(1)
+    ):
+        errors.append(
+            f"{fe_stack}/nginx/default.conf.example: falta UI-11X-03 "
+            'CORP "cross-origin" en ico|svg|png|webmanifest.'
+        )
+    server_head = nginx_conf.split("location ", 1)[0]
+    immutable_match = re.search(_NGINX_IMMUTABLE_PAT, nginx_conf)
+    index_match = re.search(_NGINX_INDEX_PAT, nginx_conf)
+    strict_blocks = (
+        ("server", server_head),
+        ("immutable", immutable_match.group(1) if immutable_match else ""),
+        ("index.html", index_match.group(1) if index_match else ""),
+    )
+    for label, block in strict_blocks:
+        if (
+            'add_header Cross-Origin-Resource-Policy "same-origin" always;'
+            not in block
+            or '"cross-origin"' in block
+        ):
+            errors.append(
+                f"{fe_stack}/nginx/default.conf.example ({label}): "
+                'CORP debe ser estrictamente "same-origin".'
+            )
+    return errors
+
+
+def _check_nginx_ui_11x_03(root: Path) -> list[str]:
+    errors: list[str] = []
+    for fe_stack in ("vue3", "react-frontend"):
+        conf_path = root / fe_stack / "nginx" / "default.conf.example"
+        if conf_path.is_file():
+            errors.extend(
+                _validate_single_nginx_corp(
+                    fe_stack, conf_path.read_text(encoding="utf-8")
+                )
+            )
+    return errors
+
+
+def _check_vitest_lcov_reporters(root: Path) -> list[str]:
+    errors: list[str] = []
+    for stack in ("node-backend", "vue3", "react-frontend"):
+        cfg_path = root / stack / "vitest.config.ts.example"
+        if not cfg_path.is_file():
+            continue
+        cleaned = _strip_js_comments_preserving_strings(
+            cfg_path.read_text(encoding="utf-8")
+        )
+        match = _VITEST_REPORTER_RE.search(cleaned)
+        if not match or not re.search(r"['\"]lcov['\"]", match.group(1)):
+            errors.append(
+                f"{stack}/vitest.config.ts.example: falta reporter 'lcov' activo."
+            )
+    return errors
+
+
+_TESTING_S2_STMTS_RE = re.compile(
+    r"\*\*(?:Statements|Sentencias \(Statements\)):\*\*\s*`(\d+(?:\.\d+)%)`"
+)
+_TESTING_S2_BRANCHES_RE = re.compile(
+    r"\*\*(?:Branches|Ramas \(Branches\)):\*\*\s*`(\d+(?:\.\d+)%)`"
+)
+_TESTING_S2_FUNCS_RE = re.compile(
+    r"\*\*(?:Functions|Funciones \(Functions\)):\*\*\s*`(\d+(?:\.\d+)%)`"
+)
+_TESTING_S2_LINES_RE = re.compile(
+    r"\*\*(?:Lines|Líneas \(Lines\)):\*\*\s*`(\d+(?:\.\d+)%)`"
+)
+_TESTING_S2_TESTS_RE = re.compile(
+    r"\*\*(\d+)\s+(?:tests passing at|pruebas pasando al)\s+100%\*\*\s*"
+    r"\((\d+)\s+(?:Vitest suites|suites Vitest)"
+)
+_TESTING_S4_TESTS_RE = re.compile(
+    r"\*\*(\d+)\*\*\s+(?:Vitest tests across|pruebas Vitest distribuidas en)\s+"
+    r"\*\*(\d+)\s+(?:Vitest suites|suites Vitest)\*\*"
+)
+_TESTING_S4_COV_RE = re.compile(
+    r"\*\*(\d+(?:\.\d+)%)\s+(?:line/statement coverage and|"
+    r"de cobertura de líneas/sentencias y)\s+"
+    r"(\d+(?:\.\d+)%)\s+(?:branch coverage|de cobertura de ramas)\*\*"
+)
+_TESTING_S4_FUNCS_RE = re.compile(
+    r"\*\*(\d+(?:\.\d+)%)\s+(?:function coverage|de cobertura de funciones)\*\*"
+)
+
+
+def _extract_s2_metrics(text: str) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for key, pat in (
+        ("statements", _TESTING_S2_STMTS_RE),
+        ("branches", _TESTING_S2_BRANCHES_RE),
+        ("functions", _TESTING_S2_FUNCS_RE),
+        ("lines", _TESTING_S2_LINES_RE),
+    ):
+        m = pat.search(text)
+        if m:
+            out[key] = m.group(1)
+    tm = _TESTING_S2_TESTS_RE.search(text)
+    if tm:
+        out["tests"] = tm.group(1)
+        out["suites"] = tm.group(2)
+    return out
+
+
+def _extract_s4_metrics(text: str) -> dict[str, str]:
+    out: dict[str, str] = {}
+    tm = _TESTING_S4_TESTS_RE.search(text)
+    if tm:
+        out["tests"] = tm.group(1)
+        out["suites"] = tm.group(2)
+    cm = _TESTING_S4_COV_RE.search(text)
+    if cm:
+        out["lines"] = cm.group(1)
+        out["branches"] = cm.group(2)
+    fm = _TESTING_S4_FUNCS_RE.search(text)
+    if fm:
+        out["functions"] = fm.group(1)
+    return out
+
+
+def _compare_s2_s4(rel: str, s2: dict[str, str], s4: dict[str, str]) -> list[str]:
+    errors: list[str] = []
+    if s2.get("statements") and s2.get("lines") and s2["statements"] != s2["lines"]:
+        errors.append(
+            f"{rel}: §2 Statements ({s2['statements']}) != Lines ({s2['lines']})."
+        )
+    for key in ("tests", "suites", "lines", "branches", "functions"):
+        v2, v4 = s2.get(key), s4.get(key)
+        if v2 and v4 and v2 != v4:
+            errors.append(f"{rel}: desfase §2 vs §4 en {key} ({v2} != {v4}).")
+    return errors
+
+
+def _collect_testing_scoreboards(
+    root: Path,
+) -> tuple[dict[str, dict[str, str]], list[str]]:
+    boards: dict[str, dict[str, str]] = {}
+    errors: list[str] = []
+    for rel in ("TESTING.md", "TESTING.es.md"):
+        path = root / rel
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        s2, s4 = _extract_s2_metrics(text), _extract_s4_metrics(text)
+        if s2 and s4:
+            errors.extend(_compare_s2_s4(rel, s2, s4))
+            boards[rel] = s2
+    return boards, errors
+
+
+def check_testing_scoreboard_consistency(root: Path) -> list[str]:
+    """Verifica coherencia §2 vs §4 y paridad EN/ES en TESTING.{md,es.md}."""
+    boards, errors = _collect_testing_scoreboards(root)
+    en, es = boards.get("TESTING.md"), boards.get("TESTING.es.md")
+    if en and es:
+        for key in ("tests", "suites", "statements", "branches", "functions", "lines"):
+            if en.get(key) != es.get(key):
+                errors.append(
+                    f"TESTING.md vs TESTING.es.md: desfase en {key} "
+                    f"({en.get(key)} != {es.get(key)})."
+                )
+    return errors
+
+
+def _check_specs_and_stack_contracts(root: Path) -> list[str]:
+    """Valida invariantes opcionales de Specs README, UI-11X-03 y Vitest lcov."""
+    return [
+        *_check_spec_readme_mcp_surface(root),
+        *_check_nginx_ui_11x_03(root),
+        *_check_vitest_lcov_reporters(root),
+    ]
+
+
 def validate_repository_docs(root: Path) -> list[str]:
     """Ejecuta todas las validaciones documentales sobre el directorio raíz."""
     counts = derive_expected_counts(root)
@@ -1884,7 +2153,9 @@ def validate_repository_docs(root: Path) -> list[str]:
         *check_internal_markdown_links(root),
         *check_historical_spec_links(root),
         *_check_refactoring_ui_topics(root),
+        *_check_specs_and_stack_contracts(root),
         *check_global_catalogs_and_geo(root),
+        *check_testing_scoreboard_consistency(root),
     ]
 
 

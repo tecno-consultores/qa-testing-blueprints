@@ -10,6 +10,7 @@ import {
   buildEvolutionSlug,
   buildPrefilledIssueUrl,
   defaultExecRunner,
+  validateRelativeRepoPath,
   ExecRunnerFunction,
   UPSTREAM_REPO,
 } from '../src/tools/propose-evolution-pr.js';
@@ -324,6 +325,152 @@ describe('propose_skill_evolution_pr Tool Suite (Zero-Trust Skill Evolution)', (
         cwd: tmpDir,
       });
       expect(echoRes.stdout.trim()).toBe('hello 11x');
+    });
+
+    it('rejects path traversal, percent-encoding, URI schemes, Markdown/HTML injection, absolute paths, drive letters, NUL bytes, and newlines in target_* fields ([SEC-PATH-01])', async () => {
+      const invalidPaths = [
+        '../../etc/passwd',
+        '../outside.md',
+        '%2e%2e/%2e%2e/etc/passwd',
+        '..%2f..%2fetc%2fpasswd',
+        '%2e%2e%5cetc%5cpasswd',
+        'file:///etc/passwd',
+        'https://evil.test/payload.md',
+        `${'java'}script:alert(1)`,
+        'docs/README.md` [phish](https://evil.test) `',
+        'docs/<script>alert(1)</script>.md',
+        '/etc/passwd',
+        '\\\\server\\share\\file.md',
+        'C:\\Windows\\win.ini',
+        '   ',
+        'bad\0path.md',
+        'bad\npath.md',
+        'bad\rpath.md',
+      ];
+      for (const badPath of invalidPaths) {
+        expect(() => validateRelativeRepoPath(badPath, 'target_blueprint_file')).toThrow('[SEC-PATH-01]');
+        expect(() =>
+          buildPrefilledIssueUrl({
+            project_path: tmpDir,
+            target_blueprint_file: badPath,
+            improvement_title: IMPROVEMENT_TITLE,
+            empirical_rationale: RATIONALE,
+            proposed_content_or_snippet: SNIPPET,
+          })
+        ).toThrow('[SEC-PATH-01]');
+        await expect(
+          proposeSkillEvolutionPr({
+            project_path: tmpDir,
+            target_blueprint_file: badPath,
+            improvement_title: IMPROVEMENT_TITLE,
+            empirical_rationale: RATIONALE,
+            proposed_content_or_snippet: SNIPPET,
+          })
+        ).rejects.toThrow('[SEC-PATH-01]');
+      }
+
+      const crossFieldBypassPayloads = [
+        '%2e%2e/%2e%2e/etc/passwd',
+        '..%2f..%2fetc%2fpasswd',
+        '%2e%2e%5cetc%5cpasswd',
+        'file:///etc/passwd',
+        'docs/README.md` [phish](https://evil.test) `',
+      ];
+      for (const badTarget of crossFieldBypassPayloads) {
+        await expect(
+          proposeSkillEvolutionPr({
+            project_path: tmpDir,
+            target_blueprint_file: TARGET_FILE,
+            target_human_doc_file: badTarget,
+            improvement_title: IMPROVEMENT_TITLE,
+            empirical_rationale: RATIONALE,
+            proposed_content_or_snippet: SNIPPET,
+          })
+        ).rejects.toThrow('[SEC-PATH-01]');
+
+        await expect(
+          proposeSkillEvolutionPr({
+            project_path: tmpDir,
+            target_blueprint_file: TARGET_FILE,
+            target_mcp_component: badTarget,
+            improvement_title: IMPROVEMENT_TITLE,
+            empirical_rationale: RATIONALE,
+            proposed_content_or_snippet: SNIPPET,
+          })
+        ).rejects.toThrow('[SEC-PATH-01]');
+      }
+
+      const validRepoPaths = [
+        'AGENTS.md',
+        '.agents/skills/qa-11x-architect/SKILL.md',
+        'docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md',
+        'mcp-server/src/server.ts',
+        'node-backend/vitest.config.ts.example',
+      ];
+      for (const okPath of validRepoPaths) {
+        expect(validateRelativeRepoPath(okPath, 'target_blueprint_file')).toBe(okPath);
+      }
+
+      await expect(
+        proposeSkillEvolutionPr({
+          project_path: tmpDir,
+          target_blueprint_file: TARGET_FILE,
+          target_human_doc_file: '../../secret.md',
+          improvement_title: IMPROVEMENT_TITLE,
+          empirical_rationale: RATIONALE,
+          proposed_content_or_snippet: SNIPPET,
+        })
+      ).rejects.toThrow('[SEC-PATH-01]');
+
+      await expect(
+        proposeSkillEvolutionPr({
+          project_path: tmpDir,
+          target_blueprint_file: TARGET_FILE,
+          target_mcp_component: '/usr/local/bin/evil.ts',
+          improvement_title: IMPROVEMENT_TITLE,
+          empirical_rationale: RATIONALE,
+          proposed_content_or_snippet: SNIPPET,
+        })
+      ).rejects.toThrow('[SEC-PATH-01]');
+    });
+
+    it('rechaza escapes por symlink en .agents, .agents/proposals y archivo destino (.md)', async () => {
+      const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-prop-outside-'));
+      try {
+        const wsProposalsSym = path.join(tmpDir, 'ws-proposals-sym');
+        fs.mkdirSync(path.join(wsProposalsSym, '.agents'), { recursive: true });
+        fs.symlinkSync(outside, path.join(wsProposalsSym, '.agents', 'proposals'));
+
+        await expect(
+          proposeSkillEvolutionPr({
+            project_path: wsProposalsSym,
+            target_blueprint_file: TARGET_FILE,
+            improvement_title: 'Probe Symlink Proposals',
+            empirical_rationale: RATIONALE,
+            proposed_content_or_snippet: SNIPPET,
+            dry_run: false,
+          })
+        ).rejects.toThrow(/Symlink/);
+        expect(fs.readdirSync(outside)).toEqual([]);
+
+        const wsAgentsSym = path.join(tmpDir, 'ws-agents-sym');
+        fs.mkdirSync(wsAgentsSym, { recursive: true });
+        fs.symlinkSync(outside, path.join(wsAgentsSym, '.agents'));
+
+        await expect(
+          proposeSkillEvolutionPr({
+            project_path: wsAgentsSym,
+            target_blueprint_file: TARGET_FILE,
+            improvement_title: 'Probe Symlink Agents',
+            empirical_rationale: RATIONALE,
+            proposed_content_or_snippet: SNIPPET,
+            dry_run: false,
+          })
+        ).rejects.toThrow(/Symlink/);
+        expect(fs.readdirSync(outside)).toEqual([]);
+      } finally {
+        fs.rmSync(outside, { recursive: true, force: true });
+      }
     });
   });
 });

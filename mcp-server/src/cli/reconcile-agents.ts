@@ -25,6 +25,9 @@ const SKILLS_DIR = 'skills';
 const BACKUPS_DIR = 'backups';
 const DOMAIN_PREFIX = 'domain_';
 const AGENTS_MD_FILENAME = 'AGENTS.md';
+const LABEL_BACKUP_DEST = 'destino de respaldo';
+const LABEL_RULES_DIR = 'directorio de reglas';
+const LABEL_SKILLS_DIR = 'directorio de skills';
 
 export const CANONICAL_GLOBAL_RULE_FILES = new Set([
   'mandatory_qa_pyramid_and_doc_sync.md',
@@ -230,12 +233,22 @@ export function splitMarkdownSections(content: string): string[] {
   return sections;
 }
 
-function assertNotSymlinkPath(targetPath: string, label: string): fs.Stats | undefined {
-  const stat = fs.lstatSync(targetPath, { throwIfNoEntry: false });
-  if (stat?.isSymbolicLink()) {
-    throw new Error(`Symlink rechazado por seguridad en ${label}: ${targetPath}`);
+function assertNoSymlinkSegmentsFromRoot(
+  rootDir: string,
+  targetPath: string,
+  label: string
+): fs.Stats | undefined {
+  const rel = path.relative(rootDir, targetPath);
+  let cur = rootDir;
+  let lastStat: fs.Stats | undefined;
+  for (const segment of rel.split(path.sep).filter(Boolean)) {
+    cur = path.join(cur, segment);
+    lastStat = fs.lstatSync(cur, { throwIfNoEntry: false });
+    if (lastStat?.isSymbolicLink()) {
+      throw new Error(`Symlink rechazado por seguridad en ${label}: ${cur}`);
+    }
   }
-  return stat;
+  return lastStat;
 }
 
 function ensureBackupFile(
@@ -244,11 +257,12 @@ function ensureBackupFile(
   backupDir: string
 ): void {
   const srcFull = path.join(projectPath, relFilePath);
-  const srcStat = assertNotSymlinkPath(srcFull, 'respaldo');
+  const srcStat = assertNoSymlinkSegmentsFromRoot(projectPath, srcFull, 'respaldo');
   if (!srcStat?.isFile()) return;
   const destFull = path.join(backupDir, relFilePath);
+  assertNoSymlinkSegmentsFromRoot(projectPath, destFull, LABEL_BACKUP_DEST);
   fs.mkdirSync(path.dirname(destFull), { recursive: true, mode: 0o700 });
-  assertNotSymlinkPath(destFull, 'destino de respaldo');
+  assertNoSymlinkSegmentsFromRoot(projectPath, destFull, LABEL_BACKUP_DEST);
   fs.copyFileSync(srcFull, destFull);
   fs.chmodSync(destFull, 0o600);
 }
@@ -345,7 +359,7 @@ function cleanPromotedDuplicatesInAgentsMd(
     return { item: null, removedCount: 0 };
   }
   const agentsMdPath = path.join(projectPath, AGENTS_MD_FILENAME);
-  const agentsStat = assertNotSymlinkPath(agentsMdPath, AGENTS_MD_FILENAME);
+  const agentsStat = assertNoSymlinkSegmentsFromRoot(projectPath, agentsMdPath, AGENTS_MD_FILENAME);
   if (!agentsStat) {
     return { item: null, removedCount: 0 };
   }
@@ -460,7 +474,12 @@ function reconcileRulesDir(opts: ReconcileRulesDirOpts): {
   let removed = 0;
   let preserved = 0;
 
-  if (!fs.existsSync(opts.rulesDirPath)) {
+  const rulesStat = assertNoSymlinkSegmentsFromRoot(
+    opts.resolvedPath,
+    opts.rulesDirPath,
+    LABEL_RULES_DIR
+  );
+  if (!rulesStat?.isDirectory()) {
     return { items, removed, preserved };
   }
 
@@ -469,7 +488,7 @@ function reconcileRulesDir(opts: ReconcileRulesDirOpts): {
   for (const fileName of entries) {
     const relPath = path.join(AGENTS_DIR, RULES_DIR, fileName);
     const fullPath = path.join(opts.rulesDirPath, fileName);
-    const fullStat = assertNotSymlinkPath(fullPath, 'regla local');
+    const fullStat = assertNoSymlinkSegmentsFromRoot(opts.resolvedPath, fullPath, 'regla local');
     if (!fullStat?.isFile()) {
       continue;
     }
@@ -515,8 +534,24 @@ function reconcileRulesDir(opts: ReconcileRulesDirOpts): {
   return { items, removed, preserved };
 }
 
+function hardenBackupTreePermissions(targetPath: string): void {
+  const stat = fs.lstatSync(targetPath);
+  if (stat.isSymbolicLink()) return;
+  if (stat.isDirectory()) {
+    fs.chmodSync(targetPath, 0o700);
+    for (const child of fs.readdirSync(targetPath)) {
+      hardenBackupTreePermissions(path.join(targetPath, child));
+    }
+    return;
+  }
+  if (stat.isFile()) {
+    fs.chmodSync(targetPath, 0o600);
+  }
+}
+
 function reconcileSingleCanonicalSkill(opts: {
   readonly entry: string;
+  readonly resolvedPath: string;
   readonly skillsDirPath: string;
   readonly dryRun: boolean;
   readonly backupDir: string;
@@ -526,13 +561,15 @@ function reconcileSingleCanonicalSkill(opts: {
   }
   const relSkillPath = path.join(AGENTS_DIR, SKILLS_DIR, opts.entry);
   const fullSkillPath = path.join(opts.skillsDirPath, opts.entry);
-  const skillStat = assertNotSymlinkPath(fullSkillPath, 'skill local');
+  const skillStat = assertNoSymlinkSegmentsFromRoot(opts.resolvedPath, fullSkillPath, 'skill local');
   if (!skillStat) return null;
   if (!opts.dryRun) {
     const destBackup = path.join(opts.backupDir, relSkillPath);
+    assertNoSymlinkSegmentsFromRoot(opts.resolvedPath, destBackup, LABEL_BACKUP_DEST);
     fs.mkdirSync(path.dirname(destBackup), { recursive: true, mode: 0o700 });
-    assertNotSymlinkPath(destBackup, 'destino de respaldo');
+    assertNoSymlinkSegmentsFromRoot(opts.resolvedPath, destBackup, LABEL_BACKUP_DEST);
     fs.cpSync(fullSkillPath, destBackup, { recursive: true, dereference: false });
+    hardenBackupTreePermissions(destBackup);
     fs.rmSync(fullSkillPath, { recursive: true, force: true });
   }
   return {
@@ -559,12 +596,19 @@ function reconcileSkillsDir(
   }
 
   const skillsDirPath = path.join(resolvedPath, AGENTS_DIR, SKILLS_DIR);
-  if (!fs.existsSync(skillsDirPath)) {
+  const skillsStat = assertNoSymlinkSegmentsFromRoot(resolvedPath, skillsDirPath, LABEL_SKILLS_DIR);
+  if (!skillsStat?.isDirectory()) {
     return { items, removed };
   }
 
   for (const entry of fs.readdirSync(skillsDirPath)) {
-    const item = reconcileSingleCanonicalSkill({ entry, skillsDirPath, dryRun, backupDir });
+    const item = reconcileSingleCanonicalSkill({
+      entry,
+      resolvedPath,
+      skillsDirPath,
+      dryRun,
+      backupDir,
+    });
     if (item) {
       items.push(item);
       removed++;
@@ -587,10 +631,11 @@ interface PersistDomainRulesArgs {
 }
 
 function persistExtractedDomainRules(args: PersistDomainRulesArgs): void {
-  assertNotSymlinkPath(args.rulesDirPath, 'directorio de reglas');
-  fs.mkdirSync(args.rulesDirPath, { recursive: true });
+  assertNoSymlinkSegmentsFromRoot(args.resolvedPath, args.rulesDirPath, LABEL_RULES_DIR);
   const domainFullPath = path.join(args.resolvedPath, args.domainRulesFile);
-  assertNotSymlinkPath(domainFullPath, 'archivo de dominio');
+  assertNoSymlinkSegmentsFromRoot(args.resolvedPath, domainFullPath, 'archivo de dominio');
+  fs.mkdirSync(args.rulesDirPath, { recursive: true });
+  assertNoSymlinkSegmentsFromRoot(args.resolvedPath, domainFullPath, 'archivo de dominio');
   const header = `# Domain-Specific Governance Rules (${args.projectSlug})\n\n`;
   const existingDomain = fs.existsSync(domainFullPath)
     ? fs.readFileSync(domainFullPath, UTF8) + '\n\n'
@@ -628,6 +673,15 @@ function executeReconcileAgentsGovernance(options: {
   const rulesDirPath = path.join(resolvedPath, AGENTS_DIR, RULES_DIR);
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const backupDir = path.join(resolvedPath, AGENTS_DIR, BACKUPS_DIR, timestamp);
+
+  assertNoSymlinkSegmentsFromRoot(resolvedPath, path.join(resolvedPath, AGENTS_DIR), AGENTS_DIR);
+  assertNoSymlinkSegmentsFromRoot(resolvedPath, rulesDirPath, LABEL_RULES_DIR);
+  assertNoSymlinkSegmentsFromRoot(
+    resolvedPath,
+    path.join(resolvedPath, AGENTS_DIR, SKILLS_DIR),
+    LABEL_SKILLS_DIR
+  );
+  assertNoSymlinkSegmentsFromRoot(resolvedPath, backupDir, LABEL_BACKUP_DEST);
 
   const extractedDomainBlocks: string[] = [];
   const rulesSummary = reconcileRulesDir({

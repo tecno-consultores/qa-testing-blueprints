@@ -50,11 +50,12 @@ The FastAPI validation strategy spans 13 cross-cutting layers (Corporate Standar
 *   Use `httpx` and FastAPI's native `TestClient` to simulate requests without depending on an external network.
 *   **Strict Boundary (Tool Boundary):** All unit test files MUST be named `.unit.py` or `.spec.py` to isolate their execution.
 *   **Unit Isolation:** In `.unit.py` tests, use `pytest-mock` to isolate HTTP calls to third parties or external APIs.
+*   **`src/`-Relative Imports (`mutmut 3.x`):** Always import modules relative to `src/` (`from main import ...`, `uvicorn main:app` with `PYTHONPATH=/app/src`, never `from src.main`) so `mutmut` trampoline execution succeeds.
 *   **Anti-Mock Blindness (Mandatory in Persistence):** NEVER simulate the database with blind mocks to validate SQLAlchemy models or Alembic migrations. Integration tests (`.int.py` or repository flows) MUST be validated against the ephemeral `postgres:17` container. Every change in `src/models/` requires its corresponding `alembic revision --autogenerate` migration verified on real PostgreSQL.
 
 ### C. Complexity Analysis & Profiling (`radon` + `py-spy`)
 *   **Complexity Rule:** No generated code block may exceed cyclomatic complexity Grade `A` (`CC <= 5`). The Maintainability Index (MI) must be Grade `A`.
-*   **Profiling:** For heavy endpoints, profile the application under load using `py-spy` to generate a visual *Flamegraph* (`profile.svg`) showing any blocks in the asynchronous *Event Loop*.
+*   **Profiling:** For heavy endpoints, profile the application under load using `py-spy` to generate a visual *Flamegraph* (`reports/flamegraph.svg`) showing any blocks in the asynchronous *Event Loop*.
 
 ### D. Behavior & Black-Box (`Karate Labs`)
 *   Write `.feature` files in the `test/` folder (e.g., `test/api_test.feature`). The API will be treated as an opaque black box and attacked through its exposed HTTP port (8000).
@@ -134,8 +135,8 @@ make qa-dast
 
 *   **Cumulative Profiling (Flamegraph via `py-spy`), Observability & CycloneDX SBOM:**
 ```bash
-# Attaching py-spy to uvicorn inside a hardened container may require CAP_SYS_PTRACE (`--cap-add SYS_PTRACE`) or matching UID; saves profile.svg to /app/.
-# Includes mutmut_gates.py (qa-mutation) and zap.yaml / /tmp/zap-report.html (:ro DAST mounts).
+# Sidecar profiler runs as user: "0:0" + CAP_SYS_PTRACE (pid: "service:api", .:/app:ro) and chowns reports/flamegraph.svg to QA_UID:QA_GID.
+# Includes mutmut_gates.py (qa-mutation) and zap.yaml (.:/zap/wrk:ro + ./reports:/reports:rw -> reports/zap-report.{html,json}).
 make qa-profile
 make qa-observability
 make qa-sbom
@@ -146,4 +147,4 @@ This command activates the hidden profile. It launches Pumba, Locust, and Promet
 ```bash
 make qa-chaos
 ```
-*(During the attack, monitor metrics at `http://localhost:9090` or inspect `chaos-report.html` to verify the request survival rate).*
+*(During the attack, monitor metrics at `http://localhost:9090` or inspect `reports/chaos-report.html` to verify the request survival rate).*

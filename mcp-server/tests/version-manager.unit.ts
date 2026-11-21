@@ -17,6 +17,7 @@ import {
   pickHigherSemver,
   readVersionStamp,
   RECOMMENDED_UPDATE_CMD,
+  resolveGlobalSkillCandidateDirs,
   resolveLatestPublishedVersion,
   syncGlobalSkillsInBackground,
   VERSION_STAMP_FILENAME,
@@ -138,6 +139,89 @@ describe('Version Manager, .qa-11x-version Stamp, 24h TTL Fail-Open & Global Aut
       // Corrupted JSON fail-open
       fs.writeFileSync(stampFile, '{broken-json', 'utf-8');
       expect(readVersionStamp(target)).toBeNull();
+    });
+
+    it('rejects dangling .qa-11x-version and symlinked targetDir in writeVersionStamp and runInstallSkillCli', async () => {
+      const outsideDir = fs.mkdtempSync(path.join(tmpRoot, 'stamp-outside-'));
+      try {
+        // 1. Direct writeVersionStamp with dangling .qa-11x-version -> outside/pwned_ver
+        const ws1 = path.join(tmpRoot, 'ws-dangling-stamp');
+        fs.mkdirSync(ws1, { recursive: true });
+        const pwnedVer1 = path.join(outsideDir, 'pwned_ver_direct');
+        fs.symlinkSync(pwnedVer1, path.join(ws1, VERSION_STAMP_FILENAME));
+        expect(() => writeVersionStamp(ws1, '3.2.0')).toThrow(/symlink|confinamiento/i);
+        expect(fs.existsSync(pwnedVer1)).toBe(false);
+
+        // 2. Direct writeVersionStamp when targetDir itself is a symlink
+        const symTarget = path.join(tmpRoot, 'sym-stamp-dir');
+        fs.symlinkSync(outsideDir, symTarget);
+        expect(() => writeVersionStamp(symTarget, '3.2.0')).toThrow(/symlink|confinamiento/i);
+        expect(fs.existsSync(path.join(outsideDir, VERSION_STAMP_FILENAME))).toBe(false);
+
+        // 2b. Direct writeVersionStamp with confinementRoot rejects intermediate symlink when leaf does not exist
+        const wsConf = path.join(tmpRoot, 'ws-confined-stamp');
+        fs.mkdirSync(wsConf, { recursive: true });
+        fs.symlinkSync(outsideDir, path.join(wsConf, '.agents'));
+        expect(() =>
+          writeVersionStamp(path.join(wsConf, '.agents', 'skills'), '3.2.0', undefined, wsConf)
+        ).toThrow(/symlink|confinamiento/i);
+        expect(fs.existsSync(path.join(outsideDir, 'skills'))).toBe(false);
+
+        // 3. runInstallSkillCli --target workspace with dangling .agents/skills/.qa-11x-version
+        const ws2 = path.join(tmpRoot, 'ws-cli-dangling-stamp');
+        const ws2Skills = path.join(ws2, '.agents', 'skills');
+        fs.mkdirSync(ws2Skills, { recursive: true });
+        const pwnedVer2 = path.join(outsideDir, 'pwned_ver_cli');
+        fs.symlinkSync(pwnedVer2, path.join(ws2Skills, VERSION_STAMP_FILENAME));
+
+        const localOrigin = path.join(tmpRoot, 'local-origin-stamp');
+        const skillRelDir = path.join(localOrigin, '.agents', 'skills', 'qa-11x-architect');
+        fs.mkdirSync(skillRelDir, { recursive: true });
+        const skillContent = '# Architect 3.2.0\n';
+        fs.writeFileSync(path.join(skillRelDir, 'SKILL.md'), skillContent, 'utf-8');
+        fs.writeFileSync(
+          path.join(localOrigin, 'manifest.json'),
+          JSON.stringify(buildTestManifest('3.2.0', skillContent)),
+          'utf-8'
+        );
+        const fetcher = new GitHubFetcher({ cacheDir, localOverridePath: localOrigin });
+
+        await expect(
+          runInstallSkillCli(['--target', 'workspace', '--project-path', ws2], fetcher, {
+            cwd: ws2,
+            homeDir: fakeHome,
+            log: () => {},
+          })
+        ).rejects.toThrow(/symlink|confinamiento/i);
+        expect(fs.existsSync(pwnedVer2)).toBe(false);
+
+        // 4. writeVersionStamp without confinementRoot rejects symlinked parent even when leaf does not exist
+        const noConfHome = path.join(tmpRoot, 'no-conf-home');
+        fs.mkdirSync(noConfHome, { recursive: true });
+        fs.symlinkSync(outsideDir, path.join(noConfHome, '.claude'));
+        expect(() =>
+          writeVersionStamp(path.join(noConfHome, '.claude', 'skills'), '3.2.0')
+        ).toThrow(/symlink|confinamiento/i);
+        expect(fs.existsSync(path.join(outsideDir, 'skills'))).toBe(false);
+
+        // 5. writeVersionStamp without confinementRoot allows symlinked $HOME itself when segments below $HOME are real
+        const realHomeTarget = path.join(tmpRoot, 'real-home-target');
+        fs.mkdirSync(realHomeTarget, { recursive: true });
+        const symHome = path.join(tmpRoot, 'sym-home');
+        fs.symlinkSync(realHomeTarget, symHome);
+        const prevEnvHome = process.env.HOME;
+        try {
+          process.env.HOME = symHome;
+          const validStamp = writeVersionStamp(path.join(symHome, '.claude', 'skills'), '3.2.0');
+          expect(fs.existsSync(validStamp)).toBe(true);
+          expect(readVersionStamp(path.join(symHome, '.claude', 'skills'))).toBe('3.2.0');
+        } finally {
+          if (prevEnvHome !== undefined) process.env.HOME = prevEnvHome;
+          else delete process.env.HOME;
+        }
+      } finally {
+        fs.rmSync(outsideDir, { recursive: true, force: true });
+      }
     });
   });
 
@@ -519,6 +603,8 @@ describe('Version Manager, .qa-11x-version Stamp, 24h TTL Fail-Open & Global Aut
       }
 
       const geminiSkillsDir = path.join(fakeHome, '.gemini', 'config', 'skills');
+      expect(resolveGlobalSkillCandidateDirs(fakeHome)).toContain(geminiSkillsDir);
+      expect(resolveGlobalSkillCandidateDirs(fakeHome)).toHaveLength(7);
       expect(detectExistingQa11xSkillDirs(fakeHome)).toContain(geminiSkillsDir);
       expect(readVersionStamp(geminiSkillsDir)).toBe('2.19.0');
       expect(readVersionStamp(path.join(projectDir, '.agents'))).toBe('2.19.0');
@@ -670,6 +756,151 @@ describe('Version Manager, .qa-11x-version Stamp, 24h TTL Fail-Open & Global Aut
       });
       expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('[QA-11X Auto-Sync]'));
       stderrSpy.mockRestore();
+    });
+
+    it('rejects CWE-22 symlink escapes in syncGlobalSkillsInBackground, GEMINI.md connector, and version check cache without external writes', async () => {
+      const outsideRoot = fs.mkdtempSync(path.join(tmpRoot, 'vm-cwe22-out-'));
+      try {
+        const localOrigin = path.join(tmpRoot, 'origin-cwe22');
+        const newSkillBody = '# Architect 3.2.0 NEW\n';
+        fs.mkdirSync(path.join(localOrigin, '.agents', 'skills', 'qa-11x-architect'), {
+          recursive: true,
+        });
+        fs.writeFileSync(
+          path.join(localOrigin, '.agents', 'skills', 'qa-11x-architect', 'SKILL.md'),
+          newSkillBody,
+          'utf-8'
+        );
+        fs.writeFileSync(
+          path.join(localOrigin, 'manifest.json'),
+          JSON.stringify(buildTestManifest('3.2.0', newSkillBody)),
+          'utf-8'
+        );
+        const fetcher = new GitHubFetcher({ cacheDir, localOverridePath: localOrigin });
+
+        // 1. home/.claude -> outside_victim containing skills/qa-11x-architect/SKILL.md ("OLD_CONTENT\n") & .qa-11x-version ("3.0.0\n")
+        const victimBase = path.join(outsideRoot, 'victim-claude');
+        const victimArchDir = path.join(victimBase, 'skills', 'qa-11x-architect');
+        fs.mkdirSync(victimArchDir, { recursive: true });
+        fs.writeFileSync(path.join(victimArchDir, 'SKILL.md'), 'OLD_CONTENT\n', 'utf-8');
+        fs.writeFileSync(path.join(victimBase, 'skills', '.qa-11x-version'), '3.0.0\n', 'utf-8');
+
+        const homeEscape = path.join(tmpRoot, 'home-claude-escape');
+        fs.mkdirSync(homeEscape, { recursive: true });
+        fs.symlinkSync(victimBase, path.join(homeEscape, '.claude'));
+
+        // Also seed a valid global dir alongside the escaped one to verify zero partial writes before upfront validation
+        const validGeminiSkill = path.join(
+          homeEscape,
+          '.gemini',
+          'config',
+          'skills',
+          'qa-11x-architect',
+          'SKILL.md'
+        );
+        fs.mkdirSync(path.dirname(validGeminiSkill), { recursive: true });
+        fs.writeFileSync(validGeminiSkill, 'GEMINI_OLD\n', 'utf-8');
+
+        const logs1: string[] = [];
+        const res1 = await syncGlobalSkillsInBackground({
+          homeDir: homeEscape,
+          fetcher,
+          onLog: (m) => logs1.push(m),
+        });
+        expect(res1.synced).toBe(false);
+        expect(res1.updated_files_count).toBe(0);
+        expect(logs1.some((l) => /symlink|confinamiento/i.test(l))).toBe(true);
+        expect(fs.readFileSync(path.join(victimArchDir, 'SKILL.md'), 'utf-8')).toBe('OLD_CONTENT\n');
+        expect(fs.readdirSync(path.join(victimBase, 'skills')).sort((a, b) => a.localeCompare(b))).toEqual([
+          '.qa-11x-version',
+          'qa-11x-architect',
+        ]);
+        expect(fs.readFileSync(validGeminiSkill, 'utf-8')).toBe('GEMINI_OLD\n');
+
+        // 2. Valid global skill dir + home/.gemini/GEMINI.md -> outside_gemini_target
+        const homeGeminiSym = path.join(tmpRoot, 'home-gemini-sym');
+        const validSkillsDir = path.join(homeGeminiSym, '.gemini', 'config', 'skills');
+        fs.mkdirSync(path.join(validSkillsDir, 'qa-11x-architect'), { recursive: true });
+        fs.writeFileSync(
+          path.join(validSkillsDir, 'qa-11x-architect', 'SKILL.md'),
+          'STALE_GEMINI\n',
+          'utf-8'
+        );
+        const outsideGemini = path.join(outsideRoot, 'outside-GEMINI.md');
+        fs.writeFileSync(
+          outsideGemini,
+          '<!-- QA_11X_MCP_CONNECTOR_START -->\nOLD\n<!-- QA_11X_MCP_CONNECTOR_END -->\n',
+          'utf-8'
+        );
+        fs.symlinkSync(outsideGemini, path.join(homeGeminiSym, '.gemini', 'GEMINI.md'));
+
+        const logs2: string[] = [];
+        const res2 = await syncGlobalSkillsInBackground({
+          homeDir: homeGeminiSym,
+          fetcher,
+          onLog: (m) => logs2.push(m),
+        });
+        expect(res2.synced).toBe(false);
+        expect(logs2.some((l) => /symlink|confinamiento/i.test(l))).toBe(true);
+        expect(fs.readFileSync(outsideGemini, 'utf-8')).toContain('\nOLD\n');
+
+        // 3. Leaf skill SKILL.md symlinked inside valid global skill dir
+        const homeLeafSym = path.join(tmpRoot, 'home-leaf-sym');
+        const leafArchDir = path.join(homeLeafSym, '.cursor', 'skills', 'qa-11x-architect');
+        fs.mkdirSync(leafArchDir, { recursive: true });
+        const outsideSkill = path.join(outsideRoot, 'outside-skill.md');
+        fs.writeFileSync(outsideSkill, 'SECRET_OUTSIDE\n', 'utf-8');
+        fs.symlinkSync(outsideSkill, path.join(leafArchDir, 'SKILL.md'));
+
+        const logs3: string[] = [];
+        const res3 = await syncGlobalSkillsInBackground({
+          homeDir: homeLeafSym,
+          fetcher,
+          onLog: (m) => logs3.push(m),
+        });
+        expect(res3.synced).toBe(false);
+        expect(logs3.some((l) => /symlink|confinamiento/i.test(l))).toBe(true);
+        expect(fs.readFileSync(outsideSkill, 'utf-8')).toBe('SECRET_OUTSIDE\n');
+
+        // 4. resolveLatestPublishedVersion rejects symlinked cacheDir and dangling latest-version-check.json
+        const outsideCacheTarget = path.join(outsideRoot, 'outside-ver-cache');
+        fs.mkdirSync(outsideCacheTarget, { recursive: true });
+        const symlinkedVerCache = path.join(tmpRoot, 'sym-ver-cache');
+        fs.symlinkSync(outsideCacheTarget, symlinkedVerCache);
+
+        await expect(
+          resolveLatestPublishedVersion({
+            fetcher: new GitHubFetcher({ cacheDir: symlinkedVerCache }),
+            runningMcpVersion: '2.20.0',
+            allowNetworkCheck: true,
+            fetchFn: vi.fn().mockResolvedValue({
+              ok: true,
+              json: () => Promise.resolve({ version: '9.9.9' }),
+            }) as unknown as typeof fetch,
+          })
+        ).rejects.toThrow(/symlink|confinamiento/i);
+        expect(fs.readdirSync(outsideCacheTarget)).toEqual([]);
+
+        const realVerCache = path.join(tmpRoot, 'real-ver-cache');
+        fs.mkdirSync(realVerCache, { recursive: true });
+        const danglingCheckTarget = path.join(outsideCacheTarget, 'pwned-latest.json');
+        fs.symlinkSync(danglingCheckTarget, path.join(realVerCache, LATEST_CHECK_CACHE_FILENAME));
+
+        await expect(
+          resolveLatestPublishedVersion({
+            fetcher: new GitHubFetcher({ cacheDir: realVerCache }),
+            runningMcpVersion: '2.20.0',
+            allowNetworkCheck: true,
+            fetchFn: vi.fn().mockResolvedValue({
+              ok: true,
+              json: () => Promise.resolve({ version: '9.9.9' }),
+            }) as unknown as typeof fetch,
+          })
+        ).rejects.toThrow(/symlink|confinamiento/i);
+        expect(fs.existsSync(danglingCheckTarget)).toBe(false);
+      } finally {
+        fs.rmSync(outsideRoot, { recursive: true, force: true });
+      }
     });
   });
 });

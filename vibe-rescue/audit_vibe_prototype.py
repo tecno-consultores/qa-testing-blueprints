@@ -162,12 +162,39 @@ def _load_rls_template() -> str:
     return local_template.read_text(encoding="utf-8")
 
 
+def _walk_check_no_symlink_ancestors(
+    candidate_abs: Path, stop_paths: set[Path]
+) -> None:
+    for cur in (candidate_abs, *candidate_abs.parents):
+        if cur in stop_paths:
+            return
+        if cur.is_symlink():
+            raise ValueError(
+                f"Symlink rechazado por seguridad en directorio de remediacion: {cur}"
+            )
+
+
+def _assert_no_symlink_in_emit_ancestors(target_dir: Path, out_dir: Path) -> Path:
+    target_real = target_dir.resolve()
+    candidate = out_dir if out_dir.is_absolute() else target_real / out_dir
+    resolved = candidate.resolve()
+    if resolved == target_real or not resolved.is_relative_to(target_real):
+        raise ValueError(f"Directorio de remediacion fuera de target_dir: {out_dir}")
+    stop_paths = {Path(os.path.abspath(target_dir)), target_real}
+    _walk_check_no_symlink_ancestors(Path(os.path.abspath(candidate)), stop_paths)
+    return resolved
+
+
 def _write_if_absent(
     path: Path,
     content: str,
     outcome_written: list[str],
     skipped: list[str],
 ) -> None:
+    if path.is_symlink():
+        raise ValueError(
+            f"Symlink rechazado por seguridad en destino de remediacion: {path}"
+        )
     if path.exists():
         skipped.append(path.as_posix())
         return
@@ -223,22 +250,23 @@ def emit_remediation_bundle(
     env_keys: Sequence[str] = (),
 ) -> RemediationOutcome:
     """Emite rls_hardening.sql, .env.example y RESCUE_PLAN.md sin sobrescribir."""
-    out_dir.mkdir(parents=True, exist_ok=True)
+    safe_out_dir = _assert_no_symlink_in_emit_ancestors(target_dir, out_dir)
+    safe_out_dir.mkdir(parents=True, exist_ok=True)
     written: list[str] = []
     skipped: list[str] = []
     _, score, verdict = _compute_summary(findings)
 
     _write_if_absent(
-        out_dir / "rls_hardening.sql",
+        safe_out_dir / "rls_hardening.sql",
         _load_rls_template(),
         written,
         skipped,
     )
     keys = sorted(set(env_keys)) if env_keys else list(DEFAULT_ENV_KEYS)
     env_example = "".join(f"{key}=<CHANGE_ME_IN_VAULT>\n" for key in keys)
-    _write_if_absent(out_dir / ".env.example", env_example, written, skipped)
+    _write_if_absent(safe_out_dir / ".env.example", env_example, written, skipped)
     plan_md = _build_rescue_plan_md(target_dir, score, verdict, findings)
-    _write_if_absent(out_dir / "RESCUE_PLAN.md", plan_md, written, skipped)
+    _write_if_absent(safe_out_dir / "RESCUE_PLAN.md", plan_md, written, skipped)
     return RemediationOutcome(tuple(written), tuple(skipped))
 
 
@@ -278,6 +306,8 @@ def audit_prototype(
         raise ValueError(f"El directorio objetivo no existe: {target_dir}")
     if max_lines <= 0:
         raise ValueError(f"max_lines debe ser positivo: {max_lines}")
+    if emit_dir is not None:
+        emit_dir = _assert_no_symlink_in_emit_ancestors(target_dir, emit_dir)
 
     findings, env_keys = _scan_directory_tree(target_dir, max_lines, emit_dir)
     counts, score, verdict = _compute_summary(findings)

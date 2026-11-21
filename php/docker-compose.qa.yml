@@ -22,6 +22,7 @@ services:
       - integration
       - load
       - chaos
+      - observability
     security_opt:
       - no-new-privileges:true
     environment:
@@ -42,10 +43,12 @@ services:
     image: eqalpha/keydb@sha256:6537505c42355ca1f571276bddf83f5b750f760f07b2a185a676481791e388ac
     pull_policy: if_not_present
     mem_limit: 512m
+    user: "999:999"
     profiles:
       - integration
       - load
       - chaos
+      - observability
     read_only: true
     cap_drop:
       - ALL
@@ -53,7 +56,7 @@ services:
       - /tmp:size=32M,noexec,nosuid,nodev
     security_opt:
       - no-new-privileges:true
-    command: keydb-server --server-threads 2 --appendonly no --save ""
+    command: keydb-server --server-threads 2 --appendonly no --save "" --dir /tmp
     healthcheck:
       test: ["CMD", "keydb-cli", "ping"]
       interval: 3s
@@ -68,7 +71,7 @@ services:
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
     security_opt:
       - no-new-privileges:true
-    # Si monta php.ini personalizado, móntelo en /usr/local/etc/php/conf.d/99-qa11x.ini:ro para prevalecer sobre docker-php-ext-pcov.ini
+    # Si monta php.ini personalizado, móntelo en /usr/local/etc/php/conf.d/zz-qa11x.ini:ro para prevalecer sobre qa-11x.ini y docker-php-ext-pcov.ini (y opcionalmente /usr/local/etc/php/php.ini:ro)
     volumes:
       - .:/var/www
       - composer-cache:/tmp/composer-cache
@@ -94,6 +97,7 @@ services:
       - integration
       - load
       - chaos
+      - observability
     working_dir: /var/www
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
     security_opt:
@@ -122,7 +126,7 @@ services:
       interval: 3s
       timeout: 3s
       retries: 10
-    command: sh -c "([ -f vendor/autoload.php ] || composer install --no-interaction --prefer-dist -q) && if [ -d public ]; then php -d expose_php=0 -S 0.0.0.0:8000 -t public; else php -d expose_php=0 -S 0.0.0.0:8000; fi"
+    command: sh -c '([ -f vendor/autoload.php ] || php -d allow_url_fopen=1 "$$(command -v composer)" install --no-interaction --prefer-dist -q) && if [ -d public ]; then php -d expose_php=0 -S 0.0.0.0:8000 -t public; else php -d expose_php=0 -S 0.0.0.0:8000; fi'
 
   karatelabs:
     image: sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89
@@ -154,10 +158,12 @@ services:
       HOME: /tmp
     working_dir: /zap/wrk
     volumes:
-      - .:/zap/wrk
+      - .:/zap/wrk:ro
+      - ./reports:/zap/wrk/reports:rw
     depends_on:
       php-api:
         condition: service_healthy
+    command: bash -c "echo 'Contenedor ZAP listo. Usa docker compose --profile integration run --rm -T zap zap.sh -cmd -autorun /zap/wrk/zap.yaml'; sleep infinity"
 
   prometheus:
     image: prom/prometheus:v2.55.1@sha256:2659f4c2ebb718e7695cb9b25ffa7d6be64db013daba13e05c875451cf51b0d3
@@ -167,6 +173,7 @@ services:
       - no-new-privileges:true
     profiles:
       - chaos
+      - observability
     entrypoint:
       - /bin/sh
       - -c

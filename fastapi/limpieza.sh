@@ -39,7 +39,7 @@ rm -f ./ACTIVE_TASK.md .coverage .coverage.* coverage.xml junit.xml \
   .Python .task_scratchpad.md .agents/*.scratchpad.md ./*.log 2>/dev/null || true
 rm -rf .mypy_cache .pytest_cache .ruff_cache .hypothesis .schemathesis .tox .nox .uv/ .eggs/ .benchmarks/ .pdm-build/ pip-wheel-metadata/ \
   htmlcov/ mutants/ .mutmut-cache/ target/ test/target/ karate.jar karate-*.jar prometheus_data/ .trivycache \
-  allure-results/ allure-report/ .allure/ .deepeval/ .promptfoo/ .agents/tmp/ dist 2>/dev/null || true
+  allure-results/ allure-report/ .allure/ .deepeval/ .promptfoo/ .agents/tmp/ dist pacts/ reports/ 2>/dev/null || true
 
 if [ -d "graphify-out" ]; then
   find graphify-out/ -mindepth 1 -maxdepth 1 ! -name 'GRAPH_REPORT.md' ! -name 'graph.html' ! -name 'graph.json' ! -name 'manifest.json' -exec rm -rf {} + 2>/dev/null || true
@@ -56,7 +56,7 @@ if command -v docker >/dev/null 2>&1; then
       /work/.ruff_cache /work/.hypothesis /work/.schemathesis /work/.tox /work/.nox \
       /work/.uv /work/.eggs /work/.benchmarks /work/htmlcov /work/mutants /work/.mutmut-cache /work/target \
       /work/test/target /work/karate.jar /work/karate-*.jar /work/prometheus_data /work/.trivycache \
-      /work/allure-results /work/allure-report /work/.allure /work/.deepeval /work/.promptfoo /work/dist 2>/dev/null || true
+      /work/allure-results /work/allure-report /work/.allure /work/.deepeval /work/.promptfoo /work/dist /work/pacts /work/reports 2>/dev/null || true
     if [ "$3" = "true" ]; then
       rm -rf /work/node_modules /work/.venv /work/venv 2>/dev/null || true
     fi

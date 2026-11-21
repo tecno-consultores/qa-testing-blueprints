@@ -41,7 +41,7 @@ dev = [
     "bandit[toml]>=1.7.8",
     "pip-audit>=2.7.3",
     "cyclonedx-bom>=4.0.0",
-    "mutmut>=3.7.0",
+    "mutmut>=3.8.1",
     
     # Complexity & Profiling (Herramientas 11X)
     "radon>=6.0.1",
@@ -68,17 +68,19 @@ packages = ["src"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 python_files = ["*.unit.py", "*.spec.py", "*.int.py", "test_*.py"]
-pythonpath = ["."]
+pythonpath = ["src"]
 addopts = "--import-mode=importlib --strict-markers --cov=src --cov-fail-under=95 --cov-report=html:/tmp/htmlcov --cov-report=term-missing"
 markers = [
     "integration: Pruebas internas que requieren conexión a internet o bases de datos (deseleccionar con '-m \"not integration\"')",
 ]
 
 [tool.ruff]
-line-length = 120
+line-length = 88
 target-version = "py312"
+src = ["src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "C901", "PLR0911", "PLR0913"]
@@ -98,15 +100,17 @@ max-returns = 4
 
 [tool.mypy]
 strict = true
+mypy_path = "src"
 plugins = ["pydantic.mypy"]
 
 [tool.mutmut]
+# mutmut 3.x requiere pythonpath = ["src"] e imports relativos a src/ (ej. from main import ..., nunca from src.main)
 source_paths = ["src/"]
-pytest_add_cli_args = ["-x", "--no-cov", "-m", "not integration"]
+pytest_add_cli_args = ["-x", "--no-cov", "-m", "not integration", "--ignore=tests/contracts"]
 pytest_add_cli_args_test_selection = ["tests/"]
 
 [tool.pyrefly]
-search-path = ["."]
+search-path = ["src"]
 python-version = "3.15"
 
 [tool.pyrefly.errors]

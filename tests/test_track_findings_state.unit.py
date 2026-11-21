@@ -561,3 +561,87 @@ def test_save_state_doc_cleans_temp_file_on_os_error(
     monkeypatch.undo()
     assert list(tmp_path.glob("*.tmp")) == []
     assert not target.exists()
+
+
+def test_ancestor_symlink_containment_rejects_nested_cache_escape(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    ws = _init_repo(tmp_path / "ws_wrap")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+
+    # 1. ws/.agents -> outside (no debe crear outside/.cache)
+    (ws / ".agents").symlink_to(outside)
+    state_via_agents = ws / ".agents" / ".cache" / "certify_state.json"
+    findings_json = json.dumps(
+        {"stage": "lint", "findings": [{"rule": "R1", "message": "m"}]}
+    )
+    proc_agents = subprocess.run(
+        [
+            sys.executable,
+            str(_SCRIPT_PATH),
+            "--state-file",
+            str(state_via_agents),
+            "--workspace",
+            str(ws),
+            "--stage",
+            "lint",
+            "--findings-input",
+            "-",
+        ],
+        input=findings_json,
+        capture_output=True,
+        text=True,
+        shell=False,
+        check=False,
+    )
+    assert proc_agents.returncode == 2
+    assert "symlink" in proc_agents.stderr.lower()
+    assert not (outside / ".cache").exists()
+    assert not (outside / ".cache" / "certify_state.json").exists()
+
+    # 2. reset_session_state also rejects ws/.agents -> outside
+    rc_reset = tfs.main(
+        [
+            "--state-file",
+            str(state_via_agents),
+            "--workspace",
+            str(ws),
+            "--reset-state",
+        ]
+    )
+    assert rc_reset == 2
+    assert "symlink" in capsys.readouterr().err.lower()
+    assert not (outside / ".cache").exists()
+
+    # 3. ws/.agents/.cache -> outside
+    (ws / ".agents").unlink()
+    (ws / ".agents").mkdir()
+    (ws / ".agents" / ".cache").symlink_to(outside)
+    proc_cache = subprocess.run(
+        [
+            sys.executable,
+            str(_SCRIPT_PATH),
+            "--state-file",
+            str(state_via_agents),
+            "--workspace",
+            str(ws),
+            "--stage",
+            "lint",
+            "--findings-input",
+            "-",
+        ],
+        input=findings_json,
+        capture_output=True,
+        text=True,
+        shell=False,
+        check=False,
+    )
+    assert proc_cache.returncode == 2
+    assert "symlink" in proc_cache.stderr.lower()
+    assert not (outside / "certify_state.json").exists()
+
+    # 4. Anchor fallback outside workspace/cwd/home/tmp returns root anchor cleanly
+    unmatched = Path("/qa11x_unmatched_anchor_probe/sub/state.json")
+    assert tfs._find_safe_anchor(unmatched, None) == Path(unmatched.anchor)
+    tfs._ensure_no_symlink(unmatched)

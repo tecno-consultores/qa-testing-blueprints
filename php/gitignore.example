@@ -11,10 +11,14 @@ infection.log
 infection-summary.log
 k6-summary.json
 sbom-php.cdx.json
+reports/
 target/
 test/target/
 zap-report.html
+zap-report.json
 chaos-report.html
+chaos-report.json
+openapi.json
 prometheus_data/
 .cache/
 graphify-out/

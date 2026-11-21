@@ -103,7 +103,7 @@ const SECRET_REDACTION_PATTERNS: ReadonlyArray<readonly [RegExp, string]> = [
     '$1[REDACTED]',
   ],
   [/\b(?:ghp|gho|ghs|ghu|github_pat|npm)_\w{6,}\b/g, '[REDACTED_TOKEN]'],
-  [/\bsk-[A-Za-z0-9]{10,}\b/g, '[REDACTED_TOKEN]'],
+  [/\bsk-[A-Za-z0-9_-]{10,}\b/g, '[REDACTED_TOKEN]'],
 ];
 
 export const SESSION_FLIGHT_RECORDER_TOOL: Pick<Tool, 'name' | 'description'> = {

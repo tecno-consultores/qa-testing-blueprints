@@ -241,6 +241,23 @@ function resolveContainedTargetDir(rawTarget: string, workspaceRoot: string): st
   return targetReal;
 }
 
+function assertNoSymlinkSubdirSegments(
+  targetReal: string,
+  candidate: string,
+  rawSubdir: string,
+): void {
+  const rel = path.relative(targetReal, candidate);
+  let cur = targetReal;
+  for (const segment of rel.split(path.sep).filter(Boolean)) {
+    cur = path.join(cur, segment);
+    const stat = fs.lstatSync(cur, { throwIfNoEntry: false });
+    if (stat === undefined) break;
+    if (stat.isSymbolicLink() || !isContainedPath(targetReal, fs.realpathSync(cur))) {
+      throw new Error(`Symlink en remediationSubdir fuera de targetDir: "${rawSubdir}"`);
+    }
+  }
+}
+
 function resolveContainedSubdir(rawSubdir: string, targetReal: string): string {
   if (hasUnsafeRawPath(rawSubdir) || path.isAbsolute(rawSubdir.trim())) {
     throw new Error(`remediationSubdir inseguro o absoluto: "${rawSubdir}"`);
@@ -249,12 +266,7 @@ function resolveContainedSubdir(rawSubdir: string, targetReal: string): string {
   if (!isContainedPath(targetReal, candidate) || candidate === targetReal) {
     throw new Error(`remediationSubdir debe estar contenido dentro de targetDir: "${rawSubdir}"`);
   }
-  if (fs.existsSync(candidate)) {
-    const candidateReal = fs.realpathSync(candidate);
-    if (!isContainedPath(targetReal, candidateReal)) {
-      throw new Error(`Symlink en remediationSubdir fuera de targetDir: "${rawSubdir}"`);
-    }
-  }
+  assertNoSymlinkSubdirSegments(targetReal, candidate, rawSubdir);
   return candidate;
 }
 

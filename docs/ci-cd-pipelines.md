@@ -105,8 +105,8 @@ jobs:
         # (Note: Skip this step if it is a pure Bash or standalone Python script)
         run: |
           docker compose -f docker-compose.qa.yml up -d postgres keydb api || docker compose -f docker-compose.qa.yml up -d api
-          docker compose -f docker-compose.qa.yml run --rm -T zap zap-baseline.py -t http://api:8000 -r zap-report.html || \
-          docker compose -f docker-compose.qa.yml run --rm -T zap zap-baseline.py -t http://api:3000 -r zap-report.html
+          docker compose -f docker-compose.qa.yml run --rm -T zap zap-baseline.py -t http://api:8000 -r reports/zap-report.html -J reports/zap-report.json || \
+          docker compose -f docker-compose.qa.yml run --rm -T zap zap-baseline.py -t http://api:3000 -r reports/zap-report.html -J reports/zap-report.json
 
       - name: 9️⃣ Chaos Engineering & Observability (Prometheus + Pumba)
         # Activates the hidden profile to inject latency and automatically start Prometheus.

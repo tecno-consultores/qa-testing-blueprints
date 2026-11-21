@@ -38,7 +38,7 @@ rm -f ./ACTIVE_TASK.md zap-report.html zap-report.json chaos-report.json chaos-r
   .pnp .pnp.js .pnp.cjs .pnp.loader.mjs npm-debug.log* yarn-debug.log* yarn-error.log* pnpm-debug.log* \
   .task_scratchpad.md .agents/*.scratchpad.md ./*.clinic-*.html ./*.log ./*.tsbuildinfo ./*.heapsnapshot ./*.cpuprofile 2>/dev/null || true
 rm -rf .pnpm-store .turbo dist .stryker-tmp coverage .nyc_output target test/target .clinic \
-  reports prometheus_data .eslintcache .trivycache karate.jar karate-*.jar \
+  reports pacts prometheus_data .eslintcache .trivycache karate.jar karate-*.jar \
   allure-results/ allure-report/ .allure/ .deepeval/ .promptfoo/ .agents/tmp/ 2>/dev/null || true
 
 if [ -d "graphify-out" ]; then
@@ -51,7 +51,7 @@ find . \( -name ".git" -o -name "node_modules" -o -name ".venv" -o -name "venv" 
 if command -v docker >/dev/null 2>&1; then
   docker run --rm --network none --security-opt=no-new-privileges:true -v "${SCRIPT_DIR}:/work" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab sh -c '
     rm -rf /work/.pnpm-store /work/.turbo /work/dist /work/.stryker-tmp /work/coverage /work/.nyc_output \
-      /work/target /work/test/target /work/.clinic /work/reports /work/prometheus_data \
+      /work/target /work/test/target /work/.clinic /work/reports /work/pacts /work/prometheus_data \
       /work/.eslintcache /work/.trivycache /work/karate.jar /work/karate-*.jar \
       /work/allure-results /work/allure-report /work/.allure /work/.deepeval /work/.promptfoo 2>/dev/null || true
     if [ "$3" = "true" ]; then

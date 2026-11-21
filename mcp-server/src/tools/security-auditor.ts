@@ -559,6 +559,7 @@ function checkPyXxe(fileContent: string, relPath: string, lineNum: number): Secu
 }
 
 function checkSec04Xxe(relPath: string, lines: string[]): SecurityFinding[] {
+  if (isTestFilePath(relPath) || isAuditorSelfDefinition(relPath)) return [];
   const isPy = relPath.endsWith('.py');
   const isPhp = relPath.endsWith('.php');
   if (!isPy && !isPhp) return [];
@@ -656,7 +657,7 @@ function checkSec06XssPrototypePollution(relPath: string, lines: string[]): Secu
 }
 
 function checkSec07SwaggerInProd(relPath: string, lines: string[]): SecurityFinding[] {
-  if (!relPath.endsWith('.py')) return [];
+  if (!relPath.endsWith('.py') || isTestFilePath(relPath) || isAuditorSelfDefinition(relPath)) return [];
   const findings: SecurityFinding[] = [];
 
   for (const [i, line] of lines.entries()) {
@@ -703,7 +704,122 @@ const SEC10_TOKEN_RES: readonly RegExp[] = [
 ];
 
 const SEC10_ASSIGNED_SECRET_RE =
-  /(?:password|passwd|secret_key|api[-_]?key)\s*[:=]\s*["'][a-z0-9!@#$%^&*()_+-]{8,}["']/i;
+  /(?:password|passwd|secret_key|api[-_]?key)\s*[:=]\s*["']([a-z0-9!@#$%^&*()_+-]{8,})["']/i;
+
+const PEM_HEADER_RE = /-----\s*BEGIN\b/i;
+const PROMPTFOO_KEY_TYPE = 'type' as const;
+const PROMPTFOO_KEY_VALUE = 'value' as const;
+const SIMPLE_ASSIGN_PREFIX_RE = /^[A-Za-z_]\w*\s*=$/;
+
+function unquoteSimpleLiteral(raw: string): string | null {
+  const s = raw.trim();
+  if (s.length < 2) return null;
+  const quote = s[0];
+  if ((quote !== '"' && quote !== "'") || s.at(-1) !== quote) return null;
+  return s.slice(1, -1);
+}
+
+function isSafePromptfooPrefix(prefix: string): boolean {
+  let p = prefix.trim();
+  if (!p || p === '-') return true;
+  if (p.startsWith('- ')) p = p.slice(2).trimStart();
+  if (p.startsWith('const ') || p.startsWith('let ') || p.startsWith('var ')) {
+    p = p.slice(p.indexOf(' ') + 1).trimStart();
+  }
+  return SIMPLE_ASSIGN_PREFIX_RE.test(p);
+}
+
+function isSafePromptfooSuffix(suffix: string): boolean {
+  let s = suffix.trim();
+  if (s.startsWith(',') || s.startsWith(';')) s = s.slice(1).trimStart();
+  return s === '' || s.startsWith('#') || s.startsWith('//');
+}
+
+function parsePromptfooKeyValue(
+  rawPart: string
+): { key: typeof PROMPTFOO_KEY_TYPE | typeof PROMPTFOO_KEY_VALUE; val: string } | null {
+  const colonIdx = rawPart.indexOf(':');
+  if (colonIdx === -1) return null;
+  const key = unquoteSimpleLiteral(rawPart.slice(0, colonIdx));
+  const val = unquoteSimpleLiteral(rawPart.slice(colonIdx + 1));
+  if (!val || (key !== PROMPTFOO_KEY_TYPE && key !== PROMPTFOO_KEY_VALUE)) return null;
+  return { key, val };
+}
+
+function isPromptfooNotContains(val: string): boolean {
+  return val === 'not-contains' || val === 'not-icontains';
+}
+
+function isPromptfooPrivateKeyMarker(val: string): boolean {
+  return (SEC10_PRIVATE_KEY_MARKERS as readonly string[]).includes(val);
+}
+
+function isInlinePromptfooKeyAssertion(line: string): boolean {
+  const openIdx = line.indexOf('{');
+  if (openIdx === -1) return false;
+  const closeIdx = line.indexOf('}', openIdx + 1);
+  if (closeIdx === -1) return false;
+
+  if (
+    !isSafePromptfooPrefix(line.slice(0, openIdx)) ||
+    !isSafePromptfooSuffix(line.slice(closeIdx + 1))
+  ) {
+    return false;
+  }
+
+  const parts = line.slice(openIdx + 1, closeIdx).split(',');
+  if (parts.length !== 2) return false;
+  const first = parsePromptfooKeyValue(pickAt(parts, 0));
+  const second = parsePromptfooKeyValue(pickAt(parts, 1));
+  if (!first || !second) return false;
+  return (
+    (first.key === PROMPTFOO_KEY_TYPE &&
+      second.key === PROMPTFOO_KEY_VALUE &&
+      isPromptfooNotContains(first.val) &&
+      isPromptfooPrivateKeyMarker(second.val)) ||
+    (first.key === PROMPTFOO_KEY_VALUE &&
+      second.key === PROMPTFOO_KEY_TYPE &&
+      isPromptfooPrivateKeyMarker(first.val) &&
+      isPromptfooNotContains(second.val))
+  );
+}
+
+function parseYamlPromptfooField(
+  rawLine: string
+): { key: typeof PROMPTFOO_KEY_TYPE | typeof PROMPTFOO_KEY_VALUE; val: string } | null {
+  const hashIdx = rawLine.indexOf('#');
+  let cleaned = (hashIdx === -1 ? rawLine : rawLine.slice(0, hashIdx)).trim();
+  if (cleaned.startsWith('- ')) cleaned = cleaned.slice(2).trimStart();
+  const colonIdx = cleaned.indexOf(':');
+  if (colonIdx === -1) return null;
+  const key = cleaned.slice(0, colonIdx).trim();
+  if (key !== PROMPTFOO_KEY_TYPE && key !== PROMPTFOO_KEY_VALUE) return null;
+  const rawVal = cleaned.slice(colonIdx + 1).trim();
+  const val = unquoteSimpleLiteral(rawVal) ?? rawVal;
+  return { key, val };
+}
+
+function isBenignPromptfooPrivateKeyAssertion(
+  relPath: string,
+  lines: string[],
+  index: number
+): boolean {
+  const line = pickAt(lines, index);
+  if (PEM_HEADER_RE.test(line)) return false;
+  if (isInlinePromptfooKeyAssertion(line)) return true;
+
+  if (!relPath.endsWith('.yml') && !relPath.endsWith('.yaml')) return false;
+  const current = parseYamlPromptfooField(line);
+  if (!current || current.key !== PROMPTFOO_KEY_VALUE || !isPromptfooPrivateKeyMarker(current.val)) {
+    return false;
+  }
+  const prev = index > 0 ? parseYamlPromptfooField(pickAt(lines, index - 1)) : null;
+  const next = index + 1 < lines.length ? parseYamlPromptfooField(pickAt(lines, index + 1)) : null;
+  return Boolean(
+    (prev && prev.key === PROMPTFOO_KEY_TYPE && isPromptfooNotContains(prev.val)) ||
+      (next && next.key === PROMPTFOO_KEY_TYPE && isPromptfooNotContains(next.val))
+  );
+}
 
 function checkSec10Secrets(relPath: string, lines: string[]): SecurityFinding[] {
   if (
@@ -720,7 +836,11 @@ function checkSec10Secrets(relPath: string, lines: string[]): SecurityFinding[] 
     const trimmed = line.trim();
     if (trimmed.startsWith('#') || trimmed.startsWith('//')) continue;
 
-    if (SEC10_PRIVATE_KEY_MARKERS.some((marker) => line.includes(marker))) {
+    let assignedMatch: RegExpExecArray | null = null;
+    if (
+      SEC10_PRIVATE_KEY_MARKERS.some((marker) => line.includes(marker)) &&
+      !isBenignPromptfooPrivateKeyAssertion(relPath, lines, i)
+    ) {
       findings.push({
         rule_id: 'SEC-10',
         severity: 'CRITICAL',
@@ -741,9 +861,9 @@ function checkSec10Secrets(relPath: string, lines: string[]): SecurityFinding[] 
         remediation: 'Revocar la credencial de inmediato e inyectarla vía variables de entorno seguras.',
       });
     } else if (
-      SEC10_ASSIGNED_SECRET_RE.test(line) &&
-      !line.includes('placeholder') &&
-      !line.includes('example')
+      (assignedMatch = SEC10_ASSIGNED_SECRET_RE.exec(line)) !== null &&
+      !pickAt(assignedMatch, 1).includes('placeholder') &&
+      !pickAt(assignedMatch, 1).includes('example')
     ) {
       findings.push({
         rule_id: 'SEC-10',
@@ -1116,10 +1236,11 @@ function checkSec09Npmrc(projectPath: string): SecurityFinding[] {
 }
 
 function checkSec08Oshp(projectPath: string, allRelFiles: string[]): SecurityFinding[] {
-  const hasBackendApp = allRelFiles.some((f) => f.endsWith('main.py') || f.endsWith('app.py') || f.endsWith('server.ts') || f.endsWith('index.ts'));
+  const prodFiles = allRelFiles.filter((f) => !isTestFilePath(f));
+  const hasBackendApp = prodFiles.some((f) => f.endsWith('main.py') || f.endsWith('app.py') || f.endsWith('server.ts') || f.endsWith('index.ts'));
   if (!hasBackendApp) return [];
 
-  for (const relFile of allRelFiles) {
+  for (const relFile of prodFiles) {
     if (!relFile.endsWith('.py') && !relFile.endsWith('.ts') && !relFile.endsWith('.js')) continue;
     const fullPath = path.join(projectPath, relFile);
     try {
@@ -2934,7 +3055,25 @@ function checkQaKarateStaticIdempotency(relPath: string, lines: string[]): Secur
 }
 
 function checkSec12McpServiceRbac(relPath: string, lines: string[]): SecurityFinding[] {
-  if (!relPath.endsWith('.py') || !/(?:mcp|jsonrpc)/i.test(relPath)) return [];
+  const normPath = relPath.replace(/\\/g, '/');
+  const segments = normPath.toLowerCase().split('/');
+  const fileName = segments.at(-1) ?? '';
+  const isMcpOrRpcPy =
+    fileName.endsWith('.py') &&
+    (fileName.includes('mcp') ||
+      fileName.includes('jsonrpc') ||
+      segments
+        .slice(0, -1)
+        .some(
+          (seg) =>
+            seg === 'mcp' ||
+            seg === 'jsonrpc' ||
+            seg.startsWith('mcp_') ||
+            (seg.startsWith('mcp-') && seg !== 'mcp-server') ||
+            seg.startsWith('jsonrpc_') ||
+            seg.startsWith('jsonrpc-')
+        ));
+  if (!isMcpOrRpcPy) return [];
   if (relPath.endsWith('.example') || isTestFilePath(relPath) || isAuditorSelfDefinition(relPath)) {
     return [];
   }
@@ -3085,16 +3224,193 @@ function checkQaCov01AddoptsBypass(relPath: string, lines: string[]): SecurityFi
   return findings;
 }
 
+function consumeSqlQuotedToken(text: string, start: number, quote: string): { text: string; nextIndex: number } {
+  let i = start + 1;
+  while (i < text.length) {
+    if (text[i] === quote) {
+      if (text[i + 1] === quote) {
+        i += 2;
+        continue;
+      }
+      return { text: text.slice(start, i + 1), nextIndex: i + 1 };
+    }
+    i += 1;
+  }
+  return { text: text.slice(start), nextIndex: text.length };
+}
+
+function consumeSqlLineComment(text: string, start: number): { text: string; nextIndex: number } {
+  let i = start;
+  let spaces = '';
+  while (i < text.length && text[i] !== '\n') {
+    spaces += ' ';
+    i += 1;
+  }
+  return { text: spaces, nextIndex: i };
+}
+
+function consumeSqlBlockComment(text: string, start: number): { text: string; nextIndex: number } {
+  let depth = 1;
+  let i = start + 2;
+  let blanked = '  ';
+  while (i < text.length && depth > 0) {
+    if (text[i] === '/' && text[i + 1] === '*') {
+      depth += 1;
+      blanked += '  ';
+      i += 2;
+    } else if (text[i] === '*' && text[i + 1] === '/') {
+      depth -= 1;
+      blanked += '  ';
+      i += 2;
+    } else {
+      blanked += text[i] === '\n' ? '\n' : ' ';
+      i += 1;
+    }
+  }
+  return { text: blanked, nextIndex: i };
+}
+
+function readPgDollarTag(text: string, start: number): string | null {
+  if (text[start] !== '$') return null;
+  if (text[start + 1] === '$') return '$$';
+  const first = text[start + 1] ?? '';
+  if (!/[A-Za-z_]/.test(first)) return null;
+  let i = start + 2;
+  while (i < text.length && /\w/.test(text[i] ?? '')) {
+    i += 1;
+  }
+  return text[i] === '$' ? text.slice(start, i + 1) : null;
+}
+
+function consumeSqlDollarQuotedToken(text: string, start: number): { text: string; nextIndex: number } | null {
+  const tag = readPgDollarTag(text, start);
+  if (!tag) return null;
+  const closeIdx = text.indexOf(tag, start + tag.length);
+  if (closeIdx === -1) {
+    return { text: text.slice(start), nextIndex: text.length };
+  }
+  const endIdx = closeIdx + tag.length;
+  return { text: text.slice(start, endIdx), nextIndex: endIdx };
+}
+
+function stripSqlCommentsPreservingLines(text: string): string {
+  let out = '';
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    if (ch === "'" || ch === '"') {
+      const seg = consumeSqlQuotedToken(text, i, ch);
+      out += seg.text;
+      i = seg.nextIndex;
+      continue;
+    }
+    if (ch === '$') {
+      const seg = consumeSqlDollarQuotedToken(text, i);
+      if (seg) {
+        out += seg.text;
+        i = seg.nextIndex;
+        continue;
+      }
+    }
+    if (ch === '-' && text[i + 1] === '-') {
+      const seg = consumeSqlLineComment(text, i);
+      out += seg.text;
+      i = seg.nextIndex;
+      continue;
+    }
+    if (ch === '/' && text[i + 1] === '*') {
+      const seg = consumeSqlBlockComment(text, i);
+      out += seg.text;
+      i = seg.nextIndex;
+      continue;
+    }
+    out += ch;
+    i += 1;
+  }
+  return out;
+}
+
+function consumeScriptTripleQuote(
+  text: string,
+  start: number,
+  delim: string
+): { text: string; nextIndex: number } {
+  const closeIdx = text.indexOf(delim, start + 3);
+  if (closeIdx === -1) {
+    return { text: text.slice(start), nextIndex: text.length };
+  }
+  const endIdx = closeIdx + 3;
+  return { text: text.slice(start, endIdx), nextIndex: endIdx };
+}
+
+function consumeScriptSingleLineQuote(
+  text: string,
+  start: number,
+  quote: string
+): { text: string; nextIndex: number } {
+  let i = start + 1;
+  while (i < text.length) {
+    const ch = text[i];
+    if (ch === '\\' && i + 1 < text.length) {
+      i += 2;
+      continue;
+    }
+    if (ch === quote || ch === '\n') {
+      const end = ch === quote ? i + 1 : i;
+      return { text: text.slice(start, end), nextIndex: end };
+    }
+    i += 1;
+  }
+  return { text: text.slice(start), nextIndex: text.length };
+}
+
+function consumeScriptQuoteAt(text: string, start: number): { text: string; nextIndex: number } | null {
+  const ch = text[start];
+  if (ch !== "'" && ch !== '"') return null;
+  const triple = ch + ch + ch;
+  if (text.startsWith(triple, start)) {
+    return consumeScriptTripleQuote(text, start, triple);
+  }
+  return consumeScriptSingleLineQuote(text, start, ch);
+}
+
+function stripScriptHashComments(text: string): string {
+  let out = '';
+  let i = 0;
+  while (i < text.length) {
+    const quoted = consumeScriptQuoteAt(text, i);
+    if (quoted) {
+      out += quoted.text;
+      i = quoted.nextIndex;
+      continue;
+    }
+    if (text[i] === '#' && (i === 0 || /[\s;(&|]/.test(text[i - 1] ?? ''))) {
+      while (i < text.length && text[i] !== '\n') {
+        i += 1;
+      }
+      continue;
+    }
+    out += text[i];
+    i += 1;
+  }
+  return out;
+}
+
 function checkQaPg17RlsInvalidCatalog(relPath: string, lines: string[]): SecurityFinding[] {
   if (isAuditorSelfDefinition(relPath) || relPath.endsWith('.md')) return [];
   if (!/\.(py|sql|sh)$/i.test(relPath)) return [];
 
-  const fullText = lines.join('\n');
+  const rawText = lines.join('\n');
+  const sanitizedText = relPath.toLowerCase().endsWith('.sql')
+    ? stripSqlCommentsPreservingLines(rawText)
+    : stripScriptHashComments(rawText);
+
   const invalidCatalogRegex =
     /\bpg_tables\s*\.\s*forcerowsecurity\b|\bforcerowsecurity\b[\s\S]{0,140}\bFROM\s+(?:pg_catalog\.)?pg_tables\b|\bFROM\s+(?:pg_catalog\.)?pg_tables\b[\s\S]{0,140}\bforcerowsecurity\b/i;
-  if (!invalidCatalogRegex.test(fullText)) return [];
+  if (!invalidCatalogRegex.test(sanitizedText)) return [];
 
-  const lineIdx = lines.findIndex((l) => /forcerowsecurity/i.test(l));
+  const sanitizedLines = sanitizedText.split('\n');
+  const lineIdx = sanitizedLines.findIndex((l) => /\bforcerowsecurity\b/i.test(l));
   return [
     {
       rule_id: 'QA-PG17-RLS',

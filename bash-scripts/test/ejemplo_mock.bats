@@ -64,15 +64,17 @@ setup() {
   assert_output --partial "Error simulado de Docker"
 }
 
-@test "clean_artifacts.sh emite metrica opcional a --pushgateway-url sin bloquear (bats-mock)" {
+@test "clean_artifacts.sh emite metrica HTTPS con --tlsv1.2 y normaliza esquema/host mayuscula" {
   work_dir="${BATS_TEST_TMPDIR}/push-work"
   mkdir -p "${work_dir}/coverage_report"
   touch "${work_dir}/docker-compose.qa.yml"
 
   mock_docker="$(mock_create)"
   mock_set_status "${mock_docker}" 0 1
+  mock_set_status "${mock_docker}" 0 2
   mock_curl="$(mock_create)"
   mock_set_status "${mock_curl}" 0 1
+  mock_set_status "${mock_curl}" 0 2
 
   ln -s "${mock_docker}" "${BATS_TEST_TMPDIR}/docker"
   ln -s "${mock_curl}" "${BATS_TEST_TMPDIR}/curl"
@@ -80,6 +82,121 @@ setup() {
 
   run bash "${BASH_STACK_DIR}/clean_artifacts.sh" --target "${work_dir}" --pushgateway-url "https://pushgateway:9091"
   assert_success
-  [ "$(mock_get_call_num "${mock_curl}")" -eq 1 ]
+  run bash "${BASH_STACK_DIR}/clean_artifacts.sh" --target "${work_dir}" --pushgateway-url "HTTPS://PushGateway:9091/Custom/"
+  assert_success
+
+  [ "$(mock_get_call_num "${mock_curl}")" -eq 2 ]
   assert_equal "$(mock_get_call_args "${mock_curl}" 1 | grep -c -- '--tlsv1.2')" "1"
+  assert_equal "$(mock_get_call_args "${mock_curl}" 2 | grep -c -- 'https://pushgateway:9091/Custom/metrics/job/bash_scripts')" "1"
+}
+
+@test "clean_artifacts.sh permite HTTP local (incluyendo mayusculas y [::1]) con --proto =http" {
+  work_dir="${BATS_TEST_TMPDIR}/push-local"
+  mkdir -p "${work_dir}/coverage_report"
+
+  mock_curl="$(mock_create)"
+  mock_set_status "${mock_curl}" 0 1
+  mock_set_status "${mock_curl}" 0 2
+  mock_set_status "${mock_curl}" 0 3
+  mock_set_status "${mock_curl}" 0 4
+  ln -s "${mock_curl}" "${BATS_TEST_TMPDIR}/curl"
+  PATH="${BATS_TEST_TMPDIR}:$PATH"
+
+  run bash "${BASH_STACK_DIR}/clean_artifacts.sh" --target "${work_dir}" --pushgateway-url "http://pushgateway:9091"
+  assert_success
+  run bash "${BASH_STACK_DIR}/clean_artifacts.sh" --target "${work_dir}" --pushgateway-url "http://127.0.0.1:9091"
+  assert_success
+  run bash "${BASH_STACK_DIR}/clean_artifacts.sh" --target "${work_dir}" --pushgateway-url "http://[::1]:9091/custom/"
+  assert_success
+  run bash "${BASH_STACK_DIR}/clean_artifacts.sh" --target "${work_dir}" --pushgateway-url "HTTP://LOCALHOST:9091"
+  assert_success
+
+  [ "$(mock_get_call_num "${mock_curl}")" -eq 4 ]
+  assert_equal "$(mock_get_call_args "${mock_curl}" 1 | grep -c -- '=http')" "1"
+  assert_equal "$(mock_get_call_args "${mock_curl}" 1 | grep -c -- '--tlsv1.2')" "0"
+  assert_equal "$(mock_get_call_args "${mock_curl}" 3 | grep -c -- 'http://\[::1\]:9091/custom/metrics/job/bash_scripts')" "1"
+  assert_equal "$(mock_get_call_args "${mock_curl}" 4 | grep -c -- 'http://localhost:9091/metrics/job/bash_scripts')" "1"
+}
+
+@test "clean_artifacts.sh bloquea bypass con userinfo @, autoridad malformada, query/fragmento y backslashes sin invocar curl" {
+  work_dir="${BATS_TEST_TMPDIR}/push-ssrf"
+  mkdir -p "${work_dir}/coverage_report"
+
+  mock_curl="$(mock_create)"
+  mock_set_status "${mock_curl}" 0 1
+  ln -s "${mock_curl}" "${BATS_TEST_TMPDIR}/curl"
+  PATH="${BATS_TEST_TMPDIR}:$PATH"
+
+  for bad_url in \
+    "http://localhost:pass@evil.com:9091/" \
+    "http://127.0.0.1:80@evil.com:9091" \
+    "http://[::1]:pass@evil.com:9091" \
+    "http://pushgateway:x@169.254.169.254/" \
+    "https://user:pass@pushgateway:9091" \
+    "http://" \
+    "http://[::1" \
+    "http://[::1][::2]" \
+    "http://localhost:9091:80" \
+    "http://localhost]evil:9091" \
+    "http://localhost?foo=bar" \
+    "http://localhost#frag" \
+    "http://pushgateway:9091?x=1" \
+    "http://localhost\\@evil.com:9091"; do
+    run bash "${BASH_STACK_DIR}/clean_artifacts.sh" --target "${work_dir}" --pushgateway-url "${bad_url}"
+    assert_failure 1
+    assert_output --partial "URL de Pushgateway invalida"
+  done
+
+  run bash "${BASH_STACK_DIR}/clean_artifacts.sh" --target "${work_dir}" --pushgateway-url "http:localhost:9091"
+  assert_failure 1
+  assert_output --partial "Esquema de Pushgateway invalido"
+
+  [ "$(mock_get_call_num "${mock_curl}")" -eq 0 ]
+}
+
+@test "clean_artifacts.sh rechaza HTTP externo o esquema invalido y permite override con --allow-insecure-local" {
+  work_dir="${BATS_TEST_TMPDIR}/push-policy"
+  mkdir -p "${work_dir}/coverage_report"
+
+  mock_curl="$(mock_create)"
+  mock_set_status "${mock_curl}" 0 1
+  ln -s "${mock_curl}" "${BATS_TEST_TMPDIR}/curl"
+  PATH="${BATS_TEST_TMPDIR}:$PATH"
+
+  run bash "${BASH_STACK_DIR}/clean_artifacts.sh" --target "${work_dir}" --pushgateway-url "http://example.com:9091"
+  assert_failure 1
+  assert_output --partial "Pushgateway HTTP bloqueado"
+  [ "$(mock_get_call_num "${mock_curl}")" -eq 0 ]
+
+  run bash "${BASH_STACK_DIR}/clean_artifacts.sh" --target "${work_dir}" --pushgateway-url "file:///tmp/x"
+  assert_failure 1
+  assert_output --partial "Esquema de Pushgateway invalido"
+  [ "$(mock_get_call_num "${mock_curl}")" -eq 0 ]
+
+  run bash "${BASH_STACK_DIR}/clean_artifacts.sh" --target "${work_dir}" --pushgateway-url "http://example.com:9091" --allow-insecure-local
+  assert_success
+  [ "$(mock_get_call_num "${mock_curl}")" -eq 1 ]
+}
+
+@test "clean_artifacts.sh falla con codigo 1 cuando curl falta o falla en --pushgateway-url explicito" {
+  work_dir="${BATS_TEST_TMPDIR}/push-fail"
+  no_curl_bin="${BATS_TEST_TMPDIR}/nocurl_bin"
+  mkdir -p "${work_dir}/coverage_report" "${no_curl_bin}"
+  for tool in bash rm cat printf; do
+    resolved="$(command -v "${tool}")"
+    ln -sf "${resolved}" "${no_curl_bin}/${tool}"
+  done
+
+  run env PATH="${no_curl_bin}" bash "${BASH_STACK_DIR}/clean_artifacts.sh" --target "${work_dir}" --pushgateway-url "http://pushgateway:9091"
+  assert_failure 1
+  assert_output --partial "curl es requerido"
+
+  mock_curl="$(mock_create)"
+  mock_set_status "${mock_curl}" 1 1
+  ln -s "${mock_curl}" "${BATS_TEST_TMPDIR}/curl"
+  PATH="${BATS_TEST_TMPDIR}:$PATH"
+
+  run bash "${BASH_STACK_DIR}/clean_artifacts.sh" --target "${work_dir}" --pushgateway-url "http://pushgateway:9091"
+  assert_failure 1
+  assert_output --partial "Error al enviar metrica a Pushgateway"
 }

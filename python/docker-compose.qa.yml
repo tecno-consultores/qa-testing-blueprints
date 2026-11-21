@@ -15,7 +15,6 @@ services:
 
   qa-backend:
     image: sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
-    container_name: python_qa_backend
     hostname: python_qa_backend
     pull_policy: if_not_present
     mem_limit: 2g
@@ -32,6 +31,8 @@ services:
       UV_CACHE_DIR: /tmp/uv-cache
       UV_PROJECT_ENVIRONMENT: /tmp/qa-venv
       COVERAGE_FILE: '/tmp/.coverage'
+      RUFF_CACHE_DIR: /tmp/ruff-cache
+      PYTHONDONTWRITEBYTECODE: '1'
     volumes:
       - .:/app
       - uv-cache:/tmp/uv-cache
@@ -40,7 +41,6 @@ services:
 
   prometheus:
     image: prom/prometheus:v2.55.1@sha256:2659f4c2ebb718e7695cb9b25ffa7d6be64db013daba13e05c875451cf51b0d3
-    container_name: python_prometheus
     hostname: python_prometheus
     pull_policy: if_not_present
     mem_limit: 512m
@@ -81,7 +81,6 @@ services:
 
   pushgateway:
     image: prom/pushgateway:v1.10.0@sha256:7a4d0696a24ef4e8bad62bee5656855a0aff2f26416d8cb32009dc28d6263604
-    container_name: python_pushgateway
     hostname: python_pushgateway
     pull_policy: if_not_present
     mem_limit: 512m
@@ -94,7 +93,6 @@ services:
 
   python-api:
     image: sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
-    container_name: python_qa_api
     hostname: python-api
     pull_policy: if_not_present
     mem_limit: 1g
@@ -113,6 +111,8 @@ services:
       TZ: 'America/Caracas'
       UV_CACHE_DIR: /tmp/uv-cache
       UV_PROJECT_ENVIRONMENT: /tmp/qa-venv
+      RUFF_CACHE_DIR: /tmp/ruff-cache
+      PYTHON_HTTP_CMD: ${PYTHON_HTTP_CMD:-}
     volumes:
       - .:/app
       - uv-cache:/tmp/uv-cache
@@ -148,16 +148,50 @@ services:
               self.send_response(404)
               self.end_headers()
 
+          def do_POST(self):
+            length = int(self.headers.get('Content-Length') or 0)
+            if length:
+              self.rfile.read(length)
+            idem = self.headers.get('Idempotency-Key', '')
+            if self.path == '/api/v1/reservations':
+              b = json.dumps({
+                'reservationId': '7c9e6679-7425-40de-944b-e07fc1f90ae7',
+                'status': 'CONFIRMED',
+                'unitPrice': '149.95',
+              }).encode()
+              self.send_response(201)
+              self.send_header('Content-Type', 'application/json')
+              if idem:
+                self.send_header('Idempotency-Key', idem)
+              self.end_headers()
+              self.wfile.write(b)
+            elif self.path == '/api/v1/reservations/batch':
+              b = json.dumps({
+                'results': [
+                  {'sku': 'ROUTER-CCR2004', 'status': 'SUCCEEDED'},
+                  {'sku': 'SWITCH-CRS326', 'status': 'SUCCEEDED'},
+                ]
+              }).encode()
+              self.send_response(200)
+              self.send_header('Content-Type', 'application/json')
+              if idem:
+                self.send_header('Idempotency-Key', idem)
+              self.end_headers()
+              self.wfile.write(b)
+            else:
+              self.send_response(404)
+              self.end_headers()
+
           def log_message(self, *a):
             pass
 
         http.server.ThreadingHTTPServer(('0.0.0.0', 8000), H).serve_forever()
         EOF
+        if [ -n "$${PYTHON_HTTP_CMD:-}" ] && [ -f pyproject.toml ]; then uv sync --all-extras -q; fi
         exec $${PYTHON_HTTP_CMD:-python3 /tmp/qa_http.py}
 
   k6-smoke:
     image: grafana/k6:2.4.0@sha256:d41bb79cd8de5a7ad619b53570e3712633e8bff0937010a5c6c57a4747e7a276
-    container_name: python_k6_smoke
     hostname: python_k6_smoke
     pull_policy: if_not_present
     mem_limit: 512m
@@ -172,12 +206,14 @@ services:
     profiles:
       - load
     environment:
+      HOME: /tmp
       K6_PROFILE: ${K6_PROFILE:-smoke}
       API_BASE_URL: ${API_BASE_URL:-http://python-api:8000}
       QA_TENANT_ID: ${QA_TENANT_ID:-tenant-alpha}
-      K6_SUMMARY_PATH: /tmp/k6-summary.json
+      K6_SUMMARY_PATH: ${K6_SUMMARY_PATH:-/reports/k6-summary.json}
     volumes:
       - ./tests/load:/scripts:ro
+      - ./reports:/reports:rw
     command: ["run", "/scripts/smoke.k6.js"]
     depends_on:
       python-api:
@@ -185,7 +221,6 @@ services:
 
   profiler:
     image: sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
-    container_name: python_profiler
     hostname: python_profiler
     pull_policy: if_not_present
     mem_limit: 1g
@@ -195,6 +230,8 @@ services:
       - ALL
     cap_add:
       - SYS_PTRACE
+      - DAC_OVERRIDE
+      - CHOWN
     security_opt:
       - no-new-privileges:true
       - seccomp:unconfined
@@ -216,7 +253,7 @@ services:
       - ./reports:/reports:rw
       - uv-cache:/tmp/uv-cache
     working_dir: /app
-    command: bash -c "(uv sync --frozen --all-extras -q || uv sync --all-extras -q) && pid=\$$(pgrep -f python | head -n 1); [ -n \"\$$pid\" ] || pid=1; /tmp/qa-venv/bin/py-spy record -o /reports/flamegraph.svg --subprocesses --duration 15 --pid \"\$$pid\" && chown \"\$${QA_UID}:$${QA_GID}\" /reports/flamegraph.svg"
+    command: bash -c "(uv sync --frozen --all-extras --no-install-project -q 2>/dev/null || (cd /tmp && uv venv -q /tmp/qa-venv && uv pip install --no-config --python /tmp/qa-venv/bin/python -q py-spy)) && pid=\$$(python3 -c 'import os, pathlib; me=str(os.getpid()); p=[d.name for d in pathlib.Path(\"/proc\").iterdir() if d.name.isdigit() and d.name!=me and \"python\" in (d/\"comm\").read_text(errors=\"ignore\")]; print(p[0] if p else 1)') && /tmp/qa-venv/bin/py-spy record --idle -o /reports/flamegraph.svg --subprocesses --duration 15 --pid \"\$$pid\" && chown \"$${QA_UID}:$${QA_GID}\" /reports/flamegraph.svg"
 
 networks:
   default:

@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
+import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { assertNoSymlinkSegments, assertNotSymlinkPath } from '../security/pathRealResolver.js';
 import {
   MCP_SERVER_VERSION,
   resolveSafeChildPath,
@@ -241,22 +243,41 @@ function parseExistingJsonDoc(targetPath: string): Record<string, unknown> | nul
   }
 }
 
-function writeFileAtomicWithBackup(
-  targetPath: string,
-  content: string,
-  existed: boolean
-): string | undefined {
+interface WriteAtomicBackupInput {
+  readonly homeDir: string;
+  readonly relPath: string;
+  readonly targetPath: string;
+  readonly content: string;
+  readonly existed: boolean;
+}
+
+function writeFileAtomicWithBackup(input: WriteAtomicBackupInput): string | undefined {
+  const { homeDir, relPath, targetPath, content, existed } = input;
+  assertNoSymlinkSegments(homeDir, relPath);
+  assertNotSymlinkPath(targetPath);
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
   let backupPath: string | undefined;
   if (existed) {
     backupPath = `${targetPath}${BACKUP_SUFFIX}`;
+    assertNotSymlinkPath(backupPath);
     fs.copyFileSync(targetPath, backupPath);
     fs.chmodSync(backupPath, SECURE_FILE_MODE);
   }
-  const tmpPath = `${targetPath}.tmp.${process.pid}`;
-  fs.writeFileSync(tmpPath, content, { encoding: UTF8_ENCODING, mode: SECURE_FILE_MODE });
-  fs.chmodSync(tmpPath, SECURE_FILE_MODE);
-  fs.renameSync(tmpPath, targetPath);
+  const tmpPath = `${targetPath}.tmp.${crypto.randomBytes(8).toString('hex')}`;
+  assertNotSymlinkPath(tmpPath);
+  try {
+    fs.writeFileSync(tmpPath, content, {
+      encoding: UTF8_ENCODING,
+      mode: SECURE_FILE_MODE,
+      flag: 'wx',
+    });
+    assertNotSymlinkPath(tmpPath);
+    fs.chmodSync(tmpPath, SECURE_FILE_MODE);
+    fs.renameSync(tmpPath, targetPath);
+  } catch (err: unknown) {
+    fs.rmSync(tmpPath, { force: true });
+    throw err;
+  }
   return backupPath;
 }
 
@@ -305,6 +326,7 @@ type PlannedClientInstall =
   | {
       readonly client: SingleMcpClient;
       readonly kind: 'json' | 'toml';
+      readonly relPath: string;
       readonly targetPath: string;
       readonly existed: boolean;
       readonly content: string;
@@ -315,12 +337,23 @@ type PlannedClientInstall =
       readonly command: string;
     };
 
+function assertInstallPathsSafe(homeDir: string, relPath: string, targetPath: string): boolean {
+  assertNoSymlinkSegments(homeDir, relPath);
+  assertNotSymlinkPath(targetPath);
+  const existed = fs.existsSync(targetPath);
+  if (existed) {
+    assertNotSymlinkPath(`${targetPath}${BACKUP_SUFFIX}`);
+  }
+  return existed;
+}
+
 function prepareJsonClientInstall(
   client: JsonMcpClient,
+  relPath: string,
   targetPath: string,
-  pkgSpec: string
+  ctx: SnippetTargetContext
 ): PlannedClientInstall {
-  const existed = fs.existsSync(targetPath);
+  const existed = assertInstallPathsSafe(ctx.homeDir, relPath, targetPath);
   const existingDoc = existed ? parseExistingJsonDoc(targetPath) : {};
   if (!existingDoc) {
     throw new Error(`JSON inválido existente en '${targetPath}'; se aborta para evitar corrupción.`);
@@ -332,27 +365,33 @@ function prepareJsonClientInstall(
     ...existingDoc,
     [MCP_SERVERS_KEY]: {
       ...existingServers,
-      [QA_SERVER_KEY]: buildJsonServerEntry(pkgSpec),
+      [QA_SERVER_KEY]: buildJsonServerEntry(ctx.pkgSpec),
     },
   };
   return {
     client,
     kind: 'json',
+    relPath,
     targetPath,
     existed,
     content: `${JSON.stringify(mergedDoc, null, 2)}\n`,
   };
 }
 
-function prepareTomlClientInstall(targetPath: string, pkgSpec: string): PlannedClientInstall {
-  const existed = fs.existsSync(targetPath);
+function prepareTomlClientInstall(
+  relPath: string,
+  targetPath: string,
+  ctx: SnippetTargetContext
+): PlannedClientInstall {
+  const existed = assertInstallPathsSafe(ctx.homeDir, relPath, targetPath);
   const existingContent = existed ? fs.readFileSync(targetPath, UTF8_ENCODING) : null;
   return {
     client: 'codex',
     kind: 'toml',
+    relPath,
     targetPath,
     existed,
-    content: upsertCodexToml(existingContent, buildCodexTomlBlock(pkgSpec)),
+    content: upsertCodexToml(existingContent, buildCodexTomlBlock(ctx.pkgSpec)),
   };
 }
 
@@ -373,17 +412,13 @@ function prepareClientInstall(
   ctx: SnippetTargetContext
 ): PlannedClientInstall {
   if (isJsonClient(client)) {
-    const targetPath = resolveSafeChildPath(
-      ctx.homeDir,
-      resolveActiveJsonMcpClientRelPath(client, ctx.homeDir, ctx.platform)
-    );
-    return prepareJsonClientInstall(client, targetPath, ctx.pkgSpec);
+    const relPath = resolveActiveJsonMcpClientRelPath(client, ctx.homeDir, ctx.platform);
+    const targetPath = resolveSafeChildPath(ctx.homeDir, relPath);
+    return prepareJsonClientInstall(client, relPath, targetPath, ctx);
   }
   if (client === 'codex') {
-    return prepareTomlClientInstall(
-      resolveSafeChildPath(ctx.homeDir, CODEX_MCP_REL_PATH),
-      ctx.pkgSpec
-    );
+    const targetPath = resolveSafeChildPath(ctx.homeDir, CODEX_MCP_REL_PATH);
+    return prepareTomlClientInstall(CODEX_MCP_REL_PATH, targetPath, ctx);
   }
   return {
     client,
@@ -418,7 +453,13 @@ function commitPlannedInstall(
       ...(note ? { note } : {}),
     };
   }
-  const backupPath = writeFileAtomicWithBackup(plan.targetPath, plan.content, plan.existed);
+  const backupPath = writeFileAtomicWithBackup({
+    homeDir: ctx.homeDir,
+    relPath: plan.relPath,
+    targetPath: plan.targetPath,
+    content: plan.content,
+    existed: plan.existed,
+  });
   return {
     client: plan.client,
     kind: plan.kind,

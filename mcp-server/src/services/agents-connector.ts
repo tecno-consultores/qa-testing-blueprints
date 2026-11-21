@@ -3,6 +3,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { assertNoSymlinkSegments } from '../security/pathRealResolver.js';
 import type { OutputLanguageMode } from '../types.js';
 
 const UTF8 = 'utf-8';
@@ -306,6 +307,7 @@ export function syncGlobalGeminiMd(
   if (!fs.existsSync(geminiDir)) {
     return { updated: false, geminiMdPath };
   }
+  assertNoSymlinkSegments(homeDir, path.join('.gemini', 'GEMINI.md'));
 
   const existing = fs.existsSync(geminiMdPath) ? fs.readFileSync(geminiMdPath, UTF8) : '';
   const finalContent = mergeGlobalGeminiContent(existing, lang);

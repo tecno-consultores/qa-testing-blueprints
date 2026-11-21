@@ -108,6 +108,19 @@ CREATE POLICY tenants_definer_lookup_policy ON tenants
     TO CURRENT_USER
     USING (current_user <> 'app_runtime_user');
 
+DROP POLICY IF EXISTS tenants_definer_insert_policy ON tenants;
+CREATE POLICY tenants_definer_insert_policy ON tenants
+    FOR INSERT
+    TO CURRENT_USER
+    WITH CHECK (current_user <> 'app_runtime_user');
+
+DROP POLICY IF EXISTS tenants_definer_update_policy ON tenants;
+CREATE POLICY tenants_definer_update_policy ON tenants
+    FOR UPDATE
+    TO CURRENT_USER
+    USING (current_user <> 'app_runtime_user')
+    WITH CHECK (current_user <> 'app_runtime_user');
+
 GRANT SELECT ON TABLE tenants TO app_runtime_user;
 
 CREATE OR REPLACE FUNCTION resolve_tenant_by_slug(p_slug TEXT)
@@ -159,6 +172,18 @@ CREATE POLICY audit_log_worm_select_policy ON audit_log_worm
     );
 
 DROP POLICY IF EXISTS audit_log_worm_insert_policy ON audit_log_worm;
+
+DROP POLICY IF EXISTS audit_log_worm_definer_select_policy ON audit_log_worm;
+CREATE POLICY audit_log_worm_definer_select_policy ON audit_log_worm
+    FOR SELECT
+    TO CURRENT_USER
+    USING (current_user <> 'app_runtime_user');
+
+DROP POLICY IF EXISTS audit_log_worm_definer_insert_policy ON audit_log_worm;
+CREATE POLICY audit_log_worm_definer_insert_policy ON audit_log_worm
+    FOR INSERT
+    TO CURRENT_USER
+    WITH CHECK (current_user <> 'app_runtime_user');
 
 CREATE OR REPLACE FUNCTION prevent_worm_audit_mutation()
 RETURNS TRIGGER

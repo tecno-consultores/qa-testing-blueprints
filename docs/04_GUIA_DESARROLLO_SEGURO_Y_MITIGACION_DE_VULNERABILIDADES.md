@@ -193,6 +193,7 @@ from urllib.parse import urlparse
 FORBIDDEN_CONTAINER_HOSTS = {"localhost", "api", "postgres", "keydb", "redis", "worker"}
 
 def resolve_safe_outgoing_target(url_str: str) -> tuple[str, str]:
+    """Validate an outgoing URL against SSRF and pin the first safe resolved IP (anti-DNS-rebinding)."""
     parsed = urlparse(url_str.strip())
     if parsed.scheme not in ("http", "https") or parsed.username or parsed.password:
         raise ValueError(f"Disallowed scheme or embedded credentials: {parsed.scheme}")
@@ -709,6 +710,7 @@ Attackers supply homoglyph or decomposed Unicode forms (such as full-width `＜s
 
 ### Mandatory Implementation (Python)
 ```python
+import ipaddress
 import subprocess
 import unicodedata
 from pathlib import Path
@@ -825,6 +827,7 @@ from dataclasses import dataclass
 import hashlib
 import hmac
 import json
+import re
 import shutil
 from datetime import datetime, timezone
 
@@ -1134,10 +1137,10 @@ sha256sum --check sbom-backend.cdx.json.sha256
 
 In applications and APIs built on **PHP 8.2 to 8.5** using the official multi-architecture (`amd64`/`arm64`) base image `sinfallas/basephpcomposer` (tags `8.2`, `8.3`, `8.4`, `8.5`, and `latest`), the following native controls must be enforced non-negotiably:
 
-1. **Hardening Directives in `php.ini` / `conf.d/99-qa11x.ini` (`DISA APSC-DV-002430` & `OWASP OSHP`):**
+1. **Hardening Directives in `php.ini` / `conf.d/zz-qa11x.ini` (`DISA APSC-DV-002430` & `OWASP OSHP`):**
    - `expose_php = Off` (suppresses the `X-Powered-By: PHP/8.x` banner on all HTTP responses).
    - `zend.exception_ignore_args = On` and `display_errors = Off` (prevents password or token leaks in stack traces).
-   - `session.use_strict_mode = 1`, `session.cookie_httponly = 1`, `session.cookie_secure = 1`, `session.cookie_samesite = "Strict"`, and `session.cache_expire = 15` (in PHP 8.4/8.5, `session.sid_length` and `session.sid_bits_per_character` were deprecated in favor of the native 32-byte CSPRNG; mount custom overrides at `/usr/local/etc/php/conf.d/99-qa11x.ini` to take precedence over `conf.d/docker-php-ext-pcov.ini`).
+   - `session.use_strict_mode = 1`, `session.cookie_httponly = 1`, `session.cookie_secure = 1`, `session.cookie_samesite = "Strict"`, and `session.cache_expire = 15` (in PHP 8.4/8.5, `session.sid_length` and `session.sid_bits_per_character` were deprecated in favor of the native 32-byte CSPRNG; mount custom overrides at `/usr/local/etc/php/conf.d/zz-qa11x.ini` to take precedence over `conf.d/docker-php-ext-pcov.ini`).
    - `opcache.save_comments = 1` (essential so PHP 8 attributes `#[...]` and Doctrine, Symfony, Laravel, and Swagger-PHP validation/routing annotations remain intact).
 
 2. **Unicode NFKC Canonicalization, AES-256-GCM Vault with `sodium_memzero`, and Constant-Time Argon2id:**

@@ -267,6 +267,16 @@ EOF
   assert_success
   assert_output --partial "Actualizados: 0 (ninguno)"
 
+  # 2b. Cambio en *.md UTF-8 no-ASCII (docs/guía.md) con mtime anterior -> sigue omitiendo (core.quotePath=false)
+  mkdir -p "${work}/docs"
+  printf '# Guía UTF-8\n' >"${work}/docs/guía.md"
+  touch -t 202601010000 "${work}/docs/guía.md"
+  run env PATH="${bin_dir}" LC_ALL=C bash "${work}/scripts/actualizar-grafos-graphify.sh"
+  assert_success
+  assert_output --partial "Actualizados: 0 (ninguno)"
+  assert_output --partial "Omitidos sin cambios de código: 2 (root fastapi)"
+  rm -rf "${work}/docs"
+
   # 3. Script en raíz más nuevo que graph.json -> actualiza root y omite fastapi
   touch -t 202601010020 "${work}/scripts/actualizar-grafos-graphify.sh"
   run env PATH="${bin_dir}" LC_ALL=C bash "${work}/scripts/actualizar-grafos-graphify.sh"
@@ -513,4 +523,48 @@ JSON
   PATH="${bin_dir}" LC_ALL=C run "${work}/scripts/actualizar-grafos-graphify.sh" "bad_chmod"
   chmod 755 "${work}/bad_chmod" "${work}/locked_dir"
   assert_failure 1
+}
+
+@test "actualizar-grafos-graphify.sh: cubre stack directo, error en extract_graph_in_dir y autodetección src/app/*.sh" {
+  local work="${BATS_TEST_TMPDIR}/graph_extra_ws"
+  local bin_dir="${BATS_TEST_TMPDIR}/graph_extra_bin"
+  mkdir -p "${work}/scripts" "${work}/fastapi/src" "${work}/python/app" "${work}/bash-scripts" "${bin_dir}"
+  cp "${GRAPHIFY_SCRIPT}" "${work}/scripts/actualizar-grafos-graphify.sh"
+  chmod +x "${work}/scripts/actualizar-grafos-graphify.sh"
+  printf '#!/usr/bin/env bash\necho ok\n' >"${work}/bash-scripts/helper.sh"
+  _populate_minimal_bin "${bin_dir}"
+
+  cat >"${bin_dir}/docker" <<'EOF'
+#!/usr/bin/env bash
+if [[ "${FAIL_GRAPHIFY:-0}" == "1" ]]; then
+  echo "simulated graphify error" >&2
+  exit 1
+fi
+for a in "$@"; do
+  if [[ "$a" == *":/app" ]]; then
+    host_dir="${a%:/app}"
+    mkdir -p "${host_dir}/graphify-out"
+    printf '{"nodes":[],"links":[]}\n' >"${host_dir}/graphify-out/graph.json"
+  fi
+done
+exit 0
+EOF
+  chmod +x "${bin_dir}/docker"
+
+  # 1. Target explícito exitoso
+  run env PATH="${bin_dir}" LC_ALL=C bash "${work}/scripts/actualizar-grafos-graphify.sh" fastapi
+  assert_success
+  assert_output --partial "Grafo semántico actualizado para 'fastapi'"
+  [ -f "${work}/fastapi/graphify-out/graph.json" ]
+
+  # 2. Autodetección de stacks con src/, app/ y *.sh sueltos
+  run env PATH="${bin_dir}" LC_ALL=C bash "${work}/scripts/actualizar-grafos-graphify.sh" --all
+  assert_success
+  [ -f "${work}/python/graphify-out/graph.json" ]
+  [ -f "${work}/bash-scripts/graphify-out/graph.json" ]
+
+  # 3. Error en extract_graph_in_dir emite log_file y retorna 1
+  run env FAIL_GRAPHIFY=1 PATH="${bin_dir}" LC_ALL=C bash "${work}/scripts/actualizar-grafos-graphify.sh" fastapi
+  assert_failure 1
+  assert_output --partial "simulated graphify error"
 }

@@ -520,3 +520,589 @@ PY
   run grep -F "propose_skill_evolution_pr" "${auto_other_home}/.gemini/GEMINI.md"
   assert_success
 }
+
+@test "install-skill.sh: bloquea path traversal y symlinks en manifest.json" {
+  local trav_ws="${BATS_TEST_TMPDIR}/trav_ws"
+  local outside_dir="${BATS_TEST_TMPDIR}/outside_dir"
+  local mock_bin="${BATS_TEST_TMPDIR}/mock_bin_isk"
+  local fake_home="${BATS_TEST_TMPDIR}/trav_home"
+  local payloads="${BATS_TEST_TMPDIR}/payloads"
+  mkdir -p "${trav_ws}" "${outside_dir}" "${mock_bin}" "${fake_home}" "${payloads}"
+
+  printf '#!/usr/bin/env bash\nid\n' >"${payloads}/evil.sh"
+  printf '# skill\n' >"${payloads}/SKILL.md"
+  local evil_sha skill_sha
+  evil_sha="$(sha256sum "${payloads}/evil.sh" | awk '{print $1}')"
+  skill_sha="$(sha256sum "${payloads}/SKILL.md" | awk '{print $1}')"
+
+  python3 - "${payloads}" "${skill_sha}" "${evil_sha}" <<'PY'
+import json, pathlib, sys
+p, ssha, esha = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+(p / "manifest_script_trav.json").write_text(json.dumps({
+    "blueprint_version": "3.2.0",
+    "agent_governance_files": [{"path": ".agents/skills/demo/SKILL.md", "sha256": ssha}],
+    "common_files": [{"path": "scripts/evil.sh", "target_name": "../outside_dir/pwned.sh", "merge_strategy": "overwrite", "sha256": esha}],
+    "stacks": {}
+}), encoding="utf-8")
+(p / "manifest_skill_trav.json").write_text(json.dumps({
+    "blueprint_version": "3.2.0",
+    "agent_governance_files": [{"path": ".agents/skills/../../outside_dir/pwn.md", "sha256": ssha}],
+    "common_files": [],
+    "stacks": {}
+}), encoding="utf-8")
+(p / "manifest_sym.json").write_text(json.dumps({
+    "blueprint_version": "3.2.0",
+    "agent_governance_files": [{"path": ".agents/skills/demo/SKILL.md", "sha256": ssha}],
+    "common_files": [{"path": "scripts/evil.sh", "target_name": "sym_out/pwned.sh", "merge_strategy": "overwrite", "sha256": esha}],
+    "stacks": {}
+}), encoding="utf-8")
+PY
+
+  cat >"${mock_bin}/curl" <<EOF
+#!/usr/bin/env bash
+out=""
+url=""
+prev=""
+for a in "\$@"; do
+  if [[ "\$prev" == "-o" ]]; then out="\$a"; fi
+  if [[ "\$a" == http* ]]; then url="\$a"; fi
+  prev="\$a"
+done
+case "\$url" in
+  *manifest.json) cp "\${MOCK_MANIFEST}" "\$out" ;;
+  *evil.sh) cp "${payloads}/evil.sh" "\$out" ;;
+  *SKILL.md) cp "${payloads}/SKILL.md" "\$out" ;;
+  *) exit 1 ;;
+esac
+EOF
+  chmod +x "${mock_bin}/curl"
+
+  cd "${trav_ws}"
+  run env MOCK_MANIFEST="${payloads}/manifest_script_trav.json" HOME="${fake_home}" PATH="${mock_bin}:/usr/bin:/bin" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace --include-scripts
+  assert_failure 1
+  assert_output --partial "Path Traversal"
+  [ ! -e "${outside_dir}/pwned.sh" ]
+
+  run env MOCK_MANIFEST="${payloads}/manifest_skill_trav.json" HOME="${fake_home}" PATH="${mock_bin}:/usr/bin:/bin" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace
+  assert_failure 1
+  assert_output --partial "Path Traversal"
+  [ ! -e "${outside_dir}/pwn.md" ]
+}
+
+@test "install-skill.sh: bloquea symlink escape vía realpath en common_files" {
+  local sym_ws="${BATS_TEST_TMPDIR}/sym_real_ws"
+  local outside_dir="${BATS_TEST_TMPDIR}/sym_real_out"
+  local mock_bin="${BATS_TEST_TMPDIR}/sym_real_bin"
+  local fake_home="${BATS_TEST_TMPDIR}/sym_real_home"
+  local payloads="${BATS_TEST_TMPDIR}/sym_real_payloads"
+  mkdir -p "${sym_ws}" "${outside_dir}" "${mock_bin}" "${fake_home}" "${payloads}"
+
+  printf '#!/usr/bin/env bash\nid\n' >"${payloads}/evil.sh"
+  printf '# skill\n' >"${payloads}/SKILL.md"
+  local evil_sha skill_sha
+  evil_sha="$(sha256sum "${payloads}/evil.sh" | awk '{print $1}')"
+  skill_sha="$(sha256sum "${payloads}/SKILL.md" | awk '{print $1}')"
+  ln -s "${outside_dir}" "${sym_ws}/sym_out"
+
+  python3 - "${payloads}" "${skill_sha}" "${evil_sha}" <<'PY'
+import json, pathlib, sys
+p, ssha, esha = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+(p / "manifest_sym.json").write_text(json.dumps({
+    "blueprint_version": "3.2.0",
+    "agent_governance_files": [{"path": ".agents/skills/demo/SKILL.md", "sha256": ssha}],
+    "common_files": [{"path": "scripts/evil.sh", "target_name": "sym_out/pwned.sh", "merge_strategy": "overwrite", "sha256": esha}],
+    "stacks": {}
+}), encoding="utf-8")
+PY
+
+  cat >"${mock_bin}/curl" <<EOF
+#!/usr/bin/env bash
+out=""
+url=""
+prev=""
+for a in "\$@"; do
+  if [[ "\$prev" == "-o" ]]; then out="\$a"; fi
+  if [[ "\$a" == http* ]]; then url="\$a"; fi
+  prev="\$a"
+done
+case "\$url" in
+  *manifest.json) cp "${payloads}/manifest_sym.json" "\$out" ;;
+  *evil.sh) cp "${payloads}/evil.sh" "\$out" ;;
+  *SKILL.md) cp "${payloads}/SKILL.md" "\$out" ;;
+  *) exit 1 ;;
+esac
+EOF
+  chmod +x "${mock_bin}/curl"
+
+  cd "${sym_ws}"
+  run env HOME="${fake_home}" PATH="${mock_bin}:/usr/bin:/bin" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace --include-scripts
+  assert_failure 1
+  assert_output --partial "Escape de directorio"
+  [ ! -e "${outside_dir}/pwned.sh" ]
+}
+
+@test "install-skill.sh: rechaza SHA mismatch remoto y manifiesto sin skills" {
+  local sha_ws="${BATS_TEST_TMPDIR}/sha_ws"
+  local mock_bin="${BATS_TEST_TMPDIR}/mock_bin_sha"
+  local fake_home="${BATS_TEST_TMPDIR}/sha_home"
+  local payloads="${BATS_TEST_TMPDIR}/sha_payloads"
+  mkdir -p "${sha_ws}" "${mock_bin}" "${fake_home}" "${payloads}"
+  printf '# skill\n' >"${payloads}/SKILL.md"
+
+  python3 - "${payloads}" <<'PY'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1])
+(p / "manifest_bad_sha.json").write_text(json.dumps({
+    "blueprint_version": "3.2.0",
+    "agent_governance_files": [{"path": ".agents/skills/demo/SKILL.md", "sha256": "0" * 64}],
+    "common_files": [],
+    "stacks": {}
+}), encoding="utf-8")
+(p / "manifest_empty.json").write_text(json.dumps({
+    "blueprint_version": "3.2.0",
+    "agent_governance_files": [],
+    "common_files": [],
+    "stacks": {}
+}), encoding="utf-8")
+PY
+
+  cat >"${mock_bin}/curl" <<EOF
+#!/usr/bin/env bash
+out=""
+url=""
+prev=""
+for a in "\$@"; do
+  if [[ "\$prev" == "-o" ]]; then out="\$a"; fi
+  if [[ "\$a" == http* ]]; then url="\$a"; fi
+  prev="\$a"
+done
+case "\$url" in
+  *manifest.json) cp "\${MOCK_MANIFEST}" "\$out" ;;
+  *SKILL.md) cp "${payloads}/SKILL.md" "\$out" ;;
+  *) exit 1 ;;
+esac
+EOF
+  chmod +x "${mock_bin}/curl"
+
+  cd "${sha_ws}"
+  run env MOCK_MANIFEST="${payloads}/manifest_bad_sha.json" HOME="${fake_home}" PATH="${mock_bin}:/usr/bin:/bin" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace
+  assert_failure 1
+  assert_output --partial "VIOLACIÓN DE INTEGRIDAD"
+
+  run env MOCK_MANIFEST="${payloads}/manifest_empty.json" HOME="${fake_home}" PATH="${mock_bin}:/usr/bin:/bin" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace
+  assert_failure 1
+}
+
+@test "install-skill.sh: cubre flags --target y fallback wget en windsurf/codex" {
+  local cli_ws="${BATS_TEST_TMPDIR}/cli_ws"
+  local fake_home="${BATS_TEST_TMPDIR}/cli_home"
+  local payloads="${BATS_TEST_TMPDIR}/cli_payloads"
+  local wget_only_bin="${BATS_TEST_TMPDIR}/wget_only_bin"
+  mkdir -p "${cli_ws}" "${fake_home}" "${payloads}" "${wget_only_bin}"
+
+  printf '# skill\n' >"${payloads}/SKILL.md"
+  local skill_sha
+  skill_sha="$(sha256sum "${payloads}/SKILL.md" | awk '{print $1}')"
+
+  python3 - "${payloads}" "${skill_sha}" <<'PY'
+import json, pathlib, sys
+p, ssha = pathlib.Path(sys.argv[1]), sys.argv[2]
+(p / "manifest_ok.json").write_text(json.dumps({
+    "blueprint_version": "3.2.0",
+    "agent_governance_files": [{"path": ".agents/skills/demo/SKILL.md", "sha256": ssha}],
+    "common_files": [],
+    "stacks": {}
+}), encoding="utf-8")
+PY
+  cat >"${wget_only_bin}/wget" <<EOF
+#!/usr/bin/env bash
+out="\$2"
+url="\$3"
+case "\$url" in
+  *manifest.json) cp "${payloads}/manifest_ok.json" "\$out" ;;
+  *SKILL.md) cp "${payloads}/SKILL.md" "\$out" ;;
+  *) exit 1 ;;
+esac
+EOF
+  chmod +x "${wget_only_bin}/wget"
+  for cmd in awk basename bash cat chmod cp date dirname env grep head jq mkdir mktemp mv printf realpath rm sh sha256sum tr wc; do
+    if command -v "${cmd}" >/dev/null 2>&1; then
+      ln -sf "$(command -v "${cmd}")" "${wget_only_bin}/${cmd}"
+    fi
+  done
+
+  cd "${cli_ws}"
+  run env HOME="${fake_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target
+  assert_failure 1
+  run env HOME="${fake_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target bogus_env
+  assert_failure 1
+
+  run env HOME="${fake_home}" PATH="${wget_only_bin}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target=windsurf
+  assert_success
+  [ -f "${fake_home}/.codeium/windsurf/skills/demo/SKILL.md" ]
+
+  run env HOME="${fake_home}" PATH="${wget_only_bin}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target=codex
+  assert_success
+  [ -f "${fake_home}/.codex/skills/demo/SKILL.md" ]
+}
+
+@test "install-skill.sh: cubre fallback python3 para symlink/control-chars y ausencia de cliente HTTP" {
+  local fb_ws="${BATS_TEST_TMPDIR}/isk_fb_ws"
+  local outside_dir="${BATS_TEST_TMPDIR}/isk_fb_out"
+  local fb_home="${BATS_TEST_TMPDIR}/isk_fb_home"
+  local fb_bin="${BATS_TEST_TMPDIR}/isk_fb_bin"
+  local payloads="${BATS_TEST_TMPDIR}/isk_fb_payloads"
+  mkdir -p "${fb_ws}" "${outside_dir}" "${fb_home}" "${fb_bin}" "${payloads}"
+
+  printf '#!/usr/bin/env bash\nid\n' >"${payloads}/evil.sh"
+  printf '# skill\n' >"${payloads}/SKILL.md"
+  local evil_sha skill_sha
+  evil_sha="$(sha256sum "${payloads}/evil.sh" | awk '{print $1}')"
+  skill_sha="$(sha256sum "${payloads}/SKILL.md" | awk '{print $1}')"
+  ln -s "${outside_dir}" "${fb_ws}/sym_out"
+
+  python3 - "${payloads}" "${skill_sha}" "${evil_sha}" <<'PY'
+import json, pathlib, sys
+p, ssha, esha = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+(p / "manifest_ctrl.json").write_text(json.dumps({
+    "blueprint_version": "3.2.0",
+    "agent_governance_files": [{"path": ".agents/skills/demo/SKILL.md", "sha256": ssha}],
+    "common_files": [{"path": "scripts/evil.sh", "target_name": "scripts/\u0007evil.sh", "merge_strategy": "overwrite", "sha256": esha}],
+    "stacks": {}
+}), encoding="utf-8")
+(p / "manifest_sym.json").write_text(json.dumps({
+    "blueprint_version": "3.2.0",
+    "agent_governance_files": [{"path": ".agents/skills/demo/SKILL.md", "sha256": ssha}],
+    "common_files": [{"path": "scripts/evil.sh", "target_name": "sym_out/pwn.sh", "merge_strategy": "overwrite", "sha256": esha}],
+    "stacks": {}
+}), encoding="utf-8")
+PY
+
+  for cmd in awk basename bash cat chmod cp date dirname env grep head jq mkdir mktemp mv printf rm sh sha256sum tr wc; do
+    if command -v "${cmd}" >/dev/null 2>&1; then
+      ln -sf "$(command -v "${cmd}")" "${fb_bin}/${cmd}"
+    fi
+  done
+
+  # 1. Sin curl/wget/python3 falla en fetch_file
+  cd "${fb_ws}"
+  run env HOME="${fb_home}" PATH="${fb_bin}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace
+  assert_failure 1
+  assert_output --partial "No se encontró ni curl, ni wget, ni python3"
+
+  # 2. Con python3 (sin realpath), bloquea caracteres de control y symlink escape
+  ln -sf "$(command -v python3)" "${fb_bin}/python3"
+  cat >"${fb_bin}/curl" <<EOF
+#!/usr/bin/env bash
+out=""
+url=""
+prev=""
+for a in "\$@"; do
+  if [[ "\$prev" == "-o" ]]; then out="\$a"; fi
+  if [[ "\$a" == http* ]]; then url="\$a"; fi
+  prev="\$a"
+done
+case "\$url" in
+  *manifest.json) cp "\${MOCK_MANIFEST}" "\$out" ;;
+  *evil.sh) cp "${payloads}/evil.sh" "\$out" ;;
+  *SKILL.md) cp "${payloads}/SKILL.md" "\$out" ;;
+  *) exit 1 ;;
+esac
+EOF
+  chmod +x "${fb_bin}/curl"
+
+  run env MOCK_MANIFEST="${payloads}/manifest_ctrl.json" HOME="${fb_home}" PATH="${fb_bin}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace --include-scripts
+  assert_failure 1
+  assert_output --partial "Caracteres de control"
+}
+
+@test "install-skill.sh: bloquea symlink escape vía fallback python3 sin realpath" {
+  local fb_ws="${BATS_TEST_TMPDIR}/isk_py_ws"
+  local outside_dir="${BATS_TEST_TMPDIR}/isk_py_out"
+  local fb_home="${BATS_TEST_TMPDIR}/isk_py_home"
+  local fb_bin="${BATS_TEST_TMPDIR}/isk_py_bin"
+  local payloads="${BATS_TEST_TMPDIR}/isk_py_payloads"
+  mkdir -p "${fb_ws}" "${outside_dir}" "${fb_home}" "${fb_bin}" "${payloads}"
+
+  printf '#!/usr/bin/env bash\nid\n' >"${payloads}/evil.sh"
+  printf '# skill\n' >"${payloads}/SKILL.md"
+  local evil_sha skill_sha
+  evil_sha="$(sha256sum "${payloads}/evil.sh" | awk '{print $1}')"
+  skill_sha="$(sha256sum "${payloads}/SKILL.md" | awk '{print $1}')"
+  ln -s "${outside_dir}" "${fb_ws}/sym_out"
+
+  python3 - "${payloads}" "${skill_sha}" "${evil_sha}" <<'PY'
+import json, pathlib, sys
+p, ssha, esha = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+(p / "manifest_sym.json").write_text(json.dumps({
+    "blueprint_version": "3.2.0",
+    "agent_governance_files": [{"path": ".agents/skills/demo/SKILL.md", "sha256": ssha}],
+    "common_files": [{"path": "scripts/evil.sh", "target_name": "sym_out/pwn.sh", "merge_strategy": "overwrite", "sha256": esha}],
+    "stacks": {}
+}), encoding="utf-8")
+PY
+
+  for cmd in awk basename bash cat chmod cp date dirname env grep head jq mkdir mktemp mv printf rm sh sha256sum tr wc python3; do
+    if command -v "${cmd}" >/dev/null 2>&1; then
+      ln -sf "$(command -v "${cmd}")" "${fb_bin}/${cmd}"
+    fi
+  done
+  cat >"${fb_bin}/curl" <<EOF
+#!/usr/bin/env bash
+out=""
+url=""
+prev=""
+for a in "\$@"; do
+  if [[ "\$prev" == "-o" ]]; then out="\$a"; fi
+  if [[ "\$a" == http* ]]; then url="\$a"; fi
+  prev="\$a"
+done
+case "\$url" in
+  *manifest.json) cp "${payloads}/manifest_sym.json" "\$out" ;;
+  *evil.sh) cp "${payloads}/evil.sh" "\$out" ;;
+  *SKILL.md) cp "${payloads}/SKILL.md" "\$out" ;;
+  *) exit 1 ;;
+esac
+EOF
+  chmod +x "${fb_bin}/curl"
+
+  cd "${fb_ws}"
+  run env HOME="${fb_home}" PATH="${fb_bin}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace --include-scripts
+  assert_failure 1
+  assert_output --partial "Escape de directorio"
+  [ ! -e "${outside_dir}/pwn.sh" ]
+}
+
+_setup_posix_install_env() {
+  local tag="$1"
+  local ws="${BATS_TEST_TMPDIR}/isk_posix_${tag}_ws"
+  local outside_dir="${BATS_TEST_TMPDIR}/isk_posix_${tag}_out"
+  local home_dir="${BATS_TEST_TMPDIR}/isk_posix_${tag}_home"
+  local bin_dir="${BATS_TEST_TMPDIR}/isk_posix_${tag}_bin"
+  local payloads="${BATS_TEST_TMPDIR}/isk_posix_${tag}_payloads"
+  mkdir -p "${ws}" "${outside_dir}" "${home_dir}" "${bin_dir}" "${payloads}"
+
+  printf '#!/usr/bin/env bash\nid\n' >"${payloads}/evil.sh"
+  printf '# skill\n' >"${payloads}/SKILL.md"
+  local evil_sha skill_sha
+  evil_sha="$(sha256sum "${payloads}/evil.sh" | awk '{print $1}')"
+  skill_sha="$(sha256sum "${payloads}/SKILL.md" | awk '{print $1}')"
+
+  python3 - "${payloads}" "${skill_sha}" "${evil_sha}" <<'PY'
+import json, pathlib, sys
+p, ssha, esha = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+(p / "manifest_sym.json").write_text(json.dumps({
+    "blueprint_version": "3.2.0",
+    "agent_governance_files": [{"path": ".agents/skills/demo/SKILL.md", "sha256": ssha}],
+    "common_files": [{"path": "scripts/evil.sh", "target_name": "scripts/evil.sh", "merge_strategy": "overwrite", "sha256": esha}],
+    "stacks": {}
+}), encoding="utf-8")
+(p / "manifest_dot.json").write_text(json.dumps({
+    "blueprint_version": "3.2.0",
+    "agent_governance_files": [{"path": ".agents/skills/demo/SKILL.md", "sha256": ssha}],
+    "common_files": [{"path": "scripts/evil.sh", "target_name": ".", "merge_strategy": "overwrite", "sha256": esha}],
+    "stacks": {}
+}), encoding="utf-8")
+(p / "manifest_ok.json").write_text(json.dumps({
+    "blueprint_version": "3.2.0",
+    "agent_governance_files": [{"path": ".agents/skills/demo/SKILL.md", "sha256": ssha}],
+    "common_files": [{"path": "scripts/evil.sh", "target_name": "./scripts/ok.sh", "merge_strategy": "overwrite", "sha256": esha}],
+    "stacks": {}
+}), encoding="utf-8")
+PY
+
+  for cmd in bash sh mkdir cp chmod dirname basename mktemp cat mv awk grep sed tr wc date sha256sum printf rm jq pwd; do
+    if command -v "${cmd}" >/dev/null 2>&1; then
+      ln -sf "$(command -v "${cmd}")" "${bin_dir}/${cmd}"
+    fi
+  done
+  cat >"${bin_dir}/curl" <<EOF
+#!/usr/bin/env bash
+out=""
+url=""
+prev=""
+for a in "\$@"; do
+  if [[ "\$prev" == "-o" ]]; then out="\$a"; fi
+  if [[ "\$a" == http* ]]; then url="\$a"; fi
+  prev="\$a"
+done
+case "\$url" in
+  *manifest.json) cp "\${MOCK_MANIFEST}" "\$out" ;;
+  *evil.sh) cp "${payloads}/evil.sh" "\$out" ;;
+  *SKILL.md) cp "${payloads}/SKILL.md" "\$out" ;;
+  *) exit 1 ;;
+esac
+EOF
+  chmod +x "${bin_dir}/curl"
+  printf '%s|%s|%s|%s|%s\n' "${ws}" "${outside_dir}" "${home_dir}" "${bin_dir}" "${payloads}"
+}
+
+@test "install-skill.sh (sh): bloquea symlink escape vía fallback POSIX [ -L ] sin realpath ni python3" {
+  local meta ws outside_dir home_dir bin_dir payloads
+  meta="$(_setup_posix_install_env sym_sh)"
+  IFS='|' read -r ws outside_dir home_dir bin_dir payloads <<<"${meta}"
+  ln -s "${outside_dir}" "${ws}/scripts"
+
+  cd "${ws}"
+  run env MOCK_MANIFEST="${payloads}/manifest_sym.json" HOME="${home_dir}" PATH="${bin_dir}" LC_ALL=C sh "${INSTALL_SCRIPT}" --target workspace --include-scripts
+  assert_failure 1
+  assert_output --partial "Escape de directorio"
+  [ ! -e "${outside_dir}/evil.sh" ]
+}
+
+@test "install-skill.sh (bash): bloquea symlink escape vía fallback POSIX [ -L ] sin realpath ni python3" {
+  local meta ws outside_dir home_dir bin_dir payloads
+  meta="$(_setup_posix_install_env sym_bash)"
+  IFS='|' read -r ws outside_dir home_dir bin_dir payloads <<<"${meta}"
+  ln -s "${outside_dir}" "${ws}/scripts"
+
+  cd "${ws}"
+  run env MOCK_MANIFEST="${payloads}/manifest_sym.json" HOME="${home_dir}" PATH="${bin_dir}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace --include-scripts
+  assert_failure 1
+  assert_output --partial "Escape de directorio"
+  [ ! -e "${outside_dir}/evil.sh" ]
+}
+
+@test "install-skill.sh (bash): bloquea target '.' vía fallback POSIX sin realpath ni python3" {
+  local meta ws outside_dir home_dir bin_dir payloads
+  meta="$(_setup_posix_install_env dot_bash)"
+  IFS='|' read -r ws outside_dir home_dir bin_dir payloads <<<"${meta}"
+
+  cd "${ws}"
+  run env MOCK_MANIFEST="${payloads}/manifest_dot.json" HOME="${home_dir}" PATH="${bin_dir}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace --include-scripts
+  assert_failure 1
+  assert_output --partial "Escape de directorio"
+}
+
+@test "install-skill.sh (bash): permite './scripts/ok.sh' vía fallback POSIX sin realpath ni python3" {
+  local meta ws outside_dir home_dir bin_dir payloads
+  meta="$(_setup_posix_install_env ok_bash)"
+  IFS='|' read -r ws outside_dir home_dir bin_dir payloads <<<"${meta}"
+
+  cd "${ws}"
+  run env MOCK_MANIFEST="${payloads}/manifest_ok.json" HOME="${home_dir}" PATH="${bin_dir}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace --include-scripts
+  assert_success
+  [ -x "${ws}/scripts/ok.sh" ]
+}
+
+@test "install-skill.sh (bash): bloquea symlinks en .qa-11x-version, AGENTS.md, GEMINI.md, global skills y .11x-backup; preserva --target claude con ws/.agents symlink" {
+  local mini_repo="${BATS_TEST_TMPDIR}/sym6_repo"
+  _create_mini_install_repo "${mini_repo}"
+
+  # 1A: dangling .agents/skills/.qa-11x-version
+  local ws_a="${BATS_TEST_TMPDIR}/sym6_ws_a"
+  local out_a="${BATS_TEST_TMPDIR}/sym6_out_a"
+  local home_a="${BATS_TEST_TMPDIR}/sym6_home_a"
+  mkdir -p "${ws_a}/.agents/skills" "${out_a}"
+  ln -s "${out_a}/pwned_ver" "${ws_a}/.agents/skills/.qa-11x-version"
+  cd "${ws_a}"
+  run env QA_BLUEPRINTS_LOCAL_PATH="${mini_repo}" HOME="${home_a}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace
+  assert_failure 1
+  assert_output --partial "Symlink rechazado"
+  [ ! -e "${out_a}/pwned_ver" ]
+
+  # 1B: dangling ./.agents/.qa-11x-version en --include-scripts
+  local ws_b="${BATS_TEST_TMPDIR}/sym6_ws_b"
+  local out_b="${BATS_TEST_TMPDIR}/sym6_out_b"
+  local home_b="${BATS_TEST_TMPDIR}/sym6_home_b"
+  mkdir -p "${ws_b}/.agents" "${out_b}"
+  ln -s "${out_b}/pwned_script_ver" "${ws_b}/.agents/.qa-11x-version"
+  cd "${ws_b}"
+  run env QA_BLUEPRINTS_LOCAL_PATH="${mini_repo}" HOME="${home_b}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace --include-scripts
+  assert_failure 1
+  assert_output --partial "VIOLACIÓN DE SEGURIDAD"
+  [ ! -e "${out_b}/pwned_script_ver" ]
+
+  # 1C: dangling ./AGENTS.md en --init-agents
+  local ws_c="${BATS_TEST_TMPDIR}/sym6_ws_c"
+  local out_c="${BATS_TEST_TMPDIR}/sym6_out_c"
+  local home_c="${BATS_TEST_TMPDIR}/sym6_home_c"
+  mkdir -p "${ws_c}" "${out_c}"
+  ln -s "${out_c}/pwned_agents" "${ws_c}/AGENTS.md"
+  cd "${ws_c}"
+  run env QA_BLUEPRINTS_LOCAL_PATH="${mini_repo}" HOME="${home_c}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace --init-agents
+  assert_failure 1
+  assert_output --partial "Escape de directorio"
+  [ ! -e "${out_c}/pwned_agents" ]
+
+  # 1D: dangling $HOME/.gemini/GEMINI.md en --target antigravity
+  local ws_d="${BATS_TEST_TMPDIR}/sym6_ws_d"
+  local out_d="${BATS_TEST_TMPDIR}/sym6_out_d"
+  local home_d="${BATS_TEST_TMPDIR}/sym6_home_d"
+  mkdir -p "${ws_d}" "${home_d}/.gemini" "${out_d}"
+  ln -s "${out_d}/pwned_gemini" "${home_d}/.gemini/GEMINI.md"
+  cd "${ws_d}"
+  run env QA_BLUEPRINTS_LOCAL_PATH="${mini_repo}" HOME="${home_d}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target antigravity
+  assert_failure 1
+  assert_output --partial "Escape de directorio"
+  [ ! -e "${out_d}/pwned_gemini" ]
+
+  # 1E: symlinked $HOME/.claude/skills -> outside
+  local ws_e="${BATS_TEST_TMPDIR}/sym6_ws_e"
+  local out_e="${BATS_TEST_TMPDIR}/sym6_out_e/claude_skills"
+  local home_e="${BATS_TEST_TMPDIR}/sym6_home_e"
+  mkdir -p "${ws_e}" "${home_e}/.claude" "${out_e}"
+  ln -s "${out_e}" "${home_e}/.claude/skills"
+  cd "${ws_e}"
+  run env QA_BLUEPRINTS_LOCAL_PATH="${mini_repo}" HOME="${home_e}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target claude
+  assert_failure 1
+  assert_output --partial "Escape de directorio"
+  [ -z "$(ls -A "${out_e}")" ]
+
+  # 1F: --target claude exitoso cuando ws/.agents es un symlink externo
+  local ws_f="${BATS_TEST_TMPDIR}/sym6_ws_f"
+  local out_f="${BATS_TEST_TMPDIR}/sym6_out_f/ws_agents"
+  local home_f="${BATS_TEST_TMPDIR}/sym6_home_f"
+  mkdir -p "${ws_f}" "${home_f}/.claude" "${out_f}"
+  ln -s "${out_f}" "${ws_f}/.agents"
+  cd "${ws_f}"
+  run env QA_BLUEPRINTS_LOCAL_PATH="${mini_repo}" HOME="${home_f}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target claude
+  assert_success
+  [ -f "${home_f}/.claude/skills/qa-11x-architect/SKILL.md" ]
+  [ -f "${home_f}/.claude/skills/.qa-11x-version" ]
+  [ -z "$(ls -A "${out_f}")" ]
+
+  # 1G: symlink interno en dest (dest/qa-11x-architect -> dest/other) y .11x-backup symlink
+  local ws_g="${BATS_TEST_TMPDIR}/sym6_ws_g"
+  local out_g="${BATS_TEST_TMPDIR}/sym6_out_g"
+  local home_g="${BATS_TEST_TMPDIR}/sym6_home_g"
+  mkdir -p "${ws_g}/.agents/skills/other" "${out_g}"
+  ln -s "${ws_g}/.agents/skills/other" "${ws_g}/.agents/skills/qa-11x-architect"
+  cd "${ws_g}"
+  run env QA_BLUEPRINTS_LOCAL_PATH="${mini_repo}" HOME="${home_g}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace
+  assert_failure 1
+  assert_output --partial "Symlink rechazado"
+  [ ! -e "${ws_g}/.agents/skills/other/SKILL.md" ]
+
+  # 1H: .11x-backup symlink en surgical_merge
+  local ws_h="${BATS_TEST_TMPDIR}/sym6_ws_h"
+  local out_h="${BATS_TEST_TMPDIR}/sym6_out_h"
+  local repo_h="${BATS_TEST_TMPDIR}/sym6_repo_h"
+  mkdir -p "${ws_h}" "${out_h}" "${repo_h}/.agents/skills/qa-11x-architect"
+  printf '# Mini\n' >"${repo_h}/.agents/skills/qa-11x-architect/SKILL.md"
+  printf 'new: true\n' >"${repo_h}/lefthook.yml"
+  python3 - "${repo_h}" <<'PY'
+import hashlib, json, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+def entry(p, s=""):
+    d = (root / p).read_bytes()
+    out = {"path": p, "sha256": hashlib.sha256(d).hexdigest(), "size_bytes": len(d)}
+    if s:
+        out["merge_strategy"] = s
+    return out
+(root / "manifest.json").write_text(json.dumps({
+    "blueprint_version": "3.2.0",
+    "agent_governance_files": [entry(".agents/skills/qa-11x-architect/SKILL.md")],
+    "common_files": [entry("lefthook.yml", "surgical_merge")],
+}), encoding="utf-8")
+PY
+  printf 'user-keep\n' >"${ws_h}/lefthook.yml"
+  printf 'SECRET\n' >"${out_h}/victim_bak"
+  ln -s "${out_h}/victim_bak" "${ws_h}/lefthook.yml.11x-backup"
+  cd "${ws_h}"
+  run env QA_BLUEPRINTS_LOCAL_PATH="${repo_h}" HOME="${home_g}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace --include-scripts
+  assert_failure 1
+  assert_output --partial "Symlink rechazado"
+  [ "$(cat "${out_h}/victim_bak")" = "SECRET" ]
+}

@@ -1,0 +1,433 @@
+{
+  "consumer": {
+    "name": "fastapi-billing-consumer"
+  },
+  "interactions": [
+    {
+      "description": "a lookup for a non-existent reservation",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "virgin_empty"
+        }
+      ],
+      "request": {
+        "headers": {
+          "X-Tenant-ID": [
+            "tenant-alpha"
+          ]
+        },
+        "matchingRules": {
+          "header": {
+            "X-Tenant-ID": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^tenant-[a-z0-9-]+$"
+                }
+              ]
+            }
+          }
+        },
+        "method": "GET",
+        "path": "/api/v1/reservations/00000000-0000-4000-8000-000000000404"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "detail": "Reservation 00000000-0000-4000-8000-000000000404 does not exist for tenant.",
+            "status": 404,
+            "title": "Reservation Not Found",
+            "type": "https://qa-11x.internal/problems/reservation-not-found"
+          },
+          "contentType": "application/problem+json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/problem+json"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.detail": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "header": {
+            "Content-Type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^application/problem\\+json.*$"
+                }
+              ]
+            }
+          }
+        },
+        "status": 404
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a nominal reservation creation request",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "nominal_configured"
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "quantity": 2,
+            "sku": "ROUTER-CCR2004",
+            "unitPrice": "149.95"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ],
+          "Idempotency-Key": [
+            "550e8400-e29b-41d4-a716-446655440001"
+          ],
+          "X-Tenant-ID": [
+            "tenant-alpha"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.unitPrice": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d+\\.\\d{2}$"
+                }
+              ]
+            }
+          },
+          "header": {
+            "Idempotency-Key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})$"
+                }
+              ]
+            },
+            "X-Tenant-ID": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^tenant-[a-z0-9-]+$"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/api/v1/reservations"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "reservationId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+            "status": "CONFIRMED",
+            "unitPrice": "149.95"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ],
+          "Idempotency-Key": [
+            "550e8400-e29b-41d4-a716-446655440001"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.reservationId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})$"
+                }
+              ]
+            },
+            "$.unitPrice": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d+\\.\\d{2}$"
+                }
+              ]
+            }
+          },
+          "header": {
+            "Content-Type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^application/json.*$"
+                }
+              ]
+            },
+            "Idempotency-Key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})$"
+                }
+              ]
+            }
+          }
+        },
+        "status": 201
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a partial-failure batch reservation request",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "degraded_conflict"
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "items": [
+              {
+                "quantity": 1,
+                "sku": "ROUTER-CCR2004",
+                "unitPrice": "149.95"
+              },
+              {
+                "quantity": 4,
+                "sku": "SFP-25G-LR-OOS",
+                "unitPrice": "89.50"
+              }
+            ]
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ],
+          "Idempotency-Key": [
+            "550e8400-e29b-41d4-a716-446655440002"
+          ],
+          "X-Tenant-ID": [
+            "tenant-alpha"
+          ]
+        },
+        "matchingRules": {
+          "header": {
+            "Idempotency-Key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})$"
+                }
+              ]
+            },
+            "X-Tenant-ID": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^tenant-[a-z0-9-]+$"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/api/v1/reservations/batch"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "results": [
+              {
+                "sku": "ROUTER-CCR2004",
+                "status": "SUCCEEDED"
+              },
+              {
+                "sku": "SFP-25G-LR-OOS",
+                "status": "REJECTED_OUT_OF_STOCK"
+              }
+            ]
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ],
+          "Idempotency-Key": [
+            "550e8400-e29b-41d4-a716-446655440002"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.results[0].status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(SUCCEEDED|REJECTED_OUT_OF_STOCK)$"
+                }
+              ]
+            },
+            "$.results[1].status": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^(SUCCEEDED|REJECTED_OUT_OF_STOCK)$"
+                }
+              ]
+            }
+          },
+          "header": {
+            "Content-Type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^application/json.*$"
+                }
+              ]
+            },
+            "Idempotency-Key": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})$"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    },
+    {
+      "description": "a reservation creation with mutated idempotency payload",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "degraded_conflict"
+        }
+      ],
+      "request": {
+        "body": {
+          "content": {
+            "quantity": 99,
+            "sku": "ROUTER-CCR2004",
+            "unitPrice": "149.95"
+          },
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ],
+          "Idempotency-Key": [
+            "550e8400-e29b-41d4-a716-446655440099"
+          ],
+          "X-Tenant-ID": [
+            "tenant-alpha"
+          ]
+        },
+        "method": "POST",
+        "path": "/api/v1/reservations"
+      },
+      "response": {
+        "body": {
+          "content": {
+            "detail": "Idempotency-Key 550e8400-e29b-41d4-a716-446655440099 was already committed with a different payload.",
+            "status": 409,
+            "title": "Idempotency Key Payload Mismatch",
+            "type": "https://qa-11x.internal/problems/idempotency-conflict"
+          },
+          "contentType": "application/problem+json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/problem+json"
+          ],
+          "Idempotency-Key": [
+            "550e8400-e29b-41d4-a716-446655440099"
+          ]
+        },
+        "matchingRules": {
+          "body": {
+            "$.detail": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "header": {
+            "Content-Type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^application/problem\\+json.*$"
+                }
+              ]
+            }
+          }
+        },
+        "status": 409
+      },
+      "type": "Synchronous/HTTP"
+    }
+  ],
+  "metadata": {
+    "pactRust": {
+      "ffi": "0.5.12",
+      "models": "1.3.16"
+    },
+    "pactSpecification": {
+      "version": "4.0"
+    }
+  },
+  "provider": {
+    "name": "node-inventory-provider"
+  }
+}

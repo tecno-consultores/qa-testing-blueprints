@@ -34,7 +34,7 @@ find "${tmp_base}" -maxdepth 1 -user "${CURRENT_UID}" \( -name 'qa-11x-last-fail
 rm -f ./ACTIVE_TASK.md ./*.log trivy-results* sbom.cyclonedx.json sbom-*.cdx.json cbom.cyclonedx.json cbom-*.cdx.json \
   zap-report.html zap-report.json release-readiness.json release-readiness.md qa-11x-last-failure.json \
   dependency-reduced-pom.xml .task_scratchpad.md .agents/*.scratchpad.md 2>/dev/null || true
-rm -rf coverage_report/ .bats-battery/ target/ test/target/ prometheus_data/ .trivycache karate.jar karate-*.jar \
+rm -rf coverage_report/ reports/ .bats-battery/ target/ test/target/ prometheus_data/ .trivycache karate.jar karate-*.jar \
   allure-results/ allure-report/ .allure/ .agents/tmp/ 2>/dev/null || true
 
 if [ -d "graphify-out" ]; then
@@ -45,8 +45,8 @@ find . \( -name ".git" -o -name "node_modules" -o -name ".venv" -o -name "venv" 
   -o -type f \( -name ".DS_Store" -o -name "._*" -o -name "Thumbs.db" -o -name "ehthumbs.db" -o -name "Desktop.ini" -o -name "*.swp" -o -name "*.swo" -o -name "*.swn" -o -name "*~" -o -name ".#*" -o -name "#*#" -o -name "*.orig" -o -name "*.rej" -o -name "*.bak" \) -exec rm -f {} + 2>/dev/null || true
 
 if command -v docker >/dev/null 2>&1; then
-  docker run --rm --network none -v "${SCRIPT_DIR}:/work" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab sh -c '
-    rm -rf /work/coverage_report /work/.bats-battery /work/target /work/test/target \
+  docker run --rm --network none --security-opt=no-new-privileges:true -v "${SCRIPT_DIR}:/work" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab sh -c '
+    rm -rf /work/coverage_report /work/reports /work/.bats-battery /work/target /work/test/target \
       /work/prometheus_data /work/.trivycache /work/karate.jar /work/karate-*.jar \
       /work/allure-results /work/allure-report /work/.allure 2>/dev/null || true
     if [ "$3" = "true" ]; then

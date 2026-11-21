@@ -25,8 +25,12 @@ target/
 test/target/
 *.log
 zap-report.html
+zap-report.json
 chaos-report.html
 profile.svg
+reports/
+sbom.cyclonedx.json
+sbom-*.cdx.json
 graphify-out/
 .agents/ACTIVE_TASK.md
 .agents/.qa-evidence.json

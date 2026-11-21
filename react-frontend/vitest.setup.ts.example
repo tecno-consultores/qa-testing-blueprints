@@ -14,7 +14,7 @@ function createMemoryStorage(): Storage {
       return store.get(key) ?? null;
     },
     key(index: number): string | null {
-      return Array.from(store.keys())[index] ?? null;
+      return Array.from(store.keys()).at(index) ?? null;
     },
     removeItem(key: string): void {
       store.delete(key);
@@ -28,7 +28,8 @@ function createMemoryStorage(): Storage {
 function ensureStoragePolyfill(storageName: 'localStorage' | 'sessionStorage'): void {
   let current: Partial<Storage> | undefined;
   try {
-    current = globalThis[storageName];
+    current =
+      storageName === 'localStorage' ? globalThis.localStorage : globalThis.sessionStorage;
   } catch {
     current = undefined;
   }

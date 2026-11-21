@@ -196,7 +196,7 @@ function computeJaccard(aTokens: readonly string[], bTokens: readonly string[]):
 }
 
 function hasPortalAttr(attrs: Readonly<Record<string, string>>): boolean {
-  return REACT_PORTAL_ATTRS.some((attr) => attrs[attr] !== undefined);
+  return REACT_PORTAL_ATTRS.some((attr) => Object.hasOwn(attrs, attr));
 }
 
 function isPortalLandmarkName(landmark: string): boolean {
@@ -219,10 +219,10 @@ export function isReactPortal(candidate: DomCandidateNode<unknown>): boolean {
 }
 
 function isDisabledCandidate<TRef>(candidate: DomCandidateNode<TRef>): boolean {
-  const disabledAttr = candidate.attributes['disabled'];
   return (
     candidate.disabled === true ||
-    (disabledAttr !== undefined && disabledAttr !== 'false') ||
+    (Object.hasOwn(candidate.attributes, 'disabled') &&
+      candidate.attributes['disabled'] !== 'false') ||
     candidate.attributes['aria-disabled'] === 'true'
   );
 }

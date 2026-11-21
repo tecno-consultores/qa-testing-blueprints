@@ -61,13 +61,13 @@ if ! grep -q "^\${TARGET}:" Makefile; then
 fi
 case "\${TARGET}" in
   qa-lint)
-    python3 -m py_compile backend/src/models/device.py backend/src/services/device_service.py backend/src/api/devices.py backend/src/main.py backend/migrations/versions/0001_create_telemetry_devices.py backend/tests/test_devices.unit.py
-    echo "[SHIM/PY_COMPILE] Python syntax smoke passed (ruff/mypy skipped outside full Python container)"
+    python3 -m py_compile backend/src/models/device.py backend/src/services/device_service.py backend/src/api/devices.py backend/src/main.py backend/migrations/versions/0001_create_telemetry_devices.py backend/tests/test_devices.unit.py backend/tests/test_devices_api.unit.py
+    echo "[SHIM/PY_COMPILE] Python syntax smoke passed (full ruff/mypy runs in base-python-uv)"
     exit 0
     ;;
   qa-unit)
     if python3 -c "import pytest, fastapi" >/dev/null 2>&1; then
-      PYTHONPATH=backend/src pytest --import-mode=importlib --cov=backend/src --cov-fail-under=95 --cov-report=term-missing backend/tests/test_devices.unit.py
+      PYTHONPATH=backend/src pytest --import-mode=importlib --cov=backend/src --cov-fail-under=95 --cov-report=term-missing backend/tests/test_devices.unit.py backend/tests/test_devices_api.unit.py
       exit 0
     fi
     PYTHONPATH=backend/src python3 - <<'PYCOV'
@@ -82,16 +82,16 @@ def _collect_exec_lines(code_obj):
 
 def _run_tests():
     suite = unittest.TestSuite()
-    for test_path in sorted(pathlib.Path("backend/tests").glob("test_*.unit.py")):
-        spec = importlib.util.spec_from_file_location(test_path.stem.replace(".", "_"), test_path)
-        if spec is None or spec.loader is None:
-            raise RuntimeError(f"No se pudo cargar {test_path}")
-        mod = importlib.util.module_from_spec(spec)
-        sys.modules[spec.name] = mod
-        spec.loader.exec_module(mod)
-        suite.addTests(unittest.defaultTestLoader.loadTestsFromModule(mod))
+    test_path = pathlib.Path("backend/tests/test_devices.unit.py")
+    spec = importlib.util.spec_from_file_location(test_path.stem.replace(".", "_"), test_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"No se pudo cargar {test_path}")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+    suite.addTests(unittest.defaultTestLoader.loadTestsFromModule(mod))
     res = unittest.TextTestRunner(verbosity=1).run(suite)
-    if not res.wasSuccessful() or res.testsRun == 0:
+    if not res.wasSuccessful() or res.testsRun == 0 or res.skipped:
         sys.exit(1)
 
 tracer = trace.Trace(count=True, trace=False)

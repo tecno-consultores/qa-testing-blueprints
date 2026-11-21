@@ -35,7 +35,7 @@ while [[ $# -gt 0 ]]; do
       echo "Uso: ./scripts/probar-mcp-example.sh [--in-place] [--offline] [--verify-tarball]"
       echo "  (por defecto)      Clona el árbol sin node_modules/dist y valida install + build + E2E stdio + tarball en Docker efímero."
       echo "  --in-place         Ejecuta build + E2E stdio + tarball en Docker efímero reutilizando el árbol actual."
-      echo "  --offline          Fuerza resolución de dependencias offline (pnpm install --frozen-lockfile --offline)."
+      echo "  --offline          Fuerza resolución de dependencias offline (pnpm --offline; backend requiere fastapi/httpx o QA_UV_CACHE_DIR)."
       echo "  --verify-tarball   Valida empaquetado tarball y CLI sobre un paquete MCP ya compilado."
       exit 0
       ;;
@@ -50,6 +50,37 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="${QA11X_REPO_ROOT:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 CURRENT_UID="$(id -u)"
 CURRENT_GID="$(id -g)"
+PY_QA_IMAGE="${QA_PY_IMAGE:-sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4}"
+
+run_example_backend_python_qa() {
+  local example_root="$1"
+  local -a net_args=()
+  local -a uv_cache_args=()
+  local uv_offline_flag=""
+  local uv_cache_src="${QA_UV_CACHE_DIR:-${UV_CACHE_DIR:-}}"
+  if [ -n "${uv_cache_src}" ] && [ -d "${uv_cache_src}" ]; then
+    uv_cache_args=(-v "${uv_cache_src}:/tmp/uv-cache")
+  fi
+  if [ "${OFFLINE}" = true ]; then
+    net_args=(--network none)
+    uv_offline_flag="--offline"
+  fi
+  echo "🐍 [MCP Example Backend] Ejecutando ruff, mypy --strict y FastAPI TestClient (>=95%, 0 skips) en Docker efímero..."
+  docker run --rm "${net_args[@]}" --security-opt=no-new-privileges:true \
+    -u "${CURRENT_UID}:${CURRENT_GID}" \
+    -e HOME=/tmp \
+    -e COVERAGE_FILE=/tmp/.coverage \
+    -e UV_CACHE_DIR=/tmp/uv-cache \
+    -e RUFF_CACHE_DIR=/tmp/.ruff_cache \
+    -e PYTHONDONTWRITEBYTECODE=1 \
+    -e PYTHONPATH=/app/backend/src \
+    -e QA_UV_OFFLINE="${uv_offline_flag}" \
+    "${uv_cache_args[@]}" \
+    -v "${example_root}:/app:ro" \
+    -w /app/backend \
+    "${PY_QA_IMAGE}" \
+    sh -c 'ruff check --select E,F,W,I,UP,B,C901,PLR0913 src/ tests/ && ruff format --check src/ tests/ && mypy --strict --cache-dir=/tmp/mypy src/ tests/*.unit.py && if python3 -c "import fastapi, httpx" >/dev/null 2>&1; then PY_BIN=python3; else uv venv -q --system-site-packages /tmp/qa-venv && if [ "${QA_UV_OFFLINE:-}" = "--offline" ]; then uv pip install -q --offline --python /tmp/qa-venv/bin/python fastapi httpx || { echo "❌ Modo --offline sin fastapi/httpx preinstalados ni cache UV (UV_CACHE_DIR)." >&2; exit 1; }; else uv pip install -q --python /tmp/qa-venv/bin/python fastapi httpx; fi && PY_BIN=/tmp/qa-venv/bin/python; fi && "$PY_BIN" -m pytest --import-mode=importlib --cov=src --cov-fail-under=95 --cov-report=term-missing -rs -v tests/*.unit.py'
+}
 
 PNPM_INSTALL_FLAGS="--frozen-lockfile --prefer-offline --trust-lockfile --silent"
 if [ "${OFFLINE}" = true ]; then
@@ -120,9 +151,13 @@ if [ "${IN_PLACE}" = true ]; then
     docker compose -f "${REPO_ROOT}/mcp-server/docker-compose.qa.yml" run --rm -T \
     -u "${CURRENT_UID}:${CURRENT_GID}" \
     -e QA_BLUEPRINTS_LOCAL_PATH=/app \
+    -e pnpm_config_verify_deps_before_run=false \
     -e pnpm_config_manage_package_manager_versions=false \
     mcp-server bash -c "[ -d node_modules/.bin ] || pnpm install ${PNPM_INSTALL_FLAGS}; pnpm --silent run build && pnpm run test:example && bash ./example/verify-v2.sh && $(declare -f verify_tarball_cli) && verify_tarball_cli" || rc=$?
   docker compose -f "${REPO_ROOT}/mcp-server/docker-compose.qa.yml" rm -sf pnpm-store-init >/dev/null 2>&1 || true
+  if [ "${rc}" -eq 0 ]; then
+    run_example_backend_python_qa "${REPO_ROOT}/mcp-server/example" || rc=$?
+  fi
   exit "${rc}"
 fi
 
@@ -159,7 +194,10 @@ QA_UID="${CURRENT_UID}" QA_GID="${CURRENT_GID}" \
   docker compose -p "${CLEANROOM_PROJECT}" -f "${CLEANROOM_DIR}/mcp-server/docker-compose.qa.yml" run --rm -T \
   -u "${CURRENT_UID}:${CURRENT_GID}" \
   -e QA_BLUEPRINTS_LOCAL_PATH=/app \
+  -e pnpm_config_verify_deps_before_run=false \
   -e pnpm_config_manage_package_manager_versions=false \
   mcp-server bash -c "pnpm install ${PNPM_INSTALL_FLAGS} && pnpm --silent run build && pnpm run test:example && bash ./example/verify-v2.sh && $(declare -f verify_tarball_cli) && verify_tarball_cli"
 
-echo "✅ [Clean-Room E2E] Instalación limpia + compilación + 19 tools / 13 resources / 12 CLI / verify-v2.sh / tarball CLI verificadas."
+run_example_backend_python_qa "${CLEANROOM_DIR}/mcp-server/example"
+
+echo "✅ [Clean-Room E2E] Instalación limpia + compilación + 19 tools / 13 resources / 12 CLI / verify-v2.sh / tarball CLI / example backend Python QA verificados."

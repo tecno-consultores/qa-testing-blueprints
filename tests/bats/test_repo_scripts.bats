@@ -679,6 +679,80 @@ EOF
   assert_output --partial "[Clean-Room E2E]"
 }
 
+@test "probar-mcp-example.sh: --offline falla cerrado sin fastapi/httpx o cache UV y acepta QA_UV_CACHE_DIR" {
+  _setup_probar_mcp_example_env
+  local py_stub_bin="${BATS_TEST_TMPDIR}/ex_py_stub_bin"
+  local uv_cache_dir="${BATS_TEST_TMPDIR}/ex_uv_cache"
+  local docker_args_log="${BATS_TEST_TMPDIR}/ex_docker_args.log"
+  mkdir -p "${py_stub_bin}" "${uv_cache_dir}"
+  touch "${uv_cache_dir}/fastapi.whl"
+
+  cat >"${py_stub_bin}/python3" <<'EOF'
+#!/usr/bin/env bash
+if [ "${1:-}" = "-c" ]; then
+  exit 1
+fi
+exit 0
+EOF
+  cat >"${py_stub_bin}/uv" <<'EOF'
+#!/usr/bin/env bash
+if [ "${1:-}" = "venv" ]; then
+  mkdir -p /tmp/qa-venv/bin
+  cat > /tmp/qa-venv/bin/python <<'PYEOF'
+#!/usr/bin/env bash
+exit 0
+PYEOF
+  chmod +x /tmp/qa-venv/bin/python
+  exit 0
+fi
+if [ "${1:-}" = "pip" ] && [ "${2:-}" = "install" ]; then
+  [ -f /tmp/uv-cache/fastapi.whl ] && exit 0
+  exit 1
+fi
+exit 0
+EOF
+  for tool in ruff mypy; do
+    printf '#!/usr/bin/env bash\nexit 0\n' >"${py_stub_bin}/${tool}"
+  done
+  chmod +x "${py_stub_bin}/python3" "${py_stub_bin}/uv" "${py_stub_bin}/ruff" "${py_stub_bin}/mypy"
+
+  cat >"${FAKE_BIN}/docker" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>"${docker_args_log}"
+if printf '%s\n' "\$*" | grep -q "mcp-server bash -c"; then
+  cmd="\${@: -1}"
+  (cd "${WORK}/mcp-server" && exec bash -c "\${cmd}")
+  exit \$?
+fi
+if printf '%s\n' "\$*" | grep -q "sh -c"; then
+  cmd="\${@: -1}"
+  has_cache=0
+  if printf '%s\n' "\$*" | grep -q "${uv_cache_dir}:/tmp/uv-cache"; then
+    has_cache=1
+  fi
+  rm -rf /tmp/uv-cache /tmp/qa-venv
+  mkdir -p /tmp/uv-cache
+  [ "\${has_cache}" -eq 1 ] && touch /tmp/uv-cache/fastapi.whl
+  PATH="${py_stub_bin}:\${PATH}" QA_UV_OFFLINE="--offline" bash -c "\${cmd}"
+  rc=\$?
+  rm -rf /tmp/uv-cache /tmp/qa-venv
+  exit \$rc
+fi
+exit 0
+EOF
+  chmod +x "${FAKE_BIN}/docker"
+
+  run env QA11X_REPO_ROOT="${WORK}" HOME="${FAKE_HOME}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/probar-mcp-example.sh" --in-place --offline
+  assert_failure 1
+  assert_output --partial "Modo --offline sin fastapi/httpx preinstalados ni cache UV (UV_CACHE_DIR)"
+
+  : >"${docker_args_log}"
+  run env QA11X_REPO_ROOT="${WORK}" QA_UV_CACHE_DIR="${uv_cache_dir}" HOME="${FAKE_HOME}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/probar-mcp-example.sh" --in-place --offline
+  assert_success
+  run grep -F -- "-v ${uv_cache_dir}:/tmp/uv-cache" "${docker_args_log}"
+  assert_success
+}
+
 @test "publicar-mcp.sh (F8.20): valida ensure_fresh_dist_before_pack recompilando si falta dist y bloqueando si persiste obsoleto" {
   WORK="${BATS_TEST_TMPDIR}/pub_repo"
   FAKE_BIN="${BATS_TEST_TMPDIR}/pub_bin"
@@ -1364,4 +1438,532 @@ EOF
   run env QA11X_REPO_ROOT="${pub_cov_ws}" PATH="${pub_cov_bin}:/usr/bin:/bin" LC_ALL=C "${REPO_ROOT}/scripts/publicar-mcp.sh" --dry-run --skip-tests
   assert_failure 1
   assert_output --partial "expuestos en npm pack"
+}
+
+@test "verificar-secretos.sh y generar-sbom-cyclonedx.sh: bloquean UTF-8/.env en Git, arg vacío y escape symlink" {
+  # 1. verificar-secretos.sh: rutas UTF-8 no-ASCII (café/.env y café_secret.py) sin core.quotePath=false
+  local utf8_ws="${BATS_TEST_TMPDIR}/utf8_sec_ws"
+  local stub_bin="${BATS_TEST_TMPDIR}/utf8_sec_bin"
+  mkdir -p "${utf8_ws}/scripts" "${utf8_ws}/café" "${stub_bin}"
+  cp "${REPO_ROOT}/scripts/verificar-secretos.sh" "${utf8_ws}/scripts/verificar-secretos.sh"
+  chmod +x "${utf8_ws}/scripts/verificar-secretos.sh"
+  printf '#!/usr/bin/env bash\nexit 0\n' >"${stub_bin}/docker"
+  chmod +x "${stub_bin}/docker"
+
+  (
+    cd "${utf8_ws}"
+    git init -q
+    git config user.email "qa@example.com"
+    git config user.name "QA"
+    printf 'ok=1\n' >README.md
+    git add README.md
+    git commit -qm init
+    printf 'AWS_ACCESS_KEY_ID=AKIA1234567890ABCDEF\n' >"café/.env" # qa-secret-fixture-ok
+    git add "café/.env"
+  )
+  run env PATH="${stub_bin}:/usr/bin:/bin" LC_ALL=C bash -c 'cd "$1" && bash scripts/verificar-secretos.sh' _ "${utf8_ws}"
+  assert_failure 1
+  assert_output --partial "Archivo sensible trackeado en Git"
+
+  (
+    cd "${utf8_ws}"
+    git rm -qf --cached "café/.env"
+    rm -f "café/.env"
+    printf 'AWS_ACCESS_KEY_ID = "AKIA1234567890ABCDEF"\n' >"café_secret.py" # qa-secret-fixture-ok
+    git add "café_secret.py"
+  )
+  run env PATH="${stub_bin}:/usr/bin:/bin" LC_ALL=C bash -c 'cd "$1" && bash scripts/verificar-secretos.sh' _ "${utf8_ws}"
+  assert_failure 1
+  assert_output --partial "café_secret.py"
+
+  # 2. generar-sbom-cyclonedx.sh: argumento vacío explícito "" y symlink escape fuera del repo
+  local sbom_ws="${BATS_TEST_TMPDIR}/sbom_sec_ws"
+  local sbom_out_ext="${BATS_TEST_TMPDIR}/sbom_outside"
+  mkdir -p "${sbom_ws}/scripts" "${sbom_out_ext}"
+  cp "${REPO_ROOT}/scripts/generar-sbom-cyclonedx.sh" "${sbom_ws}/scripts/generar-sbom-cyclonedx.sh"
+  chmod +x "${sbom_ws}/scripts/generar-sbom-cyclonedx.sh"
+  ln -s "${sbom_out_ext}" "${sbom_ws}/escape_dir"
+
+  run env PATH="${stub_bin}:/usr/bin:/bin" LC_ALL=C bash "${sbom_ws}/scripts/generar-sbom-cyclonedx.sh" ""
+  assert_failure 1
+  assert_output --partial "ruta de salida debe ser relativa"
+
+  run env PATH="${stub_bin}:/usr/bin:/bin" LC_ALL=C bash "${sbom_ws}/scripts/generar-sbom-cyclonedx.sh" "escape_dir/pwned.json"
+  assert_failure 1
+  assert_output --partial "escapa del repositorio"
+  [ ! -e "${sbom_out_ext}/pwned.json" ]
+}
+
+@test "auditar-infra.sh y certify_task_completion.sh: cubren guardas QA-CI-ESCAPE-01, QA-MAKE-CURDIR-01, missing docker, Trivy failures y fallback" {
+  local infra_ws="${BATS_TEST_TMPDIR}/infra_cov_ws"
+  local infra_bin="${BATS_TEST_TMPDIR}/infra_cov_bin"
+  mkdir -p "${infra_ws}/scripts" "${infra_ws}/.agents/scripts" "${infra_ws}/.github/workflows" "${infra_ws}/.github/actions/demo" "${infra_ws}/fastapi" "${infra_bin}"
+  cp "${REPO_ROOT}/scripts/auditar-infra.sh" "${infra_ws}/scripts/auditar-infra.sh"
+  cp "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh" "${infra_ws}/.agents/scripts/certify_task_completion.sh"
+  chmod +x "${infra_ws}/scripts/auditar-infra.sh" "${infra_ws}/.agents/scripts/certify_task_completion.sh"
+
+  # Copiar herramientas mínimas sin docker para verificar pre-chequeo Regla Cero
+  for cmd in awk basename bash cat chmod cp date dirname env find git grep head id mkdir mktemp mv printf realpath rm sh sort xargs sha256sum; do
+    if command -v "${cmd}" >/dev/null 2>&1; then
+      ln -sf "$(command -v "${cmd}")" "${infra_bin}/${cmd}"
+    fi
+  done
+
+  printf 'permissions:\n  contents: read\njobs:\n  t:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo "$(VAR)"\n' >"${infra_ws}/.github/workflows/ci.yml"
+  printf 'qa-unit:\n\t@echo "$(CURDIR)"\n' >"${infra_ws}/fastapi/Makefile"
+
+  run env PATH="${infra_bin}" LC_ALL=C bash "${infra_ws}/scripts/auditar-infra.sh" --help
+  assert_success
+  run env PATH="${infra_bin}" LC_ALL=C bash "${infra_ws}/scripts/auditar-infra.sh" --bogus
+  assert_failure 1
+  run env PATH="${infra_bin}" LC_ALL=C bash "${infra_ws}/scripts/auditar-infra.sh" --static-only
+  assert_success
+  assert_output --partial "QA-CI-ESCAPE-01"
+
+  # Sin docker en PATH debe emitir error claro de Regla Cero (no falso reporte Trivy)
+  run env PATH="${infra_bin}" LC_ALL=C bash "${infra_ws}/scripts/auditar-infra.sh"
+  assert_failure 1
+  assert_output --partial "Se requiere Docker disponible en PATH"
+
+  # Violación QA-CI-ESCAPE-01 y QA-MAKE-CURDIR-01 en auditar-infra.sh y en certify fallback
+  printf 'jobs:\n  t:\n    steps:\n      - run: echo "$$(BAD_ESC)"\n' >"${infra_ws}/.github/workflows/bad.yml"
+  printf 'qa-unit:\n\t@echo "$(PWD)"\n' >"${infra_ws}/fastapi/Makefile.example"
+  run env PATH="${infra_bin}" LC_ALL=C bash "${infra_ws}/scripts/auditar-infra.sh" --static-only
+  assert_failure 1
+  assert_output --partial "QA-CI-ESCAPE-01"
+  assert_output --partial "QA-MAKE-CURDIR-01"
+
+  # Fallback de certify_task_completion.sh cuando scripts/auditar-infra.sh no está
+  local fb_ws="${BATS_TEST_TMPDIR}/cert_fb_ws"
+  mkdir -p "${fb_ws}/.agents/scripts" "${fb_ws}/.github/workflows" "${fb_ws}/fastapi"
+  cp "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh" "${fb_ws}/.agents/scripts/certify_task_completion.sh"
+  printf '#!/usr/bin/env bash\nexit 0\n' >"${fb_ws}/verificar-secretos.sh"
+  chmod +x "${fb_ws}/.agents/scripts/certify_task_completion.sh" "${fb_ws}/verificar-secretos.sh"
+  printf 'jobs:\n  t:\n    steps:\n      - run: echo "$$(BAD_ESC)"\n' >"${fb_ws}/.github/workflows/bad.yml"
+  printf 'qa-unit:\n\t@echo "${PWD}"\n' >"${fb_ws}/fastapi/Makefile"
+  (
+    cd "${fb_ws}" && git init -q && git config user.email a@b.c && git config user.name a && git add . && git commit -qm init
+  )
+  run env PATH="${infra_bin}:/usr/bin:/bin" LC_ALL=C bash "${fb_ws}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 1
+  assert_output --partial "QA-CI-ESCAPE-01"
+  assert_output --partial "QA-MAKE-CURDIR-01"
+
+  # Fallback limpio (exit 20 -> SKIPPED) + raíz auditar-infra.sh fallback + --help / opción inválida
+  printf 'jobs:\n  t:\n    steps:\n      - run: echo "$(OK)"\n' >"${fb_ws}/.github/workflows/bad.yml"
+  printf 'qa-unit:\n\t@echo "$(CURDIR)"\n' >"${fb_ws}/fastapi/Makefile"
+  run env PATH="${infra_bin}:/usr/bin:/bin" LC_ALL=C bash "${fb_ws}/.agents/scripts/certify_task_completion.sh" --help
+  assert_success
+  run env PATH="${infra_bin}:/usr/bin:/bin" LC_ALL=C bash "${fb_ws}/.agents/scripts/certify_task_completion.sh" --unknown-flag
+  assert_failure 1
+  run env PATH="${infra_bin}:/usr/bin:/bin" LC_ALL=C bash "${fb_ws}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 2
+  assert_output --partial "SKIPPED: Script auditar-infra.sh no encontrado"
+  printf '#!/usr/bin/env bash\nexit 0\n' >"${fb_ws}/auditar-infra.sh"
+  chmod +x "${fb_ws}/auditar-infra.sh"
+  run env PATH="${infra_bin}:/usr/bin:/bin" LC_ALL=C bash "${fb_ws}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 2
+  assert_output --partial "[2/10] ✔ [Trivy IaC & FS] OK"
+
+  # Trivy config fail & Trivy fs fail en auditar-infra.sh con docker stub
+  rm -f "${infra_ws}/.github/workflows/bad.yml" "${infra_ws}/fastapi/Makefile.example"
+  cat >"${infra_bin}/docker" <<'EOF'
+#!/usr/bin/env bash
+if [[ "$*" == *" config "* ]] && [[ "${FAIL_STEP:-}" == "config" ]]; then
+  echo "HIGH: fake iac misconfig"
+  exit 1
+fi
+if [[ "$*" == *" fs "* ]] && [[ "${FAIL_STEP:-}" == "fs" ]]; then
+  echo "CRITICAL: fake cve"
+  exit 1
+fi
+exit 0
+EOF
+  chmod +x "${infra_bin}/docker"
+  run env FAIL_STEP=config PATH="${infra_bin}" LC_ALL=C bash "${infra_ws}/scripts/auditar-infra.sh" --force
+  assert_failure 1
+  assert_output --partial "Trivy IaC"
+  run env FAIL_STEP=fs PATH="${infra_bin}" LC_ALL=C bash "${infra_ws}/scripts/auditar-infra.sh" --force
+  assert_failure 1
+  assert_output --partial "Trivy FS"
+}
+
+@test "instalar-hooks.sh: falla fuera de git y activa lefthook cuando existe en PATH" {
+  local nogit_ws="${BATS_TEST_TMPDIR}/nogit_hooks"
+  local lh_bin="${BATS_TEST_TMPDIR}/lh_bin"
+  mkdir -p "${nogit_ws}" "${lh_bin}"
+  run env QA11X_REPO_ROOT="${nogit_ws}" LC_ALL=C bash "${REPO_ROOT}/instalar-hooks.sh"
+  assert_failure 1
+  assert_output --partial "No se encontró un repositorio Git válido"
+
+  local git_lh_ws="${BATS_TEST_TMPDIR}/git_lh_ws"
+  mkdir -p "${git_lh_ws}"
+  (cd "${git_lh_ws}" && git init -q)
+  printf '#!/usr/bin/env bash\necho "lefthook installed"\nexit 0\n' >"${lh_bin}/lefthook"
+  chmod +x "${lh_bin}/lefthook"
+  run env QA11X_REPO_ROOT="${git_lh_ws}" PATH="${lh_bin}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/instalar-hooks.sh"
+  assert_success
+  assert_output --partial "Barrera Lefthook activada"
+}
+
+_setup_pub_cli_ws() {
+  local pub_ws="${BATS_TEST_TMPDIR}/pub_cli_ws"
+  mkdir -p "${pub_ws}/scripts"
+  printf '#!/usr/bin/env bash\nexit 0\n' >"${pub_ws}/scripts/limpieza.sh"
+  chmod +x "${pub_ws}/scripts/limpieza.sh"
+  printf '%s\n' "${pub_ws}"
+}
+
+@test "publicar-mcp.sh: --help muestra ayuda completa y sale 0" {
+  local pub_ws
+  pub_ws="$(_setup_pub_cli_ws)"
+  run env QA11X_REPO_ROOT="${pub_ws}" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --help
+  assert_success
+  assert_output --partial "NPM_TOKEN"
+}
+
+@test "publicar-mcp.sh: --otp sin argumento falla con codigo 1" {
+  local pub_ws
+  pub_ws="$(_setup_pub_cli_ws)"
+  run env QA11X_REPO_ROOT="${pub_ws}" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --otp
+  assert_failure 1
+  assert_output --partial "requiere un código"
+}
+
+@test "publicar-mcp.sh: --otp= vacio falla con codigo 1" {
+  local pub_ws
+  pub_ws="$(_setup_pub_cli_ws)"
+  run env QA11X_REPO_ROOT="${pub_ws}" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --otp=
+  assert_failure 1
+  assert_output --partial "requiere un código"
+}
+
+@test "publicar-mcp.sh: flag desconocida falla con codigo 1" {
+  local pub_ws
+  pub_ws="$(_setup_pub_cli_ws)"
+  run env QA11X_REPO_ROOT="${pub_ws}" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --bad-flag
+  assert_failure 1
+  assert_output --partial "Opción no reconocida"
+}
+
+@test "publicar-mcp.sh: package.json ausente falla con codigo 1" {
+  local pub_ws
+  pub_ws="$(_setup_pub_cli_ws)"
+  run env QA11X_REPO_ROOT="${pub_ws}" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --otp 123456 --dry-run
+  assert_failure 1
+  assert_output --partial "No se encontró mcp-server/package.json"
+}
+
+@test "publicar-mcp.sh: cubre NPM_TOKEN ausente, REMOTE_EXISTS y bucle CDN" {
+  local pub_ws="${BATS_TEST_TMPDIR}/pub_extra_ws"
+  local pub_bin="${BATS_TEST_TMPDIR}/pub_extra_bin"
+  mkdir -p "${pub_ws}/scripts" "${pub_ws}/mcp-server/src" "${pub_ws}/mcp-server/dist" "${pub_ws}/mcp-server/node_modules/.bin" "${pub_bin}"
+  printf '#!/usr/bin/env bash\nexit 0\n' >"${pub_ws}/scripts/limpieza.sh"
+  chmod +x "${pub_ws}/scripts/limpieza.sh"
+  printf '{"name":"@sinfallas/mcp-qa-11x","version":"3.2.0"}\n' >"${pub_ws}/mcp-server/package.json"
+  printf 'export const x = 1;\n' >"${pub_ws}/mcp-server/src/index.ts"
+  touch -t 202601010000 "${pub_ws}/mcp-server/src/index.ts"
+  printf 'export const x = 1;\n' >"${pub_ws}/mcp-server/dist/index.js"
+  touch -t 202601010001 "${pub_ws}/mcp-server/dist/index.js"
+
+  # Sin NPM_TOKEN en modo vivo falla con instrucciones
+  run env -u NPM_TOKEN QA11X_REPO_ROOT="${pub_ws}" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh"
+  assert_failure 1
+  assert_output --partial "NPM_TOKEN no configurada"
+
+  # Stub docker + no-op sleep para cubrir REMOTE_EXISTS (dry-run y live) y bucle CDN
+  printf '#!/usr/bin/env bash\nexit 0\n' >"${pub_bin}/sleep"
+  cat >"${pub_bin}/docker" <<'EOF'
+#!/usr/bin/env bash
+if [[ "$*" == *"npm view"* ]]; then
+  if [[ "${MOCK_REMOTE:-none}" == "exists" ]]; then
+    echo "3.2.0"
+    exit 0
+  fi
+  if [[ "${MOCK_REMOTE:-none}" == "cdn_delay" ]]; then
+    c_file="${CDN_COUNT_FILE:-/tmp/cdn_cnt}"
+    n=0
+    [ -f "$c_file" ] && n=$(cat "$c_file")
+    n=$((n + 1))
+    echo "$n" >"$c_file"
+    if [ "$n" -eq 1 ]; then
+      exit 1
+    fi
+    echo ""
+    exit 0
+  fi
+  exit 1
+fi
+exit 0
+EOF
+  chmod +x "${pub_bin}/sleep" "${pub_bin}/docker"
+
+  run env MOCK_REMOTE=exists QA11X_REPO_ROOT="${pub_ws}" PATH="${pub_bin}:/usr/bin:/bin" LC_ALL=C "${REPO_ROOT}/scripts/publicar-mcp.sh" --dry-run --skip-tests
+  assert_success
+  assert_output --partial "esperado en simulación"
+
+  run env NPM_TOKEN="npm_realMock1234567890" MOCK_REMOTE=exists QA11X_REPO_ROOT="${pub_ws}" PATH="${pub_bin}:/usr/bin:/bin" LC_ALL=C "${REPO_ROOT}/scripts/publicar-mcp.sh" --skip-tests # qa-secret-fixture-ok
+  assert_failure 1
+  assert_output --partial "ya está publicada en npmjs.org"
+
+  local cdn_cnt="${BATS_TEST_TMPDIR}/cdn_cnt"
+  rm -f "${cdn_cnt}"
+  run env NPM_TOKEN="npm_realMock1234567890" MOCK_REMOTE=cdn_delay CDN_COUNT_FILE="${cdn_cnt}" QA11X_REPO_ROOT="${pub_ws}" PATH="${pub_bin}:/usr/bin:/bin" LC_ALL=C "${REPO_ROOT}/scripts/publicar-mcp.sh" --skip-tests --otp=654321 # qa-secret-fixture-ok
+  assert_success
+  assert_output --partial "aún está procesando la propagación"
+}
+
+@test "generar-sbom-cyclonedx.sh: cubre fallback de symlink sin realpath en PATH" {
+  local sb_ws="${BATS_TEST_TMPDIR}/sb_noreal_ws"
+  local sb_out="${BATS_TEST_TMPDIR}/sb_noreal_out"
+  local sb_bin="${BATS_TEST_TMPDIR}/sb_noreal_bin"
+  mkdir -p "${sb_ws}/scripts" "${sb_out}" "${sb_bin}"
+  cp "${REPO_ROOT}/scripts/generar-sbom-cyclonedx.sh" "${sb_ws}/scripts/generar-sbom-cyclonedx.sh"
+  chmod +x "${sb_ws}/scripts/generar-sbom-cyclonedx.sh"
+  ln -s "${sb_out}" "${sb_ws}/sym_escape"
+  for tool in bash sh dirname basename pwd mkdir ln cat rm date env id chmod tr sha256sum sed awk; do
+    resolved="$(command -v "${tool}" || true)"
+    [ -n "${resolved}" ] && ln -sf "${resolved}" "${sb_bin}/${tool}"
+  done
+
+  run env PATH="${sb_bin}" LC_ALL=C bash "${sb_ws}/scripts/generar-sbom-cyclonedx.sh" "sym_escape/out.json"
+  assert_failure 1
+  assert_output --partial "escapa del repositorio vía enlace simbólico"
+}
+
+@test "certify_task_completion.sh y instalar-hooks.sh: soportan rutas UTF-8 no-ASCII (core.quotePath=false)" {
+  local utf_ws="${BATS_TEST_TMPDIR}/cert_utf8_ws"
+  local utf_bin="${BATS_TEST_TMPDIR}/cert_utf8_bin"
+  mkdir -p "${utf_ws}/.agents/scripts" "${utf_ws}/scripts" "${utf_bin}"
+  cp "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh" "${utf_ws}/.agents/scripts/certify_task_completion.sh"
+  cp "${REPO_ROOT}/scripts/verificar-secretos.sh" "${utf_ws}/scripts/verificar-secretos.sh"
+  cp "${REPO_ROOT}/instalar-hooks.sh" "${utf_ws}/instalar-hooks.sh"
+  printf '#!/usr/bin/env bash\nexit 0\n' >"${utf_ws}/scripts/auditar-infra.sh"
+  chmod +x "${utf_ws}/.agents/scripts/certify_task_completion.sh" "${utf_ws}/scripts/verificar-secretos.sh" "${utf_ws}/instalar-hooks.sh" "${utf_ws}/scripts/auditar-infra.sh"
+
+  for stub_py in \
+    verify_json_no_duplicate_keys.py \
+    verify_zero_orphan_vue_components.py \
+    verify_no_orphan_api_endpoints.py \
+    verify_topological_health.py \
+    verify_alembic_orm_parity.py \
+    verify_roadmap_consistency.py; do
+    printf 'print("✔ [%s] stub OK")\n' "${stub_py}" >"${utf_ws}/.agents/scripts/${stub_py}"
+  done
+  printf 'print("✔ [generar-manifiesto] stub OK")\n' >"${utf_ws}/scripts/generar-manifiesto.py"
+
+  printf '#!/usr/bin/env bash\nexit 0\n' >"${utf_bin}/docker"
+  chmod +x "${utf_bin}/docker"
+
+  (
+    cd "${utf_ws}"
+    git init -q
+    git config user.email "qa@example.com"
+    git config user.name "QA"
+    printf '#!/usr/bin/env bash\necho ok\n' >"scripts/café.sh"
+    git add .
+    git commit -qm init
+    printf '#!/usr/bin/env bash\necho changed\n' >"scripts/café.sh"
+  )
+
+  run env QA11X_STRICT=0 PATH="${utf_bin}:/usr/bin:/bin" LC_ALL=C.UTF-8 bash "${utf_ws}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 1
+  assert_output --partial "QA-TEST-SYNC-01"
+  assert_output --partial "scripts/café.sh"
+
+  (
+    cd "${utf_ws}"
+    git checkout -- "scripts/café.sh"
+    printf 'x = 1\n' >"café.py"
+    git add "café.py"
+  )
+  run env PATH="${utf_bin}:/usr/bin:/bin" LC_ALL=C.UTF-8 bash "${utf_ws}/instalar-hooks.sh"
+  assert_success
+  assert_output --partial "Barrera Git POSIX activada"
+
+  run env PATH="${utf_bin}:/usr/bin:/bin" LC_ALL=C.UTF-8 bash -c 'cd "$1" && ./.git/hooks/pre-commit' _ "${utf_ws}"
+  assert_success
+}
+
+@test "verificar-secretos.sh: bloquea .env sin trackear en modo git sin argumentos" {
+  local git_env_ws="${BATS_TEST_TMPDIR}/git_env_ws"
+  mkdir -p "${git_env_ws}"
+  git -C "${git_env_ws}" init -q
+  git -C "${git_env_ws}" config user.email "qa@example.com"
+  git -C "${git_env_ws}" config user.name "QA"
+  printf '# Repo clean\n' >"${git_env_ws}/README.md"
+  git -C "${git_env_ws}" add README.md
+  git -C "${git_env_ws}" commit -qm "chore: init"
+
+  # 1. .env.example sin trackear está permitido en descubrimiento automático git
+  printf 'DEBUG=true\nADMIN_USER=root\n' >"${git_env_ws}/.env.example"
+  run env QA11X_DOCKERENV_PATH="/.dockerenv" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${git_env_ws}" "${REPO_ROOT}"
+  assert_success
+  assert_output --partial "0 secretos expuestos"
+
+  # 2. .env sin trackear (sin patrones de secreto largo) debe bloquearse con 0 argumentos
+  printf 'DEBUG=true\nADMIN_USER=root\n' >"${git_env_ws}/.env"
+  run env QA11X_DOCKERENV_PATH="/.dockerenv" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${git_env_ws}" "${REPO_ROOT}"
+  assert_failure 1
+  assert_output --partial "Archivo sensible .env bloqueado"
+
+  # 3. Paridad con argumento explícito .env
+  run env QA11X_DOCKERENV_PATH="/.dockerenv" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" .env' _ "${git_env_ws}" "${REPO_ROOT}"
+  assert_failure 1
+  assert_output --partial "Archivo sensible .env bloqueado"
+
+  # 4. .env trackeado en índice Git también falla inmediatamente
+  git -C "${git_env_ws}" add -f .env
+  run env QA11X_DOCKERENV_PATH="/.dockerenv" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${git_env_ws}" "${REPO_ROOT}"
+  assert_failure 1
+  assert_output --partial "Archivo sensible trackeado en Git"
+}
+
+@test "certify_task_completion.sh: rechaza symlinks en QA_DIAGNOSTIC_JSON sin sobrescribir archivos externos" {
+  local diag_ws="${BATS_TEST_TMPDIR}/diag_sym_ws"
+  local outside_dir="${BATS_TEST_TMPDIR}/diag_outside"
+  mkdir -p "${diag_ws}/.agents/scripts" "${diag_ws}/scripts" "${outside_dir}"
+  cp "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh" "${diag_ws}/.agents/scripts/certify_task_completion.sh"
+  cp "${REPO_ROOT}/scripts/verificar-secretos.sh" "${diag_ws}/scripts/verificar-secretos.sh"
+  chmod +x "${diag_ws}/.agents/scripts/certify_task_completion.sh" "${diag_ws}/scripts/verificar-secretos.sh"
+
+  git -C "${diag_ws}" init -q
+  git -C "${diag_ws}" config user.email "qa@example.com"
+  git -C "${diag_ws}" config user.name "QA"
+  printf '# clean\n' >"${diag_ws}/README.md"
+  git -C "${diag_ws}" add .
+  git -C "${diag_ws}" commit -qm "chore: init"
+  printf 'DEBUG=true\n' >"${diag_ws}/.env"
+
+  local victim_file="${outside_dir}/victim.txt"
+  printf 'KEEP_SAFE_ORIGINAL\n' >"${victim_file}"
+  chmod 0644 "${victim_file}"
+  ln -s "${victim_file}" "${diag_ws}/sym_diag.json"
+  ln -s "${outside_dir}" "${diag_ws}/.agents/sym_dir"
+
+  # 1. Symlink directo en QA_DIAGNOSTIC_JSON no sobrescribe victim.txt
+  run env QA11X_DOCKERENV_PATH="/.dockerenv" QA_DIAGNOSTIC_JSON="${diag_ws}/sym_diag.json" LC_ALL=C bash "${diag_ws}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 1
+  assert_output --partial "Ruta symlink rechazada por seguridad"
+  [ "$(cat "${victim_file}")" = "KEEP_SAFE_ORIGINAL" ]
+
+  # 2. Ancestro symlink en QA_DIAGNOSTIC_JSON no crea subdirectorios ni escribe fuera
+  run env QA11X_DOCKERENV_PATH="/.dockerenv" QA_DIAGNOSTIC_JSON="${diag_ws}/.agents/sym_dir/sub/diag.json" LC_ALL=C bash "${diag_ws}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 1
+  assert_output --partial "Ruta symlink rechazada por seguridad"
+  [ ! -e "${outside_dir}/sub" ]
+
+  # 3. Ruta legítima bajo /tmp escribe JSON diagnóstico válido (cubre rama /tmp/*)
+  local legit_diag="${BATS_TEST_TMPDIR}/diag_legit/failure.json"
+  run env QA11X_DOCKERENV_PATH="/.dockerenv" QA_DIAGNOSTIC_JSON="${legit_diag}" LC_ALL=C bash "${diag_ws}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 1
+  [ -f "${legit_diag}" ]
+
+  # 4. Helper Python embebido también rechaza symlinks directos y ancestrales de forma independiente
+  local py_helper="${BATS_TEST_TMPDIR}/certify_diag_helper.py"
+  awk '/^PYEOF$/{flag=0} flag{print} /<<'\''PYEOF'\''/{flag=1}' "${diag_ws}/.agents/scripts/certify_task_completion.sh" >"${py_helper}"
+  local py_log="${BATS_TEST_TMPDIR}/py_diag_log.txt"
+  local py_steps="${BATS_TEST_TMPDIR}/py_diag_steps.txt"
+  printf 'Gate 1 failed\n' >"${py_log}"
+  printf '1/10|Secret Audit|failed\n' >"${py_steps}"
+
+  run env QA_LOG_FILE="${py_log}" QA_STEPS_FILE="${py_steps}" QA_GATE_NUM="1" QA_GATE_NAME="Secret Audit" QA_CMD="bash scripts/verificar-secretos.sh" QA_RC="1" QA_REMEDIATION="fix" QA_DIAG_PATH="${diag_ws}/sym_diag.json" python3 "${py_helper}"
+  assert_failure 1
+  assert_output --partial "Symlink no permitido en QA_DIAG_PATH"
+  [ "$(cat "${victim_file}")" = "KEEP_SAFE_ORIGINAL" ]
+
+  run env QA_LOG_FILE="${py_log}" QA_STEPS_FILE="${py_steps}" QA_GATE_NUM="1" QA_GATE_NAME="Secret Audit" QA_CMD="bash scripts/verificar-secretos.sh" QA_RC="1" QA_REMEDIATION="fix" QA_DIAG_PATH="${diag_ws}/.agents/sym_dir/sub/diag.json" python3 "${py_helper}"
+  assert_failure 1
+  assert_output --partial "Symlink no permitido en QA_DIAG_PATH"
+  [ ! -e "${outside_dir}/sub" ]
+}
+
+@test "certify_task_completion.sh: bloquea traversal '..' con symlinks en QA_DIAGNOSTIC_JSON y helper Python" {
+  local trav_ws="${BATS_TEST_TMPDIR}/diag_trav_ws"
+  local outside_dir="${BATS_TEST_TMPDIR}/diag_trav_outside"
+  mkdir -p "${trav_ws}/.agents/scripts" "${trav_ws}/scripts" "${outside_dir}/nested"
+  cp "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh" "${trav_ws}/.agents/scripts/certify_task_completion.sh"
+  cp "${REPO_ROOT}/scripts/verificar-secretos.sh" "${trav_ws}/scripts/verificar-secretos.sh"
+  chmod +x "${trav_ws}/.agents/scripts/certify_task_completion.sh" "${trav_ws}/scripts/verificar-secretos.sh"
+
+  git -C "${trav_ws}" init -q
+  git -C "${trav_ws}" config user.email "qa@example.com"
+  git -C "${trav_ws}" config user.name "QA"
+  printf '# clean\n' >"${trav_ws}/README.md"
+  git -C "${trav_ws}" add .
+  git -C "${trav_ws}" commit -qm "chore: init"
+  printf 'DEBUG=true\n' >"${trav_ws}/.env"
+
+  local pwn_file="${outside_dir}/pwn.json"
+  printf 'ORIG_VICTIM\n' >"${pwn_file}"
+  chmod 0644 "${pwn_file}"
+  ln -s "${outside_dir}/nested" "${trav_ws}/nest_sym"
+  ln -s "${outside_dir}" "${trav_ws}/anc_sym"
+
+  # 1. nonexistent/../nest_sym/../pwn.json rechazado antes de mkdir y sin sobrescribir pwn.json
+  run env QA11X_DOCKERENV_PATH="/.dockerenv" QA_DIAGNOSTIC_JSON="${trav_ws}/nonexistent/../nest_sym/../pwn.json" LC_ALL=C bash "${trav_ws}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 1
+  assert_output --partial "Ruta symlink rechazada por seguridad"
+  [ ! -e "${trav_ws}/nonexistent" ]
+  [ "$(cat "${pwn_file}")" = "ORIG_VICTIM" ]
+
+  # 2. nonexistent/../anc_sym/pwn.json rechazado antes de mkdir y montaje Docker
+  run env QA11X_DOCKERENV_PATH="/.dockerenv" QA_DIAGNOSTIC_JSON="${trav_ws}/nonexistent/../anc_sym/pwn.json" LC_ALL=C bash "${trav_ws}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 1
+  assert_output --partial "Ruta symlink rechazada por seguridad"
+  [ ! -e "${trav_ws}/nonexistent" ]
+  [ "$(cat "${pwn_file}")" = "ORIG_VICTIM" ]
+
+  # 3. Segmento '.' seguido de symlink también es rechazado por diag_has_symlink_segment
+  run env QA11X_DOCKERENV_PATH="/.dockerenv" QA_DIAGNOSTIC_JSON="${trav_ws}/./anc_sym/pwn.json" LC_ALL=C bash "${trav_ws}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 1
+  assert_output --partial "Ruta symlink rechazada por seguridad"
+  [ "$(cat "${pwn_file}")" = "ORIG_VICTIM" ]
+
+  # 4. Helper Python embebido rechaza nest_sym/../py_escape.json sin normalizar '..'
+  local py_helper="${BATS_TEST_TMPDIR}/certify_trav_helper.py"
+  awk '/^PYEOF$/{flag=0} flag{print} /<<'\''PYEOF'\''/{flag=1}' "${trav_ws}/.agents/scripts/certify_task_completion.sh" >"${py_helper}"
+  local py_log="${BATS_TEST_TMPDIR}/py_trav_log.txt"
+  local py_steps="${BATS_TEST_TMPDIR}/py_trav_steps.txt"
+  printf 'Gate 1 failed\n' >"${py_log}"
+  printf '1/10|Secret Audit|failed\n' >"${py_steps}"
+
+  run env QA_LOG_FILE="${py_log}" QA_STEPS_FILE="${py_steps}" QA_GATE_NUM="1" QA_GATE_NAME="Secret Audit" QA_CMD="bash scripts/verificar-secretos.sh" QA_RC="1" QA_REMEDIATION="fix" QA_DIAG_PATH="${trav_ws}/nest_sym/../py_escape.json" python3 "${py_helper}"
+  assert_failure 1
+  assert_output --partial "Symlink no permitido en QA_DIAG_PATH"
+  [ ! -e "${outside_dir}/py_escape.json" ]
+}
+
+@test "verificar-secretos.sh: escanea archivos staged en repo Git sin HEAD con untracked presentes" {
+  local unborn_ws="${BATS_TEST_TMPDIR}/unborn_head_ws"
+  mkdir -p "${unborn_ws}"
+  git -C "${unborn_ws}" init -q
+  git -C "${unborn_ws}" config user.email "qa@example.com"
+  git -C "${unborn_ws}" config user.name "QA"
+
+  local synth_aws="AKIA""1234567890ABCDEF"
+  printf 'KEY = "%s"\n' "${synth_aws}" >"${unborn_ws}/staged_secret.py"
+  git -C "${unborn_ws}" add staged_secret.py
+  printf 'hello\n' >"${unborn_ws}/README.md"
+
+  # 1. Repo sin HEAD con secreto staged y archivo untracked limpio: bloqueado con 0 args
+  run env QA11X_DOCKERENV_PATH="/.dockerenv" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${unborn_ws}" "${REPO_ROOT}"
+  assert_failure 1
+  assert_output --partial "staged_secret.py"
+
+  # 2. Reemplazar secreto staged por contenido limpio: escanea ambos archivos y aprueba
+  printf 'KEY = "clean_value"\n' >"${unborn_ws}/staged_secret.py"
+  git -C "${unborn_ws}" add staged_secret.py
+  run env QA11X_DOCKERENV_PATH="/.dockerenv" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${unborn_ws}" "${REPO_ROOT}"
+  assert_success
+  assert_output --partial "0 secretos expuestos (2 archivos escaneados)"
+
+  # 3. Commit inicial y borrado staged (git rm): excluye archivos borrados sin fallar
+  git -C "${unborn_ws}" add README.md
+  git -C "${unborn_ws}" commit -qm "chore: init"
+  git -C "${unborn_ws}" rm -q staged_secret.py
+  printf 'notes\n' >"${unborn_ws}/notes.txt"
+  run env QA11X_DOCKERENV_PATH="/.dockerenv" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${unborn_ws}" "${REPO_ROOT}"
+  assert_success
+  assert_output --partial "0 secretos expuestos (1 archivos escaneados)"
 }

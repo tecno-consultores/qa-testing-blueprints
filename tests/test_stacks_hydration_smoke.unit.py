@@ -513,11 +513,30 @@ class TestStacksHydrationSmoke(unittest.TestCase):
         )
         self.assertNotIn("--interval 20s", php_compose)
         self.assertIn("./test:/app/src/test/java/examples/test", php_compose)
+        self.assertIn("conf.d/zz-qa11x.ini", php_compose)
+        php_zap = _load_yaml_mapping(
+            (REPO_ROOT / "php" / "zap.yaml.example").read_text(encoding="utf-8")
+        )
+        self.assertIn("contexts", php_zap.get("env", {}))
 
         node_feature = (
             REPO_ROOT / "node-backend" / "test" / "node_api.feature"
         ).read_text(encoding="utf-8")
         self.assertIn("Idempotency-Key", node_feature)
+        node_pact_fixture = json.loads(
+            (
+                REPO_ROOT
+                / "node-backend"
+                / "tests"
+                / "contracts"
+                / "fixtures"
+                / "fastapi-billing-consumer-node-inventory-provider.json"
+            ).read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            node_pact_fixture["provider"]["name"], "node-inventory-provider"
+        )
+        self.assertGreater(len(node_pact_fixture["interactions"]), 0)
         node_pkg = json.loads(
             (REPO_ROOT / "node-backend" / "package.json.example").read_text(
                 encoding="utf-8"
@@ -968,6 +987,7 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             "sinfallas/base-mobile-appium:26", pkg_example.get("description", "")
         )
 
+        self._assert_eslint_flat_config_example(mobile_dir)
         hydration_dir = Path(tempfile.mkdtemp(prefix="smoke_mobile_appium_"))
         try:
             templates = (
@@ -976,6 +996,10 @@ class TestStacksHydrationSmoke(unittest.TestCase):
                 "Makefile.example",
                 "package.json.example",
                 "gitignore.example",
+                "tsconfig.json.example",
+                "eslint.config.mjs.example",
+                ".prettierrc.example",
+                "tests/e2e/mobile_app_smoke.spec.ts",
             )
             for template in templates:
                 src = mobile_dir / template
@@ -985,10 +1009,51 @@ class TestStacksHydrationSmoke(unittest.TestCase):
                     else template.removesuffix(".example")
                 )
                 dest = hydration_dir / target_name
+                dest.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(src, dest)
                 self.assertTrue(dest.is_file(), f"No hidrató {target_name}")
         finally:
             shutil.rmtree(hydration_dir, ignore_errors=True)
+
+    def _assert_nginx_ui_11x_03(self, fe_stack: str, nginx_conf: str) -> None:
+        """Valida UI-11X-03: CORP cross-origin solo en ico/svg/png/webmanifest."""
+        public_img_pat = (
+            r"location\s+~\*\s+\\\.\(\?:ico\|svg\|png\|webmanifest\)\$\s*\{([^}]*)\}"
+        )
+        immutable_pat = (
+            r"location\s+~\*\s+"
+            r"\\\.\(\?:js\|mjs\|css\|woff2\|woff\|ttf\|webp\|avif\)\$\s*\{([^}]*)\}"
+        )
+        index_pat = r"location\s+=\s+/index\.html\s*\{([^}]*)\}"
+
+        server_head = nginx_conf.split("location ", 1)[0]
+        public_match = re.search(public_img_pat, nginx_conf)
+        immutable_match = re.search(immutable_pat, nginx_conf)
+        index_match = re.search(index_pat, nginx_conf)
+        self.assertIsNotNone(public_match, f"Falta bloque UI-11X-03 en {fe_stack}")
+        self.assertIsNotNone(immutable_match, f"Falta bloque estático en {fe_stack}")
+        self.assertIsNotNone(index_match, f"Falta bloque /index.html en {fe_stack}")
+        assert public_match and immutable_match and index_match
+
+        self.assertIn(
+            'add_header Cross-Origin-Resource-Policy "cross-origin" always;',
+            public_match.group(1),
+        )
+        for label, block in (
+            ("server", server_head),
+            ("immutable", immutable_match.group(1)),
+            ("index", index_match.group(1)),
+        ):
+            self.assertIn(
+                'add_header Cross-Origin-Resource-Policy "same-origin" always;',
+                block,
+                f"Falta CORP same-origin en {fe_stack}/{label}",
+            )
+            self.assertNotIn(
+                '"cross-origin"',
+                block,
+                f"CORP cross-origin indebido en {fe_stack}/{label}",
+            )
 
     def test_wave5_frontend_and_backend_stack_invariants(self) -> None:
         """Verifica endurecimientos Wave 5 en stacks backend y frontend."""
@@ -1038,7 +1103,7 @@ class TestStacksHydrationSmoke(unittest.TestCase):
                 REPO_ROOT / fe_stack / "nginx" / "default.conf.example"
             ).read_text(encoding="utf-8")
             self.assertNotIn("expires 1y;", nginx_conf)
-            self.assertNotIn('"cross-origin"', nginx_conf)
+            self._assert_nginx_ui_11x_03(fe_stack, nginx_conf)
             fe_make = (REPO_ROOT / fe_stack / "Makefile.example").read_text(
                 encoding="utf-8"
             )
@@ -1078,6 +1143,88 @@ class TestStacksHydrationSmoke(unittest.TestCase):
                 encoding="utf-8"
             )
             self.assertIn("--security-opt=no-new-privileges:true", clean_sh)
+
+    def _extract_kcov_norm_py(self) -> str:
+        """Extrae el script KCOV_NORM_PY del Makefile desescapando $$ -> $."""
+        lines = (REPO_ROOT / "Makefile").read_text(encoding="utf-8").splitlines()
+        start = next(
+            idx for idx, line in enumerate(lines) if "@kcov_norm_py=$$(printf" in line
+        )
+        end = next(
+            idx for idx in range(start + 1, len(lines)) if lines[idx].strip() == "); \\"
+        )
+        extracted: list[str] = []
+        for raw in lines[start + 1 : end]:
+            stripped = raw.strip()
+            if stripped.endswith("\\"):
+                stripped = stripped[:-1].strip()
+            if stripped.startswith("'") and stripped.endswith("'"):
+                stripped = stripped[1:-1]
+            extracted.append(stripped.replace("$$", "$"))
+        return "\n".join(extracted)
+
+    def test_makefile_kcov_norm_case_boundaries_and_subshells(self) -> None:
+        """Verifica que KCOV_NORM_PY no enmascare case/subshells no cubiertos."""
+        script_src = self._extract_kcov_norm_py()
+        self.assertNotIn(r"^[^#()\n]+\)\s*;;$", script_src)
+
+        with tempfile.TemporaryDirectory(prefix="qa11x_kcov_norm_") as tmp:
+            tmp_root = Path(tmp)
+            repo_dir = tmp_root / "repo"
+            kcov_dir = tmp_root / "kcov" / "kcov-merged"
+            cov_out = tmp_root / "cov-out"
+            (repo_dir / "bash-scripts").mkdir(parents=True)
+            kcov_dir.mkdir(parents=True)
+            cov_out.mkdir(parents=True)
+
+            (repo_dir / "bash-scripts" / "sample_case.sh").write_text(
+                '#!/usr/bin/env bash\n'
+                'case "$1" in\n'
+                '  a | b) ;;\n'
+                '  d) echo "uncovered" ;;\n'
+                '  e) (echo "uncovered_subshell") ;;\n'
+                'esac\n'
+                'case "$2" in\n'
+                '  never_hit) ;;\n'
+                'esac\n'
+                'orphan_pattern) ;;\n',
+                encoding="utf-8",
+            )
+            (kcov_dir / "cobertura.xml").write_text(
+                '<?xml version="1.0" encoding="UTF-8"?>\n'
+                '<coverage><sources><source>/repo</source></sources>\n'
+                '<packages><package name="p"><classes>\n'
+                '<class name="sample" '
+                'filename="/repo/bash-scripts/sample_case.sh"><lines>\n'
+                '<line number="2" hits="5"/>\n'
+                '<line number="3" hits="0"/>\n'
+                '<line number="4" hits="0"/>\n'
+                '<line number="5" hits="0"/>\n'
+                '<line number="7" hits="0"/>\n'
+                '<line number="8" hits="0"/>\n'
+                '<line number="10" hits="0"/>\n'
+                '</lines></class></classes></package></packages></coverage>\n',
+                encoding="utf-8",
+            )
+
+            patched_src = (
+                script_src.replace('"/repo"', f'"{repo_dir}"')
+                .replace('"/tmp/kcov-bash"', f'"{tmp_root / "kcov"}"')
+                .replace('"/cov-out/bash.xml"', f'"{cov_out / "bash.xml"}"')
+            )
+            subprocess.run([sys.executable, "-c", patched_src], check=True)
+            xml_out = ET.fromstring((cov_out / "bash.xml").read_text(encoding="utf-8"))
+            hits = {
+                int(el.attrib["number"]): int(el.attrib["hits"])
+                for el in xml_out.findall(".//line")
+            }
+            self.assertEqual(hits[2], 5)
+            self.assertEqual(hits[3], 0)
+            self.assertEqual(hits[4], 0)
+            self.assertEqual(hits[5], 0)
+            self.assertEqual(hits[7], 0)
+            self.assertEqual(hits[8], 0)
+            self.assertEqual(hits[10], 0)
 
 
 if __name__ == "__main__":

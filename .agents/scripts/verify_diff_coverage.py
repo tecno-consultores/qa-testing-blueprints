@@ -850,9 +850,12 @@ def _compute_global_totals(
         if config.min_line_cov >= 100.0
         else line_pct < config.min_line_cov
     )
-    failed_cov = line_failed or (
-        tot_branches > 0 and branch_pct < config.min_branch_cov
+    branch_failed = tot_branches > 0 and (
+        cov_branches < tot_branches
+        if config.min_branch_cov >= 100.0
+        else branch_pct < config.min_branch_cov
     )
+    failed_cov = line_failed or branch_failed
     if missing_reports:
         exit_code = EXIT_SECURITY_OR_MISSING_REPORT
         status = "FAILED"

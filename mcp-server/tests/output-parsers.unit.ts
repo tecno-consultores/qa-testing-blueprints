@@ -97,6 +97,23 @@ TOTAL                        70      3    95.7%
       expect(result.passed).toBe(true);
     });
 
+    it('parsea Cobertura kcov emitida por bash-scripts qa-unit (100.00% y variaciones decimales)', () => {
+      const bashKcovFull = parseCoverage('Cobertura kcov: 100.00% (umbral >= 95.0%)');
+      expect(bashKcovFull.detected).toBe(true);
+      expect(bashKcovFull.percent).toBe(100);
+      expect(bashKcovFull.passed).toBe(true);
+
+      const bashKcovPassing = parseCoverage('Cobertura kcov: 96.75% (umbral >= 95.0%)');
+      expect(bashKcovPassing.detected).toBe(true);
+      expect(bashKcovPassing.percent).toBe(96.75);
+      expect(bashKcovPassing.passed).toBe(true);
+
+      const bashKcovLow = parseCoverage('Cobertura kcov: 92.35% (umbral >= 95.0%)');
+      expect(bashKcovLow.detected).toBe(true);
+      expect(bashKcovLow.percent).toBe(92.35);
+      expect(bashKcovLow.passed).toBe(false);
+    });
+
     it('parsea cobertura de Pest / PHPUnit con PCOV (Lines: X%)', () => {
       const phpOutput = 'Code Coverage Report:\n  Lines: 97.20% (140/144)\n  Classes: 100.00%';
       const result = parseCoverage(phpOutput);

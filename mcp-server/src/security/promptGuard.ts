@@ -175,6 +175,10 @@ const PATH_LIKE_KEY_SNAKE_RE =
 
 const PATH_LIKE_KEY_CAMEL_RE = /(?:Path|Dir|Directory|File|Filename|Root)$/;
 
+const URL_LIKE_KEY_SNAKE_RE = /(?:^|_)url$/i;
+
+const URL_LIKE_KEY_CAMEL_RE = /Url$/;
+
 const SECRET_AND_PII_RULES: ReadonlyArray<RedactionRule> = [
   { pattern: PEM_PRIVATE_KEY_BLOCK_RE, replacement: REDACTED_SECRET },
   { pattern: PEM_PRIVATE_KEY_HEADER_RE, replacement: REDACTED_SECRET },
@@ -617,6 +621,12 @@ function isPathLikeKey(key: string): boolean {
   );
 }
 
+function isUrlLikeKey(key: string): boolean {
+  return (
+    URL_LIKE_KEY_SNAKE_RE.test(key) || URL_LIKE_KEY_CAMEL_RE.test(key)
+  );
+}
+
 function markBlocked(
   state: GuardTraversalState,
   ruleId: string,
@@ -641,7 +651,7 @@ function sanitizeStringNode(
     }
     return report.normalizedText;
   }
-  if (isPathLikeKey(keyName)) {
+  if (isPathLikeKey(keyName) || isUrlLikeKey(keyName)) {
     return report.normalizedText;
   }
   return redactPiiAndSecrets(report.normalizedText, state.options);
@@ -662,6 +672,46 @@ function sanitizeArrayNode(
 
 const TRAJECTORY_EVAL_EXEMPT_KEYS = new Set<string>(['steps', 'rag']);
 
+function sanitizeStructuralRecord(
+  record: Record<string, unknown>,
+  depth: number,
+  state: GuardTraversalState
+): Record<string, unknown> {
+  const sanitized: Record<string, unknown> = {};
+  for (const key of Object.keys(record)) {
+    if (DANGEROUS_PROTOTYPE_KEYS.has(key)) {
+      markBlocked(state, RULE_PROTOTYPE_POLLUTION, 1);
+      continue;
+    }
+    const childValue = sanitizeStructuralOnly(record[key], depth + 1, state);
+    Object.defineProperty(sanitized, key, {
+      value: childValue,
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+  }
+  return sanitized;
+}
+
+function sanitizeStructuralOnly(
+  value: unknown,
+  depth: number,
+  state: GuardTraversalState
+): unknown {
+  if (depth > state.maxDepth) {
+    markBlocked(state, RULE_MAX_DEPTH_EXCEEDED, 1);
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeStructuralOnly(item, depth + 1, state));
+  }
+  if (isPlainRecord(value)) {
+    return sanitizeStructuralRecord(value, depth, state);
+  }
+  return value;
+}
+
 function sanitizeRecordNode(
   record: Record<string, unknown>,
   depth: number,
@@ -675,7 +725,7 @@ function sanitizeRecordNode(
     }
     const skipInspection = depth === 0 && Boolean(state.exemptTopLevelKeys?.has(key));
     const childValue = skipInspection
-      ? record[key]
+      ? sanitizeStructuralOnly(record[key], depth + 1, state)
       : sanitizeValue(record[key], key, depth + 1, state);
     Object.defineProperty(sanitized, key, {
       value: childValue,

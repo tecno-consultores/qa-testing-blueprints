@@ -5,7 +5,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { GitHubFetcher, resolveSafeChildPath, resolveSafeHomeDir } from '../services/github-fetcher.js';
 import { SurgicalMerger } from '../services/surgical-merger.js';
-import { writeVersionStamp } from '../services/version-manager.js';
+import { VERSION_STAMP_FILENAME, writeVersionStamp } from '../services/version-manager.js';
+import { assertNoSymlinkSegments, assertNotSymlinkPath } from '../security/pathRealResolver.js';
 import { initOrAppendAgentsMd, syncGlobalGeminiMd } from './init-agents-md.js';
 import { parseAgentsOption } from '../tools/initOrAppendAgentsMd.js';
 import { reconcileAgentsGovernance } from './reconcile-agents.js';
@@ -174,11 +175,31 @@ export function parseLangArg(args: string[]): OutputLanguageMode {
   return selectedLang as OutputLanguageMode;
 }
 
+const GLOBAL_AGENT_DETECTION_SPECS: ReadonlyArray<{
+  readonly markerRel: string;
+  readonly skillsRel: string;
+}> = [
+  { markerRel: CLAUDE_DIR_NAME, skillsRel: path.join(CLAUDE_DIR_NAME, SKILLS_DIR_NAME) },
+  { markerRel: HERMES_DIR_NAME, skillsRel: path.join(HERMES_DIR_NAME, SKILLS_DIR_NAME) },
+  { markerRel: CURSOR_DIR_NAME, skillsRel: path.join(CURSOR_DIR_NAME, SKILLS_DIR_NAME) },
+  { markerRel: WINDSURF_REL_DIR, skillsRel: path.join(WINDSURF_REL_DIR, SKILLS_DIR_NAME) },
+  { markerRel: CODEX_DIR_NAME, skillsRel: path.join(CODEX_DIR_NAME, SKILLS_DIR_NAME) },
+];
+
+function resolveSafeGlobalSkillDir(homeDir: string, relDir: string): string {
+  const resolved = resolveSafeChildPath(homeDir, relDir);
+  assertNoSymlinkSegments(homeDir, relDir);
+  return resolved;
+}
+
 function resolveGeminiSkillDirs(homeDir: string): string[] {
-  const dirs = [path.join(homeDir, GEMINI_DIR_NAME, 'config', SKILLS_DIR_NAME)];
-  const antigravityDir = path.join(homeDir, GEMINI_DIR_NAME, GEMINI_ANTIGRAVITY_DIR);
-  if (fs.existsSync(antigravityDir)) {
-    dirs.push(path.join(antigravityDir, SKILLS_DIR_NAME));
+  const dirs = [
+    resolveSafeGlobalSkillDir(homeDir, path.join(GEMINI_DIR_NAME, 'config', SKILLS_DIR_NAME)),
+  ];
+  const antigravityRel = path.join(GEMINI_DIR_NAME, GEMINI_ANTIGRAVITY_DIR);
+  if (fs.existsSync(path.join(homeDir, antigravityRel))) {
+    assertNoSymlinkSegments(homeDir, antigravityRel);
+    dirs.push(resolveSafeGlobalSkillDir(homeDir, path.join(antigravityRel, SKILLS_DIR_NAME)));
   }
   return dirs;
 }
@@ -188,20 +209,10 @@ function detectInstalledGlobalAgentDirs(homeDir: string): string[] {
   if (fs.existsSync(path.join(homeDir, GEMINI_DIR_NAME))) {
     dirs.push(...resolveGeminiSkillDirs(homeDir));
   }
-  if (fs.existsSync(path.join(homeDir, CLAUDE_DIR_NAME))) {
-    dirs.push(path.join(homeDir, CLAUDE_DIR_NAME, SKILLS_DIR_NAME));
-  }
-  if (fs.existsSync(path.join(homeDir, HERMES_DIR_NAME))) {
-    dirs.push(path.join(homeDir, HERMES_DIR_NAME, SKILLS_DIR_NAME));
-  }
-  if (fs.existsSync(path.join(homeDir, CURSOR_DIR_NAME))) {
-    dirs.push(path.join(homeDir, CURSOR_DIR_NAME, SKILLS_DIR_NAME));
-  }
-  if (fs.existsSync(path.join(homeDir, WINDSURF_REL_DIR))) {
-    dirs.push(path.join(homeDir, WINDSURF_REL_DIR, SKILLS_DIR_NAME));
-  }
-  if (fs.existsSync(path.join(homeDir, CODEX_DIR_NAME))) {
-    dirs.push(path.join(homeDir, CODEX_DIR_NAME, SKILLS_DIR_NAME));
+  for (const spec of GLOBAL_AGENT_DETECTION_SPECS) {
+    if (fs.existsSync(path.join(homeDir, spec.markerRel))) {
+      dirs.push(resolveSafeGlobalSkillDir(homeDir, spec.skillsRel));
+    }
   }
   return dirs;
 }
@@ -210,12 +221,20 @@ function isHomeDirectory(homeDir: string, cwd: string): boolean {
   return isSameResolvedDir(cwd, homeDir);
 }
 
+function resolveSafeWorkspaceSkillsDir(cwd: string): string {
+  resolveSafeChildPath(cwd, AGENTS_DIR_NAME);
+  const relSkills = path.join(AGENTS_DIR_NAME, SKILLS_DIR_NAME);
+  const safeSkills = resolveSafeChildPath(cwd, relSkills);
+  assertNoSymlinkSegments(cwd, relSkills);
+  return safeSkills;
+}
+
 function resolveGlobalOrFallbackTargets(homeDir: string, cwd: string): string[] {
   const globalDirs = detectInstalledGlobalAgentDirs(homeDir);
   if (globalDirs.length > 0) {
     return Array.from(new Set(globalDirs));
   }
-  return [path.join(cwd, AGENTS_DIR_NAME, SKILLS_DIR_NAME)];
+  return [resolveSafeWorkspaceSkillsDir(cwd)];
 }
 
 function resolveAllGlobalAgentDirs(homeDir: string): string[] {
@@ -225,11 +244,9 @@ function resolveAllGlobalAgentDirs(homeDir: string): string[] {
   }
   return [
     ...resolveGeminiSkillDirs(homeDir),
-    path.join(homeDir, CLAUDE_DIR_NAME, SKILLS_DIR_NAME),
-    path.join(homeDir, HERMES_DIR_NAME, SKILLS_DIR_NAME),
-    path.join(homeDir, CURSOR_DIR_NAME, SKILLS_DIR_NAME),
-    path.join(homeDir, WINDSURF_REL_DIR, SKILLS_DIR_NAME),
-    path.join(homeDir, CODEX_DIR_NAME, SKILLS_DIR_NAME),
+    ...GLOBAL_AGENT_DETECTION_SPECS.map((spec) =>
+      resolveSafeGlobalSkillDir(homeDir, spec.skillsRel)
+    ),
   ];
 }
 
@@ -256,45 +273,64 @@ export function assertValidSkillTarget(targetArg: string): void {
 
 function resolveDestinationDirs(targetArg: string, homeDir: string, cwd: string): string[] {
   assertValidSkillTarget(targetArg);
-  const workspaceSkills = path.join(cwd, AGENTS_DIR_NAME, SKILLS_DIR_NAME);
   switch (targetArg) {
     case 'cursor':
-      return [path.join(homeDir, CURSOR_DIR_NAME, SKILLS_DIR_NAME)];
+      return [resolveSafeGlobalSkillDir(homeDir, path.join(CURSOR_DIR_NAME, SKILLS_DIR_NAME))];
     case 'antigravity':
       return resolveGeminiSkillDirs(homeDir);
     case 'claude':
-      return [path.join(homeDir, CLAUDE_DIR_NAME, SKILLS_DIR_NAME)];
+      return [resolveSafeGlobalSkillDir(homeDir, path.join(CLAUDE_DIR_NAME, SKILLS_DIR_NAME))];
     case 'hermes':
-      return [path.join(homeDir, HERMES_DIR_NAME, SKILLS_DIR_NAME)];
+      return [resolveSafeGlobalSkillDir(homeDir, path.join(HERMES_DIR_NAME, SKILLS_DIR_NAME))];
     case 'windsurf':
-      return [path.join(homeDir, WINDSURF_REL_DIR, SKILLS_DIR_NAME)];
+      return [resolveSafeGlobalSkillDir(homeDir, path.join(WINDSURF_REL_DIR, SKILLS_DIR_NAME))];
     case 'codex':
-      return [path.join(homeDir, CODEX_DIR_NAME, SKILLS_DIR_NAME)];
+      return [resolveSafeGlobalSkillDir(homeDir, path.join(CODEX_DIR_NAME, SKILLS_DIR_NAME))];
     case 'all':
       return resolveAllGlobalAgentDirs(homeDir);
     case 'auto':
       return resolveGlobalOrFallbackTargets(homeDir, cwd);
     default:
-      return [workspaceSkills];
+      return [resolveSafeWorkspaceSkillsDir(cwd)];
   }
 }
 
-function writeDownloadedSkills(
-  destDirs: string[],
-  files: Array<{ relSkillPath: string; content: string }>,
-  blueprintVersion: string,
-  log: (message: string) => void = console.log
-): void {
+interface WriteDownloadedSkillsInput {
+  readonly destDirs: string[];
+  readonly files: Array<{ relSkillPath: string; content: string }>;
+  readonly blueprintVersion: string;
+  readonly workspaceCwd: string;
+  readonly homeDir: string;
+  readonly log: (message: string) => void;
+}
+
+function validateSkillDestDir(dest: string, workspaceCwd: string, homeDir: string): string {
+  assertNotSymlinkPath(dest);
+  assertNotSymlinkPath(path.join(dest, VERSION_STAMP_FILENAME));
+  const expectedWorkspaceSkills = path.resolve(workspaceCwd, AGENTS_DIR_NAME, SKILLS_DIR_NAME);
+  if (path.resolve(dest) === expectedWorkspaceSkills) {
+    resolveSafeWorkspaceSkillsDir(workspaceCwd);
+    return workspaceCwd;
+  }
+  const relSkillDir = path.relative(path.resolve(homeDir), path.resolve(dest));
+  resolveSafeGlobalSkillDir(homeDir, relSkillDir);
+  return homeDir;
+}
+
+function writeDownloadedSkills(input: WriteDownloadedSkillsInput): void {
+  const { destDirs, files, blueprintVersion, workspaceCwd, homeDir, log } = input;
   for (const dest of destDirs) {
+    const confinementRoot = validateSkillDestDir(dest, workspaceCwd, homeDir);
     for (const item of files) {
       const fullPath = resolveSafeChildPath(dest, item.relSkillPath);
+      assertNoSymlinkSegments(dest, item.relSkillPath);
       const parentDir = path.dirname(fullPath);
       if (!fs.existsSync(parentDir)) {
         fs.mkdirSync(parentDir, { recursive: true });
       }
       fs.writeFileSync(fullPath, item.content, UTF8);
     }
-    writeVersionStamp(dest, blueprintVersion);
+    writeVersionStamp(dest, blueprintVersion, undefined, confinementRoot);
     log(`✅ Skills instaladas con éxito en: ${dest}`);
   }
 }
@@ -307,10 +343,13 @@ function ensureScriptExecutableMode(fullPath: string): void {
 }
 
 function writeScriptWithBak(fullPath: string, content: string): void {
+  assertNotSymlinkPath(fullPath);
+  const bakPath = `${fullPath}.bak`;
+  assertNotSymlinkPath(bakPath);
   if (fs.existsSync(fullPath)) {
     const existingContent = fs.readFileSync(fullPath, UTF8);
     if (existingContent !== content) {
-      fs.copyFileSync(fullPath, `${fullPath}.bak`);
+      fs.copyFileSync(fullPath, bakPath);
     }
   }
   fs.writeFileSync(fullPath, content, UTF8);
@@ -324,6 +363,9 @@ async function mergeExistingScriptEntry(
   content: string
 ): Promise<void> {
   const targetRel = entry.target_name || entry.path;
+  const backupFile = `${fullPath}.11x-backup`;
+  assertNotSymlinkPath(fullPath);
+  assertNotSymlinkPath(backupFile);
   const merger = new SurgicalMerger();
   await merger.mergeFiles(
     cwd,
@@ -338,9 +380,9 @@ async function mergeExistingScriptEntry(
     ],
     { dryRun: false, createBackup: true }
   );
-  const backupFile = `${fullPath}.11x-backup`;
   if (fs.existsSync(backupFile)) {
     try {
+      assertNotSymlinkPath(backupFile);
       fs.chmodSync(backupFile, 0o600);
     } catch (err: unknown) {
       reportDebugCatchError(`installSkill.chmodBackup(${targetRel})`, err);
@@ -355,12 +397,14 @@ async function writeScriptEntry(
 ): Promise<void> {
   const targetRel = entry.target_name || entry.path;
   const fullPath = resolveSafeChildPath(cwd, targetRel);
+  assertNoSymlinkSegments(cwd, targetRel);
   const parentDir = path.dirname(fullPath);
   if (!fs.existsSync(parentDir)) {
     fs.mkdirSync(parentDir, { recursive: true });
   }
   if (entry.path === ACTIVE_TASK_EXAMPLE_PATH) {
     const exampleFullPath = resolveSafeChildPath(cwd, entry.path);
+    assertNoSymlinkSegments(cwd, entry.path);
     fs.writeFileSync(exampleFullPath, content, UTF8);
     if (!fs.existsSync(fullPath)) {
       fs.writeFileSync(fullPath, content, UTF8);
@@ -403,11 +447,13 @@ async function installIncludedScripts(
     return;
   }
 
+  assertNoSymlinkSegments(cwd, path.join(AGENTS_DIR_NAME, 'scripts'));
   for (const entry of scriptEntries) {
     const content = await fetcher.fetchFileContent(entry.path, entry.sha256);
     await writeScriptEntry(cwd, entry, content);
   }
-  writeVersionStamp(path.join(cwd, AGENTS_DIR_NAME), manifest.blueprint_version);
+  assertNoSymlinkSegments(cwd, AGENTS_DIR_NAME);
+  writeVersionStamp(path.join(cwd, AGENTS_DIR_NAME), manifest.blueprint_version, undefined, cwd);
   console.log(`✔ [Scripts 11X] ${scriptEntries.length} scripts y archivos comunes instalados [0o755].`);
 }
 
@@ -603,6 +649,13 @@ export async function runInstallSkillCli(
 
   const downloadedFiles = await fetchVerifiedSkillFiles(resolvedFetcher, skillEntries);
   log(`✔ [Skills 11X] ${downloadedFiles.length} archivos verificados con SHA-256 (DISA STIG V-222513).`);
-  writeDownloadedSkills(destDirs, downloadedFiles, manifest.blueprint_version, log);
+  writeDownloadedSkills({
+    destDirs,
+    files: downloadedFiles,
+    blueprintVersion: manifest.blueprint_version,
+    workspaceCwd: cwd,
+    homeDir,
+    log,
+  });
   await applyPostSkillInstallSteps({ opts, cwd, homeDir, inHomeDir, manifest, resolvedFetcher, log });
 }

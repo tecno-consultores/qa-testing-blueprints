@@ -1,4 +1,4 @@
-> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación histórica (`Hito 23`, Entrega 3 de 3) preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES; el criterio "cero nuevas tools" aplicaba al Hito 23 previo a `audit_vibe_prototype` y `blueprint://calm`, alcanzando **19 Tools y 13 Resources** en `QA-11X v3.2`). Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
+> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación histórica (`Hito 23`, Entrega 3 de 3) preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES; el criterio "cero nuevas tools" aplicaba al Hito 23 previo a `session_flight_recorder` y `blueprint://skills/tactical-patterns-11x`, alcanzando **19 Tools y 13 Resources** en `QA-11X v3.2`). Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
 
 # ⚡ Especificación Técnica 18: Modo Diferencial en Blast Radius y Exportador Ejecutivo `PR_VERDICT.md` (Hito 23)
 

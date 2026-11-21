@@ -46,7 +46,7 @@
     "qa:cs": "php-cs-fixer fix --dry-run --diff --using-cache=no --config=.php-cs-fixer.dist.php",
     "qa:phpstan": "phpstan analyse --memory-limit=1G --no-progress",
     "qa:psalm": "psalm --no-progress --taint-analysis",
-    "qa:audit": "composer audit --format=json",
+    "qa:audit": "@composer audit --format=json",
     "qa:lint": [
       "@qa:cs",
       "@qa:phpstan",
@@ -55,6 +55,6 @@
     ],
     "qa:unit": "php -d pcov.enabled=1 -d pcov.directory=src ./vendor/bin/pest --coverage --min=95",
     "qa:mutation": "php -d pcov.enabled=1 -d pcov.directory=src ./vendor/bin/infection --only-covered --min-msi=80 --min-covered-msi=80 --threads=4 --no-progress",
-    "qa:sbom": "@composer CycloneDX:make-sbom --spec-version=1.6 --output-format=JSON --output-file=sbom-php.cdx.json"
+    "qa:sbom": "@composer CycloneDX:make-sbom --spec-version=1.6 --output-format=JSON --output-file=reports/sbom-php.cdx.json"
   }
 }

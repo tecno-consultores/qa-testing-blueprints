@@ -746,4 +746,37 @@ describe('Flight Recorder Atómico (Tool #19 session_flight_recorder & Resource 
     expect(pyArrayDisk.status).toBe('FAILED');
     expect(pyArrayDisk.error).toContain('JSON de checkpoint inválido');
   });
+
+  it('redacta tokens sk-proj-* y sk-ant-* en ACTIVE_TASK.md y session_checkpoint.json (SEC-06)', async () => {
+    const wsDir = makeTempDir('qa11x-sec06-sk-');
+    const projToken = ['sk-proj-', 'AbCdEf1234567890_xyz'].join('');
+    const antToken = ['sk-ant-', 'api03-9988776655443322'].join('');
+    const noGitExec = (() => {
+      throw new Error('git unavailable');
+    }) as unknown as typeof execFileSync;
+
+    const saved = await runSessionFlightRecorder(
+      {
+        project_path: wsDir,
+        action: 'save',
+        task_id: 'TEST-SEC-06',
+        active_step: 'PROBE',
+        intent_140chars: `Rotate ${projToken} and ${antToken}`,
+      },
+      { execFileSyncFn: noGitExec, preferPythonCtl: false }
+    );
+    expect(saved.status).toBe('PASSED');
+
+    const activeMd = fs.readFileSync(path.join(wsDir, '.agents', 'ACTIVE_TASK.md'), 'utf8');
+    const cpJson = fs.readFileSync(
+      path.join(wsDir, '.agents', '.cache', 'session_checkpoint.json'),
+      'utf8'
+    );
+    expect(activeMd).not.toContain(projToken);
+    expect(activeMd).not.toContain(antToken);
+    expect(activeMd).toContain('[REDACTED_TOKEN]');
+    expect(cpJson).not.toContain(projToken);
+    expect(cpJson).not.toContain(antToken);
+    expect(cpJson).toContain('[REDACTED_TOKEN]');
+  });
 });

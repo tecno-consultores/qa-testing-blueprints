@@ -9,24 +9,33 @@ const PROFILES = {
   smoke: {
     vus: 1,
     iterations: 4,
-    maxDuration: '10s',
   },
   load: {
-    stages: [
-      { duration: '30s', target: 10 },
-      { duration: '1m', target: 20 },
-      { duration: '20s', target: 0 },
-    ],
-    gracefulRampDown: '10s',
+    scenarios: {
+      load: {
+        executor: 'ramping-vus',
+        stages: [
+          { duration: '30s', target: 10 },
+          { duration: '1m', target: 20 },
+          { duration: '20s', target: 0 },
+        ],
+        gracefulRampDown: '10s',
+      },
+    },
   },
   stress: {
-    stages: [
-      { duration: '30s', target: 20 },
-      { duration: '1m', target: 60 },
-      { duration: '30s', target: 60 },
-      { duration: '20s', target: 0 },
-    ],
-    gracefulRampDown: '10s',
+    scenarios: {
+      stress: {
+        executor: 'ramping-vus',
+        stages: [
+          { duration: '30s', target: 20 },
+          { duration: '1m', target: 60 },
+          { duration: '30s', target: 60 },
+          { duration: '20s', target: 0 },
+        ],
+        gracefulRampDown: '10s',
+      },
+    },
   },
 };
 

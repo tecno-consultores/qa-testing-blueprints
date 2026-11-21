@@ -60,6 +60,50 @@ const DEFAULT_HUMAN_PRACTICES_DOC = 'docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.m
 const DEFAULT_HUMAN_SECURITY_DOC = 'docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md';
 const DEFAULT_MCP_AUDITOR_TARGET = 'mcp-server/src/tools/security-auditor.ts';
 const DEFAULT_DOCS_VALIDATOR_TARGET = '.agents/scripts/verify_docs_invariants.py';
+const SEC_PATH_PREFIX = '[SEC-PATH-01]';
+const RELATIVE_TRAVERSAL_RE = /(?:^|[\\/])\.\.(?:[\\/]|$)/;
+const WINDOWS_DRIVE_RE = /^[A-Za-z]:/;
+const URI_SCHEME_RE = /^[a-zA-Z][a-zA-Z0-9+.-]*:/;
+const PERCENT_ENCODED_RE = /%[0-9a-fA-F]{2}/;
+const MARKDOWN_OR_HTML_INJECTION_RE = /[`<>[\]()]/;
+
+function assertRelativePathSyntax(normalized: string, fieldName: string): void {
+  if (normalized.length === 0) {
+    throw new Error(`${SEC_PATH_PREFIX} El campo '${fieldName}' debe ser una ruta relativa no vacía.`);
+  }
+  if (normalized.includes('\0') || normalized.includes('\r') || normalized.includes('\n')) {
+    throw new Error(`${SEC_PATH_PREFIX} El campo '${fieldName}' contiene caracteres de control inválidos.`);
+  }
+  if (PERCENT_ENCODED_RE.test(normalized)) {
+    throw new Error(
+      `${SEC_PATH_PREFIX} El campo '${fieldName}' rechaza codificación porcentual (%XX): '${normalized}'.`
+    );
+  }
+  if (MARKDOWN_OR_HTML_INJECTION_RE.test(normalized)) {
+    throw new Error(
+      `${SEC_PATH_PREFIX} El campo '${fieldName}' rechaza caracteres de inyección Markdown/HTML: '${normalized}'.`
+    );
+  }
+}
+
+export function validateRelativeRepoPath(rawPath: string, fieldName: string): string {
+  const normalized = rawPath.normalize('NFKC').trim();
+  assertRelativePathSyntax(normalized, fieldName);
+  const isAbsoluteOrUri =
+    normalized.startsWith('/') ||
+    normalized.startsWith('\\') ||
+    WINDOWS_DRIVE_RE.test(normalized) ||
+    URI_SCHEME_RE.test(normalized);
+  if (isAbsoluteOrUri) {
+    throw new Error(
+      `${SEC_PATH_PREFIX} El campo '${fieldName}' no acepta rutas absolutas ni esquemas URI: '${normalized}'.`
+    );
+  }
+  if (RELATIVE_TRAVERSAL_RE.test(normalized)) {
+    throw new Error(`${SEC_PATH_PREFIX} El campo '${fieldName}' rechaza recorrido transversal (..): '${normalized}'.`);
+  }
+  return normalized.replace(/\\/g, '/');
+}
 
 export interface DualConsumerTargets {
   targetHumanDocFile: string;
@@ -67,7 +111,8 @@ export interface DualConsumerTargets {
 }
 
 export function inferDualConsumerTargets(input: ProposeEvolutionPrInput): DualConsumerTargets {
-  const combinedHint = `${input.target_blueprint_file} ${input.improvement_title}`;
+  const safeBlueprintFile = validateRelativeRepoPath(input.target_blueprint_file, 'target_blueprint_file');
+  const combinedHint = `${safeBlueprintFile} ${input.improvement_title}`;
   const isSecurityTopic = /(?:02-security|08-postgres|secure_development|\bSEC-\d+)/i.test(combinedHint);
   const isDocsGovernanceTopic = /(?:verify_docs|active_task|continuous_agent_evolution)/i.test(combinedHint);
 
@@ -76,9 +121,16 @@ export function inferDualConsumerTargets(input: ProposeEvolutionPrInput): DualCo
     ? DEFAULT_DOCS_VALIDATOR_TARGET
     : DEFAULT_MCP_AUDITOR_TARGET;
 
+  const customHumanDoc = input.target_human_doc_file?.trim();
+  const customMcpComponent = input.target_mcp_component?.trim();
+
   return {
-    targetHumanDocFile: input.target_human_doc_file?.trim() || inferredHumanDoc,
-    targetMcpComponent: input.target_mcp_component?.trim() || inferredMcpComponent,
+    targetHumanDocFile: customHumanDoc
+      ? validateRelativeRepoPath(customHumanDoc, 'target_human_doc_file')
+      : inferredHumanDoc,
+    targetMcpComponent: customMcpComponent
+      ? validateRelativeRepoPath(customMcpComponent, 'target_mcp_component')
+      : inferredMcpComponent,
   };
 }
 
@@ -89,6 +141,7 @@ function computeSafeCodeFence(snippet: string): string {
 }
 
 function buildDualConsumerSectionLines(
+  safeBlueprintFile: string,
   input: ProposeEvolutionPrInput,
   targets: DualConsumerTargets
 ): string[] {
@@ -101,21 +154,43 @@ function buildDualConsumerSectionLines(
 
   return [
     '## Matriz de Impacto Dual-Consumer (Agentes IA + MCP + Documentación Humana)',
-    `- [ ] **Capa Agentes IA (Skill / Rule):** \`${input.target_blueprint_file}\``,
+    `- [ ] **Capa Agentes IA (Skill / Rule):** \`${safeBlueprintFile}\``,
     `- [ ] **Capa Ejecutable (MCP / Auditor Estático):** \`${targets.targetMcpComponent}\``,
     `- [ ] **Capa Ingeniería Humana (Manual en \`docs/\`):** \`${targets.targetHumanDocFile}\``,
     ...humanSummaryLines,
   ];
 }
 
+function isContainedInRoot(rootReal: string, candidateReal: string): boolean {
+  const rel = path.relative(rootReal, candidateReal);
+  return rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel);
+}
+
+function assertContainedNonSymlinkPath(rootReal: string, targetPath: string): void {
+  const rel = path.relative(rootReal, targetPath);
+  let cur = rootReal;
+  for (const segment of rel.split(path.sep).filter(Boolean)) {
+    cur = path.join(cur, segment);
+    const stat = fs.lstatSync(cur, { throwIfNoEntry: false });
+    if (stat === undefined) break;
+    if (stat.isSymbolicLink() || !isContainedInRoot(rootReal, fs.realpathSync(cur))) {
+      throw new Error(`${SEC_PATH_PREFIX} Symlink rechazado por seguridad en ruta de propuesta: ${cur}`);
+    }
+  }
+}
+
 function writeProposalFile(
-  proposalsDir: string,
+  resolvedPath: string,
   slug: string,
   input: ProposeEvolutionPrInput,
   targets: DualConsumerTargets
 ): string {
-  fs.mkdirSync(proposalsDir, { recursive: true });
+  const safeBlueprintFile = validateRelativeRepoPath(input.target_blueprint_file, 'target_blueprint_file');
+  const proposalsDir = path.join(resolvedPath, '.agents', 'proposals');
   const filePath = path.join(proposalsDir, `${slug}.md`);
+  assertContainedNonSymlinkPath(resolvedPath, filePath);
+  fs.mkdirSync(proposalsDir, { recursive: true });
+  assertContainedNonSymlinkPath(resolvedPath, filePath);
   const fence = computeSafeCodeFence(input.proposed_content_or_snippet);
 
   const fileContent = [
@@ -124,11 +199,11 @@ function writeProposalFile(
     `**Fecha de Registro:** ${new Date().toISOString()}`,
     `**Rama Sugerida:** \`evolution/${slug}\``,
     `**Repositorio Destino:** \`${UPSTREAM_REPO}\``,
-    `**Archivo Objetivo (Capa IA):** \`${input.target_blueprint_file}\``,
+    `**Archivo Objetivo (Capa IA):** \`${safeBlueprintFile}\``,
     `**Componente Ejecutable (Capa MCP):** \`${targets.targetMcpComponent}\``,
     `**Manual Humano Objetivo (\`docs/\`):** \`${targets.targetHumanDocFile}\``,
     '',
-    ...buildDualConsumerSectionLines(input, targets),
+    ...buildDualConsumerSectionLines(safeBlueprintFile, input, targets),
     '',
     '## Justificación Empírica (Dogfooding / Producción)',
     input.empirical_rationale,
@@ -148,12 +223,13 @@ export function buildPrefilledIssueUrl(input: ProposeEvolutionPrInput): {
   issueBody: string;
   prefilledUrl: string;
 } {
+  const safeBlueprintFile = validateRelativeRepoPath(input.target_blueprint_file, 'target_blueprint_file');
   const targets = inferDualConsumerTargets(input);
   const issueTitle = `[Evolution] ${input.improvement_title}`;
   const fence = computeSafeCodeFence(input.proposed_content_or_snippet);
   const issueBody = [
     `### Matriz Dual-Consumer en \`${UPSTREAM_REPO}\``,
-    `- **Capa Agentes IA (Skill / Rule):** \`${input.target_blueprint_file}\``,
+    `- **Capa Agentes IA (Skill / Rule):** \`${safeBlueprintFile}\``,
     `- **Capa Ejecutable (MCP / Auditor):** \`${targets.targetMcpComponent}\``,
     `- **Capa Ingeniería Humana (\`docs/\`):** \`${targets.targetHumanDocFile}\``,
     ...(input.proposed_human_doc_summary?.trim()
@@ -232,9 +308,12 @@ export async function proposeSkillEvolutionPr(
     throw new Error(`El directorio del proyecto especificado no existe: ${resolvedPath}`);
   }
 
+  const safeBlueprintFile = validateRelativeRepoPath(input.target_blueprint_file, 'target_blueprint_file');
   const slug = buildEvolutionSlug(input.improvement_title);
   const branchName = `evolution/${slug}`;
   const proposalsDir = path.join(resolvedPath, '.agents', 'proposals');
+  const proposalTargetPath = path.join(proposalsDir, `${slug}.md`);
+  assertContainedNonSymlinkPath(resolvedPath, proposalTargetPath);
   const dualTargets = inferDualConsumerTargets(input);
   const { issueBody, prefilledUrl } = buildPrefilledIssueUrl(input);
 
@@ -245,25 +324,25 @@ export async function proposeSkillEvolutionPr(
     return {
       status: STATUS_PROPOSAL_GENERATED,
       target_repo: UPSTREAM_REPO,
-      target_blueprint_file: input.target_blueprint_file,
+      target_blueprint_file: safeBlueprintFile,
       target_human_doc_file: dualTargets.targetHumanDocFile,
       target_mcp_component: dualTargets.targetMcpComponent,
       branch_name: branchName,
       gh_cli_authenticated: false,
       pull_request_url: null,
       prefilled_github_url: prefilledUrl,
-      local_proposal_file: path.join(proposalsDir, `${slug}.md`),
+      local_proposal_file: proposalTargetPath,
       message: 'Propuesta Dual-Consumer generada en modo dry_run=true sin escribir en disco.',
     };
   }
 
-  const proposalFilePath = writeProposalFile(proposalsDir, slug, input, dualTargets);
+  const proposalFilePath = writeProposalFile(resolvedPath, slug, input, dualTargets);
 
   if (preferOffline) {
     return {
       status: STATUS_PROPOSAL_GENERATED,
       target_repo: UPSTREAM_REPO,
-      target_blueprint_file: input.target_blueprint_file,
+      target_blueprint_file: safeBlueprintFile,
       target_human_doc_file: dualTargets.targetHumanDocFile,
       target_mcp_component: dualTargets.targetMcpComponent,
       branch_name: branchName,
@@ -281,7 +360,7 @@ export async function proposeSkillEvolutionPr(
     return {
       status: STATUS_PR_CREATED,
       target_repo: UPSTREAM_REPO,
-      target_blueprint_file: input.target_blueprint_file,
+      target_blueprint_file: safeBlueprintFile,
       target_human_doc_file: dualTargets.targetHumanDocFile,
       target_mcp_component: dualTargets.targetMcpComponent,
       branch_name: branchName,
@@ -300,7 +379,7 @@ export async function proposeSkillEvolutionPr(
   return {
     status: STATUS_PROPOSAL_GENERATED,
     target_repo: UPSTREAM_REPO,
-    target_blueprint_file: input.target_blueprint_file,
+    target_blueprint_file: safeBlueprintFile,
     target_human_doc_file: dualTargets.targetHumanDocFile,
     target_mcp_component: dualTargets.targetMcpComponent,
     branch_name: branchName,

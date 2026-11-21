@@ -60,10 +60,7 @@ jobs:
 
       - name: Refresh Graphify AST graph for Gate 6 (Rule Zero)
         if: steps.cache-graph.outputs.cache-hit != 'true'
-        run: |
-          if [ ! -s "graphify-out/graph.json" ]; then
-            ./scripts/actualizar-grafos-graphify.sh
-          fi
+        run: ./scripts/actualizar-grafos-graphify.sh --all
 
       - name: Verify differential coverage & 10-stage certification gate
         env:

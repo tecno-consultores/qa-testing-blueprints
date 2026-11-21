@@ -65,7 +65,7 @@ extract_graph_in_dir() {
     -v "${target_dir}:/app" \
     -w /app \
     "${IMAGE_NAME}" \
-    sh -c "graphify extract . --code-only && graphify cluster-only ." >"${log_file}" 2>&1; then
+    sh -c "graphify extract . --code-only --allow-dedup-shrink && graphify cluster-only ." >"${log_file}" 2>&1; then
     echo "❌ [Graphify AST] Error al extraer el grafo en '${target_dir}':" >&2
     cat "${log_file}" >&2
     return 1
@@ -101,7 +101,7 @@ stack_needs_update() {
   # 2. Revisar git status para cambios de código (excluyendo *.md y graphify-out)
   if command -v git &>/dev/null && [ -d "${REPO_ROOT}/.git" ]; then
     local git_code_changes
-    git_code_changes=$(git -C "${REPO_ROOT}" status --porcelain "${rel_name}" 2>/dev/null |
+    git_code_changes=$(git -c core.quotePath=false -C "${REPO_ROOT}" status --porcelain --untracked-files=all "${rel_name}" 2>/dev/null |
       grep -vE '(\.md$|graphify-out/)' || true)
     if [ -n "${git_code_changes}" ]; then
       return 0

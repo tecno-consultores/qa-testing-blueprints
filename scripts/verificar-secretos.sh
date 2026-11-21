@@ -93,32 +93,25 @@ TARGET_FILES=("${REL_TARGETS[@]+"${REL_TARGETS[@]}"}")
 
 # Bloquear de inmediato si .env o variantes sensibles (.env.*) fueron añadidos al índice de Git o pasados como objetivo
 if command -v git >/dev/null 2>&1; then
-  TRACKED_ENV="$(git -c safe.directory='*' ls-files 2>/dev/null | grep -E '(^|/)\.env(\..+)?$' | grep -Ev '\.(example|sample|template)$' || true)"
+  TRACKED_ENV="$(git -c safe.directory='*' -c core.quotePath=false ls-files 2>/dev/null | grep -E '(^|/)\.env(\..+)?$' | grep -Ev '\.(example|sample|template)$' || true)"
   if [ -n "${TRACKED_ENV}" ]; then
     echo "🚨 ERROR CRÍTICO: Archivo sensible trackeado en Git (${TRACKED_ENV}). Ejecute 'git rm --cached'." >&2
     exit 1
   fi
 fi
 
-for target in "${TARGET_FILES[@]}"; do
-  [ -n "${target}" ] || continue
-  if [[ "${target}" =~ (^|/)\.env(\.[^/]+)?$ ]] && [[ ! "${target}" =~ \.(example|sample|template)$ ]]; then
-    echo "🚨 ERROR CRÍTICO: Archivo sensible .env bloqueado (${target})." >&2
-    exit 1
-  fi
-done
-
 if [ "${#TARGET_FILES[@]}" -eq 0 ]; then
   if command -v git >/dev/null 2>&1 && git -c safe.directory='*' rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     git_dirty="$({
-      git -c safe.directory='*' diff --name-only HEAD 2>/dev/null || true
-      git -c safe.directory='*' ls-files --others --exclude-standard 2>/dev/null || true
+      git -c safe.directory='*' -c core.quotePath=false diff --name-only --diff-filter=d HEAD 2>/dev/null || true
+      git -c safe.directory='*' -c core.quotePath=false diff --cached --name-only --diff-filter=d 2>/dev/null || true
+      git -c safe.directory='*' -c core.quotePath=false ls-files --others --exclude-standard 2>/dev/null || true
     } | sort -u)"
     while IFS= read -r line; do
       [ -n "${line}" ] && TARGET_FILES+=("${line}")
     done <<<"${git_dirty}"
     if [ "${#TARGET_FILES[@]}" -eq 0 ]; then
-      git_tracked="$(git -c safe.directory='*' ls-files 2>/dev/null || true)"
+      git_tracked="$(git -c safe.directory='*' -c core.quotePath=false ls-files 2>/dev/null || true)"
       while IFS= read -r line; do
         [ -n "${line}" ] && TARGET_FILES+=("${line}")
       done <<<"${git_tracked}"
@@ -129,13 +122,6 @@ if [ "${#TARGET_FILES[@]}" -eq 0 ]; then
       line="${line#./}"
       [ -n "${line}" ] && TARGET_FILES+=("${line}")
     done <<<"${non_git_files}"
-    for target in "${TARGET_FILES[@]}"; do
-      [ -n "${target}" ] || continue
-      if [[ "${target}" =~ (^|/)\.env(\.[^/]+)?$ ]] && [[ ! "${target}" =~ \.(example|sample|template)$ ]]; then
-        echo "🚨 ERROR CRÍTICO: Archivo sensible .env bloqueado (${target})." >&2
-        exit 1
-      fi
-    done
   fi
 fi
 
@@ -143,6 +129,14 @@ if [ "${#TARGET_FILES[@]}" -eq 0 ]; then
   echo "✔ [Secretos] 0 archivos para escanear."
   exit 0
 fi
+
+for target in "${TARGET_FILES[@]}"; do
+  [ -n "${target}" ] || continue
+  if [[ "${target}" =~ (^|/)\.env(\.[^/]+)?$ ]] && [[ ! "${target}" =~ \.(example|sample|template)$ ]]; then
+    echo "🚨 ERROR CRÍTICO: Archivo sensible .env bloqueado (${target})." >&2
+    exit 1
+  fi
+done
 
 FILTERED_FILES=()
 for file in "${TARGET_FILES[@]}"; do

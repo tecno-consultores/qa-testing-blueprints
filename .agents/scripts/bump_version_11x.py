@@ -170,6 +170,11 @@ VERSION_RULES: tuple[VersionRule, ...] = (
         (re.compile(rf"(tarball v)({_VER_CORE})(\s)"),),
     ),
     VersionRule(
+        ".github/actions/qa-11x-pr-check/action.yml",
+        (re.compile(rf"(@sinfallas/mcp-qa-11x@)({_VER_CORE})(\s)"),),
+        optional=True,
+    ),
+    VersionRule(
         "README.md",
         (re.compile(rf"(@sinfallas/mcp-qa-11x`?\s*v)({_VER_CORE})([\) ])"),),
         optional=True,

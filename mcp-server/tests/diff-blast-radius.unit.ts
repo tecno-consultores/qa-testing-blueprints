@@ -583,4 +583,22 @@ describe('Modo Diferencial en inspect_ast_blast_radius y diff-bundle (Hito 23)',
     });
     expect(missingCtx.dependentFiles.size).toBe(0);
   });
+
+  it('preserva rutas UTF-8 no-ASCII (api/routes/café.py y docs/guía.md) sin escapes octales (core.quotePath=false)', async () => {
+    initGitRepo(tmpDir, { 'README.md': '# Base\n' });
+    writeRepoFile(tmpDir, 'api/routes/café.py', '@router.get("/café")\ndef get_cafe():\n    return {"ok": True}\n');
+    writeRepoFile(tmpDir, 'docs/guía.md', '# Guía\nContenido inicial\n');
+    git(tmpDir, ['add', '.']);
+    git(tmpDir, ['commit', '-m', 'feat: add utf8 paths']);
+
+    const bundle = await buildSemanticDiffBundle(tmpDir, 'HEAD~1', 4000);
+    const files = bundle.files.map((f) => f.file);
+    expect(files).toContain('api/routes/café.py');
+    expect(files).toContain('docs/guía.md');
+    expect(files.some((f) => f.includes('303'))).toBe(false);
+    const apiEntry = bundle.files.find((f) => f.file === 'api/routes/café.py');
+    const docEntry = bundle.files.find((f) => f.file === 'docs/guía.md');
+    expect(apiEntry?.tier).toBe('CRITICAL_FULL');
+    expect(docEntry?.tier).toBe('CORE_LOGIC');
+  });
 });

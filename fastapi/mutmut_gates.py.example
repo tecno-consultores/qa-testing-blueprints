@@ -50,18 +50,27 @@ def _read_timeout_int(env_name: str, default_val: int) -> int:
     return int(raw)
 
 
+def _extract_mutmut_targets(mutmut_cfg: dict[str, object]) -> list[object]:
+    for key in ("paths_to_mutate", "source_paths"):
+        if key in mutmut_cfg:
+            raw = mutmut_cfg[key]
+            return (
+                [raw]
+                if isinstance(raw, str)
+                else (list(raw) if isinstance(raw, list) else [])
+            )
+    raise ValueError(
+        "[QA-MUT-01] Falta [tool.mutmut].source_paths o "
+        "paths_to_mutate en pyproject.toml"
+    )
+
+
 def _verify_pyproject_targets(pyproject_path: Path) -> None:
     if not pyproject_path.is_file():
         return
     data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
     mutmut_cfg = data.get("tool", {}).get("mutmut", {})
-    targets = (
-        mutmut_cfg.get("paths_to_mutate")
-        or mutmut_cfg.get("source_paths")
-        or ["src/"]
-    )
-    if isinstance(targets, str):
-        targets = [targets]
+    targets = _extract_mutmut_targets(mutmut_cfg)
     if not any(str(t).lstrip("./").startswith("src") for t in targets):
         raise ValueError(
             f"[QA-MUT-01] paths_to_mutate debe apuntar a 'src/': {targets!r}"
@@ -74,9 +83,7 @@ def verify_execution_contracts(pyproject_path: Path) -> None:
     baseline_s = _read_timeout_int(
         "MUTMUT_BASELINE_TIMEOUT_SEC", MAX_BASELINE_TIMEOUT_SECONDS
     )
-    mutant_s = _read_timeout_int(
-        "MUTMUT_TIMEOUT_SEC", MAX_MUTANT_TIMEOUT_SECONDS
-    )
+    mutant_s = _read_timeout_int("MUTMUT_TIMEOUT_SEC", MAX_MUTANT_TIMEOUT_SECONDS)
     if baseline_s > MAX_BASELINE_TIMEOUT_SECONDS or baseline_s <= 0:
         raise ValueError(f"[QA-MUT-02] Timeout baseline fuera de rango: {baseline_s}s")
     if mutant_s > MAX_MUTANT_TIMEOUT_SECONDS or mutant_s <= 0:
@@ -95,14 +102,21 @@ MUTANT_STATUS_KEYS = (
     "suspicious",
     "skipped",
     "not checked",
+    "caught by type check",
+    "no tests",
 )
+_STATUS_ALIAS_MAP = {
+    "not checked": "not_checked",
+    "caught by type check": "killed",
+    "no tests": "survived",
+}
 
 
 def _tally_line_status(counts: dict[str, int], stripped: str) -> None:
     lower = stripped.lower()
     for key in MUTANT_STATUS_KEYS:
         if lower.endswith(f": {key}") or lower.endswith(f" {key}"):
-            norm_key = "not_checked" if key == "not checked" else key
+            norm_key = _STATUS_ALIAS_MAP.get(key, key)
             counts[norm_key] += 1
             return
 
@@ -155,12 +169,23 @@ def _load_mutmut_output(report_file: Path | None) -> str:
     if report_file is not None:
         return report_file.read_text(encoding="utf-8")
     proc = subprocess.run(
-        ["mutmut", "results"],
+        ["mutmut", "results", "--all", "true"],
         capture_output=True,
         text=True,
         timeout=MAX_BASELINE_TIMEOUT_SECONDS,
         check=False,
     )
+    if (
+        proc.returncode != 0
+        and "no such option" in f"{proc.stdout}\n{proc.stderr}".lower()
+    ):
+        proc = subprocess.run(
+            ["mutmut", "results"],
+            capture_output=True,
+            text=True,
+            timeout=MAX_BASELINE_TIMEOUT_SECONDS,
+            check=False,
+        )
     return f"{proc.stdout}\n{proc.stderr}"
 
 

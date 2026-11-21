@@ -58,7 +58,8 @@ export class MobileContextNotFoundError extends Error {
 
   constructor(requestedContext: string, availableContexts: readonly string[]) {
     super(
-      `Contexto movil "${requestedContext}" inexistente. Disponibles: [${availableContexts.join(', ')}]`,
+      `Contexto movil "${requestedContext}" inexistente. ` +
+        `Disponibles: [${availableContexts.join(', ')}]`,
     );
     this.name = 'MobileContextNotFoundError';
     this.requestedContext = requestedContext;
@@ -84,7 +85,8 @@ export class CollapsedMobileGeometryError extends Error {
 
   constructor(locatorSummary: string, bounds: MobileElementBounds) {
     super(
-      `Elemento movil con geometria colapsada (${bounds.width}x${bounds.height}) para ${locatorSummary}`,
+      `Elemento movil con geometria colapsada (${bounds.width}x${bounds.height}) ` +
+        `para ${locatorSummary}`,
     );
     this.name = 'CollapsedMobileGeometryError';
     this.locatorSummary = locatorSummary;
@@ -115,15 +117,24 @@ export type MobileLocator =
   | { readonly strategy: 'androidUiAutomator'; readonly value: string }
   | { readonly strategy: 'webviewRole'; readonly role: string; readonly name?: string };
 
-const RE_RAW_XPATH_MARKER = /^\s*\(?\s*(?:xpath=|\/\/|\/[a-zA-Z*])/;
+function isRawXpathLocator(trimmed: string): boolean {
+  const normalized = trimmed.replace(/^\(+/, '').trimStart().toLowerCase();
+  return (
+    normalized.startsWith('xpath=') ||
+    normalized.startsWith('//') ||
+    /^\/[a-z*]/.test(normalized)
+  );
+}
 
 function ensureSafeMobileLocatorValue(value: string, label: string): string {
   const trimmed = value.trim();
   if (trimmed.length === 0) {
     throw new Error(`El selector movil ${label} no puede estar vacio.`);
   }
-  if (RE_RAW_XPATH_MARKER.test(trimmed)) {
-    throw new Error(`Selector prohibido (${label}): los selectores XPath crudos estan vetados en QA-11X.`);
+  if (isRawXpathLocator(trimmed)) {
+    throw new Error(
+      `Selector prohibido (${label}): los selectores XPath crudos estan vetados en QA-11X.`,
+    );
   }
   return trimmed;
 }
@@ -134,7 +145,10 @@ export function ByAccessibilityId(id: string): MobileLocator {
   if (stripped.length === 0) {
     throw new Error('El selector accessibilityId no puede estar vacio tras remover "~".');
   }
-  return { strategy: 'accessibilityId', value: ensureSafeMobileLocatorValue(stripped, 'accessibilityId') };
+  return {
+    strategy: 'accessibilityId',
+    value: ensureSafeMobileLocatorValue(stripped, 'accessibilityId'),
+  };
 }
 
 export function ByIosPredicate(predicate: string): MobileLocator {
@@ -207,20 +221,15 @@ const DEFAULT_DEEP_LINK_POLICY: DeepLinkPolicy = {
   allowedHosts: ['app.sinfallas.local', 'auth.sinfallas.local'],
 };
 
-function parseValidatedDeepLink(rawUrl: string, policy: DeepLinkPolicy): URL {
-  const trimmed = rawUrl.trim();
-  if (trimmed.length === 0 || /[\r\n\0]/.test(trimmed)) {
-    throw new UnsafeDeepLinkError(rawUrl, 'URL vacia o con caracteres de control.');
-  }
-  let parsed: URL;
+function parseRawUrl(trimmed: string, rawUrl: string): URL {
   try {
-    parsed = new URL(trimmed);
+    return new URL(trimmed);
   } catch {
     throw new UnsafeDeepLinkError(rawUrl, 'Formato URI invalido.');
   }
-  if (parsed.username.length > 0 || parsed.password.length > 0) {
-    throw new UnsafeDeepLinkError(rawUrl, 'Credenciales userinfo prohibidas en Deep Link.');
-  }
+}
+
+function assertSafeDeepLinkScheme(parsed: URL, rawUrl: string, policy: DeepLinkPolicy): void {
   const scheme = parsed.protocol.replace(/:$/, '').toLowerCase();
   if (FORBIDDEN_DEEP_LINK_SCHEMES.has(scheme)) {
     throw new UnsafeDeepLinkError(rawUrl, `Esquema peligroso bloqueado (${scheme}:).`);
@@ -229,18 +238,35 @@ function parseValidatedDeepLink(rawUrl: string, policy: DeepLinkPolicy): URL {
   if (!allowedSchemes.includes(scheme)) {
     throw new UnsafeDeepLinkError(rawUrl, `Esquema "${scheme}" fuera de lista blanca.`);
   }
+}
+
+function parseValidatedDeepLink(rawUrl: string, policy: DeepLinkPolicy): URL {
+  const trimmed = rawUrl.trim();
+  if (trimmed.length === 0 || /[\r\n\0]/.test(trimmed)) {
+    throw new UnsafeDeepLinkError(rawUrl, 'URL vacia o con caracteres de control.');
+  }
+  const parsed = parseRawUrl(trimmed, rawUrl);
+  if (parsed.username.length > 0 || parsed.password.length > 0) {
+    throw new UnsafeDeepLinkError(rawUrl, 'Credenciales userinfo prohibidas en Deep Link.');
+  }
+  assertSafeDeepLinkScheme(parsed, rawUrl, policy);
   return parsed;
 }
 
-function validateDeepLinkHost(parsed: URL, rawUrl: string, policy: DeepLinkPolicy): void {
-  const host = parsed.hostname.toLowerCase();
+function requireAllowedHosts(policy: DeepLinkPolicy, rawUrl: string): readonly string[] {
   if (!policy.allowedHosts || policy.allowedHosts.length === 0) {
     throw new UnsafeDeepLinkError(
       rawUrl,
-      'Lista allowedHosts vacia; bloqueado por politica Fail-Closed contra Intent/Deep-Link Hijacking.',
+      'Lista allowedHosts vacia; bloqueado por politica Fail-Closed ' +
+        'contra Intent/Deep-Link Hijacking.',
     );
   }
-  const allowedHosts = policy.allowedHosts.map((h) => h.toLowerCase());
+  return policy.allowedHosts.map((h) => h.toLowerCase());
+}
+
+function validateDeepLinkHost(parsed: URL, rawUrl: string, policy: DeepLinkPolicy): void {
+  const allowedHosts = requireAllowedHosts(policy, rawUrl);
+  const host = parsed.hostname.toLowerCase();
   if (!host || !allowedHosts.includes(host)) {
     throw new UnsafeDeepLinkError(
       rawUrl,
@@ -392,32 +418,56 @@ function findHeaderIgnoreCase(
   return undefined;
 }
 
-function buildMobileApiHeaders(
-  actor: MobileActor,
-  spec: MobileApiRequestSpec,
-): Readonly<Record<string, string>> {
-  const callerHeaders = spec.headers ?? {};
+function copyNonIdentityHeaders(
+  callerHeaders: Readonly<Record<string, string>>,
+): Record<string, string> {
   const merged: Record<string, string> = {};
   for (const [key, val] of Object.entries(callerHeaders)) {
     if (!IDENTITY_HEADER_KEYS.has(key.toLowerCase())) {
       merged[key] = val;
     }
   }
+  return merged;
+}
+
+function applyIdempotencyHeader(merged: Record<string, string>, spec: MobileApiRequestSpec): void {
+  const existingIdem = findHeaderIgnoreCase(merged, 'idempotency-key');
+  if (spec.idempotencyKey !== undefined) {
+    if (existingIdem !== undefined && existingIdem.key !== 'Idempotency-Key') {
+      delete merged[existingIdem.key];
+    }
+    merged['Idempotency-Key'] = spec.idempotencyKey;
+    return;
+  }
+  if (existingIdem === undefined) {
+    merged['Idempotency-Key'] = globalThis.crypto.randomUUID();
+  }
+}
+
+function buildMobileApiHeaders(
+  actor: MobileActor,
+  spec: MobileApiRequestSpec,
+): Readonly<Record<string, string>> {
+  const merged = copyNonIdentityHeaders(spec.headers ?? {});
   merged['X-Tenant-ID'] = actor.identity.tenantId;
   merged['X-Actor-Role'] = actor.identity.role;
   merged['X-Mobile-Platform'] = actor.identity.platform;
   if (MUTATING_METHODS.has(spec.method)) {
-    const existingIdem = findHeaderIgnoreCase(merged, 'idempotency-key');
-    if (spec.idempotencyKey !== undefined) {
-      if (existingIdem !== undefined && existingIdem.key !== 'Idempotency-Key') {
-        delete merged[existingIdem.key];
-      }
-      merged['Idempotency-Key'] = spec.idempotencyKey;
-    } else if (existingIdem === undefined) {
-      merged['Idempotency-Key'] = globalThis.crypto.randomUUID();
-    }
+    applyIdempotencyHeader(merged, spec);
   }
   return merged;
+}
+
+function partitionBatchItemIds(
+  items: readonly MobileBatchItemResult[],
+): { readonly succeededIds: string[]; readonly failedIds: string[] } {
+  const succeededIds: string[] = [];
+  const failedIds: string[] = [];
+  for (const item of items) {
+    const target = BATCH_OK_STATUSES.has(item.status.toLowerCase()) ? succeededIds : failedIds;
+    target.push(item.id);
+  }
+  return { succeededIds, failedIds };
 }
 
 export class CallMobileApi implements MobileAbility {
@@ -441,17 +491,11 @@ export class CallMobileApi implements MobileAbility {
     return this.client.send<T>({ ...spec, headers });
   }
 
-  inspectBatchSync(response: MobileApiResponsePayload<MobileBatchSyncEnvelope>): MobileBatchSyncSummary {
+  inspectBatchSync(
+    response: MobileApiResponsePayload<MobileBatchSyncEnvelope>,
+  ): MobileBatchSyncSummary {
     const items = response.data.results;
-    const succeededIds: string[] = [];
-    const failedIds: string[] = [];
-    for (const item of items) {
-      if (BATCH_OK_STATUSES.has(item.status.toLowerCase())) {
-        succeededIds.push(item.id);
-      } else {
-        failedIds.push(item.id);
-      }
-    }
+    const { succeededIds, failedIds } = partitionBatchItemIds(items);
     const isOkHttp = response.status >= 200 && response.status < 300;
     return {
       httpStatus: response.status,
@@ -619,7 +663,9 @@ export function VerifyOfflineSyncParity(
       const mobile = actor.abilityTo(InteractWithMobile);
       const networkState = await mobile.getNetworkState();
       const uiValue = await mobile.readText(locator);
-      const res = await actor.abilityTo(CallMobileApi).request(actor, { method: 'GET', path: apiPath });
+      const res = await actor
+        .abilityTo(CallMobileApi)
+        .request(actor, { method: 'GET', path: apiPath });
       const apiValue = extractApiText(res.data).trim();
       const okHttp = res.status >= 200 && res.status < 300;
       return {
@@ -633,19 +679,22 @@ export function VerifyOfflineSyncParity(
   };
 }
 
+function requireNonEmptyIdentityField(raw: string, errorMessage: string): string {
+  const cleaned = raw.trim();
+  if (cleaned.length === 0) {
+    throw new Error(errorMessage);
+  }
+  return cleaned;
+}
+
 function validateMobileIdentity(name: string, options: MobileActorOptions): MobileActorIdentity {
-  const cleanName = name.trim();
-  const cleanTenant = options.tenantId.trim();
-  if (cleanName.length === 0) {
-    throw new Error('MobileActor requiere un nombre no vacio.');
-  }
-  if (cleanTenant.length === 0) {
-    throw new Error('MobileActor requiere tenantId obligatorio.');
-  }
   return {
-    name: cleanName,
+    name: requireNonEmptyIdentityField(name, 'MobileActor requiere un nombre no vacio.'),
     role: options.role ?? 'operator',
-    tenantId: cleanTenant,
+    tenantId: requireNonEmptyIdentityField(
+      options.tenantId,
+      'MobileActor requiere tenantId obligatorio.',
+    ),
     platform: options.platform ?? 'android',
     hybridShell: options.hybridShell ?? 'native',
     permissions: Object.freeze([...(options.permissions ?? [])]),
@@ -668,8 +717,8 @@ export class MobileActor {
 
   whoCan(...abilities: readonly MobileAbility[]): this {
     for (const ability of abilities) {
-      const ctorAbilityName = (ability.constructor as { readonly abilityName?: string }).abilityName;
-      const key = ctorAbilityName ?? ability.abilityName ?? ability.constructor.name;
+      const ctor = ability.constructor as { readonly abilityName?: string };
+      const key = ctor.abilityName ?? ability.abilityName ?? ability.constructor.name;
       this.abilities.set(key, ability);
     }
     return this;

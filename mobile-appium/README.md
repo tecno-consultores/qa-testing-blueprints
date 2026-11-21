@@ -10,7 +10,7 @@ Corporate **Native (iOS / Android)** and **Hybrid (Ionic / Capacitor & React Nat
 
 ## 1. Architecture Under Rule Zero (`sinfallas/base-mobile-appium:26`)
 
-[`sinfallas/base-mobile-appium:26`](../docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md) is the **official hardened non-root mobile base image** (`UID 10001`, compatible with `-u "$(id -u):$(id -g)" -e HOME=/tmp`) pre-baking **Node.js 26**, **pnpm**, **OpenJDK 21**, **Android SDK (`ANDROID_HOME=/opt/android-sdk`) / ADB / `aapt2`**, **Appium 3** (`APPIUM_HOME=/opt/appium-home`) with preinstalled **`uiautomator2`** and **`xcuitest`** drivers, and **WebdriverIO v9** (`/opt/qa11x/node_modules`) with **zero runtime `npm install`**.
+[`sinfallas/base-mobile-appium:26`](../docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md) is the **official hardened non-root mobile base image** (`UID 10001`, compatible with `-u "$(id -u):$(id -g)" -e HOME=/tmp`) pre-baking **Node.js 26**, **pnpm**, **OpenJDK 21**, **Android SDK (`ANDROID_HOME=/opt/android-sdk`) / ADB / `aapt2`**, **Appium 3** (`APPIUM_HOME=/opt/appium-home`) with preinstalled **`uiautomator2`** and **`xcuitest`** drivers, **WebdriverIO v9**, **TypeScript**, and **`cyclonedx-npm`** (`/opt/qa11x/node_modules`) with **zero runtime `npm install`**. (`eslint`, `prettier`, and `pnpm audit` run in consumer projects once `devDependencies` and `pnpm-lock.yaml` are installed.)
 
 | Image | Official QA-11X Mobile Scope | Pre-Baked Runtime Tooling |
 | :--- | :--- | :--- |
@@ -32,7 +32,7 @@ docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e NODE_PATH=/opt/qa11x/node
   --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions \
   --target ES2023 --module NodeNext --moduleResolution NodeNext \
   --typeRoots /opt/qa11x/node_modules/@types --types node --noEmit \
-  mobile-appium/wdio.conf.ts mobile-appium/tests/screenplay/MobileActor.ts mobile-appium/tests/mobile_screenplay.spec.ts && \
+  mobile-appium/wdio.conf.ts mobile-appium/tests/screenplay/MobileActor.ts mobile-appium/tests/mobile_screenplay.spec.ts mobile-appium/tests/e2e/mobile_app_smoke.spec.ts && \
   node --test mobile-appium/tests/mobile_screenplay.spec.ts'
 
 # Deterministic UI anti-pattern audit (0 violations)
@@ -84,8 +84,10 @@ docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1
 Ready-to-adopt consumer templates live under `mobile-appium/` alongside the monorepo root certification target:
 
 - [`docker-compose.qa.yml`](docker-compose.qa.yml): Orchestrates `pnpm-store-init`, non-root `qa-mobile` (`sinfallas/base-mobile-appium:26`, `${QA_UID:-1000}:${QA_GID:-1000}`, `HOME=/tmp`, `ANDROID_HOME=/opt/android-sdk`, `APPIUM_HOME=/opt/appium-home`, `NODE_PATH=/opt/qa11x/node_modules`), and `appium-bridge` (profile `appium-live`, `ADB_SERVER_SOCKET` via `host.docker.internal:5037`, W3C `/status` `HEALTHCHECK` on port `4723`).
-- [`package.json.example`](package.json.example): ESM descriptor (`pnpm@12.18.0`, `webdriverio@^9.16.0`, `appium@^3.0.0`, `typescript@^5.8.2`) providing `type-check`, `test:unit`, `test:e2e`, `appium:drivers`, `adb:devices`, and `audit:deps`.
-- [`Makefile.example`](Makefile.example): Ephemeral container targets anchored with `$(CURDIR)` (`QA-MAKE-CURDIR-01`) — `qa-lint`, `qa-unit`, `qa-drivers`, `qa-bridge`, `qa-e2e`, `qa-all`, `clean-cache`, `clean`, and `qa-clean`.
+- [`package.json.example`](package.json.example): ESM descriptor (`pnpm@12.18.0`, `webdriverio@^9.16.0`, `appium@^3.0.0`, `typescript@^5.8.2`, ESLint/SonarJS/Security/Prettier/CycloneDX `devDependencies`) providing `type-check`, `lint`, `format:check`, `test:unit` (emitting `coverage/lcov.info`), `test:e2e`, `appium:drivers`, `adb:devices`, `audit:deps`, and `qa:sbom`.
+- [`tsconfig.json.example`](tsconfig.json.example), [`eslint.config.mjs.example`](eslint.config.mjs.example), [`.prettierrc.example`](.prettierrc.example): Strict TypeScript (`--erasableSyntaxOnly`), ESLint (`CC <= 5`, `SonarJS <= 15`, `security`), and Prettier templates for hydrated consumer apps.
+- [`tests/e2e/mobile_app_smoke.spec.ts`](tests/e2e/mobile_app_smoke.spec.ts): Runnable Mocha WDIO E2E smoke spec discovered by `wdio run wdio.conf.ts` using `MobileActor` and semantic locators (`ByAccessibilityId`, `ByWebviewRole`).
+- [`Makefile.example`](Makefile.example): Ephemeral container targets anchored with `$(CURDIR)` (`QA-MAKE-CURDIR-01`) — `qa-lint`, `qa-unit` (emitting `coverage/lcov.info`), `qa-drivers`, `qa-bridge`, `qa-e2e`, `qa-sbom` (`reports/sbom-mobile.cdx.json`), `qa-all`, `clean-cache`, `clean`, and `qa-clean`.
 - `make test-mobile-blueprints` (monorepo root [`Makefile`](../Makefile)): Certifies `java`/`adb`/`appium` binaries, strict `tsc --noEmit`, `node --test mobile-appium/tests/mobile_screenplay.spec.ts` inside `sinfallas/base-mobile-appium:26`, and `lint_test_antipatterns.py mobile-appium` inside `sinfallas/base-python-uv:3.15`.
 
 ```bash

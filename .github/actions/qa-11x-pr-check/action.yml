@@ -142,16 +142,16 @@ runs:
         esac
 
         if [ "${NORM_EVENT}" = "pull_request" ] && [ -n "${PR_BASE_SHA:-}" ] && [ -n "${PR_HEAD_SHA:-}" ]; then
-          git diff --relative --name-only "${PR_BASE_SHA}...${PR_HEAD_SHA}" > "${CHANGED_FILE}" 2>/dev/null ||
-            git diff --relative --name-only "${PR_BASE_SHA}" "${PR_HEAD_SHA}" > "${CHANGED_FILE}" 2>/dev/null || true
+          git -c core.quotePath=false diff --relative --name-only "${PR_BASE_SHA}...${PR_HEAD_SHA}" > "${CHANGED_FILE}" 2>/dev/null ||
+            git -c core.quotePath=false diff --relative --name-only "${PR_BASE_SHA}" "${PR_HEAD_SHA}" > "${CHANGED_FILE}" 2>/dev/null || true
         fi
         if [ ! -s "${CHANGED_FILE}" ] && [ "${NORM_EVENT}" = "pull_request" ]; then
           if ! git rev-parse --verify "origin/${INPUT_BASE_REF}" >/dev/null 2>&1; then
             git fetch --no-tags --depth=50 origin "${INPUT_BASE_REF}" >/dev/null 2>&1 || true
           fi
           if git rev-parse --verify "origin/${INPUT_BASE_REF}" >/dev/null 2>&1; then
-            git diff --relative --name-only "origin/${INPUT_BASE_REF}...HEAD" > "${CHANGED_FILE}" 2>/dev/null ||
-              git diff --relative --name-only "origin/${INPUT_BASE_REF}..HEAD" > "${CHANGED_FILE}" 2>/dev/null || true
+            git -c core.quotePath=false diff --relative --name-only "origin/${INPUT_BASE_REF}...HEAD" > "${CHANGED_FILE}" 2>/dev/null ||
+              git -c core.quotePath=false diff --relative --name-only "origin/${INPUT_BASE_REF}..HEAD" > "${CHANGED_FILE}" 2>/dev/null || true
           fi
         fi
         if [ ! -s "${CHANGED_FILE}" ] && [ "${NORM_EVENT}" != "schedule" ] && [ "${NORM_EVENT}" != "workflow_dispatch" ]; then
@@ -159,7 +159,7 @@ runs:
             git fetch --no-tags --depth=50 >/dev/null 2>&1 || true
           fi
           if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
-            git diff --relative --name-only HEAD~1..HEAD > "${CHANGED_FILE}" 2>/dev/null || true
+            git -c core.quotePath=false diff --relative --name-only HEAD~1..HEAD > "${CHANGED_FILE}" 2>/dev/null || true
           fi
         fi
 

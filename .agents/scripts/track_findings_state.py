@@ -12,6 +12,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -226,13 +227,32 @@ def resolve_session_key(workspace: Path, base_ref: str | None = None) -> str:
     return f"{branch}:{merge_base}"
 
 
-def _ensure_no_symlink(target: Path) -> None:
-    if target.is_symlink() or target.parent.is_symlink():
-        raise ValueError(f"Ruta symlink rechazada por seguridad: {target}")
+def _find_safe_anchor(target_abs: Path, workspace: Path | None) -> Path:
+    candidates: list[Path] = []
+    if workspace is not None:
+        candidates.extend((Path(os.path.abspath(workspace)), workspace.resolve()))
+    for base in (Path.cwd(), Path.home(), Path(tempfile.gettempdir())):
+        candidates.extend((Path(os.path.abspath(base)), base.resolve()))
+    for candidate in candidates:
+        if target_abs.is_relative_to(candidate):
+            return candidate
+    return Path(target_abs.anchor)
 
 
-def _load_state_doc(state_file: Path) -> dict[str, Any]:
-    _ensure_no_symlink(state_file)
+def _ensure_no_symlink(target: Path, workspace: Path | None = None) -> None:
+    target_abs = Path(os.path.abspath(target))
+    anchor = _find_safe_anchor(target_abs, workspace)
+    cursor = anchor
+    for part in target_abs.relative_to(anchor).parts:
+        cursor = cursor / part
+        if cursor.is_symlink():
+            raise ValueError(f"Ruta symlink rechazada por seguridad: {target}")
+
+
+def _load_state_doc(
+    state_file: Path, workspace: Path | None = None
+) -> dict[str, Any]:
+    _ensure_no_symlink(state_file, workspace=workspace)
     if not state_file.is_file():
         return {"version": STATE_SCHEMA_VERSION, "sessions": {}}
     try:
@@ -253,8 +273,10 @@ def _ensure_private_parent(parent: Path) -> None:
         os.chmod(parent, 0o700)
 
 
-def _save_state_doc(state_file: Path, state_doc: dict[str, Any]) -> None:
-    _ensure_no_symlink(state_file)
+def _save_state_doc(
+    state_file: Path, state_doc: dict[str, Any], workspace: Path | None = None
+) -> None:
+    _ensure_no_symlink(state_file, workspace=workspace)
     _ensure_private_parent(state_file.parent)
     payload = json.dumps(state_doc, indent=2, ensure_ascii=False) + "\n"
     tmp_path = (
@@ -502,7 +524,7 @@ def evaluate_and_record(
     if max_streak < 1:
         raise ValueError("--max-streak debe ser >= 1")
     session_key = resolve_session_key(workspace, base_ref=base_ref)
-    state_doc = _load_state_doc(state_file)
+    state_doc = _load_state_doc(state_file, workspace=workspace)
     if reset_state:
         state_doc.setdefault("sessions", {}).pop(session_key, None)
     payload_stage, raw_items = _extract_raw_findings(payload)
@@ -524,7 +546,7 @@ def evaluate_and_record(
             report=report,
         ),
     )
-    _save_state_doc(state_file, state_doc)
+    _save_state_doc(state_file, state_doc, workspace=workspace)
     return report
 
 
@@ -533,9 +555,9 @@ def reset_session_state(
 ) -> str:
     """Limpia la memoria de hallazgos de la sesión activa (uso humano explícito)."""
     session_key = resolve_session_key(workspace, base_ref=base_ref)
-    state_doc = _load_state_doc(state_file)
+    state_doc = _load_state_doc(state_file, workspace=workspace)
     state_doc.setdefault("sessions", {}).pop(session_key, None)
-    _save_state_doc(state_file, state_doc)
+    _save_state_doc(state_file, state_doc, workspace=workspace)
     return session_key
 
 

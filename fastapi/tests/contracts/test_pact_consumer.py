@@ -177,8 +177,10 @@ def _execute_http_json(
             return int(resp.status), _normalize_headers(raw_headers), data
     except urllib.error.HTTPError as exc:
         raw_headers = {k: v for k, v in exc.headers.items()}
-        return int(exc.code), _normalize_headers(raw_headers), _decode_json_object(
-            exc.read()
+        return (
+            int(exc.code),
+            _normalize_headers(raw_headers),
+            _decode_json_object(exc.read()),
         )
 
 
@@ -454,8 +456,8 @@ def _add_degraded_conflict_interaction(pact: Pact) -> None:
                 "title": "Idempotency Key Payload Mismatch",
                 "status": 409,
                 "detail": match.str(
-                    f"Idempotency-Key {CONFLICT_IDEMPOTENCY_KEY} was already committed "
-                    "with a different payload."
+                    f"Idempotency-Key {CONFLICT_IDEMPOTENCY_KEY} "
+                    "was already committed with a different payload."
                 ),
             },
             content_type="application/problem+json",

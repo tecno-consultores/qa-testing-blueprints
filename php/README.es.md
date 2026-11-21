@@ -20,7 +20,7 @@ docker run --rm \
   -v "$(pwd):/var/www" \
   -w /var/www \
   sinfallas/basephpcomposer:8.5@sha256:56ff6d2dbf8b13833555b56ddc517bf520506b669c235026bb23224b212f0208 \
-  composer run-script qa:unit
+  sh -c 'php -d allow_url_fopen=1 "$(command -v composer)" run-script qa:unit'
 ```
 
 * **Para PHP, Linting, PHPStan (`max`), Psalm, PHPUnit/Pest (`PCOV`) y Mutación (`Infection`):** `sinfallas/basephpcomposer:8.5@sha256:56ff6d2dbf8b13833555b56ddc517bf520506b669c235026bb23224b212f0208` (fija digests SHA-256 explícitos al usar variantes `8.2`–`8.5`; ejecuta `./scripts/actualizar-grafos-graphify.sh php` y `python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"` antes de editar).
@@ -45,11 +45,11 @@ docker run --rm \
    * **Precisión Monetaria Exacta:** Los importes financieros deben viajar serializados como cadenas decimales exactas (`"149.95"` vía `bcmath` o `Brick\Money`), quedando terminantemente prohibido usar `float` binario en cuerpos JSON.
    * **Trimodal Fixtures y Anti-Silo:** Cubrir estados `nominal_configured` (`201 Created` con eco de `Idempotency-Key`), `virgin_empty` (`404 Not Found` en formato RFC 7807 `application/problem+json`) y `degraded_conflict` (lotes parciales `POST .../batch` devolviendo `200 OK` con inspección ítem por ítem de `results[].status`, más `409 Conflict` RFC 7807 ante colisión de `Idempotency-Key` con payload mutado).
 8. **Pruebas BDD de Caja Negra:** `Karate Labs` ejecutando `test/api_test.feature` contra la API viva en contenedor efímero.
-9. **Pruebas de Carga Declarativas y SLOs (`k6`):** Perfiles parametrizables por entorno (`K6_PROFILE=smoke|load|stress`, referencia en `php/tests/load/smoke.k6.js`) con umbrales bloqueantes alineados a `evaluateReleaseGate` (`http_req_failed < 1%`, `p(95) < 250ms`, `p(99) < 500ms`, `checks == 100%`) e inspección por ítem de respuestas batch sin asumir éxito por `status === 200`.
-10. **Seguridad Dinámica DAST y OSHP:** OWASP ZAP Baseline verificando `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cache-Control: no-store` y supresión de `X-Powered-By`.
+9. **Pruebas de Carga Declarativas y SLOs (`k6`):** Perfiles parametrizables por entorno (`K6_PROFILE=smoke|load|stress`, referencia en `php/tests/load/smoke.k6.js`) persistiendo `reports/k6-summary.json` con umbrales bloqueantes alineados a `evaluateReleaseGate` (`http_req_failed < 1%`, `p(95) < 250ms`, `p(99) < 500ms`, `checks == 100%`) e inspección por ítem de respuestas batch sin asumir éxito por `status === 200`.
+10. **Seguridad Dinámica DAST y OSHP:** OWASP ZAP Automation Framework (`zap.yaml` desde `zap.yaml.example`, o fallback Baseline) persistiendo `reports/zap-report.html` y `reports/zap-report.json`, verificando `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cache-Control: no-store` y supresión de `X-Powered-By`.
 11. **Seguridad por Diseño, Canonicalización e Idempotencia ([Guía de Seguridad](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md)):** Aplica controles DISA ASD STIG V6R5 + OWASP v4.2: Unicode `\Normalizer::FORM_KC` antes de validar (`APSC-DV-002520`), Argon2id, AES-256-GCM con `sodium_memzero()` y cabecera obligatoria `Idempotency-Key` (formato UUIDv4) en todo `POST`/`PUT`/`PATCH`/`DELETE` respaldada en KeyDB con hash SHA-256 del payload para bloquear mutaciones con `409 Conflict`.
-12. **Ingeniería del Caos y Observabilidad:** Inyección de latencia/fallos con Pumba (`netem`) y métricas Prometheus (`/metrics`).
-13. **SBOM Criptográfico:** `cyclonedx/cyclonedx-php-composer` generando `sbom-php.cdx.json` (CycloneDX 1.6).
+12. **Ingeniería del Caos y Observabilidad:** Inyección de latencia/fallos con Pumba (`netem`) y métricas Prometheus (`/metrics`, `--profile observability`).
+13. **SBOM Criptográfico:** `cyclonedx/cyclonedx-php-composer` generando `reports/sbom-php.cdx.json` (CycloneDX 1.6).
 
 ---
 
@@ -66,11 +66,12 @@ make qa-unit        # Pest/PHPUnit con cobertura de líneas PCOV >= 95%
 make qa-parity      # Migraciones + verificación PostgreSQL 17 relforcerowsecurity
 make qa-contracts   # Solo exportación OpenAPI 3.1 (emite [SKIPPED] sin vendor/bin/openapi ni suite Pact)
 make qa-bdd         # Karate Labs API contra php-api (con Idempotency-Key UUIDv4)
-make qa-dast        # Seguridad Dinámica Baseline Scan (OWASP ZAP)
-make qa-load        # Pruebas de carga declarativas k6 (smoke | load | stress)
-make qa-chaos       # Ingeniería del Caos (Pumba netem + scraping Prometheus)
-make qa-mutation    # Infection (MSI >= 80%)
-make qa-sbom        # CycloneDX 1.6
+make qa-dast           # Seguridad Dinámica (OWASP ZAP vía zap.yaml -> reports/zap-report.{html,json})
+make qa-load           # Pruebas de carga declarativas k6 (smoke | load | stress -> reports/k6-summary.json)
+make qa-chaos          # Ingeniería del Caos (Pumba netem + scraping Prometheus)
+make qa-observability  # Levanta el perfil observability de Prometheus raspando /metrics
+make qa-mutation       # Infection (MSI >= 80%)
+make qa-sbom           # CycloneDX 1.6 -> reports/sbom-php.cdx.json
 make qa-all         # Pipeline integral 11X
 
 # Desde la raíz de qa-testing-blueprints (certificación cruzada Zero-Infra):

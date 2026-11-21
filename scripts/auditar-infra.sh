@@ -37,37 +37,71 @@ audit_ci_and_submakefiles() {
   local found_err=0
   local rel=""
   local out=""
+  local awk_wf_prog=""
+  local awk_mk_prog=""
+
+  read -r -d '' awk_wf_prog <<'AWK' || true
+{
+  lines[NR] = $0
+  if (NR <= 5 && index($0, "qa-ci-escape-ok") > 0) {
+    skip_file = 1
+  }
+}
+END {
+  if (skip_file) exit 0
+  bad = 0
+  prev = ""
+  for (i = 1; i <= NR; i++) {
+    line = lines[i]
+    trimmed = line
+    sub(/^[[:space:]]+/, "", trimmed)
+    if (trimmed != "" && substr(trimmed, 1, 1) != "#" &&
+      index(line, "qa-ci-escape-ok") == 0 &&
+      index(prev, "qa-ci-escape-ok") == 0 &&
+      line ~ /\$\$[({][A-Za-z_]/) {
+      printf "❌ [QA-CI-ESCAPE-01] %s:%d: Escape de doble dólar estilo Makefile/Compose en GitHub Actions (use $(...) o ${...}).\n", file, i
+      bad = 1
+    }
+    prev = line
+  }
+  exit bad
+}
+AWK
+
+  read -r -d '' awk_mk_prog <<'AWK' || true
+{
+  lines[NR] = $0
+  if (NR <= 5 && index($0, "qa-make-curdir-ok") > 0) {
+    skip_file = 1
+  }
+}
+END {
+  if (skip_file) exit 0
+  bad = 0
+  prev = ""
+  for (i = 1; i <= NR; i++) {
+    line = lines[i]
+    trimmed = line
+    sub(/^[[:space:]]+/, "", trimmed)
+    check = line
+    gsub(/\$\$/, "__QA_DBL__", check)
+    if (trimmed != "" && substr(trimmed, 1, 1) != "#" &&
+      index(line, "qa-make-curdir-ok") == 0 &&
+      index(prev, "qa-make-curdir-ok") == 0 &&
+      (check ~ /\$\(PWD\)/ || check ~ /\$\{PWD\}/)) {
+      printf "❌ [QA-MAKE-CURDIR-01] %s:%d: Sub-Makefile usa $(PWD)/${PWD} en lugar de $(CURDIR).\n", file, i
+      bad = 1
+    }
+    prev = line
+  }
+  exit bad
+}
+AWK
 
   if [ -d "${REPO_ROOT}/.github" ]; then
     while IFS= read -r -d '' wf_file; do
       rel="${wf_file#"${REPO_ROOT}/"}"
-      if ! out="$(awk -v file="${rel}" '
-        {
-          lines[NR] = $0
-          if (NR <= 5 && index($0, "qa-ci-escape-ok") > 0) {
-            skip_file = 1
-          }
-        }
-        END {
-          if (skip_file) exit 0
-          bad = 0
-          prev = ""
-          for (i = 1; i <= NR; i++) {
-            line = lines[i]
-            trimmed = line
-            sub(/^[[:space:]]+/, "", trimmed)
-            if (trimmed != "" && substr(trimmed, 1, 1) != "#" &&
-              index(line, "qa-ci-escape-ok") == 0 &&
-              index(prev, "qa-ci-escape-ok") == 0 &&
-              line ~ /\$\$[({][A-Za-z_]/) {
-              printf "❌ [QA-CI-ESCAPE-01] %s:%d: Escape de doble dólar estilo Makefile/Compose en GitHub Actions (use $(...) o ${...}).\n", file, i
-              bad = 1
-            }
-            prev = line
-          }
-          exit bad
-        }
-      ' "${wf_file}")"; then
+      if ! out="$(awk -v file="${rel}" "${awk_wf_prog}" "${wf_file}")"; then
         printf '%s\n' "${out}" >&2
         found_err=1
       fi
@@ -76,35 +110,7 @@ audit_ci_and_submakefiles() {
 
   while IFS= read -r -d '' mk_file; do
     rel="${mk_file#"${REPO_ROOT}/"}"
-    if ! out="$(awk -v file="${rel}" '
-      {
-        lines[NR] = $0
-        if (NR <= 5 && index($0, "qa-make-curdir-ok") > 0) {
-          skip_file = 1
-        }
-      }
-      END {
-        if (skip_file) exit 0
-        bad = 0
-        prev = ""
-        for (i = 1; i <= NR; i++) {
-          line = lines[i]
-          trimmed = line
-          sub(/^[[:space:]]+/, "", trimmed)
-          check = line
-          gsub(/\$\$/, "__QA_DBL__", check)
-          if (trimmed != "" && substr(trimmed, 1, 1) != "#" &&
-            index(line, "qa-make-curdir-ok") == 0 &&
-            index(prev, "qa-make-curdir-ok") == 0 &&
-            (check ~ /\$\(PWD\)/ || check ~ /\$\{PWD\}/)) {
-            printf "❌ [QA-MAKE-CURDIR-01] %s:%d: Sub-Makefile usa $(PWD)/${PWD} en lugar de $(CURDIR).\n", file, i
-            bad = 1
-          }
-          prev = line
-        }
-        exit bad
-      }
-    ' "${mk_file}")"; then
+    if ! out="$(awk -v file="${rel}" "${awk_mk_prog}" "${mk_file}")"; then
       printf '%s\n' "${out}" >&2
       found_err=1
     fi
@@ -163,6 +169,11 @@ TRIVY_SKIP_DIRS="node_modules,.git,dist,target,graphify-out,vendor,.venv"
 TRIVY_CONFIG_ARGS=(--skip-dirs "${TRIVY_SKIP_DIRS}")
 if [ -f "${REPO_ROOT}/.trivy.yaml" ]; then
   TRIVY_CONFIG_ARGS=(--config .trivy.yaml)
+fi
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo "❌ [IaC / Regla Cero] Se requiere Docker disponible en PATH para ejecutar Trivy en contenedor efímero (use --static-only para guardas estáticas)." >&2
+  exit 1
 fi
 
 # 1. Escaneo de misconfiguraciones IaC (Pass-Quiet / Fail-Verbose)

@@ -50,11 +50,12 @@ La estrategia de validación de FastAPI abarca 13 capas transversales (Estándar
 *   Usa `httpx` y el `TestClient` nativo de FastAPI para simular peticiones sin depender de la red externa.
 *   **Frontera Estricta (Tool Boundary):** Todos los archivos de pruebas unitarias DEBEN llamarse `.unit.py` o `.spec.py` para aislar su ejecución.
 *   **Aislamiento Unitario:** En pruebas `.unit.py`, usa `pytest-mock` para aislar llamadas HTTP hacia terceros o APIs externas.
+*   **Imports Relativos a `src/` (`mutmut 3.x`):** Importa siempre los módulos de forma relativa a `src/` (`from main import ...`, `uvicorn main:app` con `PYTHONPATH=/app/src`, nunca `from src.main`) para que el trampolín de `mutmut` funcione sin errores.
 *   **Anti-Mock Blindness (Obligatorio en Persistencia):** NUNCA simules la base de datos con mocks ciegos para validar modelos SQLAlchemy o migraciones Alembic. Las pruebas de integración (`.int.py` o flujos de repositorio) DEBEN validarse contra el contenedor `postgres:17` efímero. Cada cambio en `src/models/` exige su correspondiente migración `alembic revision --autogenerate` verificada en PostgreSQL real.
 
 ### C. Análisis de Complejidad y Profiling (`radon` + `py-spy`)
 *   **Regla de Complejidad:** Ningún bloque de código generado puede superar complejidad ciclomática Grado `A` (`CC <= 5`). El índice de mantenibilidad (MI) debe ser Grado `A`.
-*   **Profiling:** Para endpoints pesados, perfilaremos la aplicación bajo carga utilizando `py-spy` para generar un *Flamegraph* visual (`profile.svg`) que evidencie bloqueos en el *Event Loop* asíncrono.
+*   **Profiling:** Para endpoints pesados, perfilaremos la aplicación bajo carga utilizando `py-spy` para generar un *Flamegraph* visual (`reports/flamegraph.svg`) que evidencie bloqueos en el *Event Loop* asíncrono.
 
 ### D. Comportamiento y Caja Negra (`Karate Labs`)
 *   Escribe archivos `.feature` en la carpeta `test/` (ej. `test/api_test.feature`). La API se considerará una caja negra opaca y será atacada a través de su puerto HTTP expuesto (8000).
@@ -134,8 +135,8 @@ make qa-dast
 
 *   **Profiling Acumulativo (Flamegraph con `py-spy`), Observabilidad y SBOM CycloneDX:**
 ```bash
-# Adjuntar py-spy a uvicorn dentro de un contenedor endurecido puede requerir CAP_SYS_PTRACE (`--cap-add SYS_PTRACE`) o mismo UID; guarda profile.svg en /app/.
-# Incluye mutmut_gates.py (qa-mutation) y zap.yaml / /tmp/zap-report.html (montajes :ro en DAST).
+# El sidecar profiler corre como user: "0:0" + CAP_SYS_PTRACE (pid: "service:api", .:/app:ro) y reasigna reports/flamegraph.svg a QA_UID:QA_GID.
+# Incluye mutmut_gates.py (qa-mutation) y zap.yaml (.:/zap/wrk:ro + ./reports:/reports:rw -> reports/zap-report.{html,json}).
 make qa-profile
 make qa-observability
 make qa-sbom
@@ -146,4 +147,4 @@ Este comando activa el perfil oculto. Despierta a Pumba, Locust y Prometheus sim
 ```bash
 make qa-chaos
 ```
-*(Durante el ataque, visualiza las métricas en `http://localhost:9090` o revisa `chaos-report.html` para validar la tasa de supervivencia de los requests).*
+*(Durante el ataque, visualiza las métricas en `http://localhost:9090` o revisa `reports/chaos-report.html` para validar la tasa de supervivencia de los requests).*

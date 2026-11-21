@@ -68,7 +68,7 @@ SUPABASE_SERVICE_ROLE_KEY=<EXAMPLE_REDACTED>
 1. **`app_runtime_user` role** with `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`.
 2. **Revocation of `PUBLIC`/`anon`/`authenticated`** and removal (`DROP POLICY IF EXISTS`) of permissive policies inherited from Supabase scaffolds.
 3. **`ENABLE ROW LEVEL SECURITY` + `FORCE ROW LEVEL SECURITY`** and `tenant_isolation_policy` bound to `NULLIF(current_setting('app.current_tenant_id', true), '')::uuid`.
-4. **Pre-auth function `resolve_tenant_by_slug`** (`SECURITY DEFINER`, `SET search_path = pg_catalog, public`, scoped `tenants_definer_lookup_policy` under `FORCE RLS`, active trimmed lookup) and immutable **`audit_log_worm`** table (monotonic `seq_num BIGINT` with `GRANT USAGE ON SEQUENCE`, `BEFORE UPDATE/DELETE/TRUNCATE` triggers, and `append_worm_audit_entry` computing/enforcing `CHAR(64)` SHA-256 chains fail-closed with `RAISE EXCEPTION` on hash mismatch or blank/UUIDv4 `p_actor_username` under `pg_advisory_xact_lock(hashtext('audit:' || p_tenant_id::text))`).
+4. **Pre-auth function `resolve_tenant_by_slug`** (`SECURITY DEFINER`, `SET search_path = pg_catalog, public`, scoped `tenants_definer_lookup_policy` under `FORCE RLS`, active trimmed lookup) and immutable **`audit_log_worm`** table (`seq_num BIGINT GENERATED ALWAYS AS IDENTITY` written exclusively via `SECURITY DEFINER` `append_worm_audit_entry` without direct `INSERT` or sequence grants for `app_runtime_user`, `BEFORE UPDATE/DELETE/TRUNCATE` triggers, and `CHAR(64)` SHA-256 chains enforced fail-closed with `RAISE EXCEPTION` on hash mismatch or blank/UUIDv4 `p_actor_username` under `pg_advisory_xact_lock(hashtext('audit:' || p_tenant_id::text))`).
 
 ---
 

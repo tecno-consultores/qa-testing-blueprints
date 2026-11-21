@@ -463,15 +463,44 @@ function isIpv4MappedPrefix(hextets: readonly number[]): boolean {
   );
 }
 
+function isIpv4TranslatedPrefix(hextets: readonly number[]): boolean {
+  return (
+    hextets[0] === 0 &&
+    hextets[1] === 0 &&
+    hextets[2] === 0 &&
+    hextets[3] === 0 &&
+    hextets[4] === 0xffff &&
+    hextets[5] === 0
+  );
+}
+
+function isIpv4CompatiblePrefix(hextets: readonly number[]): boolean {
+  return (
+    hextets[0] === 0 &&
+    hextets[1] === 0 &&
+    hextets[2] === 0 &&
+    hextets[3] === 0 &&
+    hextets[4] === 0 &&
+    hextets[5] === 0
+  );
+}
+
+function isReservedTransitionIpv6(hextets: readonly number[]): boolean {
+  const [h0 = 0, h1 = 0] = hextets;
+  if (isIpv4CompatiblePrefix(hextets) || isIpv4TranslatedPrefix(hextets)) return true;
+  if (h0 === 0x2002) return true;
+  return h0 === 0x2001 && h1 === 0;
+}
+
 function isPrivateOrReservedIpv6(rawHost: string): boolean {
   if (rawHost.includes('%')) return true;
   const hextets = expandIpv6Hextets(rawHost);
   if (!hextets) return true;
   const [h0 = 0, h1 = 0, h2 = 0, h3 = 0, , , h6 = 0, h7 = 0] = hextets;
-  if (hextets.every((val, idx) => (idx < 7 ? val === 0 : val === 0 || val === 1))) return true;
   if ((h0 & 0xffc0) === 0xfe80 || (h0 & 0xfe00) === 0xfc00 || (h0 & 0xff00) === 0xff00) return true;
   if (h0 === 0x0064 && h1 === 0xff9b) return true;
   if (h0 === 0x0100 && h1 === 0 && h2 === 0 && h3 === 0) return true;
+  if (isReservedTransitionIpv6(hextets)) return true;
   if (isIpv4MappedPrefix(hextets)) {
     return isPrivateIpv4Address(hextetsToIpv4(h6, h7));
   }
@@ -543,7 +572,7 @@ export function validateTmsBaseUrl(rawUrl: string): URL {
     parsed = new URL(trimmed);
   } catch (err: unknown) {
     reportDebugCatchError('tmsSyncCli.validateTmsBaseUrl', err);
-    throw new TmsSecurityError(CODE_INVALID_INPUT, `baseUrl inválido: '${trimmed}'.`);
+    throw new TmsSecurityError(CODE_INVALID_INPUT, `baseUrl inválido: '${redactPiiAndSecrets(trimmed)}'.`);
   }
   if (parsed.protocol !== 'https:') {
     throw new TmsSecurityError(CODE_SSRF_BLOCKED, 'Solo se permite esquema https:// para integraciones TMS.');

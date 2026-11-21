@@ -35,7 +35,7 @@ rm -f ./ACTIVE_TASK.md .coverage .coverage.* coverage.xml junit.xml \
   trivy-results* sbom.cyclonedx.json sbom-*.cdx.json cbom.cyclonedx.json cbom-*.cdx.json \
   release-readiness.json release-readiness.md qa-11x-last-failure.json vibe-rescue-report.json \
   .task_scratchpad.md .agents/*.scratchpad.md ./*.log 2>/dev/null || true
-rm -rf .mypy_cache .pytest_cache .ruff_cache .uv/ htmlcov/ .trivycache .agents/tmp/ 2>/dev/null || true
+rm -rf .mypy_cache .pytest_cache .ruff_cache .uv/ htmlcov/ .trivycache .agents/tmp/ .deepeval/ reports/ 2>/dev/null || true
 
 if [ -d "graphify-out" ]; then
   find graphify-out/ -mindepth 1 -maxdepth 1 ! -name 'GRAPH_REPORT.md' ! -name 'graph.html' ! -name 'graph.json' ! -name 'manifest.json' -exec rm -rf {} + 2>/dev/null || true
@@ -47,9 +47,10 @@ find . \( -name ".git" -o -name "node_modules" -o -name ".venv" -o -name "venv" 
   -o -type f \( -name "*.py[cod]" -o -name "*\$py.class" -o -name ".DS_Store" -o -name "._*" -o -name "Thumbs.db" -o -name "ehthumbs.db" -o -name "Desktop.ini" -o -name "*.swp" -o -name "*.swo" -o -name "*.swn" -o -name "*~" -o -name ".#*" -o -name "#*#" -o -name "*.orig" -o -name "*.rej" -o -name "*.bak" \) -exec rm -f {} + 2>/dev/null || true
 
 if command -v docker >/dev/null 2>&1; then
-  docker run --rm --network none -v "${SCRIPT_DIR}:/work" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab sh -c '
+  docker run --rm --network none --security-opt=no-new-privileges:true -v "${SCRIPT_DIR}:/work" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab sh -c '
     rm -rf /work/.coverage /work/.coverage.* /work/.mypy_cache /work/.pytest_cache \
-      /work/.ruff_cache /work/.uv /work/htmlcov /work/.trivycache 2>/dev/null || true
+      /work/.ruff_cache /work/.uv /work/htmlcov /work/.trivycache /work/.deepeval \
+      /work/reports /work/vibe-rescue-report.json 2>/dev/null || true
     if [ "$3" = "true" ]; then
       rm -rf /work/node_modules /work/.venv /work/venv 2>/dev/null || true
     fi

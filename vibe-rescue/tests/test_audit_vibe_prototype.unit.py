@@ -113,6 +113,8 @@ def test_nominal_multistage_rls_and_self_audit_pass(
 
     self_report = auditor.audit_prototype(_VIBE_DIR)
     assert self_report["verdict"] == "ENTERPRISE_READY"
+    assert self_report["score"] == 100
+    assert self_report["findings"] == []
 
 
 def _create_degraded_sql_and_docker(degraded: Path) -> None:
@@ -432,3 +434,42 @@ def test_rls_no_force_disable_order_gitkeep_and_emit_dot_guard(
     assert flagged_env == {"sub/.env", ".env.local"}
 
     assert auditor.main(["--target", str(rls_neg), "--emit-remediation", "."]) == 2
+
+
+def test_remediation_rejects_dangling_and_ancestor_symlinks(tmp_path: Path) -> None:
+    """Rechaza symlinks colgantes y ancestros symlink en emit_dir."""
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    ws = tmp_path / "ws"
+    (ws / "tests").mkdir(parents=True)
+    (ws / "tests" / "ok.unit.py").write_text("assert True\n", encoding="utf-8")
+
+    # 1. Symlink colgante en archivo destino de remediacion
+    emit = ws / "rescue_out"
+    emit.mkdir()
+    pwned = outside / "pwned.sql"
+    (emit / "rls_hardening.sql").symlink_to(pwned)
+
+    with pytest.raises(ValueError, match="Symlink rechazado"):
+        auditor.audit_prototype(ws, dry_run=False, emit_dir=emit)
+    assert not pwned.exists()
+
+    # 2. Ancestro symlink en emit_dir apuntando fuera de target_dir
+    sym_dir = ws / "sym_dir"
+    sym_dir.symlink_to(outside)
+    with pytest.raises(ValueError, match="fuera de target_dir"):
+        auditor.audit_prototype(
+            ws, dry_run=False, emit_dir=sym_dir / "escaped_rescue"
+        )
+    assert not (outside / "escaped_rescue").exists()
+
+    # 3. Ancestro symlink interno dentro de target_dir
+    real_sub = ws / "real_sub"
+    real_sub.mkdir()
+    internal_sym = ws / "internal_sym"
+    internal_sym.symlink_to(real_sub)
+    with pytest.raises(ValueError, match="Symlink rechazado"):
+        auditor.audit_prototype(
+            ws, dry_run=False, emit_dir=internal_sym / "nested_out"
+        )
+    assert not (real_sub / "nested_out").exists()

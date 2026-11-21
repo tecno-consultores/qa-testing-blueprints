@@ -729,3 +729,31 @@ def test_wave3_ui_and_api_isolation_subrouters_and_regex_escape(
     )
     assert len(direct_routes) == 1
     assert api_mod._expand_node_mount("missing.ts", "/api", None, {}, {}, set()) == []
+
+
+def test_ui_root_pages_fallback_detects_orphan_and_clears_with_unit_test(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Valida que src/pages/ active deteccion UI cuando faltan components/ y views/."""
+    ui_mod = _load_mod("ui_pages", "verify_zero_orphan_vue_components.py")
+    pages_ws = tmp_path / "root_pages_ws"
+    _write_files(
+        pages_ws,
+        {
+            "src/pages/HomePage.tsx": "export const HomePage = () => <main />;\n",
+        },
+    )
+    assert ui_mod.main(pages_ws) == 1
+    out = capsys.readouterr().out
+    assert "HomePage.tsx" in out
+
+    _write_files(
+        pages_ws,
+        {
+            "tests/HomePage.unit.tsx": (
+                "import { HomePage } from '../src/pages/HomePage';\n"
+                "render(<HomePage />);\n"
+            ),
+        },
+    )
+    assert ui_mod.main(pages_ws) == 0

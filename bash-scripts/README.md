@@ -63,5 +63,6 @@ make qa-observability
 docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-bash bash ./clean_artifacts.sh --dry-run
 # Or push a metric upon real artifact cleanup inside the ephemeral Compose network:
 docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-bash bash ./clean_artifacts.sh --pushgateway-url http://pushgateway:9091
+# Security policy: external URLs require HTTPS (`--proto '=https' --tlsv1.2`); plain HTTP is restricted to local loopbacks/containers (`localhost`, `127.0.0.1`, `[::1]`, `pushgateway`, `bash_pushgateway`) unless `--allow-insecure-local` is passed, and an explicit `--pushgateway-url` failure exits non-zero.
 # Verify the pushed metric at http://localhost:9090, then tear down with `make clean-cache` (or `--profile "*" down -v`).
 ```

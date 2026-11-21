@@ -251,11 +251,11 @@
 
 * **Purpose:** Bombard the running application with active web attacks (SQL injection, reflected XSS, insecure HTTP headers, cookies missing security flags) and certify compliance with **OWASP Application Security Verification Standard (ASVS Level 2/3)**, **OWASP Web Security Testing Guide (WSTG)**, **OWASP API Security Top 10 (2023)**, and **DISA ASD STIG V6R5** (`APSC-DV-003160`..`003230`).
 * **Tools:**
-  - Container `zaproxy/zap-stable:2.15.0` running `zap-baseline.py` / `zap.yaml` Automation Framework (`zap.sh -cmd -autorun /zap/wrk/zap.yaml`) against `http://api:8000` (writing reports to `/tmp/zap-report.html` under `:ro` mounts).
+  - Container `zaproxy/zap-stable:2.15.0` running `zap-baseline.py` / `zap.yaml` Automation Framework (`zap.sh -cmd -autorun /zap/wrk/zap.yaml`) against `http://api:8000` (writing reports under `./reports/zap-report.{html,json}` on `:ro` mounts).
   - Validation of **OWASP Secure Headers Project (OSHP)** headers: `Strict-Transport-Security`, `Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Cache-Control: no-store`, and absence of `Server` / `X-Powered-By` banners.
   - Supply chain verification with **OWASP CycloneDX SBOM/CBOM** (`cyclonedx-py`, `@cyclonedx/cyclonedx-npm`) and SCA auditing with `Trivy` / `OWASP Dependency-Check`.
   - Fail-secure initialization, shutdown, and abort testing (*Fail-Secure State Testing*, `DISA V-222585` / `V-222647`): certify that upon configuration errors or critical dependency outages, the application denies access by default without leaking stack traces or permitting authentication bypass.
-* **Report:** Generates `/tmp/zap-report.html` (`zap-report.html`) and `sbom.cdx.json` for continuous auditing.
+* **Report:** Generates `reports/zap-report.{html,json}` and `reports/sbom*.cdx.json` for continuous auditing.
 
 ---
 

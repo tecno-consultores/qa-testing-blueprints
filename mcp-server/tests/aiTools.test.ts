@@ -810,9 +810,16 @@ describe('aiEvalsBlueprint (T3.2)', () => {
     const cachedYaml = path.join(cacheDir, 'files', 'ai-evals', 'promptfooconfig.yaml');
     fs.mkdirSync(path.dirname(cachedYaml), { recursive: true });
     fs.writeFileSync(cachedYaml, 'description: "from cache"\nproviders: []\n', 'utf8');
-    const cachedRes = readAiEvalsBlueprint(undefined, 'en', { cacheDir });
-    expect(cachedRes.source).toBe('workspace');
-    expect(cachedRes.text).toContain('from cache');
+    const cacheCwd = makeTempDir('qa11x-bp-cachecwd-');
+    const prevCacheCwd = process.cwd();
+    process.chdir(cacheCwd);
+    try {
+      const cachedRes = readAiEvalsBlueprint(undefined, 'en', { cacheDir });
+      expect(cachedRes.source).toBe('workspace');
+      expect(cachedRes.text).toContain('from cache');
+    } finally {
+      process.chdir(prevCacheCwd);
+    }
 
     const prevLocalPath = process.env.QA_BLUEPRINTS_LOCAL_PATH;
     process.env.QA_BLUEPRINTS_LOCAL_PATH = ws;

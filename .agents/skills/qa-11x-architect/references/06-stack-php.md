@@ -29,7 +29,7 @@ All execution MUST occur inside ephemeral Docker containers (`Rule Zero`) using 
 3. Run `vimeo/psalm --taint-analysis` to statically detect SQLi, XSS, SSRF, and path traversal sinks.
 
 ### B. Unit Coverage (`>= 95.0%`) via Native C `PCOV` & Offline Isolation
-1. Use `pcov` (`php -d pcov.enabled=1 -d pcov.directory=src ./vendor/bin/pest --coverage --min=95`, or `-d pcov.directory=app` on Laravel) for fast C-level branch/line instrumentation; mount custom hardened `.ini` files as `/usr/local/etc/php/conf.d/99-qa11x.ini` so they prevail over `conf.d/docker-php-ext-pcov.ini`.
+1. Use `pcov` (`php -d pcov.enabled=1 -d pcov.directory=src ./vendor/bin/pest --coverage --min=95`, or `-d pcov.directory=app` on Laravel) for fast C-level branch/line instrumentation; mount custom hardened `.ini` files as `/usr/local/etc/php/conf.d/zz-qa11x.ini` so they prevail over `conf.d/docker-php-ext-pcov.ini`.
 2. External HTTP calls MUST be intercepted offline (`GuzzleHttp\Handler\MockHandler`, `Symfony\Component\HttpClient\MockHttpClient`, or `php-vcr`).
 3. Filesystem operations in unit tests MUST use `bovigo/vfsstream` or ephemeral `/tmp` directories.
 
@@ -91,7 +91,7 @@ opcache.jit_buffer_size = 0
 
 [pcov]
 pcov.enabled = 1
-; Use 'app' on Laravel; mount as /usr/local/etc/php/conf.d/99-qa11x.ini or pass -d pcov.directory=... in CLI
+; Use 'app' on Laravel; mount as /usr/local/etc/php/conf.d/zz-qa11x.ini or pass -d pcov.directory=... in CLI
 pcov.directory = src
 pcov.exclude = ~vendor~
 ```
@@ -121,20 +121,20 @@ QA_GID ?= $(shell id -g)
 export QA_UID QA_GID
 
 qa-lint:
-	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 /usr/local/bin/composer install --no-interaction --prefer-dist --quiet; php -d allow_url_fopen=1 /usr/local/bin/composer run-script qa:lint"
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c '[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 "$$(command -v composer)" install --no-interaction --prefer-dist --quiet; php -d allow_url_fopen=1 "$$(command -v composer)" run-script qa:lint'
 
 qa-unit:
-	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 /usr/local/bin/composer install --no-interaction --prefer-dist --quiet; composer run-script qa:unit"
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c '[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 "$$(command -v composer)" install --no-interaction --prefer-dist --quiet; php -d allow_url_fopen=1 "$$(command -v composer)" run-script qa:unit'
 
 qa-parity:
 	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml --profile \"*\" down -v >/dev/null 2>&1 || true" EXIT; \
 		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml --profile integration up -d --wait postgres-qa keydb-qa && \
-		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 /usr/local/bin/composer install --no-interaction --prefer-dist --quiet; if [ -f bin/console ]; then DATABASE_URL=\"\$$MIGRATION_DATABASE_URL\" php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration && DATABASE_URL=\"\$$MIGRATION_DATABASE_URL\" php bin/console doctrine:schema:validate; elif [ -f artisan ]; then DB_URL=\"\$$MIGRATION_DATABASE_URL\" php artisan migrate --force --no-interaction && DB_URL=\"\$$MIGRATION_DATABASE_URL\" php artisan migrate:status; else echo \"[SKIPPED] ORM console absent (Doctrine/Laravel).\"; fi" && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 \"\$$(command -v composer)\" install --no-interaction --prefer-dist --quiet; if [ -f bin/console ]; then DATABASE_URL=\"\$$MIGRATION_DATABASE_URL\" php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration && DATABASE_URL=\"\$$MIGRATION_DATABASE_URL\" php bin/console doctrine:schema:validate; elif [ -f artisan ]; then DB_URL=\"\$$MIGRATION_DATABASE_URL\" php artisan migrate --force --no-interaction && DB_URL=\"\$$MIGRATION_DATABASE_URL\" php artisan migrate:status; else echo \"[SKIPPED] ORM console absent (Doctrine/Laravel).\"; fi" && \
 		unprotected=$$(docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml exec -T postgres-qa psql -U qa_user -d qa_db -tAc "SELECT COUNT(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='\''public'\'' AND c.relkind='\''r'\'' AND (NOT c.relrowsecurity OR NOT c.relforcerowsecurity);"); \
 		[ "$${unprotected:-0}" -eq 0 ]'
 
 qa-contracts:
-	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 /usr/local/bin/composer install --no-interaction --prefer-dist --quiet; if [ -f vendor/bin/openapi ]; then ./vendor/bin/openapi src/ -o openapi.json --format json; else echo '[SKIPPED] OpenAPI generator not installed.'; fi"
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c '[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 "$$(command -v composer)" install --no-interaction --prefer-dist --quiet; if [ -f vendor/bin/openapi ]; then ./vendor/bin/openapi src/ -o openapi.json --format json; else echo "[SKIPPED] OpenAPI generator not installed."; fi'
 
 qa-bdd:
 	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml --profile \"*\" down -v >/dev/null 2>&1 || true" EXIT; \
@@ -142,7 +142,7 @@ qa-bdd:
 		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml --profile integration run --rm -T karatelabs mvn -B clean test'
 
 qa-mutation:
-	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 /usr/local/bin/composer install --no-interaction --prefer-dist --quiet; composer run-script qa:mutation"  # MSI >= 80%
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c '[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 "$$(command -v composer)" install --no-interaction --prefer-dist --quiet; php -d allow_url_fopen=1 "$$(command -v composer)" run-script qa:mutation'  # MSI >= 80%
 
 qa-dast:
 	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml --profile \"*\" down -v >/dev/null 2>&1 || true" EXIT; \
@@ -162,7 +162,7 @@ qa-chaos:
 		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml --profile load run --rm -T -e K6_P95_MS=900 -e K6_P99_MS=1500 k6-smoke'
 
 qa-sbom:
-	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 /usr/local/bin/composer install --no-interaction --prefer-dist --quiet; composer run-script qa:sbom"
+	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c '[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 "$$(command -v composer)" install --no-interaction --prefer-dist --quiet; php -d allow_url_fopen=1 "$$(command -v composer)" run-script qa:sbom'
 
 qa-all: qa-lint qa-unit qa-parity qa-contracts qa-bdd qa-mutation qa-dast qa-load qa-chaos qa-sbom
 

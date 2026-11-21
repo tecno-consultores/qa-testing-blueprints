@@ -251,11 +251,11 @@
 
 * **Propósito:** Bombardear la aplicación en ejecución con ataques web activos (inyección SQL, XSS reflejado, cabeceras HTTP inseguras, cookies sin flags de seguridad) y certificar el cumplimiento de los estándares **OWASP Application Security Verification Standard (ASVS Nivel 2/3)**, **OWASP Web Security Testing Guide (WSTG)**, **OWASP API Security Top 10 (2023)** y **DISA ASD STIG V6R5** (`APSC-DV-003160`..`003230`).
 * **Herramientas:**
-  - Contenedor `zaproxy/zap-stable:2.15.0` ejecutando `zap-baseline.py` / Automation Framework `zap.yaml` (`zap.sh -cmd -autorun /zap/wrk/zap.yaml`) contra `http://api:8000` (escribiendo el reporte en `/tmp/zap-report.html` bajo montajes `:ro`).
+  - Contenedor `zaproxy/zap-stable:2.15.0` ejecutando `zap-baseline.py` / Automation Framework `zap.yaml` (`zap.sh -cmd -autorun /zap/wrk/zap.yaml`) contra `http://api:8000` (escribiendo reportes bajo `./reports/zap-report.{html,json}` en montajes `:ro`).
   - Validación de cabeceras del **OWASP Secure Headers Project (OSHP)**: `Strict-Transport-Security`, `Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Cache-Control: no-store` y ausencia de banners `Server` / `X-Powered-By`.
   - Verificación de cadena de suministro con **OWASP CycloneDX SBOM/CBOM** (`cyclonedx-py`, `@cyclonedx/cyclonedx-npm`) y auditoría SCA con `Trivy` / `OWASP Dependency-Check`.
   - Pruebas de inicialización, apagado y aborto en estado seguro (*Fail-Secure State Testing*, `DISA V-222585` / `V-222647`): certificar que ante fallos de configuración o caída de dependencias críticas, la aplicación deniega el acceso por defecto sin exponer trazas ni permitir bypass de autenticación.
-* **Reporte:** Genera `/tmp/zap-report.html` (`zap-report.html`) y `sbom.cdx.json` para auditoría continua.
+* **Reporte:** Genera `reports/zap-report.{html,json}` y `reports/sbom*.cdx.json` para auditoría continua.
 
 ---
 

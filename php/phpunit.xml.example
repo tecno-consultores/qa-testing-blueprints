@@ -41,8 +41,7 @@
     <php>
         <ini name="error_reporting" value="-1"/>
         <ini name="memory_limit" value="1024M"/>
-        <ini name="pcov.enabled" value="1"/>
-        <ini name="pcov.directory" value="src"/>
+        <!-- Set at PHP startup (-d / php.ini) since pcov.enabled/pcov.directory are PHP_INI_SYSTEM/PERDIR: <ini name="pcov.enabled" value="1"/> <ini name="pcov.directory" value="src"/> -->
         <env name="APP_ENV" value="testing"/>
     </php>
 </phpunit>

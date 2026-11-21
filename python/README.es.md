@@ -115,15 +115,15 @@ make qa-unit
 make qa-mutation
 ```
 
-*   **Profiling (Generar Flamegraph de CPU en `/app/profile.svg`) y SBOM CycloneDX:**
+*   **Profiling (Generar Flamegraph de CPU en `reports/flamegraph.svg`) y SBOM CycloneDX (`reports/sbom.cdx.json`):**
 ```bash
-# Adjuntar py-spy a un PID ya activo en contenedores endurecidos requiere CAP_SYS_PTRACE (`--cap-add SYS_PTRACE`); `qa-profile` ejecuta el sidecar con el UID mapeado (`mutmut_gates.py` valida >= 80% en qa-mutation):
+# El sidecar profiler es la única excepción SYS_PTRACE con user: "0:0" (cap_drop: [ALL], cap_add: [SYS_PTRACE, DAC_OVERRIDE, CHOWN], seccomp:unconfined, .:/app:ro) y reasigna reports/flamegraph.svg a QA_UID:QA_GID (`mutmut_gates.py` valida >= 80% en qa-mutation):
 make qa-profile
 make qa-sbom
 ```
 
 **Paso 2: Certificación de Observabilidad y Carga en Vivo (Nivel 11X)**
-Si el script fue instrumentado (sea como daemon o script efímero mediante Pushgateway), ejecútalo encendiendo el perfil de observabilidad, o dispara `make qa-load` para validar SLOs con k6.
+Usa `qa-backend` abajo para scripts batch con Pushgateway (`push_to_gateway('python_pushgateway:9091', ...)`), mientras los daemons HTTP raspados en `:8000` se ejecutan con `PYTHON_HTTP_CMD` en `python-api` (exponiendo `/health` + `/metrics`); `make qa-load` funciona listo para usar contra el stub `python-api` por defecto o con `PYTHON_HTTP_CMD` / `API_BASE_URL` propios, persistiendo `reports/k6-summary.json`.
 ```bash
 make qa-observability
 docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-backend bash -c "uv sync --all-extras -q && uv run python src/main.py"

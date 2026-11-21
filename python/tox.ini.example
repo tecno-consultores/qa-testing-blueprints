@@ -5,8 +5,10 @@ isolated_build = True
 [testenv]
 description = Instala dependencias con uv y ejecuta la auditoría estática, complejidad Grado A y pruebas lógicas
 setenv =
+    HOME = /tmp
     COVERAGE_FILE = /tmp/.coverage
     UV_CACHE_DIR = /tmp/uv-cache
+    UV_PROJECT_ENVIRONMENT = /tmp/qa-venv
 deps =
     .[dev]
 commands =

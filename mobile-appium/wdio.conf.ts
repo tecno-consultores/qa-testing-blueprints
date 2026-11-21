@@ -27,10 +27,10 @@ export const DEFAULT_CONNECTION_RETRY_COUNT = 1;
 export const DEFAULT_WAITFOR_TIMEOUT_MS = 10_000;
 export const DEFAULT_NEW_COMMAND_TIMEOUT_S = 60;
 export const DEFAULT_WEBVIEW_CONNECT_TIMEOUT_MS = 10_000;
-export const DEFAULT_MOBILE_ARTIFACT_DIR = '/tmp/qa-11x-mobile-artifacts';
+export const DEFAULT_MOBILE_ARTIFACT_DIR = path.join(os.tmpdir(), 'qa-11x-mobile-artifacts');
 
 const SUPPORTED_PROFILES: ReadonlySet<string> = new Set<MobileProfileName>([
-  'android-uiautomator2',
+  DEFAULT_MOBILE_PROFILE,
   'ios-xcuitest',
   'hybrid-ionic',
   'hybrid-rn',
@@ -120,8 +120,11 @@ export interface MobileWdioConfig {
   ): Promise<AllureMobileDiagnosticArtifact | null>;
 }
 
-function readTrimmed(env: Readonly<Record<string, string | undefined>>, key: string): string | undefined {
-  const raw = env[key];
+function readTrimmed(
+  env: Readonly<Record<string, string | undefined>>,
+  key: string,
+): string | undefined {
+  const raw = new Map(Object.entries(env)).get(key);
   if (raw === undefined) {
     return undefined;
   }
@@ -134,7 +137,8 @@ function resolveProfile(env: Readonly<Record<string, string | undefined>>): Mobi
   if (!SUPPORTED_PROFILES.has(raw)) {
     throw new MobileConfigValidationError(
       'MOBILE_PROFILE',
-      `Perfil no soportado "${raw}". Opciones: android-uiautomator2, ios-xcuitest, hybrid-ionic, hybrid-rn.`,
+      `Perfil no soportado "${raw}". ` +
+        'Opciones: android-uiautomator2, ios-xcuitest, hybrid-ionic, hybrid-rn.',
     );
   }
   return raw as MobileProfileName;
@@ -148,27 +152,35 @@ function resolveHostname(env: Readonly<Record<string, string | undefined>>): str
   return raw;
 }
 
-function parsePositiveInt(
-  raw: string | undefined,
-  fallback: number,
-  field: string,
-  minValue: number,
-  maxValue: number,
-): number {
-  if (raw === undefined) {
-    return fallback;
-  }
-  if (!/^\d+$/.test(raw)) {
-    throw new MobileConfigValidationError(field, `Valor entero requerido; recibido "${raw}".`);
-  }
-  const parsed = Number(raw);
-  if (!Number.isSafeInteger(parsed) || parsed < minValue || parsed > maxValue) {
+interface PositiveIntSpec {
+  readonly raw: string | undefined;
+  readonly fallback: number;
+  readonly field: string;
+  readonly minValue: number;
+  readonly maxValue: number;
+}
+
+function validateIntRange(spec: PositiveIntSpec, parsed: number): number {
+  if (!Number.isSafeInteger(parsed) || parsed < spec.minValue || parsed > spec.maxValue) {
     throw new MobileConfigValidationError(
-      field,
-      `Valor ${parsed} fuera de rango permitido [${minValue}..${maxValue}].`,
+      spec.field,
+      `Valor ${parsed} fuera de rango permitido [${spec.minValue}..${spec.maxValue}].`,
     );
   }
   return parsed;
+}
+
+function parsePositiveInt(spec: PositiveIntSpec): number {
+  if (spec.raw === undefined) {
+    return spec.fallback;
+  }
+  if (!/^\d+$/.test(spec.raw)) {
+    throw new MobileConfigValidationError(
+      spec.field,
+      `Valor entero requerido; recibido "${spec.raw}".`,
+    );
+  }
+  return validateIntRange(spec, Number(spec.raw));
 }
 
 function isUnderDir(baseDir: string, candidate: string): boolean {
@@ -182,7 +194,7 @@ function resolveArtifactDir(env: Readonly<Record<string, string | undefined>>): 
     readTrimmed(env, 'QA_MOBILE_ARTIFACTS_DIR') ??
     DEFAULT_MOBILE_ARTIFACT_DIR;
   const resolved = path.resolve(raw);
-  const tmpRoots = [path.resolve('/tmp'), path.resolve(os.tmpdir())];
+  const tmpRoots = [path.resolve(path.sep, 'tmp'), path.resolve(os.tmpdir())];
   if (!tmpRoots.some((root) => isUnderDir(root, resolved))) {
     throw new MobileConfigValidationError(
       'QA_MOBILE_ARTIFACT_DIR',
@@ -283,7 +295,7 @@ function buildCapabilitiesForProfile(
   env: Readonly<Record<string, string | undefined>>,
   newCommandTimeout: number,
 ): readonly W3cAppiumCapabilities[] {
-  if (profile === 'android-uiautomator2') {
+  if (profile === DEFAULT_MOBILE_PROFILE) {
     return [buildAndroidCapabilities(env, newCommandTimeout)];
   }
   if (profile === 'ios-xcuitest') {
@@ -292,39 +304,75 @@ function buildCapabilitiesForProfile(
   return [buildHybridCapabilities(env, newCommandTimeout)];
 }
 
+function trimEdgeHyphens(text: string): string {
+  let start = 0;
+  let end = text.length;
+  while (start < end && text.charCodeAt(start) === 45) {
+    start += 1;
+  }
+  while (end > start && text.charCodeAt(end - 1) === 45) {
+    end -= 1;
+  }
+  return text.slice(start, end);
+}
+
 function sanitizeSlug(rawTitle: string): string {
-  const cleaned = rawTitle
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 64);
+  const cleaned = trimEdgeHyphens(rawTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-')).slice(0, 64);
   return cleaned.length > 0 ? cleaned : 'mobile-test-failure';
 }
 
-function extractErrorSummary(error: MobileFailureResult['error']): string {
-  if (typeof error === 'string' && error.trim().length > 0) {
-    return error.trim();
-  }
+function extractErrorObjectMessage(error: MobileFailureResult['error']): string {
   if (error !== undefined && typeof error === 'object' && typeof error.message === 'string') {
     return error.message.trim() || 'Fallo sin detalle';
   }
   return 'Fallo sin detalle';
 }
 
+function extractErrorSummary(error: MobileFailureResult['error']): string {
+  if (typeof error === 'string') {
+    const trimmed = error.trim();
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+  }
+  return extractErrorObjectMessage(error);
+}
+
 let diagnosticSequence = 0;
+
+function normalizeContextName(raw: unknown, fallback: string): string {
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+  }
+  return fallback;
+}
+
+function asCapturedString(
+  result: PromiseSettledResult<string>,
+  fallback: string,
+): string {
+  if (result.status === 'fulfilled' && typeof result.value === 'string') {
+    return result.value;
+  }
+  return fallback;
+}
 
 async function safeCaptureContext(
   driver: MobileFailureDriverPort | undefined,
   context: MobileFailureContextState,
 ): Promise<string> {
-  if (driver?.getContext !== undefined) {
-    try {
-      return await driver.getContext();
-    } catch {
-      return context.activeContext ?? 'UNKNOWN_CONTEXT';
-    }
+  const fallback = context.activeContext ?? 'UNKNOWN_CONTEXT';
+  if (driver?.getContext === undefined) {
+    return fallback;
   }
-  return context.activeContext ?? 'UNKNOWN_CONTEXT';
+  try {
+    return normalizeContextName(await driver.getContext(), fallback);
+  } catch {
+    return fallback;
+  }
 }
 
 async function safeCaptureTreeAndShot(
@@ -340,46 +388,43 @@ async function safeCaptureTreeAndShot(
     driver.getPageSource(),
     driver.takeScreenshot(),
   ]);
-  const xmlTree =
-    treeResult.status === 'fulfilled'
-      ? treeResult.value
-      : '<hierarchy status="capture_failed" />';
-  const screenshotBase64 =
-    shotResult.status === 'fulfilled' ? shotResult.value : '';
+  const xmlTree = asCapturedString(treeResult, '<hierarchy status="capture_failed" />');
+  const screenshotBase64 = asCapturedString(shotResult, '');
   return { xmlTree, screenshotBase64 };
 }
 
-function writeFailureDiagnosticFiles(
-  artifactDir: string,
-  slug: string,
-  xmlTree: string,
-  screenshotBase64: string,
-  payload: Omit<AllureMobileDiagnosticArtifact, 'pageSourcePath' | 'screenshotPath' | 'metadataPath'>,
-): AllureMobileDiagnosticArtifact {
-  fs.mkdirSync(artifactDir, { recursive: true });
-  diagnosticSequence = (diagnosticSequence + 1) % 1_000_000;
-  const baseName = `${slug}-${Date.now()}-${diagnosticSequence}`;
-  const pageSourcePath = path.join(artifactDir, `${baseName}.xml`);
-  const metadataPath = path.join(artifactDir, `${baseName}.allure.json`);
-  const hasShot = screenshotBase64.trim().length > 0;
-  const screenshotPath = hasShot ? path.join(artifactDir, `${baseName}.png`) : '';
+type DiagnosticPayloadCore = Omit<
+  AllureMobileDiagnosticArtifact,
+  'pageSourcePath' | 'screenshotPath' | 'metadataPath'
+>;
 
-  fs.writeFileSync(pageSourcePath, xmlTree, 'utf8');
-  if (hasShot) {
-    fs.writeFileSync(screenshotPath, Buffer.from(screenshotBase64, 'base64'));
-  }
+interface WriteDiagnosticFilesInput {
+  readonly artifactDir: string;
+  readonly slug: string;
+  readonly xmlTree: string;
+  readonly screenshotBase64: string;
+  readonly payload: DiagnosticPayloadCore;
+}
 
-  const artifact: AllureMobileDiagnosticArtifact = {
-    ...payload,
-    pageSourcePath,
-    screenshotPath,
-    metadataPath,
-  };
-  const attachments = [{ name: 'mobile-xml-tree', source: pageSourcePath, type: 'application/xml' }];
-  if (hasShot) {
+function buildAllureAttachments(
+  pageSourcePath: string,
+  screenshotPath: string,
+): Array<{ name: string; source: string; type: string }> {
+  const attachments = [
+    { name: 'mobile-xml-tree', source: pageSourcePath, type: 'application/xml' },
+  ];
+  if (screenshotPath.length > 0) {
     attachments.push({ name: 'mobile-screenshot', source: screenshotPath, type: 'image/png' });
   }
-  const allureEnvelope = {
+  return attachments;
+}
+
+function buildAllureEnvelope(
+  payload: DiagnosticPayloadCore,
+  pageSourcePath: string,
+  screenshotPath: string,
+): Record<string, unknown> {
+  return {
     name: payload.testTitle,
     status: 'failed',
     statusDetails: { message: payload.errorSummary },
@@ -388,10 +433,43 @@ function writeFailureDiagnosticFiles(
       { name: 'context', value: payload.context },
       { name: 'tenantId', value: payload.tenantId },
     ],
-    attachments,
+    attachments: buildAllureAttachments(pageSourcePath, screenshotPath),
   };
+}
+
+function writeFailureDiagnosticFiles(
+  input: WriteDiagnosticFilesInput,
+): AllureMobileDiagnosticArtifact {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
+  fs.mkdirSync(input.artifactDir, { recursive: true });
+  diagnosticSequence = (diagnosticSequence + 1) % 1_000_000;
+  const baseName = `${input.slug}-${Date.now()}-${diagnosticSequence}`;
+  const pageSourcePath = path.join(input.artifactDir, `${baseName}.xml`);
+  const metadataPath = path.join(input.artifactDir, `${baseName}.allure.json`);
+  const hasShot = input.screenshotBase64.trim().length > 0;
+  const screenshotPath = hasShot ? path.join(input.artifactDir, `${baseName}.png`) : '';
+
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
+  fs.writeFileSync(pageSourcePath, input.xmlTree, 'utf8');
+  if (hasShot) {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    fs.writeFileSync(screenshotPath, Buffer.from(input.screenshotBase64, 'base64'));
+  }
+  const allureEnvelope = buildAllureEnvelope(input.payload, pageSourcePath, screenshotPath);
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
   fs.writeFileSync(metadataPath, JSON.stringify(allureEnvelope, null, 2), 'utf8');
-  return artifact;
+  return {
+    ...input.payload,
+    pageSourcePath,
+    screenshotPath,
+    metadataPath,
+  };
+}
+
+function resolveFailureDriver(
+  driver?: MobileFailureDriverPort,
+): MobileFailureDriverPort | undefined {
+  return driver ?? (globalThis as { readonly browser?: MobileFailureDriverPort }).browser;
 }
 
 export function buildMobileWdioConfig(
@@ -399,35 +477,41 @@ export function buildMobileWdioConfig(
 ): MobileWdioConfig {
   const profile = resolveProfile(env);
   const hostname = resolveHostname(env);
-  const port = parsePositiveInt(readTrimmed(env, 'APPIUM_PORT'), DEFAULT_APPIUM_PORT, 'APPIUM_PORT', 1, 65_535);
-  const waitforTimeout = parsePositiveInt(
-    readTrimmed(env, 'WDIO_WAITFOR_TIMEOUT_MS'),
-    DEFAULT_WAITFOR_TIMEOUT_MS,
-    'WDIO_WAITFOR_TIMEOUT_MS',
-    500,
-    120_000,
-  );
-  const connectionRetryTimeout = parsePositiveInt(
-    readTrimmed(env, 'WDIO_CONNECTION_RETRY_TIMEOUT_MS'),
-    DEFAULT_CONNECTION_RETRY_TIMEOUT_MS,
-    'WDIO_CONNECTION_RETRY_TIMEOUT_MS',
-    1_000,
-    180_000,
-  );
-  const connectionRetryCount = parsePositiveInt(
-    readTrimmed(env, 'WDIO_CONNECTION_RETRY_COUNT'),
-    DEFAULT_CONNECTION_RETRY_COUNT,
-    'WDIO_CONNECTION_RETRY_COUNT',
-    0,
-    5,
-  );
-  const newCommandTimeout = parsePositiveInt(
-    readTrimmed(env, 'APPIUM_NEW_COMMAND_TIMEOUT_S'),
-    DEFAULT_NEW_COMMAND_TIMEOUT_S,
-    'APPIUM_NEW_COMMAND_TIMEOUT_S',
-    5,
-    300,
-  );
+  const port = parsePositiveInt({
+    raw: readTrimmed(env, 'APPIUM_PORT'),
+    fallback: DEFAULT_APPIUM_PORT,
+    field: 'APPIUM_PORT',
+    minValue: 1,
+    maxValue: 65_535,
+  });
+  const waitforTimeout = parsePositiveInt({
+    raw: readTrimmed(env, 'WDIO_WAITFOR_TIMEOUT_MS'),
+    fallback: DEFAULT_WAITFOR_TIMEOUT_MS,
+    field: 'WDIO_WAITFOR_TIMEOUT_MS',
+    minValue: 500,
+    maxValue: 120_000,
+  });
+  const connectionRetryTimeout = parsePositiveInt({
+    raw: readTrimmed(env, 'WDIO_CONNECTION_RETRY_TIMEOUT_MS'),
+    fallback: DEFAULT_CONNECTION_RETRY_TIMEOUT_MS,
+    field: 'WDIO_CONNECTION_RETRY_TIMEOUT_MS',
+    minValue: 1_000,
+    maxValue: 180_000,
+  });
+  const connectionRetryCount = parsePositiveInt({
+    raw: readTrimmed(env, 'WDIO_CONNECTION_RETRY_COUNT'),
+    fallback: DEFAULT_CONNECTION_RETRY_COUNT,
+    field: 'WDIO_CONNECTION_RETRY_COUNT',
+    minValue: 0,
+    maxValue: 5,
+  });
+  const newCommandTimeout = parsePositiveInt({
+    raw: readTrimmed(env, 'APPIUM_NEW_COMMAND_TIMEOUT_S'),
+    fallback: DEFAULT_NEW_COMMAND_TIMEOUT_S,
+    field: 'APPIUM_NEW_COMMAND_TIMEOUT_S',
+    minValue: 5,
+    maxValue: 300,
+  });
   const artifactDir = resolveArtifactDir(env);
 
   return {
@@ -456,26 +540,26 @@ export function buildMobileWdioConfig(
       if (result.passed) {
         return null;
       }
-      const resolvedDriver =
-        driver ?? (globalThis as { readonly browser?: MobileFailureDriverPort }).browser;
+      const resolvedDriver = resolveFailureDriver(driver);
       const [activeContext, capture] = await Promise.all([
         safeCaptureContext(resolvedDriver, context),
         safeCaptureTreeAndShot(resolvedDriver),
       ]);
-      return writeFailureDiagnosticFiles(
+      const testTitle = test.fullTitle ?? test.title;
+      return writeFailureDiagnosticFiles({
         artifactDir,
-        sanitizeSlug(test.fullTitle ?? test.title),
-        capture.xmlTree,
-        capture.screenshotBase64,
-        {
+        slug: sanitizeSlug(testTitle),
+        xmlTree: capture.xmlTree,
+        screenshotBase64: capture.screenshotBase64,
+        payload: {
           status: 'failed',
-          testTitle: test.fullTitle ?? test.title,
+          testTitle,
           deviceProfile: profile,
           context: activeContext,
           tenantId: context.tenantId ?? 'unknown-tenant',
           errorSummary: extractErrorSummary(result.error),
         },
-      );
+      });
     },
   };
 }

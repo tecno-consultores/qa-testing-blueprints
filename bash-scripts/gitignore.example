@@ -1,4 +1,5 @@
 coverage_report/
+reports/
 graphify-out/
 *.log
 .env

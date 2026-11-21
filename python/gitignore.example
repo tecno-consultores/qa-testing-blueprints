@@ -27,6 +27,8 @@ mutants/
 k6-summary.json
 .benchmarks/
 profile.svg
+reports/
+sbom*.cdx.json
 graphify-out/
 .agents/ACTIVE_TASK.md
 .agents/.qa-evidence.json

@@ -155,7 +155,7 @@ function runGitDiff(
   return new Promise((resolve, reject) => {
     execFileFn(
       'git',
-      ['diff', '--unified=1', '--no-color', '--no-ext-diff', validatedRef],
+      ['-c', 'core.quotePath=false', 'diff', '--unified=1', '--no-color', '--no-ext-diff', validatedRef],
       {
         cwd: safeWorkspacePath,
         shell: false,

@@ -4,6 +4,7 @@
 node_modules/
 dist/
 coverage/
+reports/
 wdio-logs/
 errorShots/
 .wdio-*/

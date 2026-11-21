@@ -501,6 +501,75 @@ describe('DX CLI Subcommands: blast-radius, mcp-config & completion (QA-11X)', (
       expect(res.command).toBe('mcp-config');
       expect(logs[0]).toContain(`@sinfallas/mcp-qa-11x@${MCP_SERVER_VERSION}`);
     });
+
+    it('rejects .11x-backup, intermediate dir, and dangling target symlinks without touching victim files and cleans temp files on error', () => {
+      const outDir = path.join(tmpRoot, 'outside-mcp-config');
+      fs.mkdirSync(outDir, { recursive: true });
+
+      // 1. PROBE_A1: .11x-backup symlink on JSON target
+      const agDir = path.join(homeDir, '.gemini', 'antigravity');
+      const agCfg = path.join(agDir, 'mcp_config.json');
+      const victim1 = path.join(outDir, 'victim1.txt');
+      writeFile(agCfg, '{"mcpServers":{"existing":{"command":"echo"}}}\n');
+      fs.writeFileSync(victim1, 'ORIGINAL_SECRET\n', { encoding: 'utf8', mode: 0o644 });
+      fs.symlinkSync(victim1, `${agCfg}.11x-backup`);
+
+      const resBackupSym = runMcpConfigCli(['--client', 'antigravity', '--install'], { homeDir });
+      expect(resBackupSym.exitCode).toBe(1);
+      expect(resBackupSym.isError).toBe(true);
+      expect(resBackupSym.output).toContain('CWE-22');
+      expect(fs.readFileSync(victim1, 'utf8')).toBe('ORIGINAL_SECRET\n');
+      expect(fs.statSync(victim1).mode & 0o777).toBe(0o644);
+
+      // 2. .11x-backup symlink on Codex TOML target
+      const codexCfg = path.join(homeDir, '.codex', 'config.toml');
+      const victim2 = path.join(outDir, 'victim2.txt');
+      writeFile(codexCfg, 'model = "o3"\n');
+      fs.writeFileSync(victim2, 'CODEX_SECRET\n', 'utf8');
+      fs.symlinkSync(victim2, `${codexCfg}.11x-backup`);
+
+      const resCodexSym = runMcpConfigCli(['--client', 'codex', '--install'], { homeDir });
+      expect(resCodexSym.exitCode).toBe(1);
+      expect(resCodexSym.output).toContain('CWE-22');
+      expect(fs.readFileSync(victim2, 'utf8')).toBe('CODEX_SECRET\n');
+
+      // 3. Intermediate directory symlink (.cursor -> outside)
+      const cursorLinkHome = path.join(tmpRoot, 'cursor-sym-home');
+      fs.mkdirSync(cursorLinkHome, { recursive: true });
+      fs.symlinkSync(outDir, path.join(cursorLinkHome, '.cursor'));
+      const resIntermSym = runMcpConfigCli(['--client', 'cursor', '--install'], {
+        homeDir: cursorLinkHome,
+      });
+      expect(resIntermSym.exitCode).toBe(1);
+      expect(resIntermSym.output).toContain('CWE-22');
+      expect(fs.existsSync(path.join(outDir, 'mcp.json'))).toBe(false);
+
+      // 4. Dangling target symlink (hermes/mcp.json -> outside/dangling)
+      const hermesHome = path.join(tmpRoot, 'hermes-dangling-home');
+      fs.mkdirSync(path.join(hermesHome, '.hermes'), { recursive: true });
+      const danglingVictim = path.join(outDir, 'dangling_hermes.json');
+      fs.symlinkSync(danglingVictim, path.join(hermesHome, '.hermes', 'mcp.json'));
+      const resDangling = runMcpConfigCli(['--client', 'hermes', '--install'], {
+        homeDir: hermesHome,
+      });
+      expect(resDangling.exitCode).toBe(1);
+      expect(resDangling.output).toContain('CWE-22');
+      expect(fs.existsSync(danglingVictim)).toBe(false);
+
+      // 5. Temp-file cleanup on write error (read-only parent dir 0o500 triggers EACCES in catch)
+      const roHome = path.join(tmpRoot, 'ro-home');
+      const roAgDir = path.join(roHome, '.gemini', 'antigravity');
+      fs.mkdirSync(roAgDir, { recursive: true });
+      fs.chmodSync(roAgDir, 0o500);
+      try {
+        const resRo = runMcpConfigCli(['--client', 'antigravity', '--install'], { homeDir: roHome });
+        expect(resRo.exitCode).toBe(1);
+        expect(resRo.isError).toBe(true);
+        expect(fs.readdirSync(roAgDir)).toEqual([]);
+      } finally {
+        fs.chmodSync(roAgDir, 0o700);
+      }
+    });
   });
 
   describe('completion subcommand', () => {

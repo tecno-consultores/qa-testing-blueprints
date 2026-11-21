@@ -16,7 +16,7 @@ export QA_UID QA_GID
 qa-lint:
 	@echo "🔍 [11X] Verificando Ruff (CC <= 5) y Mypy --strict en AI-Evals..."
 	@docker run --rm --network none --security-opt=no-new-privileges:true -u "$(QA_UID):$(QA_GID)" \
-		-e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -e PYTHONPATH=/app \
+		-e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -e PYTHONPATH=/app \
 		-v "$(PROJECT_DIR):/app:ro" -w /app $(PYTHON_QA_IMAGE) sh -c "\
 		ruff check --select E,F,W,I,UP,B,C901 --config \"lint.mccabe.max-complexity=5\" --config \"src=[]\" . && \
 		mypy --strict --cache-dir=/tmp/mypy _llm_judge.py golden_from_traces.py rag/test_rag_faithfulness.py voice-realtime/test_voice_websocket_latency.py multimodal-ocr/test_pdf_table_fidelity.py tests/test_golden_from_traces.py"
@@ -41,12 +41,15 @@ audit-llm:
 		echo "⚠️ [SKIPPED/MISSING_LLM_CREDENTIALS] Sin proveedor LLM configurado (exporte OPENAI_API_KEY, GEMINI_API_KEY, ANTHROPIC_API_KEY, OLLAMA_BASE_URL u OPENAI_API_BASE)." >&2; \
 		exit 2; \
 	fi
+	@mkdir -p "$(PROJECT_DIR)/reports"
 	@echo "🤖 [11X] Ejecutando evaluación probabilística DeepEval (Modo 2)..."
 	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" \
+		-e HOME=/tmp -e COVERAGE_FILE=/tmp/.coverage -e DEEPEVAL_TELEMETRY_OPT_OUT=YES \
 		-e QA_LLM_AUDIT_LIVE="$${QA_LLM_AUDIT_LIVE:-$${RUN_LLM_AUDIT:-1}}" \
 		-e RUN_LLM_AUDIT="$${RUN_LLM_AUDIT:-1}" \
 		-e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -e QA_LLM_MODEL \
 		$(SERVICE_NAME) pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function \
+		-W "ignore::DeprecationWarning" -W "ignore::SyntaxWarning" \
 		--import-mode=importlib rag/test_rag_faithfulness.py voice-realtime/test_voice_websocket_latency.py multimodal-ocr/test_pdf_table_fidelity.py -k "live"
 	@echo "🛡️ [11X] Ejecutando matriz multi-modelo y Red Team OWASP LLM Top 10 (Promptfoo)..."
 	@bash -c 'set -euo pipefail; \
@@ -58,9 +61,9 @@ audit-llm:
 		pf_regex="$$(IFS="|"; echo "$${pf_patterns[*]}")"; \
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile llm-live run --rm -T -u "$(QA_UID):$(QA_GID)" \
 			-e PROMPTFOO_DISABLE_REDTEAM_REMOTE_GENERATION=1 \
-			-e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE \
+			-e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -e QA_LLM_MODEL \
 			-e PROMPTFOO_JUDGE_PROVIDER="$${judge}" \
-			$(PROMPTFOO_SERVICE) sh -c "promptfoo eval -c promptfooconfig.yaml --filter-providers \"\$$1\" --no-cache -o /tmp/promptfoo-results.json && promptfoo redteam run -c promptfooconfig.yaml --no-cache -o /tmp/promptfoo-redteam-results.json" _ "$${pf_regex}"'
+			$(PROMPTFOO_SERVICE) sh -c "promptfoo eval -c promptfooconfig.yaml --filter-providers \"\$$1\" --no-cache --no-progress-bar -o /reports/promptfoo-results.json && promptfoo redteam run -c promptfooconfig.yaml --filter-providers \"\$$1\" --no-cache --no-progress-bar -o /tmp/promptfoo-redteam.yaml" _ "$${pf_regex}"'
 
 qa-all: qa-lint qa-unit
 	@echo "✅ [11X] Pipeline QA AI-Evals Offline completado."

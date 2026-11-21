@@ -460,7 +460,9 @@ EOF
   run grep -E 'KARATE_IMG := sinfallas/karatelabs:[0-9]+\.[0-9]+\.[0-9]+@sha256:[0-9a-f]{64}' "${REPO_ROOT}/Makefile"
   assert_success
 
-  run grep -F 'git diff --relative --name-only' "${REPO_ROOT}/.github/actions/qa-11x-pr-check/action.yml"
+  run grep -F 'git -c core.quotePath=false diff --relative --name-only' "${REPO_ROOT}/.github/actions/qa-11x-pr-check/action.yml"
+  assert_success
+  run grep -F 'git -c core.quotePath=false diff --name-only' "${REPO_ROOT}/.github/workflows/ci-tiered-qa.yml"
   assert_success
   run grep -F '${PR_BASE_SHA}...${PR_HEAD_SHA}' "${REPO_ROOT}/.github/actions/qa-11x-pr-check/action.yml"
   assert_success

@@ -78,3 +78,20 @@ Feature: Contratos BDD HTTP, Cabeceras OWASP OSHP, Rutas SPA/SSG y SEO para Vue 
     * string xmlText = response
     * def contentType = getHeader('Content-Type')
     * assert contentType.contains('xml') ? xmlText.contains('<urlset') : xmlText.toLowerCase().contains('<html')
+
+  # ==============================================================================
+  # Grupo 6: UI-11X-03 — Aislamiento CORP entre Activos Públicos e Internos
+  # ==============================================================================
+
+  Scenario: 6. UI-11X-03 sirve favicons con CORP cross-origin y JS/CSS internos con CORP same-origin
+    Given path '/favicon.ico'
+    When method get
+    * assert responseStatus == 200 || responseStatus == 404
+    And match header Cross-Origin-Resource-Policy == 'cross-origin'
+    And match header X-Content-Type-Options == 'nosniff'
+
+    Given path '/assets/app.js'
+    When method get
+    * assert responseStatus == 200 || responseStatus == 404
+    And match header Cross-Origin-Resource-Policy == 'same-origin'
+    And match header X-Content-Type-Options == 'nosniff'

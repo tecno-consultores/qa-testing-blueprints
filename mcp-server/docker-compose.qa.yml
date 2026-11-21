@@ -34,6 +34,8 @@ services:
       HOME: /tmp
       PNPM_HOME: /pnpm
       pnpm_config_store_dir: /pnpm/store
+      pnpm_config_verify_deps_before_run: "false"
+      pnpm_config_manage_package_manager_versions: "false"
       NODE_OPTIONS: "--max-old-space-size=4096"
     volumes:
       - ..:/app

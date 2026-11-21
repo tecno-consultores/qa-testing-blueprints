@@ -1,4 +1,4 @@
-> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación fundacional (`v1.x`) preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES). En `QA-11X v3.2`, el servidor `@sinfallas/mcp-qa-11x` pasó de Node 22 / 5 recursos / 4 tools iniciales a **Node.js 26**, **13 Resources** (10 stacks + `calm`) y **19 Tools**. Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
+> 📜 **Aviso de Archivo Histórico (Spec 19 §3.4):** Especificación fundacional (`v1.x`) preservada en español como registro arquitectónico inmutable (exenta de espejo bilingüe EN/ES). En `QA-11X v3.2`, el servidor `@sinfallas/mcp-qa-11x` pasó de Node 22 / 5 recursos / 4 tools iniciales a **Node.js 26**, **13 Resources** (incluyendo `blueprint://{stack}/readme` para 10 stacks y `blueprint://skills/tactical-patterns-11x`) y **19 Tools**. Para rutas y métricas vigentes, véase [README.es.md](README.es.md).
 
 # ⚙️ Especificación 03: Servidor MCP en Node.js / TypeScript (`@sinfallas/mcp-qa-11x`) — Núcleo, Recursos y Herramientas 1–4
 

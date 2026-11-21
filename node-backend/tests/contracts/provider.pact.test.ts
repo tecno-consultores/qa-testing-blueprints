@@ -4,6 +4,7 @@
 
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
+import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
@@ -102,8 +103,8 @@ function canonicalizeJsonValue(value: unknown): unknown {
     return value;
   }
   const sorted: Record<string, unknown> = {};
-  for (const key of Object.keys(value).sort()) {
-    const entry = value[key];
+  for (const key of Object.keys(value).sort((a, b) => a.localeCompare(b))) {
+    const entry: unknown = value[key];
     if (entry !== undefined) {
       sorted[key] = canonicalizeJsonValue(entry);
     }
@@ -168,10 +169,20 @@ function sendProblem(res: http.ServerResponse, status: number, problem: ProblemS
   );
 }
 
+function toBufferChunk(chunk: unknown): Buffer {
+  if (Buffer.isBuffer(chunk)) {
+    return chunk;
+  }
+  if (chunk instanceof Uint8Array) {
+    return Buffer.from(chunk);
+  }
+  return Buffer.from(typeof chunk === 'string' ? chunk : '', 'utf-8');
+}
+
 async function readJsonBody(req: http.IncomingMessage): Promise<JsonValue> {
   const chunks: Buffer[] = [];
-  for await (const chunk of req) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  for await (const rawChunk of req) {
+    chunks.push(toBufferChunk(rawChunk));
   }
   const raw = Buffer.concat(chunks).toString('utf-8').trim();
   return raw ? (JSON.parse(raw) as JsonValue) : null;
@@ -451,13 +462,19 @@ async function startEphemeralProvider(
   };
 }
 
+interface ExtractedBody {
+  present: boolean;
+  value: JsonValue;
+}
+
 function extractBodyContent(
   body: { content?: JsonValue } | JsonValue | undefined,
-): JsonValue | undefined {
-  if (isJsonObject(body) && 'content' in body) {
-    return body.content;
+): ExtractedBody {
+  const raw = isJsonObject(body) && 'content' in body ? body.content : body;
+  if (raw === undefined) {
+    return { present: false, value: null };
   }
-  return body;
+  return { present: true, value: raw };
 }
 
 function normalizeHeaderRecord(
@@ -592,7 +609,7 @@ function verifyBodyNode(
   assert.strictEqual(
     actual,
     expected,
-    `${currentPath}: se esperaba '${String(expected)}' y llegó '${String(actual)}'.`,
+    `${currentPath}: se esperaba ${JSON.stringify(expected)} y llegó ${JSON.stringify(actual)}.`,
   );
 }
 
@@ -607,7 +624,7 @@ function verifyResponseHeaders(
     assert.notEqual(actualVal, null, `Falta cabecera de respuesta obligatoria: ${name}`);
     const rule = headerRules[name] ?? headerRules[name.toLowerCase()];
     if (rule) {
-      evaluateRuleEntry(rule, actualVal as string, expectedVal, `header.${name}`);
+      evaluateRuleEntry(rule, actualVal, expectedVal, `header.${name}`);
     } else {
       assert.equal(actualVal, expectedVal, `Cabecera ${name} divergente.`);
     }
@@ -636,15 +653,15 @@ async function setupInteractionStates(
 }
 
 async function verifyExpectedBody(
-  expectedBody: JsonValue | undefined,
+  expectedBody: ExtractedBody,
   response: Response,
   rules: Record<string, PactRuleEntry>,
 ): Promise<void> {
-  if (expectedBody === undefined) {
+  if (!expectedBody.present) {
     return;
   }
   const actualBody = (await response.json()) as JsonValue;
-  verifyBodyNode(expectedBody, actualBody, '$', rules);
+  verifyBodyNode(expectedBody.value, actualBody, '$', rules);
 }
 
 function readHeaderRules(interaction: PactInteraction): Record<string, PactRuleEntry> {
@@ -666,8 +683,8 @@ async function verifySingleInteraction(
     method: interaction.request.method,
     headers: reqHeaders,
   };
-  if (reqBody !== undefined) {
-    init.body = JSON.stringify(reqBody);
+  if (reqBody.present) {
+    init.body = JSON.stringify(reqBody.value);
   }
   const response = await fetch(`${baseUrl}${interaction.request.path}`, init);
   assert.equal(
@@ -709,13 +726,55 @@ export async function verifyProviderAgainstPactFile(
   return pact.interactions.length;
 }
 
-function resolvePactArtifactPath(): string {
-  const dir = process.env.PACT_OUTPUT_DIR ?? path.join(os.tmpdir(), 'pacts');
-  return path.join(dir, 'fastapi-billing-consumer-node-inventory-provider.json');
+const PACT_FILENAME = 'fastapi-billing-consumer-node-inventory-provider.json';
+
+function readEnvValue(value: string | undefined): string {
+  return value ? value.trim() : '';
 }
 
-describe('Node Inventory Provider — Pact V4 Contract Verification (Zero-Infra)', () => {
-  it('verifica al 100% el artefacto Pact real generado por el consumidor Python', async () => {
+function resolveExternalPactPath(env: NodeJS.ProcessEnv): string | null {
+  const requireExternal = env.PACT_REQUIRE_EXTERNAL === '1';
+  const envDir = readEnvValue(env.PACT_OUTPUT_DIR);
+  if (!envDir) {
+    if (requireExternal) {
+      throw new Error(
+        `PACT_REQUIRE_EXTERNAL=1 requiere PACT_OUTPUT_DIR para localizar ${PACT_FILENAME}.`,
+      );
+    }
+    return null;
+  }
+  const candidate = path.join(envDir, PACT_FILENAME);
+  if (requireExternal) {
+    return candidate;
+  }
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
+  return fsSync.existsSync(candidate) ? candidate : null;
+}
+
+function resolveBundledPactPath(): string | null {
+  const candidates = [
+    path.resolve(process.cwd(), 'tests', 'contracts', 'fixtures', PACT_FILENAME),
+    path.resolve(process.cwd(), 'node-backend', 'tests', 'contracts', 'fixtures', PACT_FILENAME),
+  ];
+  for (const candidate of candidates) {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    if (fsSync.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+export function resolvePactArtifactPath(env: NodeJS.ProcessEnv = process.env): string {
+  const external = resolveExternalPactPath(env);
+  if (external) {
+    return external;
+  }
+  return resolveBundledPactPath() ?? path.join(os.tmpdir(), 'pacts', PACT_FILENAME);
+}
+
+void describe('Node Inventory Provider — Pact V4 Contract Verification (Zero-Infra)', () => {
+  void it('verifica al 100% el artefacto Pact real generado por el consumidor Python', async () => {
     const pactPath = resolvePactArtifactPath();
     const provider = await startEphemeralProvider('none');
     try {
@@ -726,7 +785,7 @@ describe('Node Inventory Provider — Pact V4 Contract Verification (Zero-Infra)
     }
   });
 
-  it('rechaza ruptura deliberada cuando el proveedor serializa unitPrice como float', async () => {
+  void it('rechaza ruptura deliberada cuando el proveedor serializa unitPrice como float', async () => {
     const pactPath = resolvePactArtifactPath();
     const provider = await startEphemeralProvider('float_unit_price');
     try {
@@ -739,7 +798,7 @@ describe('Node Inventory Provider — Pact V4 Contract Verification (Zero-Infra)
     }
   });
 
-  it('rechaza ruptura por campo obligatorio ausente y pérdida de eco Idempotency-Key', async () => {
+  void it('rechaza ruptura por campo obligatorio ausente y pérdida de eco Idempotency-Key', async () => {
     const pactPath = resolvePactArtifactPath();
     const missingFieldProvider = await startEphemeralProvider('missing_reservation_id');
     const missingHeaderProvider = await startEphemeralProvider('missing_idempotency_echo');
@@ -758,9 +817,13 @@ describe('Node Inventory Provider — Pact V4 Contract Verification (Zero-Infra)
     }
   });
 
-  it('falla Fail-Closed ante Pact ausente, batch 400 y conflicto 409', async () => {
+  void it('falla Fail-Closed ante Pact ausente, batch 400 y conflicto 409', async () => {
     const provider = await startEphemeralProvider('none');
     try {
+      assert.throws(
+        () => resolvePactArtifactPath({ PACT_REQUIRE_EXTERNAL: '1' }),
+        /PACT_OUTPUT_DIR/,
+      );
       const missingPact = path.join(os.tmpdir(), 'nonexistent-pact-11x.json');
       await assert.rejects(
         () => verifyProviderAgainstPactFile(missingPact, provider.baseUrl),

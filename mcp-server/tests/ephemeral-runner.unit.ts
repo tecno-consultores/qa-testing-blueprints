@@ -4,6 +4,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { execFile, execFileSync } from 'child_process';
 import {
@@ -716,6 +717,65 @@ describe('ephemeral-runner', () => {
     );
   });
 
+  it('rechaza symlinks en .agents, .agents/.cache/coverage o destinos lcov.info sin escribir ni chmod fuera del workspace', async () => {
+    const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-cov-escape-'));
+    try {
+      // 1. ws/.agents -> outside (harvestCoverageReports y runEphemeralQa)
+      const wsAgentsSym = path.join(tempDir, 'ws-agents-sym');
+      fs.mkdirSync(path.join(wsAgentsSym, 'coverage'), { recursive: true });
+      fs.writeFileSync(path.join(wsAgentsSym, 'Makefile'), 'qa-unit:\n\t@echo ok\n', 'utf8');
+      fs.writeFileSync(path.join(wsAgentsSym, 'coverage', 'lcov.info'), 'SF:src/a.ts\nDA:1,1\nend_of_record\n', 'utf8');
+      fs.symlinkSync(outsideDir, path.join(wsAgentsSym, '.agents'));
+
+      expect(() => harvestCoverageReports(wsAgentsSym)).toThrow(/symlink|confinamiento/i);
+      expect(fs.existsSync(path.join(outsideDir, '.cache'))).toBe(false);
+
+      const makeSpy = vi.fn();
+      await expect(
+        runEphemeralQa(wsAgentsSym, 'unit', 30, { execFileFn: makeSpy as unknown as typeof execFile })
+      ).rejects.toThrow(/symlink|confinamiento/i);
+      expect(makeSpy).not.toHaveBeenCalled();
+      expect(fs.existsSync(path.join(outsideDir, '.cache'))).toBe(false);
+
+      // 2. Dangling ws/.agents/.cache/coverage/lcov.info -> outside/pwned.info
+      const wsDanglingLcov = path.join(tempDir, 'ws-dangling-lcov');
+      const covDir = path.join(wsDanglingLcov, '.agents', '.cache', 'coverage');
+      fs.mkdirSync(covDir, { recursive: true });
+      fs.mkdirSync(path.join(wsDanglingLcov, 'coverage'), { recursive: true });
+      fs.writeFileSync(path.join(wsDanglingLcov, 'coverage', 'lcov.info'), 'SF:src/b.ts\nDA:1,1\nend_of_record\n', 'utf8');
+      const pwnedInfo = path.join(outsideDir, 'pwned.info');
+      fs.symlinkSync(pwnedInfo, path.join(covDir, 'lcov.info'));
+
+      expect(() => harvestCoverageReports(wsDanglingLcov)).toThrow(/symlink|confinamiento/i);
+      expect(fs.existsSync(pwnedInfo)).toBe(false);
+
+      // 3. ensureSafePrepDirs soporta mkdir -p . en fallback ENOENT
+      const wsPrepDot = path.join(tempDir, 'ws-prep-dot');
+      fs.mkdirSync(wsPrepDot, { recursive: true });
+      fs.writeFileSync(
+        path.join(wsPrepDot, 'Makefile'),
+        'qa-unit:\n\tmkdir -p .\n\tdocker run alpine true\n',
+        'utf8'
+      );
+      const mockEnoentDot = ((
+        file: string,
+        _args: readonly string[] | null | undefined,
+        _opts: unknown,
+        cb: (e: Error | null, out: string, err: string) => void
+      ) => {
+        if (file === 'make') {
+          cb(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }), '', '');
+          return;
+        }
+        cb(null, 'All files | 100 | 100 | 100 | 100 |\n1 passed', '');
+      }) as unknown as typeof execFile;
+      const dotRes = await runEphemeralQa(wsPrepDot, 'unit', 30, { execFileFn: mockEnoentDot });
+      expect(dotRes.status).toBe('PASSED');
+    } finally {
+      fs.rmSync(outsideDir, { recursive: true, force: true });
+    }
+  });
+
   it('F1.8: runEphemeralQa devuelve SKIPPED y no graba evidencia cuando 0 pruebas fueron ejecutadas', async () => {
     fs.writeFileSync(
       path.join(tempDir, 'Makefile'),
@@ -965,5 +1025,211 @@ describe('ephemeral-runner', () => {
     calls.length = 0;
     await runEphemeralQa(rootDir, 'unit', 30, { execFileFn: mockExec });
     expect(calls.some((c) => c.includes('down'))).toBe(false);
+  });
+
+  it('readDoubleQuotedToken preserva escapes POSIX no especiales como \\( y \\) en find mientras resuelve \\", \\\\, \\$, \\` y \\<newline>', () => {
+    const findCmd =
+      'docker compose -f docker-compose.qa.yml run --rm -T qa-bash bash -c "find . \\( -name node_modules -o -name .venv \\) -prune -o -type f -name \'*.sh\' -print0"';
+    const findTokens = tokenizeCommandArgs(findCmd);
+    expect(findTokens.at(-1)).toBe(
+      "find . \\( -name node_modules -o -name .venv \\) -prune -o -type f -name '*.sh' -print0"
+    );
+
+    const posixEscapes = tokenizeCommandArgs(
+      'sh -c "a=\\"q\\" b=\\\\ c=\\$HOME d=\\`id\\` e=hi\\\nworld f=\\(ok\\)"'
+    );
+    expect(posixEscapes).toEqual(['sh', '-c', 'a="q" b=\\ c=$HOME d=`id` e=hiworld f=\\(ok\\)']);
+  });
+
+  it('resolveMakefileDockerRecipes soporta $(CURDIR) mkdir, traps || true, if [ -f ] y clean-cache en los 10 stacks manteniendo Regla Cero', () => {
+    const stackRoot = path.join(tempDir, 'stack_proj');
+    fs.mkdirSync(path.join(stackRoot, '.agents', 'scripts'), { recursive: true });
+    fs.writeFileSync(path.join(stackRoot, '.agents', 'scripts', 'verify_alembic_orm_parity.py'), '# ok\n', 'utf8');
+
+    const blueprintLikeMakefile = [
+      'COMPOSE_FILE ?= docker-compose.qa.yml',
+      'SERVICE_NAME ?= qa-backend',
+      'PROJECT_DIR ?= $(CURDIR)',
+      'QA_UID ?= $(shell id -u)',
+      'QA_GID ?= $(shell id -g)',
+      'qa-dast:',
+      '\t@mkdir -p "$(PROJECT_DIR)/reports"',
+      '\t@bash -c \'trap "docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" down -v >/dev/null 2>&1 || true" EXIT; docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" up -d --wait api && docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T zap zap.sh -dir /tmp/.ZAP -cmd -autorun /zap/wrk/zap.yaml\'',
+      'qa-migration:',
+      '\t@bash -c \'if [ -f .agents/scripts/verify_alembic_orm_parity.py ]; then docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T $(SERVICE_NAME) python3 .agents/scripts/verify_alembic_orm_parity.py; else trap "docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" down -v >/dev/null 2>&1 || true" EXIT; docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" up -d --wait postgres; fi\'',
+      'qa-orphans:',
+      '\t@if [ -f .agents/scripts/verify_zero_orphan_vue_components.py ]; then docker run --rm --network none python:3.15 python3 .agents/scripts/verify_zero_orphan_vue_components.py; else docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T frontend node -e "console.log(1);"; fi',
+      'qa-load:',
+      '\t@mkdir -p "$(PROJECT_DIR)/pacts" "$(PROJECT_DIR)/dist" "$(PROJECT_DIR)/coverage"',
+      '\t@if [ -z "$${API_BASE_URL:-}" ] && [ -z "$${PYTHON_HTTP_CMD:-}" ]; then echo "stub"; fi',
+      '\t@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T k6-smoke',
+      'clean-cache:',
+      '\t@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile "*" down -v --remove-orphans >/dev/null 2>&1 || docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" down -v --remove-orphans >/dev/null 2>&1 || true',
+    ].join('\n');
+
+    const dastRes = resolveMakefileDockerRecipes(blueprintLikeMakefile, 'qa-dast', stackRoot);
+    expect(dastRes.ok).toBe(true);
+    if (dastRes.ok) {
+      expect(dastRes.prepDirs).toEqual(['reports']);
+      expect(dastRes.commands.at(-1)).toContain('down');
+    }
+
+    const migRes = resolveMakefileDockerRecipes(blueprintLikeMakefile, 'qa-migration', stackRoot);
+    expect(migRes.ok).toBe(true);
+    const orphRes = resolveMakefileDockerRecipes(blueprintLikeMakefile, 'qa-orphans', stackRoot);
+    expect(orphRes.ok).toBe(true);
+    const loadRes = resolveMakefileDockerRecipes(blueprintLikeMakefile, 'qa-load', stackRoot);
+    expect(loadRes.ok).toBe(true);
+    if (loadRes.ok) {
+      expect(loadRes.prepDirs).toEqual(['pacts', 'dist', 'coverage']);
+    }
+    const cleanCacheRes = resolveMakefileDockerRecipes(blueprintLikeMakefile, 'clean-cache', stackRoot);
+    expect(cleanCacheRes.ok).toBe(true);
+
+    // Symlink escape en mkdir -p y trap malicioso siguen estrictamente bloqueados por Regla Cero
+    const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-escape-'));
+    try {
+      fs.symlinkSync(outsideDir, path.join(stackRoot, 'sym_escape'));
+      const symRes = resolveMakefileDockerRecipes(
+        'qa-dast:\n\tmkdir -p "$(CURDIR)/sym_escape/sub"\n\tdocker run alpine true\n',
+        'qa-dast',
+        stackRoot
+      );
+      expect(symRes.ok).toBe(false);
+    } finally {
+      fs.rmSync(outsideDir, { recursive: true, force: true });
+    }
+    const evilTrap = resolveMakefileDockerRecipes(
+      'qa-dast:\n\tbash -c \'trap "docker compose down; rm -rf / || true" EXIT; docker run alpine true\'\n',
+      'qa-dast',
+      stackRoot
+    );
+    expect(evilTrap.ok).toBe(false);
+    const evilIf = resolveMakefileDockerRecipes(
+      'qa-orphans:\n\tif [ -f ../outside ]; then docker run alpine true; fi\n',
+      'qa-orphans',
+      stackRoot
+    );
+    expect(evilIf.ok).toBe(false);
+
+    // Cubre fallback de ruta cuando rootDir aún no existe, redirección >/dev/null y rechazo en fallback || inseguro
+    const futureRoot = path.join(tempDir, 'nonexistent-root-11x');
+    const futureRes = resolveMakefileDockerRecipes(
+      'qa-unit:\n\tmkdir -p reports\n\tdocker run alpine true\n',
+      'qa-unit',
+      futureRoot
+    );
+    expect(futureRes.ok).toBe(true);
+
+    const trapDevNullRes = resolveMakefileDockerRecipes(
+      'qa-profile:\n\tsh -c \'trap "docker compose down >/dev/null || true" EXIT; docker run alpine true\'\n',
+      'qa-profile',
+      stackRoot
+    );
+    expect(trapDevNullRes.ok).toBe(true);
+
+    const unsafeOrFallback = resolveMakefileDockerRecipes(
+      'clean-cache:\n\tdocker compose down || echo pwned\n',
+      'clean-cache',
+      stackRoot
+    );
+    expect(unsafeOrFallback.ok).toBe(false);
+
+    // Validar los 10 <stack>/Makefile.example reales sin omitir silenciosamente
+    const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+    const stackTargets: ReadonlyArray<readonly [string, readonly string[]]> = [
+      ['fastapi', ['qa-lint', 'qa-unit', 'qa-migration', 'qa-integration', 'qa-contracts', 'qa-load', 'qa-ci', 'qa-mutation', 'qa-bdd', 'qa-dast', 'qa-profile', 'qa-chaos', 'qa-observability', 'qa-sbom', 'qa-all', 'clean-cache']],
+      ['python', ['qa-lint', 'qa-unit', 'qa-ci', 'qa-mutation', 'qa-profile', 'qa-sbom', 'qa-load', 'qa-observability', 'qa-all', 'clean-cache']],
+      ['node-backend', ['qa-lint', 'qa-unit', 'qa-contracts', 'qa-e2e', 'qa-dast', 'qa-mutation', 'qa-sbom', 'qa-bdd', 'qa-stress', 'qa-chaos', 'qa-observability', 'qa-all', 'clean-cache']],
+      ['vue3', ['build-ui', 'qa-lint', 'qa-unit', 'qa-orphans', 'qa-mutation', 'qa-perf', 'qa-e2e', 'qa-bdd', 'qa-obs', 'qa-all', 'clean-cache', 'down-caches']],
+      ['react-frontend', ['build-ui', 'qa-lint', 'qa-unit', 'qa-orphans', 'qa-mutation', 'qa-perf', 'qa-e2e', 'qa-bdd', 'qa-obs', 'qa-all', 'clean-cache', 'down-caches']],
+      ['php', ['qa-lint', 'qa-unit', 'qa-contracts', 'qa-bdd', 'qa-mutation', 'qa-dast', 'qa-load', 'qa-chaos', 'qa-observability', 'qa-sbom', 'clean-cache']],
+      ['mobile-appium', ['qa-lint', 'qa-unit', 'qa-sbom', 'qa-drivers', 'qa-bridge', 'qa-e2e', 'qa-all', 'clean-cache']],
+      ['bash-scripts', ['qa-lint', 'qa-unit', 'qa-observability', 'qa-all']],
+      ['ai-evals', ['qa-lint', 'qa-unit', 'qa-offline', 'qa-ci', 'qa-all', 'clean-cache']],
+      ['vibe-rescue', ['qa-lint', 'qa-audit', 'qa-audit-enforce', 'qa-unit', 'qa-ci', 'qa-all', 'clean-cache']],
+    ];
+    for (const [stack, targets] of stackTargets) {
+      const stackDir = path.join(repoRoot, stack);
+      const mkPath = path.join(stackDir, 'Makefile.example');
+      expect(fs.existsSync(mkPath), `Falta montar ${stack}/Makefile.example en ${mkPath}`).toBe(true);
+      const mkContent = fs.readFileSync(mkPath, 'utf8');
+      for (const tgt of targets) {
+        const r = resolveMakefileDockerRecipes(mkContent, tgt, stackDir);
+        expect(r.ok, `${stack}/${tgt}: ${r.ok ? '' : r.reason}`).toBe(true);
+      }
+    }
+
+    // Fail-closed explícito (Rule Zero): targets con host shell / captura subshell requieren GNU make
+    const failClosedTargets: ReadonlyArray<readonly [string, string]> = [
+      ['php', 'qa-parity'],
+      ['php', 'qa-all'],
+      ['bash-scripts', 'clean-cache'],
+    ];
+    for (const [stack, tgt] of failClosedTargets) {
+      const stackDir = path.join(repoRoot, stack);
+      const mkContent = fs.readFileSync(path.join(stackDir, 'Makefile.example'), 'utf8');
+      const r = resolveMakefileDockerRecipes(mkContent, tgt, stackDir);
+      expect(r.ok, `${stack}/${tgt} debe fallar cerrado en fallback sin make`).toBe(false);
+    }
+  });
+
+  it('valida isBenignIfZEcho y parseBoundedIfFile frente a redirecciones seguras, multi-espacio e inyecciones', () => {
+    const stackRoot = path.join(tempDir, 'stack-ifz');
+    fs.mkdirSync(stackRoot, { recursive: true });
+
+    const safeIfZRedirs = [
+      'qa-banner:\n\t@if [ -z "$${API:-}" ]; then echo "aviso" >&2; fi\n\tdocker run alpine true\n',
+      'qa-banner:\n\t@if [ -z "$${API:-}" ]; then echo "aviso" 1>&2; fi\n\tdocker run alpine true\n',
+      'qa-banner:\n\t@if [ -z "$${API:-}" ]; then printf "aviso" >/dev/null; fi\n\tdocker run alpine true\n',
+      'qa-banner:\n\t@if [ -z "$${API:-}" ]; then echo "aviso" 1>/dev/null 2>&1; fi\n\tdocker run alpine true\n',
+    ];
+    for (const mk of safeIfZRedirs) {
+      const res = resolveMakefileDockerRecipes(mk, 'qa-banner', stackRoot);
+      expect(res.ok, res.ok ? '' : res.reason).toBe(true);
+    }
+
+    const evilIfZVectors = [
+      'qa-evil:\n\t@sh -c \'if [ -z "$${API:-}" ]; then echo "$$(id)" >&2; fi\'\n',
+      'qa-evil:\n\t@sh -c \'if [ -z "$${API:-}" ]; then echo "`id`" >&2; fi\'\n',
+      'qa-evil:\n\t@sh -c \'if [ -z "$${API:-}" ]; then echo "x" > /etc/passwd; fi\'\n',
+      'qa-evil:\n\t@sh -c \'if [ -z "$${API:-}" ]; then echo "x" >&2 && id; fi\'\n',
+      'qa-evil:\n\t@sh -c \'if [ -z "$${API:-}" ]; then echo "x" | sh; fi\'\n',
+      'qa-evil:\n\t@sh -c \'if [ -z "$$(id)" ]; then echo "x" >&2; fi\'\n',
+      'qa-evil:\n\t@sh -c \'if [ -z "$${API:-}" ] && [ -f /etc/passwd ]; then echo "x" >&2; fi\'\n',
+      'qa-evil:\n\t@sh -c \'if [ -z "$${API:-}" ]; then echo "x" >&2\nfi\'\n',
+    ];
+    for (const mk of evilIfZVectors) {
+      const res = resolveMakefileDockerRecipes(mk, 'qa-evil', stackRoot);
+      expect(res.ok, `Vector inseguro debía bloquearse: ${mk}`).toBe(false);
+    }
+
+    const multiSpaceIf = resolveMakefileDockerRecipes(
+      'qa-ms:\n\t@bash -c \'if [ -f missing.py ]; then  docker run alpine false;  else  docker run alpine true;  fi   \'\n',
+      'qa-ms',
+      stackRoot
+    );
+    expect(multiSpaceIf.ok, multiSpaceIf.ok ? '' : multiSpaceIf.reason).toBe(true);
+
+    const quotedElseIf = resolveMakefileDockerRecipes(
+      'qa-qe:\n\t@bash -c \'if [ -f missing.py ]; then docker run alpine sh -c "echo ; else "; else docker run alpine true; fi\'\n',
+      'qa-qe',
+      stackRoot
+    );
+    expect(quotedElseIf.ok, quotedElseIf.ok ? '' : quotedElseIf.reason).toBe(true);
+
+    const malformedBoundedIfs = [
+      'qa-bad:\n\t@bash -c \'if [ -f missing.py; then docker run alpine true; fi\'\n',
+      'qa-bad:\n\t@bash -c \'if [ -f  ]; then docker run alpine true; fi\'\n',
+      'qa-bad:\n\t@bash -c \'if [ -f missing.py ] docker run alpine true; fi\'\n',
+      'qa-bad:\n\t@bash -c \'if [ -f missing.py ]; then docker run alpine true; fi_extra\'\n',
+      'qa-bad:\n\t@bash -c \'if [ -f missing.py ]; then docker run alpine true; notfi\'\n',
+      'qa-bad:\n\t@bash -c \'if [ -f missing.py ]; then docker run alpine true\n; fi\'\n',
+      `qa-bad:\n\t@bash -c 'mkdir -p ${'a'.repeat(260)}; docker run alpine true'\n`,
+    ];
+    for (const mk of malformedBoundedIfs) {
+      const res = resolveMakefileDockerRecipes(mk, 'qa-bad', stackRoot);
+      expect(res.ok, `Condicional malformado debía bloquearse: ${mk}`).toBe(false);
+    }
   });
 });

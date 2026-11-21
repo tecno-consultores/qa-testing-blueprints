@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
+import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
+  assertSafeAnchoredTarget,
   GitHubFetcher,
   MCP_SERVER_VERSION,
   resolveSafeChildPath,
   resolveSafeHomeDir,
 } from './github-fetcher.js';
 import { CONNECTOR_START_MARKER, syncGlobalGeminiMd } from './agents-connector.js';
+import { assertNoSymlinkSegments, assertNotSymlinkPath } from '../security/pathRealResolver.js';
 import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 import type {
   GlobalSkillAutoSyncResult,
@@ -103,19 +106,25 @@ export function pickHigherSemver(
 export function writeVersionStamp(
   targetDir: string,
   blueprintVersion: string,
-  mcpVersion: string = MCP_SERVER_VERSION
+  mcpVersion: string = MCP_SERVER_VERSION,
+  confinementRoot?: string
 ): string {
+  assertSafeAnchoredTarget(targetDir, confinementRoot);
+  assertNotSymlinkPath(targetDir);
+  const stampPath = resolveSafeChildPath(targetDir, VERSION_STAMP_FILENAME);
+  assertNotSymlinkPath(stampPath);
   if (!fs.existsSync(targetDir)) {
     fs.mkdirSync(targetDir, { recursive: true });
   }
-  const stampPath = path.join(targetDir, VERSION_STAMP_FILENAME);
+  const resolvedStamp = resolveSafeChildPath(targetDir, VERSION_STAMP_FILENAME);
+  assertNotSymlinkPath(resolvedStamp);
   const payload: VersionStampData = {
     blueprint_version: blueprintVersion.trim().replace(/^v/, ''),
     mcp_version: mcpVersion.trim().replace(/^v/, ''),
     updated_at_utc: new Date().toISOString(),
   };
-  fs.writeFileSync(stampPath, `${JSON.stringify(payload, null, 2)}\n`, UTF8);
-  return stampPath;
+  fs.writeFileSync(resolvedStamp, `${JSON.stringify(payload, null, 2)}\n`, UTF8);
+  return resolvedStamp;
 }
 
 export function readVersionStamp(targetDir: string): string | null {
@@ -137,24 +146,33 @@ export function readVersionStamp(targetDir: string): string | null {
   }
 }
 
+const GLOBAL_SKILL_REL_DIRS: readonly string[] = [
+  path.join('.gemini', 'config', 'skills'),
+  path.join('.gemini', 'antigravity', 'skills'),
+  path.join('.claude', 'skills'),
+  path.join('.hermes', 'skills'),
+  path.join('.cursor', 'skills'),
+  path.join('.codeium', 'windsurf', 'skills'),
+  path.join('.codex', 'skills'),
+];
+
 export function resolveGlobalSkillCandidateDirs(homeDir: string): string[] {
-  return [
-    path.join(homeDir, '.gemini', 'config', 'skills'),
-    path.join(homeDir, '.gemini', 'antigravity', 'skills'),
-    path.join(homeDir, '.claude', 'skills'),
-    path.join(homeDir, '.hermes', 'skills'),
-    path.join(homeDir, '.cursor', 'skills'),
-    path.join(homeDir, '.codeium', 'windsurf', 'skills'),
-    path.join(homeDir, '.codex', 'skills'),
-  ];
+  return GLOBAL_SKILL_REL_DIRS.map((relDir) => path.join(homeDir, relDir));
 }
 
 export function detectExistingQa11xSkillDirs(homeDir: string): string[] {
-  return resolveGlobalSkillCandidateDirs(homeDir).filter(
-    (dir) =>
+  const detected: string[] = [];
+  for (const relDir of GLOBAL_SKILL_REL_DIRS) {
+    const dir = resolveSafeChildPath(homeDir, relDir);
+    assertNoSymlinkSegments(homeDir, relDir);
+    if (
       fs.existsSync(path.join(dir, ANCHOR_SKILL_REL)) ||
       fs.existsSync(path.join(dir, VERSION_STAMP_FILENAME))
-  );
+    ) {
+      detected.push(dir);
+    }
+  }
+  return detected;
 }
 
 function isSourceBlueprintsMonorepo(projectPath: string): boolean {
@@ -176,7 +194,10 @@ function isSourceBlueprintsMonorepo(projectPath: string): boolean {
 }
 
 function readCachedManifestSafe(cacheDir: string): Manifest | null {
-  const manifestPath = path.join(cacheDir, 'manifest.json');
+  assertSafeAnchoredTarget(cacheDir);
+  assertNotSymlinkPath(cacheDir);
+  const manifestPath = resolveSafeChildPath(cacheDir, 'manifest.json');
+  assertNotSymlinkPath(manifestPath);
   if (!fs.existsSync(manifestPath)) return null;
   try {
     return JSON.parse(fs.readFileSync(manifestPath, UTF8)) as Manifest;
@@ -188,7 +209,10 @@ function readCachedManifestSafe(cacheDir: string): Manifest | null {
 }
 
 function readLatestCheckCache(cacheDir: string): LatestVersionCheckCache | null {
-  const checkPath = path.join(cacheDir, LATEST_CHECK_CACHE_FILENAME);
+  assertSafeAnchoredTarget(cacheDir);
+  assertNotSymlinkPath(cacheDir);
+  const checkPath = resolveSafeChildPath(cacheDir, LATEST_CHECK_CACHE_FILENAME);
+  assertNotSymlinkPath(checkPath);
   if (!fs.existsSync(checkPath)) return null;
   try {
     const parsed = JSON.parse(fs.readFileSync(checkPath, UTF8)) as Partial<LatestVersionCheckCache>;
@@ -211,6 +235,10 @@ function readLatestCheckCache(cacheDir: string): LatestVersionCheckCache | null 
 }
 
 function writeLatestCheckCache(cacheDir: string, latestVersion: string, nowMs: number): void {
+  assertSafeAnchoredTarget(cacheDir);
+  assertNotSymlinkPath(cacheDir);
+  const cachePath = resolveSafeChildPath(cacheDir, LATEST_CHECK_CACHE_FILENAME);
+  assertNotSymlinkPath(cachePath);
   try {
     if (!fs.existsSync(cacheDir)) {
       fs.mkdirSync(cacheDir, { recursive: true });
@@ -219,11 +247,19 @@ function writeLatestCheckCache(cacheDir: string, latestVersion: string, nowMs: n
       latest_version: latestVersion,
       checked_at_ms: nowMs,
     };
-    fs.writeFileSync(
-      path.join(cacheDir, LATEST_CHECK_CACHE_FILENAME),
-      `${JSON.stringify(payload, null, 2)}\n`,
-      UTF8
-    );
+    const tmpPath = `${cachePath}.tmp.${process.pid}.${crypto.randomBytes(8).toString('hex')}`;
+    assertNotSymlinkPath(tmpPath);
+    try {
+      fs.writeFileSync(tmpPath, `${JSON.stringify(payload, null, 2)}\n`, {
+        encoding: UTF8,
+        flag: 'wx',
+      });
+      assertNotSymlinkPath(tmpPath);
+      fs.renameSync(tmpPath, cachePath);
+    } catch (innerErr: unknown) {
+      fs.rmSync(tmpPath, { force: true });
+      throw innerErr;
+    }
   } catch (err: unknown) {
     // Fail-open if cache directory is read-only
     reportDebugCatchError('versionManager.writeLatestCheckCache', err);
@@ -486,11 +522,22 @@ function detectGeminiConnectorLang(content: string): OutputLanguageMode {
 }
 
 function syncExistingGeminiConnectorIfPresent(homeDir: string): void {
-  const geminiMdPath = path.join(homeDir, '.gemini', 'GEMINI.md');
+  const relGeminiMd = path.join('.gemini', 'GEMINI.md');
+  const geminiMdPath = resolveSafeChildPath(homeDir, relGeminiMd);
+  assertNoSymlinkSegments(homeDir, relGeminiMd);
   if (!fs.existsSync(geminiMdPath)) return;
   const existing = fs.readFileSync(geminiMdPath, UTF8);
   if (!existing.includes(CONNECTOR_START_MARKER)) return;
   syncGlobalGeminiMd(homeDir, false, detectGeminiConnectorLang(existing));
+}
+
+function assertSafeGlobalTargetDirs(homeDir: string, targetDirs: readonly string[]): void {
+  const resolvedHome = path.resolve(homeDir);
+  for (const dir of targetDirs) {
+    const relDir = path.relative(resolvedHome, path.resolve(dir));
+    resolveSafeChildPath(homeDir, relDir);
+    assertNoSymlinkSegments(homeDir, relDir);
+  }
 }
 
 function collectOutdatedDestinationsForEntry(
@@ -502,6 +549,7 @@ function collectOutdatedDestinationsForEntry(
   const outdatedDirs: string[] = [];
   for (const dir of targetDirs) {
     const targetFile = resolveSafeChildPath(dir, relSkillPath);
+    assertNoSymlinkSegments(dir, relSkillPath);
     if (!fs.existsSync(targetFile)) {
       outdatedDirs.push(dir);
     } else {
@@ -517,8 +565,10 @@ function collectOutdatedDestinationsForEntry(
 async function syncSkillEntryAcrossDirs(
   entry: ManifestFileEntry,
   targetDirs: string[],
-  fetcher: GitHubFetcher
+  fetcher: GitHubFetcher,
+  confinementRoot: string
 ): Promise<number> {
+  assertSafeGlobalTargetDirs(confinementRoot, targetDirs);
   const relSkillPath = entry.path.slice(SKILLS_PREFIX.length);
   const outdatedDirs = collectOutdatedDestinationsForEntry(
     targetDirs,
@@ -531,6 +581,7 @@ async function syncSkillEntryAcrossDirs(
   const verifiedContent = await fetcher.fetchFileContent(entry.path, entry.sha256);
   for (const dir of outdatedDirs) {
     const fullPath = resolveSafeChildPath(dir, relSkillPath);
+    assertNoSymlinkSegments(dir, relSkillPath);
     const parentDir = path.dirname(fullPath);
     if (!fs.existsSync(parentDir)) {
       fs.mkdirSync(parentDir, { recursive: true });
@@ -551,6 +602,7 @@ async function executeGlobalSkillsSync(
   input: ExecuteGlobalSkillsSyncInput
 ): Promise<GlobalSkillAutoSyncResult> {
   const { homeDir, targetDirs, fetcher, logFn } = input;
+  assertSafeGlobalTargetDirs(homeDir, targetDirs);
   const manifest = await fetcher.fetchManifest();
   const skillEntries = manifest.agent_governance_files.filter((item) =>
     item.path.startsWith(SKILLS_PREFIX)
@@ -558,12 +610,12 @@ async function executeGlobalSkillsSync(
   let updatedFilesCount = 0;
 
   for (const entry of skillEntries) {
-    updatedFilesCount += await syncSkillEntryAcrossDirs(entry, targetDirs, fetcher);
+    updatedFilesCount += await syncSkillEntryAcrossDirs(entry, targetDirs, fetcher, homeDir);
   }
 
   for (const dir of targetDirs) {
     if (updatedFilesCount > 0 || readVersionStamp(dir) !== manifest.blueprint_version) {
-      writeVersionStamp(dir, manifest.blueprint_version);
+      writeVersionStamp(dir, manifest.blueprint_version, MCP_SERVER_VERSION, homeDir);
     }
   }
 

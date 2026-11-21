@@ -887,4 +887,40 @@ describe('certify-gate', () => {
     expect(astAndRoadmapRes.blockers.some((b) => b.includes('tests/a.test.ts'))).toBe(false);
     expect(astAndRoadmapRes.blockers.some((b) => b.includes('Milestone/Hito 27.1'))).toBe(true);
   });
+
+  it('detecta src/pages/*.vue huérfano en raíz y reconoce pruebas unitarias bajo test/ en raíz', async () => {
+    setupNominalProject(tempDir);
+    fs.mkdirSync(path.join(tempDir, 'src', 'pages'), { recursive: true });
+    fs.mkdirSync(path.join(tempDir, 'src', 'components'), { recursive: true });
+    fs.mkdirSync(path.join(tempDir, 'test'), { recursive: true });
+
+    fs.writeFileSync(
+      path.join(tempDir, 'src', 'components', 'CoveredCard.vue'),
+      '<template><div>ok</div></template>\n',
+      'utf8'
+    );
+    fs.writeFileSync(
+      path.join(tempDir, 'test', 'CoveredCard.spec.ts'),
+      'import CoveredCard from "../src/components/CoveredCard.vue";\nexpect(CoveredCard).toBeDefined();\n',
+      'utf8'
+    );
+    fs.writeFileSync(
+      path.join(tempDir, 'src', 'pages', 'OrphanBillingPage.vue'),
+      '<template><div>billing</div></template>\n',
+      'utf8'
+    );
+
+    const failRes = await certify11xGate(tempDir, { requireLintEvidence: false });
+    expect(failRes.check_statuses?.zero_orphan_ui_components).toBe('FAILED');
+    expect(failRes.blockers.some((b) => b.includes('OrphanBillingPage.vue'))).toBe(true);
+    expect(failRes.blockers.some((b) => b.includes('CoveredCard.vue'))).toBe(false);
+
+    fs.writeFileSync(
+      path.join(tempDir, 'test', 'OrphanBillingPage.test.ts'),
+      'import OrphanBillingPage from "../src/pages/OrphanBillingPage.vue";\nexpect(OrphanBillingPage).toBeDefined();\n',
+      'utf8'
+    );
+    const passRes = await certify11xGate(tempDir, { requireLintEvidence: false });
+    expect(passRes.check_statuses?.zero_orphan_ui_components).toBe('PASSED');
+  });
 });

@@ -909,7 +909,12 @@ def evaluate_release_gate(
             summary,
         )
 
-    if scope == SCOPE_SMOKE and telemetry_json is None and defects_json is None:
+    if (
+        scope == SCOPE_SMOKE
+        and not junit.provided
+        and telemetry_json is None
+        and defects_json is None
+    ):
         summary = (
             f"⏭️ [RELEASE-GATE] SKIPPED (scope=smoke, dry_run={dry_run}, utc={utc_ts}) "
             "— compuerta omitida por alcance smoke."
@@ -936,7 +941,7 @@ def evaluate_release_gate(
 
     if not gate_reasons:
         summary = (
-            f"✅ [RELEASE-GATE] GO (scope=full, dry_run={dry_run}, "
+            f"✅ [RELEASE-GATE] GO (scope={scope}, dry_run={dry_run}, "
             f"tests={junit.executed_tests}/{junit.total_tests} {junit.pass_rate_pct}%, "
             f"p95={telemetry.p95_ms}ms, err={telemetry.error_rate_pct}%, utc={utc_ts})"
         )

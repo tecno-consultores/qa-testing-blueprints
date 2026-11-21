@@ -71,14 +71,14 @@ jobs:
 
           if [ "${EVENT_NAME}" = "pull_request" ]; then
             if [ -n "${BASE_SHA}" ] && [ -n "${HEAD_SHA}" ]; then
-              git diff --name-only "${BASE_SHA}...${HEAD_SHA}" > "${CI_TMP_DIR}/changed_files.txt" 2>/dev/null ||
-                git diff --name-only "${BASE_SHA}" "${HEAD_SHA}" > "${CI_TMP_DIR}/changed_files.txt"
+              git -c core.quotePath=false diff --name-only "${BASE_SHA}...${HEAD_SHA}" > "${CI_TMP_DIR}/changed_files.txt" 2>/dev/null ||
+                git -c core.quotePath=false diff --name-only "${BASE_SHA}" "${HEAD_SHA}" > "${CI_TMP_DIR}/changed_files.txt"
             elif [ -n "${BASE_REF}" ]; then
               if [[ ! "${BASE_REF}" =~ ^[A-Za-z0-9._/][A-Za-z0-9._/-]*$ ]] || [[ "${BASE_REF}" == *".."* ]]; then
                 echo "::error::Invalid BASE_REF '${BASE_REF}'." >&2
                 exit 1
               fi
-              git diff --name-only "origin/${BASE_REF}...HEAD" > "${CI_TMP_DIR}/changed_files.txt"
+              git -c core.quotePath=false diff --name-only "origin/${BASE_REF}...HEAD" > "${CI_TMP_DIR}/changed_files.txt"
             fi
           fi
 
@@ -90,7 +90,7 @@ jobs:
               -v "$(pwd):/app" \
               -w /app \
               sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0 \
-              sh -c "graphify extract . --code-only && graphify cluster-only ."; then
+              sh -c "graphify extract . --code-only && graphify cluster-only . && rm -rf graphify-out/cache graphify-out/20* graphify-out/.graphify_* graphify-out/.cloud-cta-shown"; then
               echo "::warning::Graphify AST extraction failed; continuing with prefix fallback." >&2
             fi
           fi

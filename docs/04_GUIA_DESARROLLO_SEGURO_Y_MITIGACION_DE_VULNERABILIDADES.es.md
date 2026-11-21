@@ -207,12 +207,14 @@ def resolve_safe_outgoing_target(url_str: str) -> tuple[str, str]:
         resolved_ips = socket.getaddrinfo(hostname, None)
     except socket.gaierror as exc:
         raise ValueError(f"No se pudo resolver el host: {hostname}") from exc
+    if not resolved_ips:
+        raise ValueError(f"Resolución DNS vacía para el host: {hostname}")
 
     pinned_ip: str | None = None
     for item in resolved_ips:
-        ip_addr_str = item[4][0]
+        ip_addr_str = str(item[4][0]).split("%", 1)[0]
         raw_ip = ipaddress.ip_address(ip_addr_str)
-        ip = raw_ip.ipv4_mapped or raw_ip
+        ip = raw_ip.ipv4_mapped if isinstance(raw_ip, ipaddress.IPv6Address) and raw_ip.ipv4_mapped else raw_ip
 
         # Bloquea RFC 1918, Loopback, Link-Local, CGNAT (100.64.0.0/10), Multicast, Reservados y Unspecified
         if not ip.is_global or ip.is_multicast or ip.is_unspecified:
@@ -423,15 +425,16 @@ En rotación estricta de Refresh Tokens, cuando un usuario abre 3 pestañas simu
 
 ### Implementación Obligatoria (KeyDB / Redis)
 ```python
+import hashlib
+
 GRACE_PERIOD_SECONDS = 5
 
-
 async def rotate_refresh_token(redis_client, old_token_family_id: str, new_token: str) -> None:
-    # 🔒 En lugar de borrar el token anterior inmediatamente, almacena la llave con TTL de cortesía
-    # Esto permite que las peticiones de otras pestañas que salieron casi a la par se acepten
+    token_digest = hashlib.sha256(new_token.encode("utf-8")).hexdigest()
+    # 🔒 Almacena el digest SHA-256 (nunca el token en texto claro) con TTL de cortesía para pestañas concurrentes
     await redis_client.set(
         f"grace_period:{old_token_family_id}",
-        new_token,
+        token_digest,
         ex=GRACE_PERIOD_SECONDS,
     )
 ```
@@ -635,6 +638,11 @@ MAX_FAILED_ATTEMPTS = 3          # DISA STIG V-222432: Máximo 3 intentos fallid
 LOCKOUT_WINDOW_SECONDS = 15 * 60 # En una ventana de 15 minutos
 TEMP_ACCOUNT_MAX_HOURS = 72      # DISA STIG V-222409: Cuentas temporales expiran en 72h
 INACTIVE_ACCOUNT_MAX_DAYS = 35   # DISA STIG V-222411: Cuentas inactivas se deshabilitan a los 35 días
+_ATOMIC_INCR_EXPIRE_LUA = (
+    "local c = redis.call('INCR', KEYS[1]); "
+    "if c == 1 or redis.call('TTL', KEYS[1]) == -1 then "
+    "redis.call('EXPIRE', KEYS[1], tonumber(ARGV[1])); end; return c"
+)
 
 def validate_password_stig_policy(new_password: str, old_password: str | None = None) -> None:
     """DISA STIG V-222536..V-222541: Política de 15 caracteres, complejidad y diferencial de 8 caracteres."""
@@ -676,11 +684,8 @@ async def verify_credentials_constant_time(
     except VerifyMismatchError:
         password_ok = False
 
-    if not password_ok:
-        pipe = redis_client.pipeline()
-        pipe.incr(fail_key)
-        pipe.expire(fail_key, LOCKOUT_WINDOW_SECONDS)
-        await pipe.execute()
+    if not password_ok or user_record is None:
+        await redis_client.eval(_ATOMIC_INCR_EXPIRE_LUA, 1, fail_key, LOCKOUT_WINDOW_SECONDS)
         raise PermissionError("Credenciales inválidas o cuenta temporalmente bloqueada.")
 
     await redis_client.delete(fail_key)
@@ -822,6 +827,7 @@ from dataclasses import dataclass
 import hashlib
 import hmac
 import json
+import re
 import shutil
 from datetime import datetime, timezone
 
@@ -842,8 +848,6 @@ class AuditEntrySpec:
     seq_num: int
     previous_record_hmac: str
 
-
-import re
 
 _ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
 _CTRL_AND_SEP_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u2028\u2029]")
@@ -1133,10 +1137,10 @@ sha256sum --check sbom-backend.cdx.json.sha256
 
 En aplicaciones y APIs construidas sobre **PHP 8.2 a 8.5** utilizando la imagen base oficial multi-arquitectura (`amd64`/`arm64`) `sinfallas/basephpcomposer` (tags `8.2`, `8.3`, `8.4`, `8.5` y `latest`), se deben aplicar de forma innegociable los siguientes controles nativos:
 
-1. **Directivas de Endurecimiento en `php.ini` / `conf.d/99-qa11x.ini` (`DISA APSC-DV-002430` & `OWASP OSHP`):**
+1. **Directivas de Endurecimiento en `php.ini` / `conf.d/zz-qa11x.ini` (`DISA APSC-DV-002430` & `OWASP OSHP`):**
    - `expose_php = Off` (suprime el banner `X-Powered-By: PHP/8.x` en todas las respuestas HTTP).
    - `zend.exception_ignore_args = On` y `display_errors = Off` (evita fugas de contraseñas o tokens en stack traces).
-   - `session.use_strict_mode = 1`, `session.cookie_httponly = 1`, `session.cookie_secure = 1`, `session.cookie_samesite = "Strict"` y `session.cache_expire = 15` (en PHP 8.4/8.5 se deprecaron `session.sid_length` y `session.sid_bits_per_character` en favor del CSPRNG nativo de 32 bytes; monte configuraciones personalizadas en `/usr/local/etc/php/conf.d/99-qa11x.ini` para prevalecer sobre `conf.d/docker-php-ext-pcov.ini`).
+   - `session.use_strict_mode = 1`, `session.cookie_httponly = 1`, `session.cookie_secure = 1`, `session.cookie_samesite = "Strict"` y `session.cache_expire = 15` (en PHP 8.4/8.5 se deprecaron `session.sid_length` y `session.sid_bits_per_character` en favor del CSPRNG nativo de 32 bytes; monte configuraciones personalizadas en `/usr/local/etc/php/conf.d/zz-qa11x.ini` para prevalecer sobre `conf.d/docker-php-ext-pcov.ini`).
    - `opcache.save_comments = 1` (indispensable para no romper atributos PHP 8 `#[...]` ni anotaciones de validación/rutas en Doctrine, Symfony, Laravel y Swagger-PHP).
 
 2. **Canonicalización Unicode NFKC, Bóveda AES-256-GCM con `sodium_memzero` y Argon2id en Tiempo Constante:**

@@ -16,7 +16,7 @@ export QA_UID QA_GID
 qa-lint:
 	@echo "🔍 [11X] Verificando Ruff (CC <= 5) y Mypy --strict en Vibe-Rescue..."
 	@docker run --rm --network none --security-opt=no-new-privileges:true -u "$(QA_UID):$(QA_GID)" \
-		-e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONPATH=/app \
+		-e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e RUFF_CACHE_DIR=/tmp/ruff-cache -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -e PYTHONPATH=/app \
 		-v "$(PROJECT_DIR):/app:ro" -w /app $(PYTHON_QA_IMAGE) sh -c "\
 		ruff check --select E,F,W,I,UP,B,C901,FLY,PLR0913 --config \"lint.mccabe.max-complexity=5\" --config \"lint.pylint.max-args=4\" . && \
 		mypy --strict --cache-dir=/tmp/mypy _vibe_rules.py audit_vibe_prototype.py tests/test_audit_vibe_prototype.unit.py"
@@ -24,22 +24,22 @@ qa-lint:
 qa-audit:
 	@echo "🛡️ [11X] Ejecutando auditoría Vibe-to-Enterprise en modo dry-run..."
 	@docker run --rm --network none --security-opt=no-new-privileges:true -u "$(QA_UID):$(QA_GID)" \
-		-e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=/app \
+		-e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -e PYTHONPATH=/app \
 		-v "$(PROJECT_DIR):/app:ro" -w /app $(PYTHON_QA_IMAGE) python3 audit_vibe_prototype.py --target "$(TARGET_DIR)" --json
 
 qa-audit-enforce:
 	@echo "🚨 [11X] Ejecutando auditoría bloqueante Vibe-to-Enterprise (--enforce)..."
 	@docker run --rm --network none --security-opt=no-new-privileges:true -u "$(QA_UID):$(QA_GID)" \
-		-e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=/app \
+		-e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -e PYTHONPATH=/app \
 		-v "$(PROJECT_DIR):/app:ro" -w /app $(PYTHON_QA_IMAGE) python3 audit_vibe_prototype.py --target "$(TARGET_DIR)" --enforce
 
 qa-unit:
 	@echo "🧪 [11X] Ejecutando pruebas unitarias (>= 95% cobertura) en contenedor efímero..."
 	@docker run --rm --network none --security-opt=no-new-privileges:true -u "$(QA_UID):$(QA_GID)" \
-		-e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e PYTHONPATH=/app \
+		-e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -e PYTHONPATH=/app \
 		-v "$(PROJECT_DIR):/app:ro" -w /app $(PYTHON_QA_IMAGE) sh -c "\
 		if [ -d tests ] && find tests -type f \( -name 'test_*.py' -o -name '*_test.py' -o -name '*.unit.py' -o -name '*.spec.py' \) | grep -q .; then \
-			pytest -q --tb=short --import-mode=importlib -W \"ignore::DeprecationWarning:deepeval.*\" -W \"ignore::SyntaxWarning:deepeval.*\" -o \"python_files=test_*.py *_test.py *.unit.py *.spec.py\" -o cache_dir=/tmp/pytest-cache --cov=. --cov-fail-under=95 --cov-report=term-missing; \
+			pytest -q --tb=short --import-mode=importlib -o asyncio_default_fixture_loop_scope=function -W \"ignore::DeprecationWarning\" -W \"ignore::SyntaxWarning\" -o \"python_files=test_*.py *_test.py *.unit.py *.spec.py\" -o cache_dir=/tmp/pytest-cache --cov=. --cov-fail-under=95 --cov-report=term-missing; \
 		else \
 			echo '⚠️ [SKIPPED/NO_TESTS_DIR] Sin suite pytest en tests/; agregue pruebas en tests/ para habilitar --cov-fail-under=95.' >&2; \
 			exit 2; \

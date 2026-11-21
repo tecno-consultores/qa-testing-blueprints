@@ -53,6 +53,7 @@ services:
       PROMPTFOO_JUDGE_PROVIDER: "${PROMPTFOO_JUDGE_PROVIDER:-}"
     volumes:
       - .:/app
+      - ./reports:/reports:rw
     working_dir: /app
     extra_hosts:
       - "host.docker.internal:host-gateway"

@@ -160,8 +160,9 @@ case "${TARGET_SELECTION}" in
 esac
 
 HOME_DIR="${HOME:-$(eval echo "~")}"
+[ "${HOME_DIR}" != "/" ] && HOME_DIR="${HOME_DIR%/}"
 PWD_REAL="$(cd "$(pwd)" 2>/dev/null && pwd -P)"
-HOME_REAL="$(cd "${HOME_DIR}" 2>/dev/null && pwd -P || printf '%s' "${HOME_DIR%/}")"
+HOME_REAL="$(cd "${HOME_DIR}" 2>/dev/null && pwd -P || printf '%s' "${HOME_DIR}")"
 IN_HOME_DIR=0
 if [ "${PWD_REAL}" = "${HOME_REAL}" ]; then
   IN_HOME_DIR=1
@@ -394,12 +395,99 @@ for item in data.get("agent_governance_files", []):
   fi
 }
 
+# Validar que la ruta relativa no contenga path traversal ni escapes vía symlink
+validate_contained_rel_path() {
+  _v_base="$1"
+  _v_rel="$2"
+  _v_label="$3"
+  case "${_v_rel}" in
+    "" | /* | *\\* | .. | ../* | */../* | */..)
+      log_error "🚨 VIOLACIÓN DE SEGURIDAD (Path Traversal) en ${_v_label}: '${_v_rel}'" && exit 1
+      ;;
+  esac
+  if printf '%s' "${_v_rel}" | LC_ALL=C grep -q '[[:cntrl:]]'; then
+    log_error "🚨 VIOLACIÓN DE SEGURIDAD (Caracteres de control) en ${_v_label}: '${_v_rel}'" && exit 1
+  fi
+  if command -v realpath >/dev/null 2>&1 && realpath -m "${_v_base}" >/dev/null 2>&1; then
+    _v_base_real="$(realpath -m "${_v_base}")"
+    _v_target_real="$(realpath -m "${_v_base_real}/${_v_rel}")"
+    if [ "${_v_target_real#"${_v_base_real}/"}" = "${_v_target_real}" ]; then
+      log_error "🚨 VIOLACIÓN DE SEGURIDAD (Escape de directorio / Symlink) en ${_v_label}: '${_v_rel}'" && exit 1
+    fi
+  elif command -v python3 >/dev/null 2>&1; then
+    if ! python3 -c 'import os, sys; b = os.path.realpath(sys.argv[1]); t = os.path.realpath(os.path.join(b, sys.argv[2])); sys.exit(0 if t.startswith(b + os.sep) else 1)' "${_v_base}" "${_v_rel}"; then
+      log_error "🚨 VIOLACIÓN DE SEGURIDAD (Escape de directorio / Symlink) en ${_v_label}: '${_v_rel}'" && exit 1
+    fi
+  else
+    _v_chk="${_v_base}"
+    _v_rem="${_v_rel}"
+    while [ -n "${_v_rem}" ]; do
+      case "${_v_rem}" in
+        */*)
+          _v_part="${_v_rem%%/*}"
+          _v_rem="${_v_rem#*/}"
+          ;;
+        *)
+          _v_part="${_v_rem}"
+          _v_rem=""
+          ;;
+      esac
+      [ -n "${_v_part}" ] || continue
+      if [ "${_v_part}" = "." ]; then
+        continue
+      fi
+      _v_chk="${_v_chk}/${_v_part}"
+      if [ -L "${_v_chk}" ]; then
+        log_error "🚨 VIOLACIÓN DE SEGURIDAD (Escape de directorio / Symlink) en ${_v_label}: '${_v_rel}'" && exit 1
+      fi
+    done
+    if [ "${_v_chk}" = "${_v_base}" ]; then
+      log_error "🚨 VIOLACIÓN DE SEGURIDAD (Escape de directorio / Symlink) en ${_v_label}: '${_v_rel}'" && exit 1
+    fi
+  fi
+}
+
+assert_safe_target_file() {
+  _s_file="$1"
+  _s_label="$2"
+  if [ -L "${_s_file}" ]; then
+    log_error "🚨 VIOLACIÓN DE SEGURIDAD (Symlink rechazado) en ${_s_label}: '${_s_file}'" && exit 1
+  fi
+}
+
+assert_no_symlink_segments() {
+  _ns_base="$1"
+  _ns_rel="$2"
+  _ns_label="$3"
+  validate_contained_rel_path "${_ns_base}" "${_ns_rel}" "${_ns_label}"
+  _ns_chk="${_ns_base%/}"
+  _ns_rem="${_ns_rel}"
+  while [ -n "${_ns_rem}" ]; do
+    case "${_ns_rem}" in
+      */*)
+        _ns_part="${_ns_rem%%/*}"
+        _ns_rem="${_ns_rem#*/}"
+        ;;
+      *)
+        _ns_part="${_ns_rem}"
+        _ns_rem=""
+        ;;
+    esac
+    [ -n "${_ns_part}" ] || continue
+    [ "${_ns_part}" = "." ] && continue
+    _ns_chk="${_ns_chk}/${_ns_part}"
+    assert_safe_target_file "${_ns_chk}" "${_ns_label}"
+  done
+}
+
 merge_delimited_block() {
   _target_file="$1"
   _block_file="$2"
   _header_file="$3"
   _start_marker="<!-- QA_11X_MCP_CONNECTOR_START -->"
   _end_marker="<!-- QA_11X_MCP_CONNECTOR_END -->"
+
+  assert_safe_target_file "${_target_file}" "merge_delimited_block.target"
 
   if [ ! -f "${_target_file}" ] || [ ! -s "${_target_file}" ]; then
     mkdir -p "$(dirname "${_target_file}")"
@@ -459,12 +547,16 @@ EOF
 # 🤖 Global AI Agent Directives — QA 11X Standard (`@sinfallas/mcp-qa-11x`)
 
 EOF
+  assert_no_symlink_segments "${HOME_REAL}" ".gemini/GEMINI.md" "gemini.md"
+  assert_safe_target_file "${_gemini_md}" "gemini.md"
   merge_delimited_block "${_gemini_md}" "${_blk_file}" "${_hdr_file}"
   log_ok "Conector global sincronizado en: ${_gemini_md}"
 }
 
 sync_project_agents_md() {
   _agents_md="./AGENTS.md"
+  assert_no_symlink_segments "${PWD_REAL}" "AGENTS.md" "agents.md"
+  assert_safe_target_file "${_agents_md}" "agents.md"
   _proj_name="$(basename "${PWD_REAL}")"
   _raw_blk="${TMP_DIR}/project_agents_raw.md"
   _blk_file="${TMP_DIR}/project_agents_block.md"
@@ -519,11 +611,20 @@ fi
 VERIFIED_STAGING="${TMP_DIR}/staging"
 mkdir -p "${VERIFIED_STAGING}"
 VERIFIED_COUNT=0
+WORKSPACE_SKILLS_DEST="$(pwd)/.agents/skills"
+HAS_WORKSPACE_DEST=0
+if printf '%s\n' "${DEST_DIRS}" | grep -Fqx -- "${WORKSPACE_SKILLS_DEST}"; then
+  HAS_WORKSPACE_DEST=1
+fi
 
 while read -r rel_path expected_sha _; do
   [ -z "${rel_path}" ] && continue
 
+  if [ "${HAS_WORKSPACE_DEST}" -eq 1 ]; then
+    validate_contained_rel_path "${PWD_REAL}" "${rel_path}" "manifest.agent_governance_files.path"
+  fi
   skill_rel_path="${rel_path#.agents/skills/}"
+  validate_contained_rel_path "${VERIFIED_STAGING}" "${skill_rel_path}" "staging.skill_rel_path"
   staging_dest="${VERIFIED_STAGING}/${skill_rel_path}"
   staging_dir="$(dirname "${staging_dest}")"
   mkdir -p "${staging_dir}"
@@ -554,7 +655,22 @@ log_ok "Integridad SHA-256 certificada (${VERIFIED_COUNT}/${TOTAL_FILES} archivo
 STAMP_UTC="$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "2026-01-01T00:00:00Z")"
 printf '%s\n' "${DEST_DIRS}" | while IFS= read -r dest; do
   [ -z "${dest}" ] && continue
+  if [ "${dest}" = "${WORKSPACE_SKILLS_DEST}" ]; then
+    assert_no_symlink_segments "${PWD_REAL}" ".agents/skills" "workspace.skills_dir"
+  else
+    dest_rel="${dest#"${HOME_DIR}/"}"
+    assert_no_symlink_segments "${HOME_REAL}" "${dest_rel}" "global.skills_dir"
+  fi
+  assert_safe_target_file "${dest}" "skills_dest"
+  assert_safe_target_file "${dest}/.qa-11x-version" "skills_version_stamp"
   mkdir -p "${dest}"
+  exec 4<"${SKILL_INDEX}"
+  while read -r rel_path _ <&4; do
+    [ -z "${rel_path}" ] && continue
+    skill_rel_path="${rel_path#.agents/skills/}"
+    assert_no_symlink_segments "${dest}" "${skill_rel_path}" "dest.skill_rel_path"
+  done
+  exec 4<&-
   cp -R "${VERIFIED_STAGING}/"* "${dest}/"
   printf '{\n  "blueprint_version": "%s",\n  "mcp_version": "%s",\n  "updated_at_utc": "%s"\n}\n' "${BLUEPRINT_VERSION}" "${BLUEPRINT_VERSION}" "${STAMP_UTC}" >"${dest}/.qa-11x-version"
   log_ok "Skills instaladas en: ${dest}"
@@ -578,6 +694,8 @@ if [ "${INCLUDE_SCRIPTS}" -eq 1 ]; then
   while IFS='|' read -r s_path s_target s_strategy s_sha; do
     [ -z "${s_path}" ] && continue
     dest_rel="${s_target:-${s_path}}"
+    validate_contained_rel_path "${PWD_REAL}" "${s_path}" "manifest.common_files.path"
+    assert_no_symlink_segments "${PWD_REAL}" "${dest_rel}" "manifest.common_files.target_name"
     if [ -z "${s_strategy}" ]; then
       case "${s_path}" in
         .trivy.yaml | .env.example | instalar-hooks.sh | lefthook.yml) s_strategy="copy_if_missing" ;;
@@ -603,6 +721,7 @@ if [ "${INCLUDE_SCRIPTS}" -eq 1 ]; then
     fi
 
     if [ "${s_path}" = ".agents/ACTIVE_TASK.md.example" ]; then
+      assert_no_symlink_segments "${PWD_REAL}" ".agents/ACTIVE_TASK.md.example" "active_task.example"
       mkdir -p "./.agents"
       cp "${s_tmp}" "./.agents/ACTIVE_TASK.md.example"
       chmod 0644 "./.agents/ACTIVE_TASK.md.example"
@@ -618,6 +737,8 @@ if [ "${INCLUDE_SCRIPTS}" -eq 1 ]; then
     if [ -f "./${dest_rel}" ]; then
       case "${s_strategy}" in
         surgical_merge | copy_if_missing_or_update_qa)
+          assert_safe_target_file "./${dest_rel}.11x-backup" "scripts.backup"
+          assert_safe_target_file "./${dest_rel}.11x-incoming" "scripts.incoming"
           cp "./${dest_rel}" "./${dest_rel}.11x-backup"
           chmod 0600 "./${dest_rel}.11x-backup"
           cp "${s_tmp}" "./${dest_rel}.11x-incoming"
@@ -626,6 +747,7 @@ if [ "${INCLUDE_SCRIPTS}" -eq 1 ]; then
           continue
           ;;
         append_missing_lines)
+          assert_safe_target_file "./${dest_rel}.11x-backup" "scripts.backup"
           cp "./${dest_rel}" "./${dest_rel}.11x-backup"
           chmod 0600 "./${dest_rel}.11x-backup"
           exec 3<"${s_tmp}"
@@ -644,6 +766,8 @@ if [ "${INCLUDE_SCRIPTS}" -eq 1 ]; then
       *) chmod +x "./${dest_rel}" ;;
     esac
   done <"${SCRIPT_INDEX}"
+  assert_no_symlink_segments "${PWD_REAL}" ".agents/.qa-11x-version" "workspace.version_stamp"
+  assert_safe_target_file "./.agents/.qa-11x-version" "workspace.version_stamp"
   mkdir -p "./.agents"
   printf '{\n  "blueprint_version": "%s",\n  "mcp_version": "%s",\n  "updated_at_utc": "%s"\n}\n' "${BLUEPRINT_VERSION}" "${BLUEPRINT_VERSION}" "${STAMP_UTC}" >"./.agents/.qa-11x-version"
   log_ok "Scripts de automatización instalados en $(pwd) (excluyendo .env.example y publicar-mcp.sh)."

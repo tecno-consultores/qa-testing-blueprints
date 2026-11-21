@@ -1261,6 +1261,52 @@ describe('tmsSyncCli — T4.6 Enterprise TMS Traceability Zero-Infra', () => {
             junitXmlContent: '<testsuite><testcase name="x"><failure><![CDATA[unclosed',
           })
         ).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+
+        // baseUrl con credenciales embebidas llega a validateTmsBaseUrl tras promptGuard y falla con SSRF_BLOCKED
+        const { guardToolCallInput } = await import('../src/security/promptGuard.js');
+        const guardedTms = guardToolCallInput('sync_enterprise_tms', {
+          mode: 'push-results',
+          provider: 'jira',
+          baseUrl: 'https://user:pass@jira.example.com',
+          junitXmlContent: '<testsuite><testcase name="QA-1 ok"/></testsuite>',
+        });
+        expect(guardedTms.blocked).toBe(false);
+        await expect(
+          executeTmsSync({
+            mode: 'push-results',
+            provider: 'jira',
+            baseUrl: String(guardedTms.sanitizedArgs['baseUrl']),
+            junitXmlContent: String(guardedTms.sanitizedArgs['junitXmlContent']),
+          })
+        ).rejects.toMatchObject({
+          code: 'SSRF_BLOCKED',
+        });
+        const credsToolRes = await handleSyncEnterpriseTms(guardedTms.sanitizedArgs);
+        expect(credsToolRes.isError).toBe(true);
+        const credsText = (credsToolRes.content[0] as { text?: string })?.text ?? '';
+        expect(credsText).toContain('credenciales');
+        expect(credsText).not.toContain(REDACTED_EMAIL);
+
+        // baseUrl sintácticamente inválida redacta PII antes de reportar INVALID_INPUT
+        expect(() => validateTmsBaseUrl('not-a-url admin@example.com')).toThrow(REDACTED_EMAIL);
+
+        // Bloquea vectores SSRF IPv6 de transición/embebidos: IPv4-translated (::ffff:0:0:0/96),
+        // IPv4-compatible (::/96), 6to4 (2002::/16) y Teredo (2001::/32)
+        const ipv6TransitionVectors = [
+          'https://[::ffff:0:127.0.0.1]/api',
+          'https://[::ffff:0:169.254.169.254]/latest/meta-data',
+          'https://[::127.0.0.1]/api',
+          'https://[::169.254.169.254]/api',
+          'https://[2002:7f00:1::]/api',
+          'https://[2002:a9fe:a9fe::]/api',
+          'https://[2001::1]/api',
+          'https://[2001:0:4136:e378:8000:63bf:3fff:fdd2]/api',
+        ];
+        for (const vectorUrl of ipv6TransitionVectors) {
+          expect(() => validateTmsBaseUrl(vectorUrl)).toThrow(TmsSecurityError);
+        }
+        // No rompe IPv6 público legítimo (2001:4860:: fuera de Teredo 2001::/32)
+        expect(validateTmsBaseUrl('https://[2001:4860:4860::8888]/api').hostname).toContain('2001:4860');
       } finally {
         globalThis.fetch = origFetch;
       }

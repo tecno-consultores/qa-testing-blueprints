@@ -94,13 +94,13 @@ def resolve_deepeval_judge_model(
         return LocalModel(
             model=_pick_model_name(active_env, "qwen3:8b"),
             base_url=_normalize_v1_base_url(ollama_url),
-            api_key="ephemeral-ollama-key",
+            api_key="ephemeral-ollama-placeholder",
         )
     openai_base = active_env.get("OPENAI_API_BASE", "").strip()
     if openai_base:
         return LocalModel(
             model=_pick_model_name(active_env, "gpt-4.1-mini"),
             base_url=openai_base,
-            api_key="ephemeral-local-key",
+            api_key="ephemeral-local-placeholder",
         )
     raise RuntimeError("MISSING_LLM_CREDENTIALS")

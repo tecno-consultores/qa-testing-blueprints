@@ -13,6 +13,7 @@ import {
   isOwnObjectProperty,
   MCP_STANDARD_EDITION,
   resolveSafeChildPath,
+  resolveSafeDefaultAnchor,
   resolveSafeHomeDir,
 } from '../src/services/github-fetcher.js';
 import { Manifest } from '../src/types.js';
@@ -598,6 +599,126 @@ describe('GitHubFetcher Service (DISA STIG V-222513 & Zero-Clone Hydration)', ()
       stderrSpy.mockRestore();
       if (prevDebug === undefined) delete process.env.QA11X_DEBUG;
       else process.env.QA11X_DEBUG = prevDebug;
+    }
+  });
+
+  it('rejects symlinked cacheDir, default $HOME/.cache symlink, and dangling cache file symlinks without external writes', async () => {
+    const outsideCache = fs.mkdtempSync(path.join(tmpDir, 'outside-cache-'));
+    const validManifest: Manifest = {
+      schema_version: '1.0.0',
+      blueprint_version: '3.2.0',
+      generated_at_utc: '2026-11-21T00:00:00Z',
+      repository: 'tecno-consultores/qa-testing-blueprints',
+      default_branch: 'main',
+      raw_base_url: 'https://raw.example.test/org/repo',
+      stacks: {},
+      common_files: [],
+      agent_governance_files: [],
+    };
+    const fileBody = 'verified-cache-body\n';
+    const fileSha = crypto.createHash('sha256').update(fileBody).digest('hex');
+
+    // 1. Explicit cacheDir symlink -> outsideCache
+    const symCacheDir = path.join(tmpDir, 'sym-cache-dir');
+    fs.symlinkSync(outsideCache, symCacheDir);
+    const fetcher1 = new GitHubFetcher({
+      cacheDir: symCacheDir,
+      fetchFn: vi.fn().mockImplementation((url: string) => {
+        if (url.endsWith('/manifest.json')) {
+          return Promise.resolve(new Response(JSON.stringify(validManifest), { status: 200 }));
+        }
+        return Promise.resolve(new Response(fileBody, { status: 200 }));
+      }) as unknown as typeof fetch,
+    });
+    await expect(fetcher1.fetchManifest(true)).rejects.toThrow(/symlink|confinamiento/i);
+    await expect(fetcher1.fetchFileContent('remote/demo.txt', fileSha)).rejects.toThrow(
+      /symlink|confinamiento/i
+    );
+    expect(fs.readdirSync(outsideCache)).toEqual([]);
+
+    // 2. Default $HOME/.cache/qa-11x-blueprints where fakeHome/.cache -> outsideCache
+    const prevHome = process.env.HOME;
+    const prevEnvCache = process.env.QA_BLUEPRINTS_CACHE_DIR;
+    delete process.env.QA_BLUEPRINTS_CACHE_DIR;
+    const fakeHome = path.join(tmpDir, 'fake-home-cache');
+    fs.mkdirSync(fakeHome, { recursive: true });
+    fs.symlinkSync(outsideCache, path.join(fakeHome, '.cache'));
+    try {
+      process.env.HOME = fakeHome;
+      const defaultFetcher = new GitHubFetcher({
+        fetchFn: vi.fn().mockResolvedValue(
+          new Response(JSON.stringify(validManifest), { status: 200 })
+        ) as unknown as typeof fetch,
+      });
+      await expect(defaultFetcher.fetchManifest(true)).rejects.toThrow(/symlink|confinamiento/i);
+      expect(fs.readdirSync(outsideCache)).toEqual([]);
+    } finally {
+      if (prevHome === undefined) delete process.env.HOME;
+      else process.env.HOME = prevHome;
+      if (prevEnvCache !== undefined) process.env.QA_BLUEPRINTS_CACHE_DIR = prevEnvCache;
+    }
+
+    // 3. Dangling cache file symlinks inside valid cacheDir (manifest.json, manifest.etag, files/remote.txt)
+    const realCache = path.join(tmpDir, 'real-dangling-cache');
+    fs.mkdirSync(path.join(realCache, 'files'), { recursive: true });
+    const pwnManifest = path.join(outsideCache, 'pwned-manifest.json');
+    const pwnEtag = path.join(outsideCache, 'pwned.etag');
+    const pwnFile = path.join(outsideCache, 'pwned-file.txt');
+    fs.symlinkSync(pwnManifest, path.join(realCache, 'manifest.json'));
+    fs.symlinkSync(pwnEtag, path.join(realCache, 'manifest.etag'));
+    fs.symlinkSync(pwnFile, path.join(realCache, 'files', 'remote.txt'));
+
+    const fetcher3 = new GitHubFetcher({
+      cacheDir: realCache,
+      fetchFn: vi.fn().mockImplementation((url: string) => {
+        if (url.endsWith('/manifest.json')) {
+          return Promise.resolve(
+            new Response(JSON.stringify(validManifest), {
+              status: 200,
+              headers: { etag: '"e1"' },
+            })
+          );
+        }
+        return Promise.resolve(new Response(fileBody, { status: 200 }));
+      }) as unknown as typeof fetch,
+    });
+    await expect(fetcher3.fetchManifest(false)).rejects.toThrow(/symlink|confinamiento/i);
+    await expect(fetcher3.fetchManifest(true)).rejects.toThrow(/symlink|confinamiento/i);
+    await expect(fetcher3.fetchFileContent('remote.txt', fileSha)).rejects.toThrow(
+      /symlink|confinamiento/i
+    );
+    expect(fs.existsSync(pwnManifest)).toBe(false);
+    expect(fs.existsSync(pwnEtag)).toBe(false);
+    expect(fs.existsSync(pwnFile)).toBe(false);
+
+    // 4. writeCacheAtomic cleans up CSPRNG tmp file if renameSync fails (e.g., manifest.json is a directory)
+    const renameFailCache = path.join(tmpDir, 'rename-fail-cache');
+    fs.mkdirSync(path.join(renameFailCache, 'manifest.json'), { recursive: true });
+    const fetcher4 = new GitHubFetcher({
+      cacheDir: renameFailCache,
+      fetchFn: vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(validManifest), { status: 200 })
+      ) as unknown as typeof fetch,
+    });
+    await expect(fetcher4.fetchManifest(true)).rejects.toThrow(/Fallo al obtener manifest\.json/i);
+    const leftoverTmp = fs
+      .readdirSync(renameFailCache)
+      .filter((entry) => entry.startsWith('manifest.json.tmp.'));
+    expect(leftoverTmp).toEqual([]);
+
+    // 5. resolveSafeDefaultAnchor handles non-existent HOME and deleted cwd cleanly
+    const prevCwd = process.cwd();
+    const deletedCwd = fs.mkdtempSync(path.join(tmpDir, 'deleted-cwd-'));
+    try {
+      process.chdir(deletedCwd);
+      fs.rmSync(deletedCwd, { recursive: true, force: true });
+      const anchor = resolveSafeDefaultAnchor(
+        path.join(tmpDir, 'probe', 'leaf'),
+        path.join(tmpDir, 'nonexistent-home')
+      );
+      expect(anchor.length).toBeGreaterThan(0);
+    } finally {
+      process.chdir(prevCwd);
     }
   });
 });

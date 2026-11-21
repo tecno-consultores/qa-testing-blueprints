@@ -14,14 +14,36 @@ if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
 fi
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-OUTPUT_FILE="${1:-sbom.cyclonedx.json}"
+if [ $# -ge 1 ]; then
+  OUTPUT_FILE="$1"
+else
+  OUTPUT_FILE="sbom.cyclonedx.json"
+fi
 
 if [[ "${OUTPUT_FILE}" == /* ]] || [[ "${OUTPUT_FILE}" == *".."* ]] || [ -z "${OUTPUT_FILE}" ]; then
   echo "ERROR: La ruta de salida debe ser relativa dentro del repositorio (recibido: '${OUTPUT_FILE}')." >&2
   exit 1
 fi
 
-mkdir -p "$(dirname "${REPO_ROOT}/${OUTPUT_FILE}")"
+REPO_ROOT_REAL="$(cd "${REPO_ROOT}" && pwd -P)"
+if command -v realpath >/dev/null 2>&1 && realpath -m "${REPO_ROOT_REAL}" >/dev/null 2>&1; then
+  ABS_OUTPUT_REAL="$(realpath -m "${REPO_ROOT_REAL}/${OUTPUT_FILE}")"
+  if [ "${ABS_OUTPUT_REAL#"${REPO_ROOT_REAL}/"}" = "${ABS_OUTPUT_REAL}" ]; then
+    echo "ERROR: La ruta de salida escapa del repositorio vía enlace simbólico (recibido: '${OUTPUT_FILE}')." >&2 && exit 1
+  fi
+  mkdir -p "$(dirname "${ABS_OUTPUT_REAL}")"
+else
+  _chk_path="${REPO_ROOT_REAL}"
+  IFS='/' read -r -a _parts <<<"${OUTPUT_FILE}"
+  for _part in "${_parts[@]}"; do
+    [ -n "${_part}" ] || continue
+    _chk_path="${_chk_path}/${_part}"
+    if [ -L "${_chk_path}" ]; then
+      echo "ERROR: La ruta de salida escapa del repositorio vía enlace simbólico (recibido: '${OUTPUT_FILE}')." >&2 && exit 1
+    fi
+  done
+  mkdir -p "$(dirname "${REPO_ROOT_REAL}/${OUTPUT_FILE}")"
+fi
 
 TRIVY_IMAGE="aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb"
 TRIVY_CACHE_HOST_DIR="${QA11X_TRIVY_CACHE_DIR:-${XDG_CACHE_HOME:-${HOME:-/tmp}/.cache}/qa-11x-trivy}"

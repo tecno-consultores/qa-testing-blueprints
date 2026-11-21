@@ -20,7 +20,7 @@ docker run --rm \
   -v "$(pwd):/var/www" \
   -w /var/www \
   sinfallas/basephpcomposer:8.5@sha256:56ff6d2dbf8b13833555b56ddc517bf520506b669c235026bb23224b212f0208 \
-  composer run-script qa:unit
+  sh -c 'php -d allow_url_fopen=1 "$(command -v composer)" run-script qa:unit'
 ```
 
 * **For PHP, Linting, PHPStan (`max`), Psalm, PHPUnit/Pest (`PCOV`), and Mutation (`Infection`):** `sinfallas/basephpcomposer:8.5@sha256:56ff6d2dbf8b13833555b56ddc517bf520506b669c235026bb23224b212f0208` (pin explicit SHA-256 digests when selecting `8.2`–`8.5` variants; run `./scripts/actualizar-grafos-graphify.sh php` and `python3 .agents/scripts/inspect_blast_radius.py "<symbol>"` before editing).
@@ -45,11 +45,11 @@ docker run --rm \
    * **Exact Monetary Precision:** Financial amounts must be serialized as exact decimal strings (`"149.95"` via `bcmath` or `Brick\Money`); binary `float` in JSON bodies is strictly prohibited.
    * **Trimodal Fixtures and Anti-Silo:** Cover `nominal_configured` (`201 Created` echoing `Idempotency-Key`), `virgin_empty` (`404 Not Found` in RFC 7807 `application/problem+json` format), and `degraded_conflict` (partial batches `POST .../batch` returning `200 OK` with item-by-item inspection of `results[].status`, plus `409 Conflict` RFC 7807 on `Idempotency-Key` collision with a mutated payload).
 8. **Black-Box BDD Tests:** `Karate Labs` executing `test/api_test.feature` against the live API inside an ephemeral container.
-9. **Declarative Load Tests & SLOs (`k6`):** Environment-parameterized profiles (`K6_PROFILE=smoke|load|stress`, reference in `php/tests/load/smoke.k6.js`) with blocking thresholds aligned to `evaluateReleaseGate` (`http_req_failed < 1%`, `p(95) < 250ms`, `p(99) < 500ms`, `checks == 100%`) and per-item inspection of batch responses without assuming success from `status === 200`.
-10. **Dynamic Security DAST & OSHP:** OWASP ZAP Baseline verifying `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cache-Control: no-store`, and `X-Powered-By` suppression.
+9. **Declarative Load Tests & SLOs (`k6`):** Environment-parameterized profiles (`K6_PROFILE=smoke|load|stress`, reference in `php/tests/load/smoke.k6.js`) persisting `reports/k6-summary.json` with blocking thresholds aligned to `evaluateReleaseGate` (`http_req_failed < 1%`, `p(95) < 250ms`, `p(99) < 500ms`, `checks == 100%`) and per-item inspection of batch responses without assuming success from `status === 200`.
+10. **Dynamic Security DAST & OSHP:** OWASP ZAP Automation Framework (`zap.yaml` from `zap.yaml.example`, or Baseline fallback) persisting `reports/zap-report.html` and `reports/zap-report.json`, verifying `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Cache-Control: no-store`, and `X-Powered-By` suppression.
 11. **Security by Design, Canonicalization & Idempotency ([Security Guide](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md)):** Apply DISA ASD STIG V6R5 + OWASP v4.2 controls: Unicode `\Normalizer::FORM_KC` before validation (`APSC-DV-002520`), Argon2id, AES-256-GCM with `sodium_memzero()`, and mandatory `Idempotency-Key` header (UUIDv4 format) on every `POST`/`PUT`/`PATCH`/`DELETE` backed by KeyDB with a SHA-256 hash of the payload to reject mutations with `409 Conflict`.
-12. **Chaos Engineering and Observability:** Latency/fault injection with Pumba (`netem`) and Prometheus metrics (`/metrics`).
-13. **Cryptographic SBOM:** `cyclonedx/cyclonedx-php-composer` generating `sbom-php.cdx.json` (CycloneDX 1.6).
+12. **Chaos Engineering and Observability:** Latency/fault injection with Pumba (`netem`) and Prometheus metrics (`/metrics`, `--profile observability`).
+13. **Cryptographic SBOM:** `cyclonedx/cyclonedx-php-composer` generating `reports/sbom-php.cdx.json` (CycloneDX 1.6).
 
 ---
 
@@ -66,11 +66,12 @@ make qa-unit        # Pest/PHPUnit with PCOV line coverage >= 95%
 make qa-parity      # Migrations + PostgreSQL 17 relforcerowsecurity verification
 make qa-contracts   # OpenAPI 3.1 schema export only (emits [SKIPPED] unless vendor/bin/openapi or Pact suite exists)
 make qa-bdd         # Karate Labs API against php-api (with Idempotency-Key UUIDv4)
-make qa-dast        # Dynamic Security Baseline Scan (OWASP ZAP)
-make qa-load        # Declarative k6 SLO tests (smoke | load | stress)
-make qa-chaos       # Chaos Engineering (Pumba netem + Prometheus scraping)
-make qa-mutation    # Infection (MSI >= 80%)
-make qa-sbom        # CycloneDX 1.6
+make qa-dast           # Dynamic Security Scan (OWASP ZAP via zap.yaml -> reports/zap-report.{html,json})
+make qa-load           # Declarative k6 SLO tests (smoke | load | stress -> reports/k6-summary.json)
+make qa-chaos          # Chaos Engineering (Pumba netem + Prometheus scraping)
+make qa-observability  # Start Prometheus observability profile scraping /metrics
+make qa-mutation       # Infection (MSI >= 80%)
+make qa-sbom           # CycloneDX 1.6 -> reports/sbom-php.cdx.json
 make qa-all         # Comprehensive 11X pipeline
 
 # From the qa-testing-blueprints root (Zero-Infra cross-certification):

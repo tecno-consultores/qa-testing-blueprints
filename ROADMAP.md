@@ -265,7 +265,7 @@
 ### Implementation Tasks:
 - [x] **18.1.** Add `OutputLanguageModeSchema` (`auto`, `es`, `en`) in `mcp-server/src/types.ts` and inject *Dynamic Language Mirroring* into `init-agents-md.ts` (preserving exact Spanish backwards compatibility for Karate Scenario 18), with `--lang` / `-l` CLI flags and `QA_OUTPUT_LANG` env var.
 - [x] **18.2.** Add support for global targets `codex` (`~/.codex/skills`) and `windsurf` (`~/.codeium/windsurf/skills`) with auto-detection in `install-skill.ts` and `scripts/install-skill.sh`, translating CLI help and MCP descriptions to concise technical English.
-- [x] **18.3.** Deploy `OUTPUT LANGUAGE & DYNAMIC MIRRORING` across the 5 corporate skills (`SKILL.md < 20 KB`), author `mcp-server/README.md` in English for npmjs, keep `mcp-server/README.es.md` for GitHub, and create bilingual step-by-step setup guides for 11 AI agents (`docs/agent-setup.md` and `docs/agent-setup.en.md`).
+- [x] **18.3.** Deploy `OUTPUT LANGUAGE & DYNAMIC MIRRORING` across the 5 corporate skills (`SKILL.md < 20 KB`), author `mcp-server/README.md` in English for npmjs, keep `mcp-server/README.es.md` for GitHub, and create bilingual step-by-step setup guides for 11 AI agents (`docs/agent-setup.md` and `docs/agent-setup.es.md`).
 - [x] **18.4.** Validate across the full test pyramid (Vitest `>= 95%`, Python unit tests, and Karate Labs BDD Scenario 22) and certify all 10 quality gates.
 
 ---
@@ -348,7 +348,7 @@
 **Mandatory Reference:** [`docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md) + [`docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md)
 
 ### Implementation Tasks:
-- [x] **25.1.** Integrate dedicated non-root Docker image **`sinfallas/base-mobile-appium:26`** (`Node.js 26`, `pnpm`, `OpenJDK 21`, `Android SDK/ADB`, `Appium 3`, `uiautomator2`, `xcuitest`, `WebdriverIO v9`), update `mobile-appium/{Makefile.example,docker-compose.qa.yml.example,package.json.example,tests/mobile_screenplay.spec.ts}`, add `make test-mobile-blueprints` in `Makefile`, and wire `smoke-mobile-appium` into `.github/workflows/audit-base-images.yml`.
+- [x] **25.1.** Integrate dedicated non-root Docker image **`sinfallas/base-mobile-appium:26`** (`Node.js 26`, `pnpm`, `OpenJDK 21`, `Android SDK/ADB`, `Appium 3`, `uiautomator2`, `xcuitest`, `WebdriverIO v9`), update `mobile-appium/{Makefile.example,docker-compose.qa.yml,package.json.example,tests/mobile_screenplay.spec.ts}`, add `make test-mobile-blueprints` in `Makefile`, and wire `smoke-mobile-appium` into `.github/workflows/audit-base-images.yml`.
 - [x] **25.2.** Wire `sinfallas/base-mobile-appium:26` and `qa-mobile` into `mcp-server` (`src/resources/stackBlueprints.ts`, `src/tools/ephemeral-runner.ts`), enable bilingual `blueprint://*` negotiation (`?lang=es|en`), and level the **15×12 Quality Matrix** across [`README.md`](README.md) and [`README.es.md`](README.es.md).
 - [x] **25.3.** Execute **Spec 19 Phase A**: migrate root governance, security, testing, prompt, roadmap, changelog, `mcp-server/{CHANGELOG,example/README}`, and `docs/agent-setup` documents to **English Canonical (`*.md`) + 1:1 Spanish Mirror (`*.es.md`)** pairs with reciprocal language banners and update [`AGENTS.md`](AGENTS.md) and [`.agents/README.md`](.agents/README.md).
 

@@ -8,7 +8,8 @@
 
 ## 1. Portadas, Inicio Rápido y Guías Multi-Agente
 
-* **[`README.es.md`](README.es.md) (`README.md`):** Portada *English-First* y espejo íntegro 1:1 en español corporativo con `quickstart` en 30 segundos, niveles de adopción (`starter` / `standard` / `enterprise`), matriz de 15 columnas × 12 entornos de pruebas, matriz Docker y escudo AI Evals.
+* **`README.md`:** Portada primaria *English-First* con `quickstart` en 30 segundos, niveles progresivos (`starter` / `standard` / `enterprise`), matriz de 15 columnas × 12 entornos de pruebas, matriz Docker y escudo AI Evals.
+* **[`README.es.md`](README.es.md):** Espejo 1:1 en español con la matriz completa de herramientas y puntos de entrada bilingües.
 * **[`.github/actions/qa-11x-pr-check/action.yml`](.github/actions/qa-11x-pr-check/action.yml):** Composite Action endurecida para Pull Requests con selección por Blast Radius AST y perfiles progresivos.
 * **[`mcp-server/README.es.md`](mcp-server/README.es.md) (`mcp-server/README.md`):** Documentación oficial bilingüe del paquete npm `@sinfallas/mcp-qa-11x` v3.2.0 (**19 herramientas**, **13 recursos** públicos incluyendo `quickstart`, `session_flight_recorder` + `blueprint://skills/tactical-patterns-11x` en **v3.1**, y 12 subcomandos CLI: `quickstart`, `install-skill`, `init-agents`, `reconcile-agents`, `tms-sync`, `doctor`, `upgrade`, `certify`, `audit`, `blast-radius`, `mcp-config`, `completion`, protegidos con `promptGuard` y `TaskStateGuard`).
 * **[`llms.txt`](llms.txt) y Catálogos Globales (`catalogs/`):** Índice GEO para LLMs/agentes ([`llms.txt`](llms.txt)) junto a los descriptores canónicos [`catalogs/qaskills-pack.json`](catalogs/qaskills-pack.json) (QASkills.sh), [`catalogs/skillsllm-manifest.json`](catalogs/skillsllm-manifest.json) (SkillsLLM.com) y [`catalogs/agenticskills-submission.md`](catalogs/agenticskills-submission.md) (AgenticSkills.io).

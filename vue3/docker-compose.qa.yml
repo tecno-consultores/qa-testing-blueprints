@@ -79,6 +79,7 @@ services:
       PNPM_HOME: /pnpm
       pnpm_config_store_dir: /pnpm/store
       pnpm_config_engine_strict: 'false'
+      pnpm_config_manage_package_manager_versions: 'false'
       PATH: /tmp/.corepack-bin:/pnpm:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
     volumes:

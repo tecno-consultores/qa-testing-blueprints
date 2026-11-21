@@ -341,6 +341,7 @@ function checkOrphanUiComponents(projectPath: string): GateCheckOutcome {
   const candidateRoots = [
     path.join(projectPath, 'src', 'components'),
     path.join(projectPath, 'src', 'views'),
+    path.join(projectPath, 'src', 'pages'),
     path.join(projectPath, 'frontend', 'src'),
     path.join(projectPath, 'vue3', 'src'),
     path.join(projectPath, REACT_FRONTEND_DIR, 'src'),
@@ -348,9 +349,13 @@ function checkOrphanUiComponents(projectPath: string): GateCheckOutcome {
   const testRoots = [
     ...candidateRoots,
     path.join(projectPath, 'tests'),
+    path.join(projectPath, 'test'),
     path.join(projectPath, 'frontend', 'tests'),
+    path.join(projectPath, 'frontend', 'test'),
     path.join(projectPath, 'vue3', 'tests'),
+    path.join(projectPath, 'vue3', 'test'),
     path.join(projectPath, REACT_FRONTEND_DIR, 'tests'),
+    path.join(projectPath, REACT_FRONTEND_DIR, 'test'),
   ];
 
   const components = collectCandidateUiComponents(candidateRoots);

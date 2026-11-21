@@ -23,6 +23,8 @@ import {
   reportDebugCatchError,
   TACTICAL_PATTERNS_DIRECTIVE_11X,
 } from '../utils/diagnosticFormatter.js';
+import { resolveSafeChildPath } from '../services/github-fetcher.js';
+import { assertNoSymlinkSegments } from '../security/pathRealResolver.js';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { recordStageCmdCheckpoint } from './sessionFlightRecorder.js';
 
@@ -84,10 +86,20 @@ const ROOT_COVERAGE_CANDIDATES: readonly CoverageHarvestCandidate[] = [
   { srcRel: path.join('coverage', LCOV_INFO_NAME), destName: LCOV_INFO_NAME },
 ];
 
+function resolveSafeCacheTarget(resolvedPath: string, relPath: string): string {
+  const safePath = resolveSafeChildPath(resolvedPath, relPath);
+  assertNoSymlinkSegments(resolvedPath, relPath);
+  return safePath;
+}
+
 export function ensureCoverageCacheDir(resolvedPath: string): string {
-  const cacheRoot = path.join(resolvedPath, '.agents', '.cache');
-  const coverageDir = path.join(cacheRoot, 'coverage');
+  const relCacheRoot = path.join('.agents', '.cache');
+  const relCoverageDir = path.join(relCacheRoot, 'coverage');
+  const cacheRoot = resolveSafeCacheTarget(resolvedPath, relCacheRoot);
+  const coverageDir = resolveSafeCacheTarget(resolvedPath, relCoverageDir);
   fs.mkdirSync(coverageDir, { recursive: true, mode: 0o700 });
+  resolveSafeCacheTarget(resolvedPath, relCacheRoot);
+  resolveSafeCacheTarget(resolvedPath, relCoverageDir);
   fs.chmodSync(cacheRoot, 0o700);
   fs.chmodSync(coverageDir, 0o700);
   return coverageDir;
@@ -144,7 +156,7 @@ export function harvestCoverageReports(resolvedPath: string): string[] {
   if (!fs.existsSync(resolvedPath)) {
     return [];
   }
-  const coverageDir = ensureCoverageCacheDir(resolvedPath);
+  ensureCoverageCacheDir(resolvedPath);
   const rootReal = fs.realpathSync(resolvedPath);
   const harvested: string[] = [];
   const seenDest = new Set<string>();
@@ -156,11 +168,13 @@ export function harvestCoverageReports(resolvedPath: string): string[] {
     if (raw === null) {
       continue;
     }
-    const destPath = path.join(coverageDir, item.destName);
+    const destRel = path.join('.agents', '.cache', 'coverage', item.destName);
+    const destPath = resolveSafeCacheTarget(resolvedPath, destRel);
     fs.writeFileSync(destPath, rewriteLcovSubdirPrefix(raw, item.rewriteSubDir), {
       encoding: 'utf8',
       mode: 0o600,
     });
+    resolveSafeCacheTarget(resolvedPath, destRel);
     fs.chmodSync(destPath, 0o600);
     seenDest.add(item.destName);
     harvested.push(destPath);
@@ -244,11 +258,16 @@ function readDoubleQuotedToken(src: string, start: number): { value: string; nex
       return { value: out, nextIndex: i };
     }
     if (ch === '\\' && i + 1 < src.length) {
-      i += 1;
-      out += src[i];
-    } else {
-      out += ch;
+      const next = src[i + 1];
+      if (next === '"' || next === '\\' || next === '$' || next === '`') {
+        out += next;
+      } else if (next !== '\n') {
+        out += `\\${next}`;
+      }
+      i += 2;
+      continue;
     }
+    out += ch;
     i += 1;
   }
   return { value: out, nextIndex: src.length - 1 };
@@ -616,21 +635,43 @@ function expandSafeDockerHostTokens(tokens: readonly string[], currentDir: strin
   return out;
 }
 
-function isSafeRelDirArg(raw: string): boolean {
-  if (!raw || path.isAbsolute(raw)) {
+function isSafeDirArg(raw: string): boolean {
+  if (!raw || raw.length > 256 || raw.includes('\0')) {
     return false;
   }
-  return /^[A-Za-z0-9_./-]{1,128}$/.test(raw);
+  if (raw.split(/[\\/]/).includes('..')) {
+    return false;
+  }
+  return /^[A-Za-z0-9_./-]{1,256}$/.test(raw);
+}
+
+function resolvePathWithExistingSymlinks(targetPath: string): string {
+  const missingParts: string[] = [];
+  let cursor = path.resolve(targetPath);
+  while (!fs.existsSync(cursor)) {
+    const parent = path.dirname(cursor);
+    if (parent === cursor) return path.resolve(targetPath);
+    missingParts.unshift(path.basename(cursor));
+    cursor = parent;
+  }
+  const realBase = fs.realpathSync(cursor);
+  return missingParts.length > 0 ? path.join(realBase, ...missingParts) : realBase;
 }
 
 function resolveContainedPrepDir(rawDir: string, ctx: MakeResolutionContext): string | null {
-  if (!isSafeRelDirArg(rawDir)) {
+  if (!isSafeDirArg(rawDir)) {
     return null;
   }
-  const realRoot = path.resolve(ctx.rootDir);
-  const absTarget = path.resolve(ctx.currentDir, rawDir);
-  if (absTarget === realRoot || absTarget.startsWith(`${realRoot}${path.sep}`)) {
-    return path.relative(realRoot, absTarget);
+  const realRoot = fs.existsSync(ctx.rootDir)
+    ? fs.realpathSync(ctx.rootDir)
+    : path.resolve(ctx.rootDir);
+  const baseCurrent = fs.existsSync(ctx.currentDir)
+    ? fs.realpathSync(ctx.currentDir)
+    : path.resolve(ctx.currentDir);
+  const candidate = path.resolve(baseCurrent, rawDir);
+  const resolvedCandidate = resolvePathWithExistingSymlinks(candidate);
+  if (resolvedCandidate === realRoot || resolvedCandidate.startsWith(`${realRoot}${path.sep}`)) {
+    return path.relative(realRoot, resolvedCandidate);
   }
   return null;
 }
@@ -730,16 +771,194 @@ function isBenignSetOption(stmt: string): boolean {
   return /^set -(?:e|u|eu|euo pipefail)$/.test(compact);
 }
 
+const DEV_NULL_REDIR_WITH_ERR = '>/dev/null 2>&1';
+const DEV_NULL_REDIR = '>/dev/null';
+const SAFE_BANNER_REDIRS: readonly string[] = [
+  DEV_NULL_REDIR_WITH_ERR,
+  '1>/dev/null 2>&1',
+  DEV_NULL_REDIR,
+  '1>&2',
+  '>&2',
+];
+const ELSE_AFTER_SEMI_RE = /^;[ \t]*else(?:[ \t]+|$)/;
+const IF_BOUNDED_HEAD_RE = /^if[ \t]+\[[ \t]+-[fx][ \t]+/;
+const THEN_AFTER_CLOSE_RE = /^;[ \t]*then(?:[ \t]+|$)/;
+
+function stripTrailingDevNullRedir(raw: string): string {
+  const trimmed = raw.trimEnd();
+  if (trimmed.endsWith(DEV_NULL_REDIR_WITH_ERR)) {
+    return trimmed.slice(0, -DEV_NULL_REDIR_WITH_ERR.length).trimEnd();
+  }
+  if (trimmed.endsWith(DEV_NULL_REDIR)) {
+    return trimmed.slice(0, -DEV_NULL_REDIR.length).trimEnd();
+  }
+  return trimmed;
+}
+
+function stripSafeCleanupTrapSuffix(trapped: string): string {
+  let core = trapped.trim();
+  if (core.endsWith('|| true')) {
+    core = core.slice(0, -'|| true'.length).trimEnd();
+  }
+  core = stripTrailingDevNullRedir(core);
+  if (core === trapped.trim()) return trapped;
+  const tokens = tokenizeCommandArgs(core);
+  if (tokens[0] === 'docker' && tokens[1] === 'compose' && tokens.includes('down')) {
+    return core;
+  }
+  return trapped;
+}
+
 function extractTrapDockerArgs(stmt: string, currentDir: string): string[] | null {
   const tokens = tokenizeCommandArgs(stmt);
   if (tokens[0] !== 'trap' || tokens.length < 3 || !tokens[1]) {
     return null;
   }
-  const trapped = tokens[1].trim();
-  if (!isAllowedDockerRecipe(trapped) || hasUnquotedShellSyntax(trapped)) {
+  const coreTrapped = stripSafeCleanupTrapSuffix(tokens[1].trim());
+  if (!isAllowedDockerRecipe(coreTrapped) || hasUnquotedShellSyntax(coreTrapped)) {
     return null;
   }
-  return expandSafeDockerHostTokens(tokenizeCommandArgs(trapped).slice(1), currentDir);
+  return expandSafeDockerHostTokens(tokenizeCommandArgs(coreTrapped).slice(1), currentDir);
+}
+
+function splitUnquotedOrSegments(stmt: string): string[] {
+  const out: string[] = [];
+  let start = 0;
+  let i = 0;
+  while (i < stmt.length) {
+    const ch = stmt[i];
+    if (ch === "'" || ch === '"') {
+      i = skipQuotedSegment(stmt, i);
+      continue;
+    }
+    if (ch === '|' && stmt[i + 1] === '|') {
+      const seg = stmt.slice(start, i).trim();
+      if (seg) out.push(seg);
+      i += 2;
+      start = i;
+      continue;
+    }
+    i += 1;
+  }
+  const tail = stmt.slice(start).trim();
+  if (tail) out.push(tail);
+  return out;
+}
+
+function resolveDockerComposeDownFallback(stmt: string, currentDir: string): string[] | null {
+  const alternatives = splitUnquotedOrSegments(stmt);
+  if (alternatives.length < 2) return null;
+  let firstArgs: string[] | null = null;
+  for (const alt of alternatives) {
+    const trimmed = alt.trim();
+    if (trimmed === 'true') continue;
+    const core = stripTrailingDevNullRedir(trimmed);
+    const tokens = tokenizeCommandArgs(core);
+    const isDown = tokens[0] === 'docker' && tokens[1] === 'compose' && tokens.includes('down');
+    if (!isDown || hasUnquotedShellSyntax(core)) {
+      return null;
+    }
+    firstArgs ??= expandSafeDockerHostTokens(tokens.slice(1), currentDir);
+  }
+  return firstArgs;
+}
+
+function stripBenignBannerRedir(raw: string): string {
+  const trimmed = raw.trimEnd();
+  for (const suffix of SAFE_BANNER_REDIRS) {
+    if (trimmed.endsWith(suffix)) {
+      return trimmed.slice(0, -suffix.length).trimEnd();
+    }
+  }
+  return trimmed;
+}
+
+function findTrailingFiSemiIndex(src: string): number {
+  let pos = src.length;
+  if (pos < 2 || src.slice(pos - 2, pos) !== 'fi') return -1;
+  pos -= 2;
+  if (pos === 0 || (src[pos - 1] !== ' ' && src[pos - 1] !== '\t' && src[pos - 1] !== ';')) {
+    return -1;
+  }
+  while (pos > 0 && (src[pos - 1] === ' ' || src[pos - 1] === '\t')) {
+    pos -= 1;
+  }
+  if (pos === 0 || src[pos - 1] !== ';') return -1;
+  return pos - 1;
+}
+
+function isSafeIfZCondition(cond: string): boolean {
+  if (!cond) return false;
+  const clauses = cond.split('&&');
+  for (const clause of clauses) {
+    const part = clause.trim();
+    if (!part.startsWith('[ -z ') || !part.endsWith(' ]')) return false;
+    if (part.includes('$(') || part.includes('`') || hasUnquotedShellSyntax(part)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function isBenignIfZEcho(trimmed: string): boolean {
+  if (trimmed.includes('\n') || trimmed.includes('\r')) return false;
+  const compact = trimmed.replace(/\s+/g, ' ').trim();
+  const fiSemiIdx = findTrailingFiSemiIndex(compact);
+  if (!compact.startsWith('if ') || fiSemiIdx === -1) return false;
+  const thenIdx = compact.indexOf('; then ');
+  if (thenIdx === -1 || thenIdx >= fiSemiIdx) return false;
+  const cond = compact.slice(3, thenIdx).trim();
+  const rawBody = compact.slice(thenIdx + 7, fiSemiIdx).trim();
+  const coreBody = stripBenignBannerRedir(rawBody);
+  if (!coreBody || coreBody.includes('$(') || coreBody.includes('`')) return false;
+  return isSafeIfZCondition(cond) && isBannerCommand(coreBody) && !hasUnquotedShellSyntax(coreBody);
+}
+
+function findUnquotedElseSpan(body: string): { index: number; length: number } | null {
+  let i = 0;
+  while (i < body.length) {
+    const ch = body[i];
+    if (ch === "'" || ch === '"') {
+      i = skipQuotedSegment(body, i);
+      continue;
+    }
+    if (ch === ';') {
+      const m = ELSE_AFTER_SEMI_RE.exec(body.slice(i));
+      if (m) {
+        return { index: i, length: m[0].length };
+      }
+    }
+    i += 1;
+  }
+  return null;
+}
+
+function parseBoundedIfFile(
+  trimmed: string
+): { relCheck: string; thenBody: string; elseBody: string | null } | null {
+  if (trimmed.includes('\n') || trimmed.includes('\r')) return null;
+  const headMatch = IF_BOUNDED_HEAD_RE.exec(trimmed);
+  if (!headMatch) return null;
+  const fiSemiIdx = findTrailingFiSemiIndex(trimmed);
+  if (fiSemiIdx === -1) return null;
+  const afterHead = trimmed.slice(headMatch[0].length, fiSemiIdx);
+  const closeIdx = afterHead.indexOf(']');
+  if (closeIdx === -1) return null;
+  const relCheck = afterHead.slice(0, closeIdx).trim().replace(/^['"]|['"]$/g, '');
+  if (!relCheck) return null;
+  const afterCloseTrimmed = afterHead.slice(closeIdx + 1).trimStart();
+  const thenMatch = THEN_AFTER_CLOSE_RE.exec(afterCloseTrimmed);
+  if (!thenMatch) return null;
+  const rest = afterCloseTrimmed.slice(thenMatch[0].length);
+  const elseSpan = findUnquotedElseSpan(rest);
+  if (!elseSpan) {
+    return { relCheck, thenBody: rest.trim(), elseBody: null };
+  }
+  return {
+    relCheck,
+    thenBody: rest.slice(0, elseSpan.index).trim(),
+    elseBody: rest.slice(elseSpan.index + elseSpan.length).trim(),
+  };
 }
 
 function appendAtomicStatement(
@@ -753,6 +972,11 @@ function appendAtomicStatement(
   if (stmt === 'mkdir' || stmt.startsWith('mkdir ')) {
     return collectSafeMkdirTargets(tokenizeCommandArgs(stmt), ctx);
   }
+  const downFallback = resolveDockerComposeDownFallback(stmt, ctx.currentDir);
+  if (downFallback) {
+    commands.push(downFallback);
+    return null;
+  }
   if (isAllowedDockerRecipe(stmt)) {
     if (hasUnquotedShellSyntax(stmt)) {
       return `Receta Docker contiene operadores o subshells de shell no ejecutables sin make: ${stmt}`;
@@ -763,20 +987,11 @@ function appendAtomicStatement(
   return `Receta bloqueada por Regla Cero en fallback sin make (solo se permiten comandos 'docker compose', 'docker run' o '$(MAKE) -C'): ${stmt}`;
 }
 
-function unwrapSafeShellWrapper(
-  expanded: string,
+function processStatementList(
+  stmts: readonly string[],
   ctx: MakeResolutionContext,
   commands: string[][]
 ): string | null {
-  const outer = tokenizeCommandArgs(expanded);
-  const isShellC = (outer[0] === 'sh' || outer[0] === 'bash') && outer[1] === '-c';
-  if (!isShellC || outer.length !== 3 || !outer[2]) {
-    return null;
-  }
-  const stmts = splitUnquotedStatements(outer[2]);
-  if (stmts.length === 0) {
-    return `Wrapper shell vacío rechazado por Regla Cero: ${expanded}`;
-  }
   let deferredTrap: string[] | null = null;
   for (const stmt of stmts) {
     if (isBenignSetOption(stmt)) continue;
@@ -793,6 +1008,45 @@ function unwrapSafeShellWrapper(
     commands.push(deferredTrap);
   }
   return null;
+}
+
+function processShellStatements(
+  body: string,
+  ctx: MakeResolutionContext,
+  commands: string[][]
+): string | null {
+  const trimmed = body.trim();
+  if (isBenignIfZEcho(trimmed)) {
+    return null;
+  }
+  const boundedIf = parseBoundedIfFile(trimmed);
+  if (boundedIf) {
+    if (resolveContainedPrepDir(boundedIf.relCheck, ctx) === null) {
+      return `Condicional if [ -f ] bloqueado fuera del directorio raíz: ${boundedIf.relCheck}`;
+    }
+    const absCheck = path.resolve(ctx.currentDir, boundedIf.relCheck);
+    const condTrue = fs.existsSync(absCheck) && fs.statSync(absCheck).isFile();
+    const branch = condTrue ? boundedIf.thenBody : boundedIf.elseBody;
+    return branch ? processShellStatements(branch, ctx, commands) : null;
+  }
+  const stmts = splitUnquotedStatements(trimmed);
+  if (stmts.length === 0) {
+    return `Wrapper shell vacío rechazado por Regla Cero: ${body}`;
+  }
+  return processStatementList(stmts, ctx, commands);
+}
+
+function unwrapSafeShellWrapper(
+  expanded: string,
+  ctx: MakeResolutionContext,
+  commands: string[][]
+): string | null {
+  const outer = tokenizeCommandArgs(expanded);
+  const isShellC = (outer[0] === 'sh' || outer[0] === 'bash') && outer[1] === '-c';
+  if (!isShellC || outer.length !== 3 || !outer[2]) {
+    return null;
+  }
+  return processShellStatements(outer[2], ctx, commands);
 }
 
 function isShellCWrapperRecipe(expanded: string): boolean {
@@ -821,6 +1075,9 @@ function appendSingleRecipeLine(
   }
   if (isShellCWrapperRecipe(expanded)) {
     return unwrapSafeShellWrapper(expanded, ctx, commands);
+  }
+  if (isBenignIfZEcho(expanded) || parseBoundedIfFile(expanded) !== null) {
+    return processShellStatements(expanded, ctx, commands);
   }
   const delegation = parseMakeDelegation(expanded);
   if (delegation) {
@@ -1305,7 +1562,8 @@ interface DockerFallbackContext {
 function ensureSafePrepDirs(resolvedPath: string, prepDirs?: readonly string[]): void {
   if (!prepDirs || prepDirs.length === 0) return;
   for (const rel of prepDirs) {
-    const targetDir = path.resolve(resolvedPath, rel);
+    if (!rel) continue;
+    const targetDir = resolveSafeCacheTarget(resolvedPath, rel);
     fs.mkdirSync(targetDir, { recursive: true });
   }
 }
@@ -1640,6 +1898,8 @@ export async function runEphemeralQa(
   const target = `qa-${stage}`;
   const startTime = Date.now();
   const timeoutMs = timeoutSeconds * 1000;
+
+  assertNoSymlinkSegments(resolvedPath, '.agents');
 
   if (!fs.existsSync(makefilePath)) {
     return runMissingMakefileFallback({

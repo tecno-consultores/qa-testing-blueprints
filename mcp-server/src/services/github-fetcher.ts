@@ -5,7 +5,11 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { resolveRealTargetWithSymlinks } from '../security/pathRealResolver.js';
+import {
+  assertNoSymlinkSegments,
+  assertNotSymlinkPath,
+  resolveRealTargetWithSymlinks,
+} from '../security/pathRealResolver.js';
 import { FetchedFileItem, GitHubFetcherOptions, Manifest } from '../types.js';
 
 const FORBIDDEN_PATH_SEGMENTS = new Set(['..', '__proto__', 'constructor', 'prototype']);
@@ -95,6 +99,54 @@ export function resolveSafeHomeDir(
   }
 }
 
+function isStrictChildPath(targetPath: string, anchorPath: string): boolean {
+  const rel = path.relative(anchorPath, targetPath);
+  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+}
+
+function addAnchorVariants(anchors: Set<string>, rawPath: string): void {
+  const resolved = path.resolve(rawPath);
+  anchors.add(resolved);
+  try {
+    anchors.add(fs.realpathSync(resolved));
+  } catch {
+    // Non-existent anchor path only retains lexical resolved path
+  }
+}
+
+function collectSafeAnchors(homeDir?: string): string[] {
+  const anchors = new Set<string>();
+  addAnchorVariants(anchors, resolveSafeHomeDir(homeDir));
+  try {
+    addAnchorVariants(anchors, process.cwd());
+  } catch {
+    // Deleted or inaccessible cwd falls back cleanly to remaining anchors
+  }
+  addAnchorVariants(anchors, os.tmpdir());
+  addAnchorVariants(anchors, '/tmp');
+  return Array.from(anchors);
+}
+
+export function resolveSafeDefaultAnchor(targetPath: string, homeDir?: string): string {
+  const resolvedTarget = path.resolve(targetPath);
+  let bestAnchor = path.parse(resolvedTarget).root;
+  for (const anchor of collectSafeAnchors(homeDir)) {
+    if (isStrictChildPath(resolvedTarget, anchor) && anchor.length > bestAnchor.length) {
+      bestAnchor = anchor;
+    }
+  }
+  return bestAnchor;
+}
+
+export function assertSafeAnchoredTarget(targetPath: string, confinementRoot?: string): string {
+  const resolvedTarget = path.resolve(targetPath);
+  const anchor = confinementRoot ?? resolveSafeDefaultAnchor(resolvedTarget);
+  const relDir = path.relative(path.resolve(anchor), resolvedTarget);
+  resolveSafeChildPath(anchor, relDir);
+  assertNoSymlinkSegments(anchor, relDir);
+  return resolvedTarget;
+}
+
 function trimTrailingSlashes(rawUrl: string): string {
   let end = rawUrl.length;
   while (end > 0 && rawUrl[end - 1] === '/') {
@@ -106,6 +158,7 @@ function trimTrailingSlashes(rawUrl: string): string {
 export class GitHubFetcher {
   private readonly rawBaseUrl: string;
   private readonly cacheDir: string;
+  private readonly defaultCacheHomeDir: string | null;
   private readonly localOverridePath: string | null;
   private readonly fetchFn?: typeof fetch;
   private readonly timeoutMs: number;
@@ -116,10 +169,15 @@ export class GitHubFetcher {
       process.env.QA_BLUEPRINTS_RAW_URL ||
       'https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main';
     this.rawBaseUrl = trimTrailingSlashes(rawUrl);
-    this.cacheDir =
-      options?.cacheDir ||
-      process.env.QA_BLUEPRINTS_CACHE_DIR ||
-      path.join(resolveSafeHomeDir(), '.cache', 'qa-11x-blueprints');
+    const explicitCacheDir = options?.cacheDir || process.env.QA_BLUEPRINTS_CACHE_DIR;
+    if (explicitCacheDir) {
+      this.cacheDir = explicitCacheDir;
+      this.defaultCacheHomeDir = null;
+    } else {
+      const homeDir = resolveSafeHomeDir();
+      this.cacheDir = path.join(homeDir, '.cache', 'qa-11x-blueprints');
+      this.defaultCacheHomeDir = homeDir;
+    }
     this.localOverridePath =
       options?.localOverridePath || process.env.QA_BLUEPRINTS_LOCAL_PATH || null;
     this.fetchFn = options?.fetchFn;
@@ -136,6 +194,17 @@ export class GitHubFetcher {
 
   public getLocalOverridePath(): string | null {
     return this.localOverridePath;
+  }
+
+  private assertSafeCacheDir(): void {
+    if (this.defaultCacheHomeDir !== null) {
+      const defaultRel = path.join('.cache', 'qa-11x-blueprints');
+      resolveSafeChildPath(this.defaultCacheHomeDir, defaultRel);
+      assertNoSymlinkSegments(this.defaultCacheHomeDir, defaultRel);
+    } else {
+      assertSafeAnchoredTarget(this.cacheDir);
+    }
+    assertNotSymlinkPath(this.cacheDir);
   }
 
   private ensureDir(dirPath: string): void {
@@ -155,11 +224,25 @@ export class GitHubFetcher {
   }
 
   private writeCacheAtomic(targetPath: string, content: string): void {
+    this.assertSafeCacheDir();
+    const resolvedCache = path.resolve(this.cacheDir);
+    const relTarget = path.relative(resolvedCache, path.resolve(targetPath));
+    resolveSafeChildPath(resolvedCache, relTarget);
+    assertNoSymlinkSegments(resolvedCache, relTarget);
+    assertNotSymlinkPath(targetPath);
+
     const dir = path.dirname(targetPath);
     this.ensureDir(dir);
-    const tmpPath = `${targetPath}.tmp.${process.pid}.${crypto.randomBytes(6).toString('hex')}`;
-    fs.writeFileSync(tmpPath, content, 'utf-8');
-    fs.renameSync(tmpPath, targetPath);
+    const tmpPath = `${targetPath}.tmp.${process.pid}.${crypto.randomBytes(8).toString('hex')}`;
+    assertNotSymlinkPath(tmpPath);
+    try {
+      fs.writeFileSync(tmpPath, content, { encoding: 'utf-8', flag: 'wx' });
+      assertNotSymlinkPath(tmpPath);
+      fs.renameSync(tmpPath, targetPath);
+    } catch (err: unknown) {
+      fs.rmSync(tmpPath, { force: true });
+      throw err;
+    }
   }
 
   private createRequestSignal(externalSignal?: AbortSignal): AbortSignal {
@@ -168,6 +251,8 @@ export class GitHubFetcher {
   }
 
   private readCachedManifest(cachedPath: string): Manifest | null {
+    this.assertSafeCacheDir();
+    assertNotSymlinkPath(cachedPath);
     if (!fs.existsSync(cachedPath)) {
       return null;
     }
@@ -228,13 +313,17 @@ export class GitHubFetcher {
     const local = this.readLocalManifest();
     if (local) return local;
 
+    this.assertSafeCacheDir();
     this.ensureDir(this.cacheDir);
     const cachedManifestPath = path.join(this.cacheDir, 'manifest.json');
     const cachedEtagPath = path.join(this.cacheDir, 'manifest.etag');
 
     let etag: string | null = null;
-    if (!forceRefresh && fs.existsSync(cachedEtagPath)) {
-      etag = fs.readFileSync(cachedEtagPath, 'utf-8').trim();
+    if (!forceRefresh) {
+      assertNotSymlinkPath(cachedEtagPath);
+      if (fs.existsSync(cachedEtagPath)) {
+        etag = fs.readFileSync(cachedEtagPath, 'utf-8').trim();
+      }
     }
 
     const manifestUrl = `${this.rawBaseUrl}/manifest.json`;
@@ -284,7 +373,9 @@ export class GitHubFetcher {
   }
 
   private readCachedFile(relPath: string, expectedSha256: string): string | null {
+    this.assertSafeCacheDir();
     const cachedFilePath = resolveSafeChildPath(path.join(this.cacheDir, 'files'), relPath);
+    assertNoSymlinkSegments(this.cacheDir, path.join('files', relPath));
     if (fs.existsSync(cachedFilePath)) {
       const cachedContent = fs.readFileSync(cachedFilePath, 'utf-8');
       if (this.computeSha256(cachedContent) === expectedSha256) {

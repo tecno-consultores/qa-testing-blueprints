@@ -190,7 +190,7 @@ export function sanitizeVueScopedAttributes(
 }
 
 function hasVueTeleportAttr(attrs: Readonly<Record<string, string>>): boolean {
-  return attrs['data-teleport'] !== undefined || attrs['data-v-teleport'] !== undefined;
+  return Object.hasOwn(attrs, 'data-teleport') || Object.hasOwn(attrs, 'data-v-teleport');
 }
 
 function isTeleportLandmark(landmark: string): boolean {
@@ -213,10 +213,10 @@ export function isVueTeleportPortal(candidate: DomCandidateNode<unknown>): boole
 }
 
 function isDisabledCandidate<TRef>(candidate: DomCandidateNode<TRef>): boolean {
-  const disabledAttr = candidate.attributes['disabled'];
   return (
     candidate.disabled === true ||
-    (disabledAttr !== undefined && disabledAttr !== 'false') ||
+    (Object.hasOwn(candidate.attributes, 'disabled') &&
+      candidate.attributes['disabled'] !== 'false') ||
     candidate.attributes['aria-disabled'] === 'true'
   );
 }

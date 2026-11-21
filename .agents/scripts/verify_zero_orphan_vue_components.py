@@ -105,7 +105,7 @@ def _collect_frontend_roots(repo_root: Path) -> list[tuple[Path, Path | None]]:
     if (
         not roots
         and root_src.exists()
-        and ((root_src / "components").exists() or (root_src / "views").exists())
+        and any((root_src / d).exists() for d in ("components", "views", "pages"))
     ):
         roots.append((root_src, None))
     return roots

@@ -302,6 +302,22 @@ describe('auditVibePrototype MCP tool (T4.5)', () => {
         { workspaceRoot: ws },
       ),
     ).toThrow(/Symlink rechazado/);
+
+    // Rechaza symlink en directorio ancestro cuando la hoja destino no existe aún (sym_dir/escaped_rescue)
+    const outsideDir = makeTempDir('qa11x-vibe-outside-');
+    fs.symlinkSync(outsideDir, path.join(ws, 'sym_dir'));
+    const ancestorEsc = auditVibePrototype(
+      { targetDir: '.', dryRun: false, remediationSubdir: 'sym_dir/escaped_rescue' },
+      { workspaceRoot: ws },
+    );
+    expect(ancestorEsc.hasSecurityOrInputError).toBe(true);
+    expect(ancestorEsc.summary).toContain('Symlink en remediationSubdir');
+    expect(fs.existsSync(path.join(outsideDir, 'escaped_rescue'))).toBe(false);
+    const ancestorEscCall = handleAuditVibePrototype(
+      { targetDir: '.', dryRun: false, remediationSubdir: 'sym_dir/escaped_rescue' },
+      { workspaceRoot: ws },
+    );
+    expect(ancestorEscCall.isError).toBe(true);
   });
 
   it('emite Pass-Quiet de 1 linea en proyecto endurecido y fallback embebido en bundle limpio', () => {

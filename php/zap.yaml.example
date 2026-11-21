@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
+# OWASP ZAP Automation Framework (Rule Zero / contenedor no-root, /zap/wrk:ro -> salida en /zap/wrk/reports)
+
+env:
+  contexts:
+    - name: "php-qa-target"
+      urls:
+        - "http://php-api:8000"
+      includePaths:
+        - "http://php-api:8000/.*"
+      excludePaths:
+        - "http://php-api:8000/docs.*"
+        - "http://php-api:8000/openapi\\.json"
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    progressToStdout: true
+
+jobs:
+  - type: passiveScan-config
+    parameters:
+      maxAlertsPerRule: 10
+      scanOnlyInScope: true
+  - type: alertFilter
+    alertFilters: []
+  - type: requestor
+    requests:
+      - url: "http://php-api:8000/health"
+        name: "healthcheck"
+        method: "GET"
+        responseCode: 200
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 5
+  - type: activeScan
+    parameters:
+      context: "php-qa-target"
+      policy: "API-minimal"
+      maxRuleDurationInMins: 2
+      maxScanDurationInMins: 5
+  - type: report
+    parameters:
+      template: "traditional-html"
+      reportDir: "/zap/wrk/reports"
+      reportFile: "zap-report.html"
+      reportTitle: "QA-11X PHP OWASP ZAP DAST Report"
+    risks:
+      - high
+      - medium
+      - low
+      - info
+  - type: report
+    parameters:
+      template: "traditional-json"
+      reportDir: "/zap/wrk/reports"
+      reportFile: "zap-report.json"
+  - type: outputSummary
+    parameters:
+      format: "Long"
+      summaryFile: "/zap/wrk/reports/zap-summary.json"

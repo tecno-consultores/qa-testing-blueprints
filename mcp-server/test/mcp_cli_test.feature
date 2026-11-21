@@ -243,6 +243,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert proposeSrc8.contains("STATUS_PR_CREATED = 'PR_CREATED_VIA_GH'")
     * assert proposeSrc8.contains("STATUS_PROPOSAL_GENERATED = 'PROPOSAL_FILE_AND_URL_GENERATED'")
     * assert proposeSrc8.contains('shell: false')
+    * assert proposeSrc8.contains('validateRelativeRepoPath')
+    * assert proposeSrc8.contains('[SEC-PATH-01]')
     * assert proposeSrc8.contains('prefilled_github_url:')
     * assert proposeSrc8.contains('local_proposal_file:')
     * assert typesSrc8.contains('ProposeEvolutionPrInputSchema')
@@ -252,11 +254,11 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   # Grupo 9: Contrato del Ecosistema PHP 8.2-8.5 en Manifiesto y Servidor MCP
   # ==============================================================================
 
-  Scenario: 9. El manifiesto indexa oficialmente el stack PHP con sus 14 plantillas y fusión quirúrgica
+  Scenario: 9. El manifiesto indexa oficialmente los stacks PHP (15), Node Backend (18) y Mobile Appium (13) con fusión quirúrgica
     * match manifest.stacks.php == '#object'
     * match manifest.stacks.php.description contains 'PHP 8.2-8.5'
     * match manifest.stacks.php.readme == 'php/README.md'
-    * match manifest.stacks.php.files == '#[14]'
+    * match manifest.stacks.php.files == '#[15]'
 
     # Verificar que composer.json.example aplique estrategia surgical_merge
     * def findComposer = function(f) { return f.target_name == 'composer.json' }
@@ -280,6 +282,18 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match filePaths contains 'php/limpieza.sh'
     * match filePaths contains 'php/Makefile.example'
     * match filePaths contains 'php/test/api_test.feature'
+    * match filePaths contains 'php/zap.yaml.example'
+
+    # Verificar conteos y nuevas plantillas en node-backend (18) y mobile-appium (13)
+    * match manifest.stacks['node-backend'].files == '#[18]'
+    * def nodePaths = karate.map(manifest.stacks['node-backend'].files, function(x) { return x.path })
+    * match nodePaths contains 'node-backend/tests/contracts/fixtures/fastapi-billing-consumer-node-inventory-provider.json'
+    * match manifest.stacks['mobile-appium'].files == '#[13]'
+    * def mobilePaths = karate.map(manifest.stacks['mobile-appium'].files, function(x) { return x.path })
+    * match mobilePaths contains 'mobile-appium/.prettierrc.example'
+    * match mobilePaths contains 'mobile-appium/eslint.config.mjs.example'
+    * match mobilePaths contains 'mobile-appium/tsconfig.json.example'
+    * match mobilePaths contains 'mobile-appium/tests/e2e/mobile_app_smoke.spec.ts'
 
   # ==============================================================================
   # Grupo 10: Contrato de Auditores Anti-Silo, Ciclo Temporal de 3 Fases, Anti-UUID y Refresco Dual (Hito 12)
@@ -938,7 +952,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert !phpRef.contains('session.sid_length = 48')
     * assert !phpRef.contains('session.sid_bits_per_character = 6')
     * assert phpRef.contains('-d pcov.directory=src')
-    * assert phpRef.contains('conf.d/99-qa11x.ini')
+    * assert phpRef.contains('conf.d/zz-qa11x.ini')
     * string phpComposerRaw = karate.readAsString(repoRoot + '/php/composer.json.example')
     * json phpComposer = phpComposerRaw
     * assert phpComposer.scripts['qa:unit'].contains('-d pcov.directory=src')
@@ -947,7 +961,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert auditarInfra.contains('node_modules,.git,dist,target,graphify-out,vendor,.venv')
     * def docs02 = karate.readAsString(repoRoot + '/docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md')
     * assert docs02.contains('## 8.')
-    * assert docs02.contains('conf.d/99-qa11x.ini')
+    * assert docs02.contains('conf.d/zz-qa11x.ini')
     * def runnerTs = karate.readAsString(repoRoot + '/mcp-server/src/tools/ephemeral-runner.ts')
     * assert runnerTs.contains('resolveMakefileDockerRecipes')
     * assert runnerTs.contains('resolveComposeDirectFallback')
@@ -1019,7 +1033,14 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert trivyCfg.contains('**/vendor')
     * assert trivyCfg.contains('**/node_modules')
     * def phpunitXml = karate.readAsString(repoRoot + '/php/phpunit.xml.example')
-    * assert phpunitXml.contains('<ini name="pcov.directory" value="src"/>')
+    * def phpunitXmlActive = phpunitXml.replace(/<!--[\s\S]*?-->/g, '')
+    * assert !phpunitXmlActive.contains('<ini name="pcov.directory"')
+    * assert phpunitXmlActive.contains('<directory suffix=".php">src</directory>')
+    * def phpIni = karate.readAsString(repoRoot + '/php/php.ini.example')
+    * assert phpIni.contains('pcov.directory = src')
+    * string phpCompScen33Raw = karate.readAsString(repoRoot + '/php/composer.json.example')
+    * json phpCompScen33 = phpCompScen33Raw
+    * assert phpCompScen33.scripts['qa:unit'].contains('-d pcov.directory=src')
     * def runnerTs = karate.readAsString(repoRoot + '/mcp-server/src/tools/ephemeral-runner.ts')
     * assert runnerTs.contains('hasUnquotedShellSyntax')
     * assert runnerTs.contains('--remove-orphans')
@@ -1568,7 +1589,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert mockBats48.contains('export _USER=')
     * def rootMake48 = karate.readAsString(repoRoot48 + '/Makefile')
     * assert rootMake48.contains('-e _USER=qa')
-    * assert rootMake48.contains('/tmp/kcov-stderr.log')
+    * assert rootMake48.contains('/tmp/kcov-stderr.log') || (rootMake48.contains('p.stderr.splitlines()[-40:]') && rootMake48.contains('not ok '))
     * def bashMake48 = karate.readAsString(repoRoot48 + '/bash-scripts/Makefile.example')
     * assert bashMake48.contains('/tmp/kcov-stderr.log')
     * def lefthook48 = karate.readAsString(repoRoot48 + '/lefthook.yml')

@@ -108,7 +108,7 @@ make qa-mutation
 make qa-bdd   # alias of qa-e2e
 ```
 
-*   **Dynamic Security DAST (OWASP ZAP via `zap.yaml` / `/tmp/zap-report.html`):**
+*   **Dynamic Security DAST (OWASP ZAP via `zap.yaml` -> `reports/zap-report.html` & `reports/zap-report.json`):**
 ```bash
 make qa-dast
 ```
@@ -119,4 +119,4 @@ make qa-dast
 make qa-chaos          # alias of qa-stress
 make qa-observability  # standalone Prometheus observability profile
 ```
-*(During the attack, view live metrics at `http://localhost:9090`. Upon completion, inspect the locally generated `chaos-report.json` file. For CPU/RAM flamegraphs, execute `pnpm run profile:cpu` or `pnpm run profile:memory` inside `qa-node-backend`).*
+*(During the attack, view live metrics at `http://localhost:9090`. Upon completion, inspect the locally generated `reports/chaos-report.json` file. For CPU/RAM flamegraphs, execute `pnpm run profile:cpu` or `pnpm run profile:memory` inside `qa-node-backend`).*

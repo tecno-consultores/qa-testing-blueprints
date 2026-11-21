@@ -230,3 +230,83 @@ EOF
   run grep -F -- "--network none" "${FAKE_ROOT}/scripts/limpieza.sh"
   assert_success
 }
+
+@test "limpieza.sh: cubre parada de compose, contenedores exited con working_dir coincidente, example/ y banner sin --quiet" {
+  local cid_ws="${BATS_TEST_TMPDIR}/limp_compose_ws"
+  local cid_bin="${BATS_TEST_TMPDIR}/limp_compose_bin"
+  local cid_log="${BATS_TEST_TMPDIR}/limp_compose.log"
+  local fake_home="${BATS_TEST_TMPDIR}/limp_compose_home"
+  mkdir -p "${cid_ws}/scripts" "${cid_ws}/fastapi" "${cid_ws}/mcp-server/example/node_modules" "${cid_bin}" "${fake_home}"
+  cp "${CLEAN_SCRIPT}" "${cid_ws}/scripts/limpieza.sh"
+  chmod +x "${cid_ws}/scripts/limpieza.sh"
+  printf 'services:\n  api:\n    image: alpine\n' >"${cid_ws}/fastapi/docker-compose.qa.yml"
+  printf 'x\n' >"${cid_ws}/mcp-server/example/node_modules/mod.js"
+
+  cat >"${cid_bin}/docker" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>"${cid_log}"
+case "\$1" in
+  ps)
+    printf 'cid_match\ncid_other\n'
+    ;;
+  inspect)
+    if [[ "\$*" == *"cid_match"* ]]; then
+      printf '%s|proj_match\n' "${cid_ws}"
+    else
+      printf '/unrelated/path|proj_other\n'
+    fi
+    ;;
+  compose)
+    exit 0
+    ;;
+esac
+exit 0
+EOF
+  chmod +x "${cid_bin}/docker"
+
+  run env HOME="${fake_home}" TMPDIR="${BATS_TEST_TMPDIR}" PATH="${cid_bin}:/usr/bin:/bin" LC_ALL=C "${cid_ws}/scripts/limpieza.sh"
+  assert_success
+  assert_output --partial "[Clean 11X]"
+  [ ! -d "${cid_ws}/mcp-server/example/node_modules" ]
+  run grep -F "compose --profile * -f docker-compose.qa.yml down" "${cid_log}"
+  assert_success
+  run grep -F "rm -fv cid_match" "${cid_log}"
+  assert_success
+  run grep -F "network rm proj_match_default" "${cid_log}"
+  assert_success
+  run grep -F "rm -fv cid_other" "${cid_log}"
+  assert_failure
+}
+
+@test "limpieza.sh: fallback docker compose down sin --profile y omite etiqueta vacía" {
+  local fb_ws="${BATS_TEST_TMPDIR}/limp_fb_ws"
+  local fb_bin="${BATS_TEST_TMPDIR}/limp_fb_bin"
+  local fb_log="${BATS_TEST_TMPDIR}/limp_fb.log"
+  local fake_home="${BATS_TEST_TMPDIR}/limp_fb_home"
+  mkdir -p "${fb_ws}/scripts" "${fb_ws}/fastapi" "${fb_bin}" "${fake_home}"
+  cp "${CLEAN_SCRIPT}" "${fb_ws}/scripts/limpieza.sh"
+  chmod +x "${fb_ws}/scripts/limpieza.sh"
+  printf 'services:\n  api:\n    image: alpine\n' >"${fb_ws}/fastapi/docker-compose.qa.yml"
+
+  cat >"${fb_bin}/docker" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>"${fb_log}"
+case "\$1" in
+  ps) printf 'cid_empty\n' ;;
+  inspect) printf '<no value>|<no value>\n' ;;
+  compose)
+    if [[ "\$*" == *"--profile"* ]]; then exit 1; fi
+    exit 1
+    ;;
+esac
+exit 0
+EOF
+  chmod +x "${fb_bin}/docker"
+
+  run env HOME="${fake_home}" TMPDIR="${BATS_TEST_TMPDIR}" PATH="${fb_bin}:/usr/bin:/bin" LC_ALL=C "${fb_ws}/scripts/limpieza.sh" --quiet
+  assert_success
+  run grep -F "compose -f docker-compose.qa.yml down" "${fb_log}"
+  assert_success
+  run grep -F "rm -fv cid_empty" "${fb_log}"
+  assert_failure
+}

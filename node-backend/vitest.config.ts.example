@@ -13,7 +13,7 @@ export default defineConfig({
     
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html'],
+      reporter: ['text', 'lcov', 'html'],
       // Exigencia corporativa: Falla el pipeline si no se cumple el 95%
       thresholds: {
         lines: 95,

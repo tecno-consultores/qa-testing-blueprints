@@ -47,7 +47,7 @@ pre-commit:
     php-lint:
       root: "php/"
       glob: "*.php"
-      run: bash -c 'if [ ! -f docker-compose.qa.yml ] || [ ! -f composer.json ]; then exit 0; fi; docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-php composer --quiet run-script qa:lint'
+      run: bash -c 'if [ ! -f docker-compose.qa.yml ] || [ ! -f composer.json ]; then exit 0; fi; docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-php sh -c '\''php -d allow_url_fopen=1 "$(command -v composer)" --quiet run-script qa:lint'\'''
 
     # --------------------------------------------------------------------------
     # ECOSISTEMA BASH (DEVOPS)
@@ -116,7 +116,7 @@ pre-push:
 
     mcp-unit-and-lint:
       glob: "{mcp-server/**,manifest.json,mobile-appium/**,vibe-rescue/**,.github/**}"
-      run: bash -c '[ ! -f mcp-server/package.json ] && exit 0; MCP_EXTRA_VOLS=(); for dir in mobile-appium vibe-rescue .github; do [ -d "./${dir}" ] && MCP_EXTRA_VOLS+=(-v "$(pwd)/${dir}:/${dir}:ro"); done; docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "$(pwd)/mcp-server:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60 bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run lint && pnpm --silent run typecheck && pnpm --silent run test:unit && rm -rf coverage .eslintcache"'
+      run: bash -c '[ ! -f mcp-server/package.json ] && exit 0; MCP_EXTRA_VOLS=(); for dir in mobile-appium vibe-rescue .github architecture .agents fastapi python node-backend vue3 react-frontend php bash-scripts ai-evals; do [ -d "./${dir}" ] && MCP_EXTRA_VOLS+=(-v "$(pwd)/${dir}:/${dir}:ro"); done; docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "$(pwd)/mcp-server:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60 bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run lint && pnpm --silent run typecheck && pnpm --silent run test:unit && rm -rf coverage .eslintcache"'
 
     ai-evals-offline:
       glob: "{ai-evals/**,tests/evals/**,.agents/skills/**}"

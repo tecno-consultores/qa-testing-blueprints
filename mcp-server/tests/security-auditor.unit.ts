@@ -1219,5 +1219,289 @@ docker exec -e ROSGRID_ADMIN_PASSWORD="\${LOCAL_ADMIN_PASS}" api pytest tests/co
       expect(limited.findings).toHaveLength(1);
       expect(limited.findings[0]?.severity).toBe('CRITICAL');
     });
+
+    it('QA-PG17-RLS ignora comentarios SQL (-- y /* */) y comentarios # pero detecta consultas reales y literales SQL', async () => {
+      const rlsDir = path.join(tempDir, 'pg17-rls-comments');
+      const dbDir = path.join(rlsDir, 'db');
+      fs.mkdirSync(dbDir, { recursive: true });
+      fs.writeFileSync(path.join(rlsDir, 'pyproject.toml'), '[project]\nname = "rls-test"\n', 'utf8');
+
+      // Archivo limpio: solo comentarios SQL (-- y /* */), cadenas con '' y consulta canónica pg_class.relforcerowsecurity
+      fs.writeFileSync(
+        path.join(dbDir, 'rls_clean.sql'),
+        [
+          '-- Verificacion obligatoria PostgreSQL 15-17+ (nunca pg_tables.forcerowsecurity):',
+          '/* Consulta prohibida legacy:',
+          '   SELECT tablename, forcerowsecurity FROM pg_catalog.pg_tables;',
+          '*/',
+          "SELECT '-- literal ''pg_class'' safe', c.relname, c.relforcerowsecurity -- inline comment pg_tables.forcerowsecurity",
+          'FROM pg_catalog.pg_class c',
+          'JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace;',
+        ].join('\n'),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(dbDir, 'rls_comment.py'),
+        [
+          '# Nunca usar pg_tables.forcerowsecurity en PostgreSQL 15-17+',
+          'SQL = "SELECT c.relforcerowsecurity FROM pg_catalog.pg_class c"',
+        ].join('\n'),
+        'utf8'
+      );
+
+      const cleanRes = await auditSecurityStigOwasp(rlsDir);
+      expect(cleanRes.findings.some((f) => f.rule_id === 'QA-PG17-RLS')).toBe(false);
+
+      // Archivo vulnerable: comentario en línea 1 + consulta real en línea 3 -> reporta línea 3
+      fs.writeFileSync(
+        path.join(dbDir, 'rls_bad.sql'),
+        [
+          '-- Nota: forcerowsecurity ya no existe en pg_tables',
+          'SELECT "tab""le", \'-- not comment\'',
+          'FROM pg_catalog.pg_tables WHERE pg_tables.forcerowsecurity = true;',
+        ].join('\n'),
+        'utf8'
+      );
+      // Cadenas/comentarios sin cerrar no cuelgan el escáner ni falsamente disparan QA-PG17-RLS
+      fs.writeFileSync(
+        path.join(dbDir, 'rls_unterminated_str.sql'),
+        "SELECT 'unterminated string without closing quote",
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(dbDir, 'rls_unterminated_blk.sql'),
+        '/* unclosed block comment pg_tables.forcerowsecurity',
+        'utf8'
+      );
+
+      const badRes = await auditSecurityStigOwasp(rlsDir);
+      const rlsFindings = badRes.findings.filter((f) => f.rule_id === 'QA-PG17-RLS');
+      expect(rlsFindings).toHaveLength(1);
+      expect(rlsFindings[0]?.file).toBe('db/rls_bad.sql');
+      expect(rlsFindings[0]?.line).toBe(3);
+    });
+
+    it('QA-PG17-RLS soporta comentarios /* /* */ */ anidados, dollar-quotes $$...$$, # inline en Python/Bash y límite \\b en atribución de línea', async () => {
+      const advDir = path.join(tempDir, 'pg17-rls-adv');
+      const srcDir = path.join(advDir, 'src');
+      fs.mkdirSync(srcDir, { recursive: true });
+      fs.writeFileSync(path.join(advDir, 'pyproject.toml'), '[project]\nname = "rls-adv"\n', 'utf8');
+
+      // 1. Comentario bloque anidado /* /* */ */ -> 0 hallazgos
+      fs.writeFileSync(
+        path.join(srcDir, 'nested_comment.sql'),
+        '/* outer /* inner */ SELECT forcerowsecurity FROM pg_catalog.pg_tables; */\nSELECT 1;\n',
+        'utf8'
+      );
+
+      // 2. Comentario inline # en .py (no dentro de cadena) -> 0 hallazgos, mientras # dentro de literal SQL sí se conserva
+      fs.writeFileSync(
+        path.join(srcDir, 'inline_hash.py'),
+        [
+          'SQL = "SELECT c.relforcerowsecurity FROM pg_catalog.pg_class c"  # do not use pg_tables.forcerowsecurity',
+          'NOTE = "hash # ok"',
+        ].join('\n'),
+        'utf8'
+      );
+
+      // 3. Atribución de línea exacta con \bforcerowsecurity\b (no confunde relforcerowsecurity en línea 1)
+      fs.writeFileSync(
+        path.join(srcDir, 'line_attr.sql'),
+        [
+          'SELECT c.relforcerowsecurity FROM pg_catalog.pg_class c;',
+          'SELECT 1;',
+          'SELECT forcerowsecurity FROM pg_catalog.pg_tables;',
+        ].join('\n'),
+        'utf8'
+      );
+
+      // 4. Dollar-quotes ($$...$$ y $tag$...$tag$) con comilla simple interna no desincronizan el parser
+      fs.writeFileSync(
+        path.join(srcDir, 'dollar_fn_block_comment.sql'),
+        [
+          "SELECT $$ ' $$;",
+          "SELECT $fn$ line1\n' line2 $fn$;",
+          "SELECT ' /* ';",
+          'SELECT forcerowsecurity FROM pg_catalog.pg_tables;',
+        ].join('\n'),
+        'utf8'
+      );
+
+      // 5. Dollar-quotes y comillas triples/simples sin cerrar no cuelgan ni disparan falsos positivos
+      fs.writeFileSync(
+        path.join(srcDir, 'unclosed_dollar.sql'),
+        'SELECT $$unclosed pg_tables.forcerowsecurity',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(srcDir, 'unclosed_triple.py'),
+        'DOC = """unclosed\npg_tables.forcerowsecurity',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(srcDir, 'unclosed_single.py'),
+        'S = "unclosed pg_tables.forcerowsecurity',
+        'utf8'
+      );
+
+      const res = await auditSecurityStigOwasp(advDir);
+      const rls = res.findings.filter((f) => f.rule_id === 'QA-PG17-RLS');
+      expect(rls.some((f) => f.file === 'src/nested_comment.sql')).toBe(false);
+      expect(rls.some((f) => f.file === 'src/inline_hash.py')).toBe(false);
+
+      const attrFinding = rls.find((f) => f.file === 'src/line_attr.sql');
+      expect(attrFinding?.line).toBe(3);
+
+      const dollarFinding = rls.find((f) => f.file === 'src/dollar_fn_block_comment.sql');
+      expect(dollarFinding?.line).toBe(5);
+    });
+
+    it('SEC-08 ignora menciones OSHP en archivos de prueba y SEC-12/SEC-04/SEC-07/SEC-10 evitan falsos positivos en routers HTTP y pruebas', async () => {
+      const oshpDir = path.join(tempDir, 'oshp-test-ignore');
+      fs.mkdirSync(path.join(oshpDir, 'src', 'api'), { recursive: true });
+      fs.mkdirSync(path.join(oshpDir, 'tests'), { recursive: true });
+      fs.mkdirSync(path.join(oshpDir, 'mcp-server', 'example', 'backend', 'src', 'api'), { recursive: true });
+
+      fs.writeFileSync(
+        path.join(oshpDir, 'src', 'main.py'),
+        'from fastapi import FastAPI\napp = FastAPI(docs_url=None, openapi_url=None)\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(oshpDir, 'tests', 'test_headers.py'),
+        [
+          'from fastapi import FastAPI',
+          'import xml.etree.ElementTree as ET',
+          'expected = "Strict-Transport-Security"',
+        ].join('\n'),
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(oshpDir, 'mcp-server', 'example', 'backend', 'src', 'api', 'devices.py'),
+        'async def create_device_endpoint():\n    return {"ok": True}\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(oshpDir, 'src', 'promptfoo_assert.py'),
+        'RULE = {"type": "not-icontains", "value": "BEGIN PRIVATE KEY"}\n',
+        'utf8'
+      );
+
+      const res = await auditSecurityStigOwasp(oshpDir);
+      expect(res.findings.some((f) => f.rule_id === 'SEC-08')).toBe(true);
+      expect(res.findings.some((f) => f.rule_id === 'SEC-12')).toBe(false);
+      expect(res.findings.some((f) => f.rule_id === 'SEC-04')).toBe(false);
+      expect(res.findings.some((f) => f.rule_id === 'SEC-07')).toBe(false);
+      expect(res.findings.some((f) => f.rule_id === 'SEC-10')).toBe(false);
+    });
+
+    it('SEC-10 rechaza bypasses con not-contains/not-icontains/example y SEC-12 detecta directorios mcp-*/jsonrpc-* con guion', async () => {
+      const advDir = path.join(tempDir, 'sec10-sec12-adversarial');
+      fs.mkdirSync(path.join(advDir, 'src', 'mcp-tools'), { recursive: true });
+      fs.mkdirSync(path.join(advDir, 'src', 'jsonrpc-bridge'), { recursive: true });
+      fs.mkdirSync(path.join(advDir, 'ai_evals'), { recursive: true });
+      fs.mkdirSync(path.join(advDir, 'mcp-server', 'example', 'backend', 'src', 'api'), { recursive: true });
+
+      // 1. Bypass vector 1: raw "not-contains" comment on PEM header
+      fs.writeFileSync(
+        path.join(advDir, 'src', 'key_bypass_comment.py'),
+        'KEY = "-----BEGIN RSA PRIVATE KEY-----" # "not-contains"\n', // qa-secret-fixture-ok
+        'utf8'
+      );
+      // 2. Bypass vector 2: Promptfoo JSON inside trailing comment on PEM header
+      fs.writeFileSync(
+        path.join(advDir, 'src', 'key_bypass_json_comment.py'),
+        'KEY = "-----BEGIN RSA PRIVATE KEY-----" # {"type": "not-icontains", "value": "BEGIN PRIVATE KEY"}\n', // qa-secret-fixture-ok
+        'utf8'
+      );
+      // 3. Bypass vector 3: extra key in dict
+      fs.writeFileSync(
+        path.join(advDir, 'src', 'key_bypass_extra_key.py'),
+        'SECRET = {"k": "BEGIN PRIVATE KEY", "type": "not-icontains", "value": "BEGIN PRIVATE KEY"}\n',
+        'utf8'
+      );
+      // 4. Bypass vector 4: same-line concatenation
+      fs.writeFileSync(
+        path.join(advDir, 'src', 'key_bypass_concat.ts'),
+        'export const p = \'{"type": "not-icontains", "value": "BEGIN PRIVATE KEY"}\' + "-----BEGIN PRIVATE KEY-----";\n', // qa-secret-fixture-ok
+        'utf8'
+      );
+      // 5. Bypass vector 5: placeholder/example in trailing comment on SEC10_ASSIGNED_SECRET_RE
+      fs.writeFileSync(
+        path.join(advDir, 'src', 'secret_comment_bypass.py'),
+        'password = "SuperSecret123!" # example\napi_key="ephemeral-ollama-placeholder"\n', // qa-secret-fixture-ok
+        'utf8'
+      );
+      // 6. Legitimate Promptfoo assertions (Python + TS const + reversed inline + YAML) -> 0 SEC-10 findings
+      fs.writeFileSync(
+        path.join(advDir, 'ai_evals', 'golden.py'),
+        'ASSERTIONS = [\n    {"type": "not-icontains", "value": "BEGIN PRIVATE KEY"},\n    {"value": "BEGIN PRIVATE KEY", "type": "not-contains"},\n]\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(advDir, 'ai_evals', 'golden.ts'),
+        'const rule = {"type": "not-icontains", "value": "BEGIN PRIVATE KEY"};\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(advDir, 'ai_evals', 'bad_inline.ts'),
+        'const bad = {"type": "not-icontains", "value": "BEGIN PRIVATE KEY"} + extra;\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(advDir, 'ai_evals', 'bad_yaml_key.yaml'),
+        'assert:\n  - type: not-icontains\n    other: "BEGIN PRIVATE KEY"\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(advDir, 'ai_evals', 'promptfoo.yaml'),
+        'assert:\n  - type: not-icontains\n    value: "BEGIN PRIVATE KEY"\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(advDir, 'ai_evals', 'promptfoo_reversed.yml'),
+        'assert:\n  - value: "BEGIN RSA PRIVATE KEY"\n    type: not-contains\n',
+        'utf8'
+      );
+      // 7. Hyphenated MCP/JSON-RPC dirs vs mcp-server/example HTTP router
+      fs.writeFileSync(
+        path.join(advDir, 'src', 'mcp-tools', 'ops.py'),
+        'async def delete_device(device_id: str):\n    return None\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(advDir, 'src', 'jsonrpc-bridge', 'ops.py'),
+        'async def execute_reboot(node_id: str):\n    return None\n',
+        'utf8'
+      );
+      fs.writeFileSync(
+        path.join(advDir, 'mcp-server', 'example', 'backend', 'src', 'api', 'devices.py'),
+        'async def create_device_endpoint():\n    return {"ok": True}\n',
+        'utf8'
+      );
+
+      const res = await auditSecurityStigOwasp(advDir);
+      const sec10Files = res.findings
+        .filter((f) => f.rule_id === 'SEC-10' && f.severity === 'CRITICAL')
+        .map((f) => f.file);
+      expect(sec10Files).toContain('src/key_bypass_comment.py');
+      expect(sec10Files).toContain('src/key_bypass_json_comment.py');
+      expect(sec10Files).toContain('src/key_bypass_extra_key.py');
+      expect(sec10Files).toContain('src/key_bypass_concat.ts');
+      expect(sec10Files).toContain('src/secret_comment_bypass.py');
+      expect(sec10Files).toContain('ai_evals/bad_inline.ts');
+      expect(sec10Files).toContain('ai_evals/bad_yaml_key.yaml');
+      expect(sec10Files).not.toContain('ai_evals/golden.py');
+      expect(sec10Files).not.toContain('ai_evals/golden.ts');
+      expect(sec10Files).not.toContain('ai_evals/promptfoo.yaml');
+      expect(sec10Files).not.toContain('ai_evals/promptfoo_reversed.yml');
+
+      const sec12Files = res.findings
+        .filter((f) => f.rule_id === 'SEC-12' && f.severity === 'HIGH')
+        .map((f) => f.file);
+      expect(sec12Files).toContain('src/mcp-tools/ops.py');
+      expect(sec12Files).toContain('src/jsonrpc-bridge/ops.py');
+      expect(sec12Files).not.toContain('mcp-server/example/backend/src/api/devices.py');
+    });
   });
 });

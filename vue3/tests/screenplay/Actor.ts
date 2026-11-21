@@ -342,12 +342,6 @@ function normalizeTenantId(rawTenantId: string | undefined): string {
   return value;
 }
 
-function readRoleOrDefault(
-  partial?: Partial<Omit<ActorIdentity, 'name'>>,
-): RbacRole {
-  return partial?.role ?? 'viewer';
-}
-
 function readPermissionsOrEmpty(
   partial?: Partial<Omit<ActorIdentity, 'name'>>,
 ): readonly string[] {
@@ -364,7 +358,7 @@ function normalizeIdentity(
   }
   return {
     name: trimmedName,
-    role: readRoleOrDefault(partial),
+    role: partial?.role ?? 'viewer',
     tenantId: normalizeTenantId(partial?.tenantId),
     permissions: readPermissionsOrEmpty(partial),
   };

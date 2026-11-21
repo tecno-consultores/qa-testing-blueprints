@@ -38,6 +38,25 @@ function readStatSafe(targetPath: string): { readonly ok: true; readonly stat: f
   }
 }
 
+export function assertNotSymlinkPath(targetPath: string): void {
+  const stat = readStatNoFollow(targetPath);
+  if (stat?.isSymbolicLink()) {
+    throw new Error(`Ruta symlink rechazada por seguridad (CWE-22): ${targetPath}`);
+  }
+}
+
+export function assertNoSymlinkSegments(rootDir: string, relPath: string): string {
+  const resolvedRoot = path.resolve(rootDir);
+  const resolvedTarget = path.resolve(resolvedRoot, relPath);
+  const segments = relPath.split(/[/\\]+/).filter((seg) => seg.length > 0 && seg !== '.');
+  let cursor = resolvedRoot;
+  for (const seg of segments) {
+    cursor = path.join(cursor, seg);
+    assertNotSymlinkPath(cursor);
+  }
+  return resolvedTarget;
+}
+
 export function resolveRealTargetWithSymlinks(
   candidate: string,
   visited: Set<string> = new Set<string>()

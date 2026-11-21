@@ -172,24 +172,18 @@ def is_test_path(rel_path: Path) -> bool:
     """Determina si una ruta corresponde a pruebas automatizadas."""
     if rel_path.name.startswith("."):
         return False
-    is_code_or_test = rel_path.suffix in CODE_EXTENSIONS or bool(
-        TEST_FILE_RE.search(rel_path.name)
-    )
-    if not is_code_or_test:
+    has_test_name = bool(TEST_FILE_RE.search(rel_path.name))
+    if rel_path.suffix not in CODE_EXTENSIONS and not has_test_name:
         return False
     if any(part in TEST_DIR_NAMES for part in rel_path.parts[:-1]):
         return True
-    return bool(TEST_FILE_RE.search(rel_path.name))
+    return has_test_name
 
 
-def find_line(
-    lines: Sequence[str],
-    pattern: re.Pattern[str],
-    default: int = 1,
-) -> int:
+def find_line(lines: Sequence[str], pat: re.Pattern[str], default: int = 1) -> int:
     """Retorna numero de linea 1-indexed de la primera coincidencia."""
     for idx, line in enumerate(lines, start=1):
-        if pattern.search(line):
+        if pat.search(line):
             return idx
     return default
 
@@ -243,11 +237,7 @@ def _eval_gitignore_sequence(rel: str, fname: str, patterns: Sequence[str]) -> b
     return ignored
 
 
-def is_env_file_ignored(
-    rel: str,
-    fname: str,
-    patterns: Collection[str],
-) -> bool:
+def is_env_file_ignored(rel: str, fname: str, patterns: Collection[str]) -> bool:
     """Determina si un archivo .env* especifico esta cubierto por .gitignore."""
     if not patterns:
         return False
@@ -277,54 +267,35 @@ def scan_env_file(rel: str, lines: Sequence[str], ctx: ScanContext) -> None:
         ctx.env_keys.add(key)
         is_placeholder = not value or bool(PLACEHOLDER_VAL_RE.search(value))
         if CLIENT_SECRET_VAR_RE.match(key):
-            add_finding(
-                ctx.findings,
-                "VIBE-SEC-001",
-                (rel, idx),
-                f"Variable cliente privilegiada: {key}={REDACTION_MARKER}",
-            )
+            msg = f"Variable cliente privilegiada: {key}={REDACTION_MARKER}"
+            add_finding(ctx.findings, "VIBE-SEC-001", (rel, idx), msg)
         elif (
             not file_ignored
             and SENSITIVE_ENV_KEY_RE.search(key)
             and not is_placeholder
         ):
-            add_finding(
-                ctx.findings,
-                "VIBE-SEC-001",
-                (rel, idx),
-                f"Secreto en .env sin .gitignore: {key}={REDACTION_MARKER}",
-            )
+            msg = f"Secreto en .env sin .gitignore: {key}={REDACTION_MARKER}"
+            add_finding(ctx.findings, "VIBE-SEC-001", (rel, idx), msg)
 
 
 def scan_source_secrets(
-    rel: str,
-    lines: Sequence[str],
-    findings: list[AuditFinding],
+    rel: str, lines: Sequence[str], findings: list[AuditFinding]
 ) -> None:
     """Detecta literales de API keys y variables privilegiadas expuestas en codigo."""
     for idx, line in enumerate(lines, start=1):
         client_match = CLIENT_SECRET_VAR_RE.search(line)
         if client_match:
-            add_finding(
-                findings,
-                "VIBE-SEC-001",
-                (rel, idx),
-                f"Credencial privilegiada en cliente: {client_match.group(1)}",
-            )
+            msg = f"Credencial privilegiada en cliente: {client_match.group(1)}"
+            add_finding(findings, "VIBE-SEC-001", (rel, idx), msg)
         if LITERAL_KEY_RE.search(line):
-            add_finding(
-                findings,
-                "VIBE-SEC-001",
-                (rel, idx),
-                f"Literal de llave API detectado en codigo: {REDACTION_MARKER}",
-            )
+            msg = f"Literal de llave API detectado en codigo: {REDACTION_MARKER}"
+            add_finding(findings, "VIBE-SEC-001", (rel, idx), msg)
 
 
 def strip_sql_comments(sql_text: str) -> str:
     """Elimina comentarios SQL preservando saltos de linea exactos."""
     without_block = SQL_BLOCK_COMMENT_RE.sub(
-        lambda m: "\n" * m.group(0).count("\n"),
-        sql_text,
+        lambda m: "\n" * m.group(0).count("\n"), sql_text
     )
     return SQL_LINE_COMMENT_RE.sub("", without_block)
 
@@ -336,41 +307,29 @@ def _normalize_sql_table(raw_name: str) -> str:
     return compact
 
 
-def _rls_enable(enabled: set[str], _forced: set[str], tbl: str) -> None:
-    enabled.add(tbl)
-
-
-def _rls_disable(enabled: set[str], _forced: set[str], tbl: str) -> None:
-    enabled.discard(tbl)
-
-
-def _rls_force(_enabled: set[str], forced: set[str], tbl: str) -> None:
-    forced.add(tbl)
-
-
-def _rls_no_force(_enabled: set[str], forced: set[str], tbl: str) -> None:
-    forced.discard(tbl)
-
-
-_RLS_ACTION_HANDLERS = {
-    "ENABLE": _rls_enable,
-    "DISABLE": _rls_disable,
-    "FORCE": _rls_force,
-    "NO FORCE": _rls_no_force,
+_RLS_ACTION_OPS: dict[str, tuple[bool, bool]] = {
+    "ENABLE": (True, True),
+    "DISABLE": (True, False),
+    "FORCE": (False, True),
+    "NO FORCE": (False, False),
 }
 
 
+def _apply_rls_op(target: set[str], add: bool, table_name: str) -> None:
+    if add:
+        target.add(table_name)
+    else:
+        target.discard(table_name)
+
+
 def _apply_rls_clause(
-    table_name: str,
-    clause: str,
-    enabled: set[str],
-    forced: set[str],
+    table_name: str, clause: str, enabled: set[str], forced: set[str]
 ) -> None:
     for act_match in SQL_RLS_ACTION_RE.finditer(clause):
         act = re.sub(r"\s+", " ", act_match.group(1).strip().upper())
-        handler = _RLS_ACTION_HANDLERS.get(act)
-        if handler is not None:
-            handler(enabled, forced, table_name)
+        op = _RLS_ACTION_OPS.get(act)
+        if op is not None:
+            _apply_rls_op(enabled if op[0] else forced, op[1], table_name)
 
 
 def _collect_sql_rls_tables(cleaned: str) -> tuple[set[str], set[str]]:
@@ -378,10 +337,7 @@ def _collect_sql_rls_tables(cleaned: str) -> tuple[set[str], set[str]]:
     forced: set[str] = set()
     for match in SQL_ALTER_TABLE_RE.finditer(cleaned):
         _apply_rls_clause(
-            _normalize_sql_table(match.group(1)),
-            match.group(2),
-            enabled,
-            forced,
+            _normalize_sql_table(match.group(1)), match.group(2), enabled, forced
         )
     return enabled, forced
 
@@ -391,87 +347,54 @@ def scan_sql_file(rel: str, raw_text: str, findings: list[AuditFinding]) -> None
     cleaned = strip_sql_comments(raw_text)
     lines = cleaned.splitlines()
     if SQL_PERMISSIVE_RE.search(cleaned):
-        add_finding(
-            findings,
-            "VIBE-RLS-002",
-            (rel, find_line(lines, SQL_PERMISSIVE_RE)),
-            "Politica SQL permisiva sin aislamiento; usar rls_hardening.sql",
-        )
+        msg = "Politica SQL permisiva sin aislamiento; usar rls_hardening.sql"
+        loc = (rel, find_line(lines, SQL_PERMISSIVE_RE))
+        add_finding(findings, "VIBE-RLS-002", loc, msg)
     if SQL_BYPASSRLS_RE.search(cleaned):
-        add_finding(
-            findings,
-            "VIBE-RLS-002",
-            (rel, find_line(lines, SQL_BYPASSRLS_RE)),
-            "Uso inseguro de BYPASSRLS detectado en definicion SQL",
-        )
+        msg = "Uso inseguro de BYPASSRLS detectado en definicion SQL"
+        loc = (rel, find_line(lines, SQL_BYPASSRLS_RE))
+        add_finding(findings, "VIBE-RLS-002", loc, msg)
     enabled, forced = _collect_sql_rls_tables(cleaned)
     for match in SQL_CREATE_TABLE_RE.finditer(cleaned):
         table_name = _normalize_sql_table(match.group(1))
         if table_name not in enabled or table_name not in forced:
             line_no = cleaned[: match.start()].count("\n") + 1
-            add_finding(
-                findings,
-                "VIBE-RLS-002",
-                (rel, line_no),
-                f"CREATE TABLE '{table_name}' sin ENABLE + FORCE ROW LEVEL SECURITY",
-            )
+            msg = f"CREATE TABLE '{table_name}' sin ENABLE + FORCE ROW LEVEL SECURITY"
+            add_finding(findings, "VIBE-RLS-002", (rel, line_no), msg)
 
 
 def _scan_non_test_code(
-    rel_path: Path,
-    text: str,
-    max_lines: int,
-    findings: list[AuditFinding],
+    rel_path: Path, text: str, max_lines: int, findings: list[AuditFinding]
 ) -> None:
-    rel = rel_path.as_posix()
-    lines = text.splitlines()
+    rel, lines = rel_path.as_posix(), text.splitlines()
     is_client = rel_path.suffix in {".tsx", ".jsx", ".vue"} or "client" in rel.lower()
     if is_client and CLIENT_SERVICE_ROLE_RE.search(text):
-        add_finding(
-            findings,
-            "VIBE-RLS-002",
-            (rel, find_line(lines, CLIENT_SERVICE_ROLE_RE)),
-            "Uso de service_role/supabaseAdmin en capa cliente",
-        )
+        msg = "Uso de service_role/supabaseAdmin en capa cliente"
+        loc = (rel, find_line(lines, CLIENT_SERVICE_ROLE_RE))
+        add_finding(findings, "VIBE-RLS-002", loc, msg)
     if WEAK_TYPE_RE.search(text):
-        add_finding(
-            findings,
-            "VIBE-TYPE-003",
-            (rel, find_line(lines, WEAK_TYPE_RE)),
-            "Escape de tipado estricto (:" " any / @ts" "-ignore / # type" ": ignore)",
-        )
+        msg = "Escape de tipado estricto (:" " any / @ts" "-ignore / # type" ": ignore)"
+        loc = (rel, find_line(lines, WEAK_TYPE_RE))
+        add_finding(findings, "VIBE-TYPE-003", loc, msg)
     if MUTATING_ROUTE_RE.search(text) and not IDEMPOTENCY_RE.search(text):
-        add_finding(
-            findings,
-            "VIBE-TYPE-003",
-            (rel, find_line(lines, MUTATING_ROUTE_RE)),
-            "Endpoint mutador sin verificacion de cabecera Idempotency-Key",
-        )
+        msg = "Endpoint mutador sin verificacion de cabecera Idempotency-Key"
+        loc = (rel, find_line(lines, MUTATING_ROUTE_RE))
+        add_finding(findings, "VIBE-TYPE-003", loc, msg)
     if len(lines) > max_lines:
-        add_finding(
-            findings,
-            "VIBE-ARCH-004",
-            (rel, 1),
-            f"Archivo monolitico ({len(lines)} > {max_lines} lineas); CC<=5",
-        )
+        msg = f"Archivo monolitico ({len(lines)} > {max_lines} lineas); CC<=5"
+        add_finding(findings, "VIBE-ARCH-004", (rel, 1), msg)
 
 
 def scan_code_file(
-    rel_path: Path,
-    text: str,
-    max_lines: int,
-    findings: list[AuditFinding],
+    rel_path: Path, text: str, max_lines: int, findings: list[AuditFinding]
 ) -> None:
     """Audita codigo fuente para esperas fijas, tipado e idempotencia."""
     rel = rel_path.as_posix()
     lines = text.splitlines()
     if FIXED_WAIT_RE.search(text):
-        add_finding(
-            findings,
-            "VIBE-QA-005",
-            (rel, find_line(lines, FIXED_WAIT_RE)),
-            "Espera fija detectada (waitFor" "Timeout/sleep); usar condicion real",
-        )
+        msg = "Espera fija detectada (waitFor" "Timeout/sleep); usar condicion real"
+        loc = (rel, find_line(lines, FIXED_WAIT_RE))
+        add_finding(findings, "VIBE-QA-005", loc, msg)
     if not is_test_path(rel_path):
         _scan_non_test_code(rel_path, text, max_lines, findings)
 
@@ -498,9 +421,7 @@ def _is_unpinned_image(image_ref: str, stage_aliases: set[str]) -> bool:
 
 
 def _check_dockerfile_from_images(
-    rel: str,
-    lines: Sequence[str],
-    findings: list[AuditFinding],
+    rel: str, lines: Sequence[str], findings: list[AuditFinding]
 ) -> None:
     stage_aliases: set[str] = set()
     for idx, line in enumerate(lines, start=1):
@@ -509,12 +430,8 @@ def _check_dockerfile_from_images(
             continue
         image_ref, alias = spec
         if _is_unpinned_image(image_ref, stage_aliases):
-            add_finding(
-                findings,
-                "VIBE-QA-005",
-                (rel, idx),
-                "Dockerfile usa etiqueta mutable :latest o imagen sin etiqueta",
-            )
+            msg = "Dockerfile usa etiqueta mutable :latest o imagen sin etiqueta"
+            add_finding(findings, "VIBE-QA-005", (rel, idx), msg)
         if alias is not None:
             stage_aliases.add(alias.lower())
 
@@ -530,9 +447,7 @@ def _extract_last_stage(lines: Sequence[str]) -> tuple[int, list[tuple[int, str]
 
 
 def _scan_dockerfile(
-    rel: str,
-    lines: Sequence[str],
-    findings: list[AuditFinding],
+    rel: str, lines: Sequence[str], findings: list[AuditFinding]
 ) -> None:
     _check_dockerfile_from_images(rel, lines, findings)
     stage_line, stage_lines = _extract_last_stage(lines)
@@ -543,30 +458,20 @@ def _scan_dockerfile(
     ]
     if not users or DOCKER_ROOT_VALUE_RE.match(users[-1][1]):
         target_line = users[-1][0] if users else stage_line
-        add_finding(
-            findings,
-            "VIBE-QA-005",
-            (rel, target_line),
-            "Dockerfile ejecuta como root o carece de directiva USER no-root",
-        )
+        msg = "Dockerfile ejecuta como root o carece de directiva USER no-root"
+        add_finding(findings, "VIBE-QA-005", (rel, target_line), msg)
 
 
 def scan_tsconfig_or_docker(
-    rel: str,
-    fname: str,
-    text: str,
-    findings: list[AuditFinding],
+    rel: str, fname: str, text: str, findings: list[AuditFinding]
 ) -> None:
     """Audita tsconfig*.json y Dockerfile*."""
     lines = text.splitlines()
     if fname.startswith("tsconfig") and fname.endswith(".json"):
         if TS_STRICT_FALSE_RE.search(text):
-            add_finding(
-                findings,
-                "VIBE-TYPE-003",
-                (rel, find_line(lines, TS_STRICT_FALSE_RE)),
-                "tsconfig con strict=false; habilitar strict: true",
-            )
+            msg = "tsconfig con strict=false; habilitar strict: true"
+            loc = (rel, find_line(lines, TS_STRICT_FALSE_RE))
+            add_finding(findings, "VIBE-TYPE-003", loc, msg)
         return
     if fname == "Dockerfile" or fname.startswith("Dockerfile."):
         _scan_dockerfile(rel, lines, findings)

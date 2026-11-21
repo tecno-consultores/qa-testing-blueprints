@@ -206,7 +206,7 @@ export function parseCoverage(rawLog: string): QaCoverageSummary {
     };
   }
 
-  const genericCoverageMatch = /(?:Total coverage|Coverage):\s*([0-9.]+)%/i.exec(clean);
+  const genericCoverageMatch = /(?:Total coverage|Cobertura kcov|Cobertura|Coverage):\s*([0-9.]+)%/i.exec(clean);
   if (genericCoverageMatch) {
     const percent = parseFloat(pickAt(genericCoverageMatch, 1, '0'));
     return {

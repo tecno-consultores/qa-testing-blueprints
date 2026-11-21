@@ -45,6 +45,8 @@ FORBIDDEN_DEV_MODULES = {
 
 def _resolve_src_dir() -> Path:
     base = Path(__file__).resolve().parent.parent
+    if base.name == "mutants" and (base.parent / "src").is_dir():
+        return base.parent / "src"
     candidate = base / "src"
     if candidate.is_dir():
         return candidate
@@ -57,9 +59,7 @@ def _extract_imported_names(node: ast.AST) -> list[str]:
     if isinstance(node, ast.ImportFrom) and node.module:
         names = [node.module]
         names.extend(
-            f"{node.module}.{alias.name}"
-            for alias in node.names
-            if alias.name != "*"
+            f"{node.module}.{alias.name}" for alias in node.names if alias.name != "*"
         )
         return names
     return []
@@ -109,7 +109,7 @@ def _restore_app_env(
 
 def test_production_app_instantiation_without_docs_and_swagger() -> None:
     """Valida que create_app en produccion desactive Swagger, Redoc y OpenAPI."""
-    from src.main import create_app, settings
+    from main import create_app, settings
 
     prev_env = os.environ.get("APP_ENV")
     prev_setting = getattr(settings, "APP_ENV", None)
@@ -128,8 +128,9 @@ def test_production_app_instantiation_without_docs_and_swagger() -> None:
 async def test_validation_exception_handler_sanitization() -> None:
     """Valida que errores 422 de Pydantic se saniticen en produccion."""
     from fastapi.exceptions import RequestValidationError
-    from src.main import create_app
     from starlette.requests import Request
+
+    from main import create_app
 
     scope = {"type": "http", "method": "POST", "path": "/api/v1/test", "headers": []}
     fake_request = Request(scope)
@@ -138,14 +139,13 @@ async def test_validation_exception_handler_sanitization() -> None:
         {"loc": ["body", "password"], "msg": "field required", "type": "missing"}
     ]
 
-    with patch("src.main.settings.APP_ENV", "production"):
+    with patch("main.settings.APP_ENV", "production"):
         app_prod = create_app()
         handler = app_prod.exception_handlers[RequestValidationError]
         resp_prod = await handler(fake_request, mock_exc)
         assert resp_prod.status_code == 422
         assert json.loads(resp_prod.body) == {
             "detail": (
-                "Los datos proporcionados no cumplen con los requisitos "
-                "de validación."
+                "Los datos proporcionados no cumplen con los requisitos de validación."
             )
         }

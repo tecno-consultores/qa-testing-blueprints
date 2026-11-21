@@ -15,7 +15,7 @@ Before running `Layer 10` load or `Layer 12` chaos experiments, every backend se
 2. **Errors:** `http_errors_total{method, route, exception_type}` and `external_integration_failures_total{target, reason}` (Counter).
 3. **Duration:** `http_request_duration_seconds_bucket{method, route, le}` (Histogram configured with SLO buckets: `0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 30.0, 180.0`).
 4. **Trace & Audit Correlation (`trace_id`):** Inject `X-Trace-Id` / W3C `traceparent` into every request context, structured JSON log line, and HMAC-SHA256 `AuditLog` record (`APSC-DV-001350`) so any latency spike or 5xx alert maps deterministically to the exact execution path.
-5. **Compose Health & PID 1 Cleanliness:** Prometheus containers (`fastapi`, `python`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`) MUST `exec /bin/prometheus`, declare `observability` profiles and `wget` healthchecks, and Pumba chaos targets MUST use anchored prefix-tolerant regexes (`re2:^/?node_api$|.*[-_]api[-_][0-9]+$`).
+5. **Compose Health & PID 1 Cleanliness:** Prometheus containers (`fastapi`, `python`, `node-backend`, `vue3`, `react-frontend`, `php`, `bash-scripts`) MUST `exec /bin/prometheus`, declare `observability` profiles and `wget` healthchecks, and Pumba chaos targets MUST use anchored prefix-tolerant regexes (`re2:^/?node_api$|.*[-_]api[-_][0-9]+$`).
 
 ---
 
@@ -27,17 +27,17 @@ Load (`Layer 10`) and chaos (`Layer 12`) experiments validate that the system de
 # Run Pumba chaos inside hardened Compose (`--profile chaos`) or pinned digest containers (`no-new-privileges`, explicit regex anchors):
 # 1. Network Latency & Jitter Injection (300ms ± 100ms on DB/KeyDB for 30s)
 docker run -d --rm --security-opt=no-new-privileges:true --cap-drop ALL \
-  -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba@sha256:6b21e80b8f09369103f7a44a75e8c7f330f3f72e7e7a8a3d8d9170b1a9285b3a \
-  netem --duration 30s --tc-image gaiadocker/iproute2:latest delay --time 300 --jitter 100 --correlation 20 're2:^.*(postgres|keydb|redis).*$'
+  -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba:0.10.1@sha256:07f89803f5ce89d2ae0bf0b67d0fc3e094324626afd2e2402bcd9dc62ff409f5 \
+  netem --duration 30s --tc-image gaiadocker/iproute2@sha256:d0cd5819fbeaf2e7501dcb223bb5bad4fda7c1e76ff9877baba6e559c70b6d1e delay --time 300 --jitter 100 --correlation 20 're2:^.*(postgres|keydb|redis).*$'
 
 # 2. Packet Loss Simulation (15% packet loss on API container)
 docker run -d --rm --security-opt=no-new-privileges:true --cap-drop ALL \
-  -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba@sha256:6b21e80b8f09369103f7a44a75e8c7f330f3f72e7e7a8a3d8d9170b1a9285b3a \
-  netem --duration 20s --tc-image gaiadocker/iproute2:latest loss --percent 15 're2:^.*api.*$'
+  -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba:0.10.1@sha256:07f89803f5ce89d2ae0bf0b67d0fc3e094324626afd2e2402bcd9dc62ff409f5 \
+  netem --duration 20s --tc-image gaiadocker/iproute2@sha256:d0cd5819fbeaf2e7501dcb223bb5bad4fda7c1e76ff9877baba6e559c70b6d1e loss --percent 15 're2:^.*api.*$'
 
 # 3. Process Freeze / GC Pause Simulation (SIGSTOP/SIGCONT for 5s)
 docker run --rm --security-opt=no-new-privileges:true --cap-drop ALL \
-  -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba@sha256:6b21e80b8f09369103f7a44a75e8c7f330f3f72e7e7a8a3d8d9170b1a9285b3a \
+  -v /var/run/docker.sock:/var/run/docker.sock gaiaadm/pumba:0.10.1@sha256:07f89803f5ce89d2ae0bf0b67d0fc3e094324626afd2e2402bcd9dc62ff409f5 \
   pause --duration 5s 're2:^.*(keydb|redis).*$'
 ```
 

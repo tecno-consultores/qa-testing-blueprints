@@ -442,3 +442,25 @@ def test_live_repository_bump_check_and_readme_symmetry() -> None:
     assert mod.main(["--check"]) == 0
     ed_map = {r.rel_path: r for r in mod.EDITION_RULES}
     assert ed_map["README.md"].patterns == ed_map["README.es.md"].patterns
+    ver_map = {r.rel_path: r for r in mod.VERSION_RULES}
+    assert ".github/actions/qa-11x-pr-check/action.yml" in ver_map
+
+
+def test_action_yml_version_rule_sync_and_check(tmp_path: Path) -> None:
+    mod = _load_mod()
+    action_rule = next(
+        r
+        for r in mod.VERSION_RULES
+        if r.rel_path == ".github/actions/qa-11x-pr-check/action.yml"
+    )
+    action_file = tmp_path / ".github" / "actions" / "qa-11x-pr-check" / "action.yml"
+    action_file.parent.mkdir(parents=True)
+    action_file.write_text(
+        "npx -y @sinfallas/mcp-qa-11x@3.1.0 audit --sarif\n"
+        "npx -y @sinfallas/mcp-qa-11x@3.1.0 certify --offline\n",
+        encoding="utf-8",
+    )
+    errs, _ = mod.run_rules(tmp_path, (action_rule,), "3.2.0", False)
+    assert len(errs) == 2
+    assert mod.run_rules(tmp_path, (action_rule,), "3.2.0", True) == ([], 1)
+    assert mod.run_rules(tmp_path, (action_rule,), "3.2.0", False) == ([], 0)

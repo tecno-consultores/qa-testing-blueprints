@@ -265,17 +265,31 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
 
       for (const skillName of CANONICAL_GLOBAL_SKILL_DIRS) {
         const sDir = path.join(skillsDir, skillName);
-        fs.mkdirSync(sDir, { recursive: true });
+        fs.mkdirSync(path.join(sDir, 'references'), { recursive: true });
         fs.writeFileSync(path.join(sDir, 'SKILL.md'), `# Local copy of ${skillName}`, 'utf-8');
+        fs.writeFileSync(path.join(sDir, 'references', 'guide.md'), '# Ref', 'utf-8');
+        if (skillName === 'qa-11x-architect') {
+          fs.symlinkSync('SKILL.md', path.join(sDir, 'alias.md'));
+        }
       }
 
       const result = await reconcileAgentsGovernance({ projectPath: projectDir, dryRun: false });
       expect(result.removed_duplicate_sections_count).toBe(CANONICAL_GLOBAL_SKILL_DIRS.size);
 
       for (const skillName of CANONICAL_GLOBAL_SKILL_DIRS) {
-        expect(
-          fs.existsSync(path.join(result.backup_dir!, '.agents', 'skills', skillName, 'SKILL.md'))
-        ).toBe(true);
+        const backupSkillDir = path.join(result.backup_dir!, '.agents', 'skills', skillName);
+        const backupSkillMd = path.join(backupSkillDir, 'SKILL.md');
+        const backupRefDir = path.join(backupSkillDir, 'references');
+        const backupRefMd = path.join(backupRefDir, 'guide.md');
+        expect(fs.existsSync(backupSkillMd)).toBe(true);
+        expect(fs.existsSync(backupRefMd)).toBe(true);
+        expect(fs.statSync(backupSkillDir).mode & 0o777).toBe(0o700);
+        expect(fs.statSync(backupRefDir).mode & 0o777).toBe(0o700);
+        expect(fs.statSync(backupSkillMd).mode & 0o777).toBe(0o600);
+        expect(fs.statSync(backupRefMd).mode & 0o777).toBe(0o600);
+        if (skillName === 'qa-11x-architect') {
+          expect(fs.lstatSync(path.join(backupSkillDir, 'alias.md')).isSymbolicLink()).toBe(true);
+        }
         expect(fs.existsSync(path.join(skillsDir, skillName))).toBe(false);
       }
       // Como solo había skills canónicas, el directorio .agents/skills vacío fue eliminado
@@ -525,6 +539,24 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
       expect(res.updated).toBe(true);
       expect(fs.existsSync(res.geminiMdPath)).toBe(false);
     });
+
+    it('rejects dangling GEMINI.md and symlinked .gemini directory in syncGlobalGeminiMd', () => {
+      const outsideDir = path.join(tmpDir, 'gemini-outside');
+      fs.mkdirSync(outsideDir, { recursive: true });
+
+      const homeDangling = path.join(tmpDir, 'home-dangling-gemini');
+      fs.mkdirSync(path.join(homeDangling, '.gemini'), { recursive: true });
+      const victim1 = path.join(outsideDir, 'pwned_gemini.md');
+      fs.symlinkSync(victim1, path.join(homeDangling, '.gemini', 'GEMINI.md'));
+      expect(() => syncGlobalGeminiMd(homeDangling, false)).toThrow(/symlink|CWE-22/i);
+      expect(fs.existsSync(victim1)).toBe(false);
+
+      const homeDirLink = path.join(tmpDir, 'home-link-gemini');
+      fs.mkdirSync(homeDirLink, { recursive: true });
+      fs.symlinkSync(outsideDir, path.join(homeDirLink, '.gemini'));
+      expect(() => syncGlobalGeminiMd(homeDirLink, false)).toThrow(/symlink|CWE-22/i);
+      expect(fs.existsSync(path.join(outsideDir, 'GEMINI.md'))).toBe(false);
+    });
   });
 
   describe('certifyGate & install-skill integration', () => {
@@ -640,6 +672,22 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
       fs.writeFileSync(path.join(symProj, '.agents', 'rules', 'custom.md'), '## Custom Domain Rule\nKeep this.\n', 'utf8');
       fs.symlinkSync(decoy, path.join(symProj, '.agents', 'rules', 'domain_sym_proj.md'));
       await expect(reconcileAgentsGovernance({ projectPath: symProj, dryRun: false })).rejects.toThrow(/Symlink/);
+
+      // Symlink ancestral en ws/.agents -> outside: bloquea lectura/borrado/escritura en skills/ y rules/ externos
+      const outsideAgents = path.join(tmpDir, 'outside-agents-dir');
+      fs.mkdirSync(path.join(outsideAgents, 'skills', 'qa-11x-architect'), { recursive: true });
+      fs.mkdirSync(path.join(outsideAgents, 'rules'), { recursive: true });
+      fs.writeFileSync(path.join(outsideAgents, 'skills', 'qa-11x-architect', 'SKILL.md'), '# Skill\n', 'utf8');
+      fs.writeFileSync(path.join(outsideAgents, 'rules', 'custom.md'), '## Keep External Rule\n', 'utf8');
+
+      const wsSymAgents = path.join(tmpDir, 'ws-sym-agents');
+      fs.mkdirSync(wsSymAgents, { recursive: true });
+      fs.symlinkSync(outsideAgents, path.join(wsSymAgents, '.agents'));
+
+      await expect(reconcileAgentsGovernance({ projectPath: wsSymAgents, dryRun: false })).rejects.toThrow(/Symlink/);
+      expect(fs.existsSync(path.join(outsideAgents, 'skills', 'qa-11x-architect', 'SKILL.md'))).toBe(true);
+      expect(fs.existsSync(path.join(outsideAgents, 'rules', 'custom.md'))).toBe(true);
+      expect(fs.existsSync(path.join(outsideAgents, 'backups'))).toBe(false);
     });
   });
 });

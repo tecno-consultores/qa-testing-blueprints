@@ -32,12 +32,13 @@ rm -rf "${tmp_base}/qa-11x-last-failure.json" /tmp/qa-11x-last-failure.json \
 find "${tmp_base}" -maxdepth 1 -user "${CURRENT_UID}" \( -name 'qa-11x-last-failure.json' -o -name 'qa11x-certify.*' \) -exec rm -rf {} + 2>/dev/null || true
 
 rm -f ./ACTIVE_TASK.md .coverage .coverage.* coverage.xml junit.xml profile.svg \
+  k6-summary.json k6-results.json sbom.cdx.json \
   mutmut-stats.json mutmut-*.json trivy-results* sbom.cyclonedx.json sbom-*.cdx.json cbom.cyclonedx.json cbom-*.cdx.json \
   release-readiness.json release-readiness.md promptfoo-output.json promptfoo-output.html deepeval-results.json qa-11x-last-failure.json \
   .Python .task_scratchpad.md .agents/*.scratchpad.md ./*.log 2>/dev/null || true
 rm -rf .mypy_cache .pytest_cache .ruff_cache .hypothesis .schemathesis .tox .nox .uv/ .eggs/ .benchmarks/ .pdm-build/ pip-wheel-metadata/ \
   dist htmlcov/ mutants/ .mutmut-cache/ prometheus_data/ .trivycache \
-  allure-results/ allure-report/ .allure/ .deepeval/ .promptfoo/ .agents/tmp/ 2>/dev/null || true
+  allure-results/ allure-report/ .allure/ .deepeval/ .promptfoo/ .agents/tmp/ reports/ 2>/dev/null || true
 
 if [ -d "graphify-out" ]; then
   find graphify-out/ -mindepth 1 -maxdepth 1 ! -name 'GRAPH_REPORT.md' ! -name 'graph.html' ! -name 'graph.json' ! -name 'manifest.json' -exec rm -rf {} + 2>/dev/null || true
@@ -54,7 +55,8 @@ if command -v docker >/dev/null 2>&1; then
       /work/.ruff_cache /work/.hypothesis /work/.schemathesis /work/.tox /work/.nox /work/.uv /work/.eggs \
       /work/dist /work/htmlcov /work/mutants /work/.mutmut-cache /work/.benchmarks \
       /work/prometheus_data /work/.trivycache /work/allure-results /work/allure-report /work/.allure \
-      /work/.deepeval /work/.promptfoo 2>/dev/null || true
+      /work/.deepeval /work/.promptfoo /work/reports \
+      /work/k6-summary.json /work/k6-results.json /work/profile.svg /work/sbom.cdx.json /work/sbom-*.cdx.json 2>/dev/null || true
     if [ "$3" = "true" ]; then
       rm -rf /work/node_modules /work/.venv /work/venv 2>/dev/null || true
     fi

@@ -162,6 +162,32 @@ run_certify_findings_tracker() {
   return $?
 }
 
+diag_has_symlink_segment() {
+  local target="$1"
+  if [[ "${target}" =~ (^|/)\.\.(/|$) ]]; then
+    return 0
+  fi
+  local anchor="/"
+  if [[ "${target}" == "${REPO_ROOT}/"* ]]; then
+    anchor="${REPO_ROOT}"
+  elif [[ "${target}" == /tmp/* ]]; then
+    anchor="/tmp"
+  fi
+  local rel="${target#"${anchor%/}/"}"
+  local cursor="${anchor%/}"
+  local part=""
+  local -a parts=()
+  IFS='/' read -r -a parts <<<"${rel}"
+  for part in "${parts[@]}"; do
+    [ -n "${part}" ] && [ "${part}" != "." ] || continue
+    cursor="${cursor}/${part}"
+    if [ -L "${cursor}" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 write_allure_failure_json() {
   local gate_num="$1"
   local gate_name="$2"
@@ -170,6 +196,11 @@ write_allure_failure_json() {
   local remediation="$5"
   local gate_log="$6"
   local diag_dir=""
+
+  if diag_has_symlink_segment "${DIAGNOSTIC_JSON_PATH}"; then
+    printf '⚠️ [QA_DIAGNOSTIC_JSON] Ruta symlink rechazada por seguridad: %s\n' "${DIAGNOSTIC_JSON_PATH}" >&2
+    return 0
+  fi
 
   diag_dir="$(dirname "${DIAGNOSTIC_JSON_PATH}")"
   mkdir -p "${diag_dir}" 2>/dev/null || true
@@ -214,6 +245,7 @@ write_allure_failure_json() {
 import json
 import os
 import re
+import tempfile
 from pathlib import Path
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
@@ -278,10 +310,49 @@ payload = {
     ],
 }
 
-dest = Path(os.environ["QA_DIAG_PATH"])
+def _find_safe_anchor(target_abs: Path) -> Path:
+    candidates: list[Path] = []
+    for base in (Path("/app"), Path.cwd(), Path.home(), Path(tempfile.gettempdir())):
+        candidates.extend((Path(os.path.abspath(base)), base.resolve()))
+    matching = [c for c in candidates if target_abs.is_relative_to(c)]
+    if matching:
+        return max(matching, key=lambda c: len(c.parts))
+    return Path(target_abs.anchor)
+
+def _assert_no_symlink_segments(target: Path, raw_str: str = "") -> Path:
+    if ".." in target.parts or ".." in raw_str.split("/"):
+        raise ValueError(f"Symlink no permitido en QA_DIAG_PATH: {target}")
+    raw_abs = target if target.is_absolute() else Path.cwd() / target
+    if target.is_symlink() or raw_abs.is_symlink():
+        raise ValueError(f"Symlink no permitido en QA_DIAG_PATH: {target}")
+    anchor = _find_safe_anchor(raw_abs)
+    cursor = anchor
+    for part in raw_abs.relative_to(anchor).parts:
+        cursor = cursor / part
+        if cursor.is_symlink():
+            raise ValueError(f"Symlink no permitido en QA_DIAG_PATH: {target}")
+    return anchor
+
+raw_diag = os.environ["QA_DIAG_PATH"]
+dest = Path(raw_diag)
+anchor = _assert_no_symlink_segments(dest, raw_diag)
 dest.parent.mkdir(parents=True, exist_ok=True)
-dest.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-os.chmod(dest, 0o600)
+raw_abs = dest if dest.is_absolute() else Path.cwd() / dest
+expected_parent = anchor.resolve().joinpath(*raw_abs.parent.relative_to(anchor).parts)
+if dest.parent.resolve() != expected_parent:
+    raise ValueError(f"Symlink no permitido en QA_DIAG_PATH: {dest}")
+_assert_no_symlink_segments(dest, raw_diag)
+tmp_path = dest.parent / f".{dest.name}.{os.getpid()}.tmp"
+flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+fd = os.open(tmp_path, flags, 0o600)
+try:
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+    os.chmod(tmp_path, 0o600)
+    os.replace(tmp_path, dest)
+except OSError:
+    tmp_path.unlink(missing_ok=True)
+    raise
 PYEOF
 }
 
@@ -400,26 +471,48 @@ audit_ci_and_submakefiles_fallback() {
   local found_err=0
   local out=""
   local rel=""
+  local awk_wf_prog=""
+  local awk_mk_prog=""
+
+  read -r -d '' awk_wf_prog <<'AWK' || true
+{ lines[NR] = $0; if (NR <= 5 && index($0, "qa-ci-escape-ok") > 0) skip = 1 }
+END {
+  if (skip) exit 0
+  bad = 0; prev = ""
+  for (i = 1; i <= NR; i++) {
+    line = lines[i]; tr = line; sub(/^[[:space:]]+/, "", tr)
+    if (tr != "" && substr(tr, 1, 1) != "#" && index(line, "qa-ci-escape-ok") == 0 && index(prev, "qa-ci-escape-ok") == 0 && line ~ /\$\$[({][A-Za-z_]/) {
+      printf "❌ [QA-CI-ESCAPE-01] %s:%d: Escape $$(...) / $${...} en GitHub Actions.\n", file, i
+      bad = 1
+    }
+    prev = line
+  }
+  exit bad
+}
+AWK
+
+  read -r -d '' awk_mk_prog <<'AWK' || true
+{ lines[NR] = $0; if (NR <= 5 && index($0, "qa-make-curdir-ok") > 0) skip = 1 }
+END {
+  if (skip) exit 0
+  bad = 0; prev = ""
+  for (i = 1; i <= NR; i++) {
+    line = lines[i]; tr = line; sub(/^[[:space:]]+/, "", tr)
+    chk = line; gsub(/\$\$/, "__QA_DBL__", chk)
+    if (tr != "" && substr(tr, 1, 1) != "#" && index(line, "qa-make-curdir-ok") == 0 && index(prev, "qa-make-curdir-ok") == 0 && (chk ~ /\$\(PWD\)/ || chk ~ /\$\{PWD\}/)) {
+      printf "❌ [QA-MAKE-CURDIR-01] %s:%d: Sub-Makefile usa $(PWD)/${PWD} en lugar de $(CURDIR).\n", file, i
+      bad = 1
+    }
+    prev = line
+  }
+  exit bad
+}
+AWK
 
   if [ -d "${REPO_ROOT}/.github" ]; then
     while IFS= read -r -d '' wf_file; do
       rel="${wf_file#"${REPO_ROOT}/"}"
-      if ! out="$(awk -v file="${rel}" '
-        { lines[NR] = $0; if (NR <= 5 && index($0, "qa-ci-escape-ok") > 0) skip = 1 }
-        END {
-          if (skip) exit 0
-          bad = 0; prev = ""
-          for (i = 1; i <= NR; i++) {
-            line = lines[i]; tr = line; sub(/^[[:space:]]+/, "", tr)
-            if (tr != "" && substr(tr, 1, 1) != "#" && index(line, "qa-ci-escape-ok") == 0 && index(prev, "qa-ci-escape-ok") == 0 && line ~ /\$\$[({][A-Za-z_]/) {
-              printf "❌ [QA-CI-ESCAPE-01] %s:%d: Escape $$(...) / $${...} en GitHub Actions.\n", file, i
-              bad = 1
-            }
-            prev = line
-          }
-          exit bad
-        }
-      ' "${wf_file}")"; then
+      if ! out="$(awk -v file="${rel}" "${awk_wf_prog}" "${wf_file}")"; then
         printf '%s\n' "${out}" >&2
         found_err=1
       fi
@@ -428,23 +521,7 @@ audit_ci_and_submakefiles_fallback() {
 
   while IFS= read -r -d '' mk_file; do
     rel="${mk_file#"${REPO_ROOT}/"}"
-    if ! out="$(awk -v file="${rel}" '
-      { lines[NR] = $0; if (NR <= 5 && index($0, "qa-make-curdir-ok") > 0) skip = 1 }
-      END {
-        if (skip) exit 0
-        bad = 0; prev = ""
-        for (i = 1; i <= NR; i++) {
-          line = lines[i]; tr = line; sub(/^[[:space:]]+/, "", tr)
-          chk = line; gsub(/\$\$/, "__QA_DBL__", chk)
-          if (tr != "" && substr(tr, 1, 1) != "#" && index(line, "qa-make-curdir-ok") == 0 && index(prev, "qa-make-curdir-ok") == 0 && (chk ~ /\$\(PWD\)/ || chk ~ /\$\{PWD\}/)) {
-            printf "❌ [QA-MAKE-CURDIR-01] %s:%d: Sub-Makefile usa $(PWD)/${PWD} en lugar de $(CURDIR).\n", file, i
-            bad = 1
-          }
-          prev = line
-        }
-        exit bad
-      }
-    ' "${mk_file}")"; then
+    if ! out="$(awk -v file="${rel}" "${awk_mk_prog}" "${mk_file}")"; then
       printf '%s\n' "${out}" >&2
       found_err=1
     fi
@@ -511,12 +588,13 @@ gate_10_doc_and_test_sync() {
   local has_cov_reports
 
   local used_head_fallback=0
-  all_changed=$({
-    git diff --name-only HEAD 2>/dev/null || true
-    git ls-files --others --exclude-standard 2>/dev/null || true
-  } | sort -u)
+  local git_diff_out=""
+  local git_untracked_out=""
+  git_diff_out="$(git -c core.quotePath=false diff --name-only HEAD 2>/dev/null || true)"
+  git_untracked_out="$(git -c core.quotePath=false ls-files --others --exclude-standard 2>/dev/null || true)"
+  all_changed="$(printf '%s\n%s\n' "${git_diff_out}" "${git_untracked_out}" | sed '/^$/d' | sort -u)"
   if [ -z "${all_changed}" ] && git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
-    all_changed=$(git diff --name-only HEAD~1..HEAD 2>/dev/null | sort -u || true)
+    all_changed=$(git -c core.quotePath=false diff --name-only HEAD~1..HEAD 2>/dev/null | sort -u || true)
     [ -n "${all_changed}" ] && used_head_fallback=1
   fi
 

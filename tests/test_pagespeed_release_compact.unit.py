@@ -436,6 +436,20 @@ def test_release_gate_full_signals_smoke_and_security_paths(
     )
     assert "SKIPPED" in capsys.readouterr().out
 
+    (ws / "smoke_ok.xml").write_text(
+        '<testsuite tests="2" failures="0" errors="0" skipped="0">'
+        '<testcase classname="s" name="t1"/><testcase classname="s" name="t2"/>'
+        "</testsuite>",
+        encoding="utf-8",
+    )
+    rc_smoke_go, rep_smoke_go = rrg.evaluate_release_gate(
+        workspace_root=ws, junit_xml="smoke_ok.xml", scope="smoke", dry_run=False
+    )
+    assert rc_smoke_go == 0
+    assert rep_smoke_go["decision"] == "GO"
+    assert "scope=smoke" in rep_smoke_go["summary"]
+    assert "scope=full" not in rep_smoke_go["summary"]
+
     (ws / "xxe.xml").write_text(
         "<!DOCTYPE x><testsuite tests='1'/>", encoding="utf-8"
     )
@@ -817,3 +831,49 @@ def test_wave3_ssrf_symlink_psi_smoke_slas_and_uncompactable_reset(
     with pytest.raises(OSError):
         cc._write_output_atomic(str(bad_dir / "out.json"), res_uncomp)
     assert list(bad_dir.glob("*.tmp")) == []
+
+
+def test_release_gate_smoke_evaluates_junit_when_provided(tmp_path: Path) -> None:
+    """Smoke solo omite cuando no se provee junit, telemetry ni defects."""
+    ws = tmp_path / "smoke_junit_ws"
+    ws.mkdir()
+    (ws / "fail.xml").write_text(
+        '<testsuite tests="2" failures="2" errors="0" skipped="0">'
+        '<testcase name="t1"><failure/></testcase>'
+        '<testcase name="t2"><failure/></testcase>'
+        "</testsuite>",
+        encoding="utf-8",
+    )
+    (ws / "pass.xml").write_text(
+        '<testsuite tests="1" failures="0" errors="0" skipped="0">'
+        '<testcase name="ok"/>'
+        "</testsuite>",
+        encoding="utf-8",
+    )
+
+    rc_fail, rep_fail = rrg.evaluate_release_gate(
+        workspace_root=ws,
+        junit_xml="fail.xml",
+        scope="smoke",
+        dry_run=False,
+    )
+    assert rc_fail == 1
+    assert rep_fail["decision"] == "NO_GO"
+    assert "JUNIT_FAILURES" in {r["code"] for r in rep_fail["blocking_reasons"]}
+
+    rc_ok, rep_ok = rrg.evaluate_release_gate(
+        workspace_root=ws,
+        junit_xml="pass.xml",
+        scope="smoke",
+        dry_run=False,
+    )
+    assert rc_ok == 0
+    assert rep_ok["decision"] == "GO"
+
+    rc_skip, rep_skip = rrg.evaluate_release_gate(
+        workspace_root=ws,
+        scope="smoke",
+        dry_run=False,
+    )
+    assert rc_skip == 0
+    assert rep_skip["decision"] == "SKIPPED"

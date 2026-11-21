@@ -17,6 +17,7 @@ services:
       COVERAGE_FILE: '/tmp/.coverage'
       UV_CACHE_DIR: /tmp/uv-cache
       RUFF_CACHE_DIR: /tmp/ruff-cache
+      DEEPEVAL_TELEMETRY_OPT_OUT: 'YES'
       PYTHONPATH: /app
     volumes:
       - .:/app

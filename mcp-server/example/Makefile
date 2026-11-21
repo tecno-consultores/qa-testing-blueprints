@@ -12,8 +12,9 @@ qa-lint:
 
 qa-unit:
 	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" \
-		-e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app/backend/src qa-backend bash -c \
-		"pytest --import-mode=importlib --cov=src --cov-fail-under=95 tests/*.unit.py"
+		-e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app/backend/src \
+		-e QA_UV_OFFLINE="$(if $(filter 1 true,$(QA_OFFLINE)),--offline,)" qa-backend bash -c \
+		'if python3 -c "import fastapi, httpx" >/dev/null 2>&1; then PY_BIN=python3; else uv venv -q --system-site-packages /tmp/qa-venv && if [ "$${QA_UV_OFFLINE:-}" = "--offline" ]; then uv pip install -q --offline --python /tmp/qa-venv/bin/python fastapi httpx || { echo "❌ Modo --offline sin fastapi/httpx preinstalados ni cache UV (UV_CACHE_DIR)." >&2; exit 1; }; else uv pip install -q --python /tmp/qa-venv/bin/python fastapi httpx; fi && PY_BIN=/tmp/qa-venv/bin/python; fi && "$$PY_BIN" -m pytest --import-mode=importlib --cov=src --cov-fail-under=95 tests/*.unit.py'
 
 qa-integration:
 	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-backend bash -c \

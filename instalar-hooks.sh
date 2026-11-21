@@ -45,7 +45,7 @@ set -euo pipefail
 STAGED_FILES=()
 while IFS= read -r staged_file; do
 	[ -n "${staged_file}" ] && STAGED_FILES+=("${staged_file}")
-done < <(git diff --cached --name-only --diff-filter=ACMR)
+done < <(git -c core.quotePath=false diff --cached --name-only --diff-filter=ACMR)
 if [ "${#STAGED_FILES[@]}" -gt 0 ] && [ -x "./scripts/verificar-secretos.sh" ]; then
 	./scripts/verificar-secretos.sh "${STAGED_FILES[@]}"
 fi
@@ -96,12 +96,12 @@ fi
 MCP_CHANGED=false
 if ! git rev-parse --verify origin/main >/dev/null 2>&1; then
 	MCP_CHANGED=true
-elif git diff --name-only origin/main...HEAD | grep -Eq '^(mcp-server/|manifest\.json$|mobile-appium/|vibe-rescue/|\.github/)'; then
+elif git -c core.quotePath=false diff --name-only origin/main...HEAD | grep -Eq '^(mcp-server/|manifest\.json$|mobile-appium/|vibe-rescue/|\.github/)'; then
 	MCP_CHANGED=true
 fi
 if [ "${MCP_CHANGED}" = true ] && [ -f "./mcp-server/package.json" ]; then
 	MCP_EXTRA_VOLS=()
-	for dir in mobile-appium vibe-rescue .github; do
+	for dir in mobile-appium vibe-rescue .github architecture .agents fastapi python node-backend vue3 react-frontend php bash-scripts ai-evals; do
 		if [ -d "./${dir}" ]; then
 			MCP_EXTRA_VOLS+=(-v "$(pwd)/${dir}:/${dir}:ro")
 		fi

@@ -1279,6 +1279,219 @@ class TestVerifyDocsInvariants(unittest.TestCase):
             self.assertTrue(any("missing_spec_target.md" in e for e in errs))
             self.assertTrue(any("fuera del repositorio" in e for e in errs))
 
+    def test_specs_readme_mcp_surface_nginx_ui_11x_03_and_vitest_lcov_guards(
+        self,
+    ) -> None:
+        """Valida guardas M4: Tool 19 / Resource 13, UI-11X-03 CORP y Vitest lcov."""
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            # 1. Sin archivos opcionales -> 0 errores
+            self.assertEqual(verify_docs._check_specs_and_stack_contracts(root), [])
+
+            # 2. Estado nominal completo -> 0 errores
+            (root / "docs" / "specs").mkdir(parents=True)
+            (root / "mcp-server" / "src" / "resources").mkdir(parents=True)
+            (root / "docs" / "specs" / "README.md").write_text(
+                "Tool 19 `session_flight_recorder` + "
+                "`blueprint://skills/tactical-patterns-11x`.\n",
+                encoding="utf-8",
+            )
+            (root / "docs" / "specs" / "README.es.md").write_text(
+                "Tool 19 `session_flight_recorder` + "
+                "`blueprint://skills/tactical-patterns-11x`.\n",
+                encoding="utf-8",
+            )
+            (root / "mcp-server" / "src" / "server.ts").write_text(
+                "register('session_flight_recorder');\n", encoding="utf-8"
+            )
+            (
+                root / "mcp-server"
+                / "src"
+                / "resources"
+                / "tacticalPatternsSkill.ts"
+            ).write_text(
+                "export const URI = 'blueprint://skills/tactical-patterns-11x';\n",
+                encoding="utf-8",
+            )
+
+            valid_nginx = (
+                "server {\n"
+                '  add_header Cross-Origin-Resource-Policy "same-origin" always;\n'
+                "  location ~* \\.(?:js|mjs|css|woff2|woff|ttf|webp|avif)$ {\n"
+                '    add_header Cross-Origin-Resource-Policy "same-origin" always;\n'
+                "  }\n"
+                "  location ~* \\.(?:ico|svg|png|webmanifest)$ {\n"
+                '    add_header Cross-Origin-Resource-Policy "cross-origin" always;\n'
+                "  }\n"
+                "  location = /index.html {\n"
+                '    add_header Cross-Origin-Resource-Policy "same-origin" always;\n'
+                "  }\n"
+                "}\n"
+            )
+            for fe in ("vue3", "react-frontend"):
+                (root / fe / "nginx").mkdir(parents=True)
+                (root / fe / "nginx" / "default.conf.example").write_text(
+                    valid_nginx, encoding="utf-8"
+                )
+            for st in ("node-backend", "vue3", "react-frontend"):
+                (root / st).mkdir(parents=True, exist_ok=True)
+                (root / st / "vitest.config.ts.example").write_text(
+                    "export default { test: { coverage: { "
+                    "reporter: ['text', 'lcov'] } } };\n",
+                    encoding="utf-8",
+                )
+            self.assertEqual(verify_docs._check_specs_and_stack_contracts(root), [])
+
+            # 3. Regresiones detectadas: Tool 19/Resource 13, Nginx CORP, sin lcov
+            (root / "docs" / "specs" / "README.md").write_text(
+                "Tool 19 `audit_vibe_prototype`, Resource 13 `blueprint://calm`.\n",
+                encoding="utf-8",
+            )
+            (root / "docs" / "specs" / "README.es.md").write_text(
+                "Sin referencias.\n", encoding="utf-8"
+            )
+            (root / "mcp-server" / "src" / "server.ts").write_text(
+                "empty\n", encoding="utf-8"
+            )
+            (
+                root / "mcp-server"
+                / "src"
+                / "resources"
+                / "tacticalPatternsSkill.ts"
+            ).write_text("empty\n", encoding="utf-8")
+            (root / "vue3" / "nginx" / "default.conf.example").write_text(
+                "server {\n"
+                '  add_header Cross-Origin-Resource-Policy "cross-origin" always;\n'
+                "}\n",
+                encoding="utf-8",
+            )
+            (root / "node-backend" / "vitest.config.ts.example").write_text(
+                "// reporter: ['lcov']\n"
+                "export default { test: { coverage: { reporter: ['text'] } } };\n",
+                encoding="utf-8",
+            )
+
+            active_errs = verify_docs.check_active_docs(root)
+            self.assertTrue(any("blueprint://calm" in e for e in active_errs))
+            self.assertTrue(any("audit_vibe_prototype" in e for e in active_errs))
+
+            contract_errs = verify_docs._check_specs_and_stack_contracts(root)
+            self.assertTrue(any("session_flight_recorder" in e for e in contract_errs))
+            self.assertTrue(
+                any("tactical-patterns-11x" in e for e in contract_errs)
+            )
+            self.assertTrue(any("server.ts" in e for e in contract_errs))
+            self.assertTrue(
+                any("tacticalPatternsSkill.ts" in e for e in contract_errs)
+            )
+            self.assertTrue(any("UI-11X-03" in e for e in contract_errs))
+            self.assertTrue(any("strictamente" in e for e in contract_errs))
+            self.assertTrue(any("reporter 'lcov'" in e for e in contract_errs))
+
+    def test_testing_scoreboard_consistency_guard(self) -> None:
+        import tempfile
+
+        def _en_doc(
+            *,
+            stmts: str = "99.56%",
+            s2_br: str = "96.74%",
+            s2_fn: str = "99.87%",
+            s2_ln: str = "99.56%",
+            s2_tests: str = "708",
+            s2_suites: str = "42",
+            s4_tests: str = "708",
+            s4_suites: str = "42",
+            s4_ln: str = "99.56%",
+            s4_br: str = "96.74%",
+            s4_fn: str = "99.87%",
+        ) -> str:
+            return (
+                f"* **Statements:** `{stmts}`\n"
+                f"* **Branches:** `{s2_br}` global\n"
+                f"* **Functions:** `{s2_fn}`\n"
+                f"* **Lines:** `{s2_ln}`\n"
+                f"* **Unit & Live Protocol Tests:** **{s2_tests} tests passing "
+                f"at 100%** ({s2_suites} Vitest suites)\n"
+                f"* **100% assertions passed** (**{s4_tests}** Vitest tests "
+                f"across **{s4_suites} Vitest suites**)\n"
+                f"* **{s4_ln} line/statement coverage and {s4_br} branch coverage**\n"
+                f"* **{s4_fn} function coverage**.\n"
+            )
+
+        def _es_doc(
+            *,
+            stmts: str = "99.56%",
+            s2_br: str = "96.74%",
+            s2_fn: str = "99.87%",
+            s2_ln: str = "99.56%",
+            s2_tests: str = "708",
+            s2_suites: str = "42",
+            s4_tests: str = "708",
+            s4_suites: str = "42",
+            s4_ln: str = "99.56%",
+            s4_br: str = "96.74%",
+            s4_fn: str = "99.87%",
+        ) -> str:
+            return (
+                f"* **Sentencias (Statements):** `{stmts}`\n"
+                f"* **Ramas (Branches):** `{s2_br}` global\n"
+                f"* **Funciones (Functions):** `{s2_fn}`\n"
+                f"* **Líneas (Lines):** `{s2_ln}`\n"
+                f"* **Pruebas Unitarias y Protocolo en Vivo:** **{s2_tests} "
+                f"pruebas pasando al 100%** ({s2_suites} suites Vitest)\n"
+                f"* **100% de aserciones aprobadas** (**{s4_tests}** pruebas "
+                f"Vitest distribuidas en **{s4_suites} suites Vitest**)\n"
+                f"* **{s4_ln} de cobertura de líneas/sentencias y {s4_br} "
+                f"de cobertura de ramas**\n"
+                f"* **{s4_fn} de cobertura de funciones**.\n"
+            )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            # 1. Sin archivos -> 0 errores
+            self.assertEqual(verify_docs.check_testing_scoreboard_consistency(root), [])
+
+            # 2. Stub sin bloques scoreboard -> 0 errores
+            (root / "TESTING.md").write_text("# Stub\n", encoding="utf-8")
+            self.assertEqual(verify_docs.check_testing_scoreboard_consistency(root), [])
+
+            # 3. Par nominal EN/ES coherente -> 0 errores
+            (root / "TESTING.md").write_text(_en_doc(), encoding="utf-8")
+            (root / "TESTING.es.md").write_text(_es_doc(), encoding="utf-8")
+            self.assertEqual(verify_docs.check_testing_scoreboard_consistency(root), [])
+
+            # 4. Desfase §2 vs §4 + Statements != Lines
+            (root / "TESTING.md").write_text(
+                _en_doc(stmts="99.10%", s2_br="96.83%", s2_tests="701"),
+                encoding="utf-8",
+            )
+            (root / "TESTING.es.md").write_text(
+                _es_doc(s2_tests="709"),
+                encoding="utf-8",
+            )
+            errs = verify_docs.check_testing_scoreboard_consistency(root)
+            self.assertTrue(
+                any("Statements (99.10%) != Lines (99.56%)" in e for e in errs)
+            )
+            self.assertTrue(
+                any(
+                    "desfase §2 vs §4 en branches (96.83% != 96.74%)" in e
+                    for e in errs
+                )
+            )
+            self.assertTrue(
+                any("desfase §2 vs §4 en tests (701 != 708)" in e for e in errs)
+            )
+            self.assertTrue(
+                any(
+                    "TESTING.md vs TESTING.es.md: desfase en tests (701 != 709)"
+                    in e
+                    for e in errs
+                )
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

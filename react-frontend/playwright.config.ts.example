@@ -12,7 +12,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   // Reintentos agresivos en CI para lidiar con la inestabilidad de la red
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: process.env.CI ? 1 : 2,
   // Reporte HTML detallado y retención de rastros (Traces) para depurar el DOM si falla
   reporter: [['html', { open: 'never' }], ['list']],
   use: {

@@ -238,7 +238,7 @@ validate-calm:
 
 lint:
 	@echo "🔍 [Lint] Ejecutando linter y chequeo de tipos en Docker efímero..."
-	@if ! out=$$(docker run --rm --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_OPTIONS="--max-old-space-size=4096" -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -v "$$(pwd)/vibe-rescue:/vibe-rescue:ro" -v "$$(pwd)/.github:/.github:ro" -v "$$(pwd)/architecture:/architecture:ro" -v "$$(pwd)/.agents:/.agents:ro" -w /app $(NODE_IMG) bash -c 'pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run lint && pnpm --silent run typecheck' 2>&1); then \
+	@if ! out=$$(docker run --rm --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_OPTIONS="--max-old-space-size=4096" -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_verify_deps_before_run=false -e pnpm_config_manage_package_manager_versions=false -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -v "$$(pwd)/vibe-rescue:/vibe-rescue:ro" -v "$$(pwd)/.github:/.github:ro" -v "$$(pwd)/architecture:/architecture:ro" -v "$$(pwd)/.agents:/.agents:ro" -w /app $(NODE_IMG) bash -c 'pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run lint && pnpm --silent run typecheck' 2>&1); then \
 		printf '%s\n' "$$out" >&2; \
 		if printf '%s' "$$out" | grep -qE '$(COMPLEXITY_FAILURE_REGEX)'; then printf '\n%s\n' "$(DIRECTIVE_11X_COMPLEXITY_MSG)" >&2; fi; \
 		exit 1; \
@@ -248,7 +248,7 @@ lint:
 test-mcp:
 	@echo "🧪 [Test MCP] Ejecutando pruebas unitarias Vitest (>= 95%) en Docker efímero..."
 	@mkdir -p .agents/.cache/coverage && chmod 0700 .agents/.cache
-	@docker run --rm --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_OPTIONS="--max-old-space-size=4096" -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/.agents/.cache/coverage:/cov-out" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -v "$$(pwd)/vibe-rescue:/vibe-rescue:ro" -v "$$(pwd)/.github:/.github:ro" -v "$$(pwd)/architecture:/architecture:ro" -v "$$(pwd)/.agents:/.agents:ro" -w /app $(NODE_IMG) bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run test:unit && if [ -f coverage/lcov.info ]; then sed -E 's|^SF:/app/|SF:mcp-server/|; s|^SF:(src/)|SF:mcp-server/\1|' coverage/lcov.info > /cov-out/mcp-server.info; fi && rm -rf coverage .eslintcache"
+	@docker run --rm --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_OPTIONS="--max-old-space-size=4096" -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_verify_deps_before_run=false -e pnpm_config_manage_package_manager_versions=false -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/.agents/.cache/coverage:/cov-out" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -v "$$(pwd)/vibe-rescue:/vibe-rescue:ro" -v "$$(pwd)/.github:/.github:ro" -v "$$(pwd)/architecture:/architecture:ro" -v "$$(pwd)/.agents:/.agents:ro" -v "$$(pwd)/fastapi:/fastapi:ro" -v "$$(pwd)/python:/python:ro" -v "$$(pwd)/node-backend:/node-backend:ro" -v "$$(pwd)/vue3:/vue3:ro" -v "$$(pwd)/react-frontend:/react-frontend:ro" -v "$$(pwd)/php:/php:ro" -v "$$(pwd)/bash-scripts:/bash-scripts:ro" -v "$$(pwd)/ai-evals:/ai-evals:ro" -w /app $(NODE_IMG) bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run test:unit && if [ -f coverage/lcov.info ]; then sed -E 's|^SF:/app/|SF:mcp-server/|; s|^SF:(src/)|SF:mcp-server/\1|' coverage/lcov.info > /cov-out/mcp-server.info; fi && rm -rf coverage .eslintcache"
 
 test-karate:
 	@echo "🎭 [Karate BDD] Ejecutando contratos BDD del MCP Server en Docker efímero..."
@@ -453,7 +453,7 @@ test-bats:
 	'ET.indent(cov_el, space="  ")' \
 	'pathlib.Path("/cov-out/bash.xml").write_text("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" + ET.tostring(cov_el, encoding="unicode") + "\n", encoding="utf-8")' \
 	); \
-	docker run --rm --network none --cap-add=SYS_PTRACE --security-opt seccomp=unconfined -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e _USER=qa -e KCOV_NORM_PY="$${kcov_norm_py}" -v "$$(pwd):/repo:ro" -v "$$(pwd)/.agents/.cache/coverage:/cov-out" -w /repo $(BASH_IMG) bash -c 'rm -rf /tmp/kcov-bash; rc=0; kcov --include-path=/repo,/tmp --exclude-pattern=/repo/tests,/repo/bash-scripts/test,/tmp/kcov-bash,.bats.src,/tmp/bats-mock /tmp/kcov-bash bats tests/bats/ bash-scripts/test/ >/tmp/bats-tap.log 2>/tmp/kcov-stderr.log || rc=$$?; cat /tmp/bats-tap.log; if [ "$${rc}" -ne 0 ]; then if ! grep -q "^not ok " /tmp/bats-tap.log 2>/dev/null; then tail -n 40 /tmp/kcov-stderr.log >&2; fi; exit "$${rc}"; fi; /usr/bin/python3 -c "$$KCOV_NORM_PY"'
+	docker run --rm --network none --cap-add=SYS_PTRACE --security-opt seccomp=unconfined -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e _USER=qa -e KCOV_NORM_PY="$${kcov_norm_py}" -v "$$(pwd):/repo:ro" -v "$$(pwd)/.agents/.cache/coverage:/cov-out" -w /repo $(BASH_IMG) python3 -c 'import os, shutil, subprocess, sys; shutil.rmtree("/tmp/kcov-bash", ignore_errors=True); p = subprocess.run(["kcov", "--include-path=/repo,/tmp", "--exclude-pattern=/repo/tests,/repo/bash-scripts/test,/tmp/kcov-bash,.bats.src,/tmp/bats-mock", "/tmp/kcov-bash", "bats", "tests/bats/", "bash-scripts/test/"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True); sys.stdout.write(p.stdout); (sys.stderr.write("\n".join(p.stderr.splitlines()[-40:]) + "\n") if p.returncode != 0 and "\nnot ok " not in ("\n" + p.stdout) else None); sys.exit(p.returncode) if p.returncode != 0 else None; subprocess.run(["/usr/bin/python3", "-c", os.environ["KCOV_NORM_PY"]], check=True)'
 	@echo "✔ [BATS + kcov] Suites BATS OK y reporte Cobertura emitido en .agents/.cache/coverage/bash.xml."
 
 diff-cov:
@@ -694,7 +694,7 @@ test-backend-blueprints:
 	echo "✅ [test-backend-blueprints] Pact V4 (FastAPI->Node) + k6 smoke + antipatrones OK (cobertura_pact=$${cov:-N/A})"
 
 test-mobile-blueprints:
-	@cmd='test -x "$$(command -v java)" && test -x "$$(command -v adb)" && test -x "$$(command -v appium)" && tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module NodeNext --moduleResolution NodeNext --typeRoots /opt/qa11x/node_modules/@types --types node --noEmit mobile-appium/wdio.conf.ts mobile-appium/tests/screenplay/MobileActor.ts mobile-appium/tests/mobile_screenplay.spec.ts && node --test mobile-appium/tests/mobile_screenplay.spec.ts'; \
+	@cmd='test -x "$$(command -v java)" && test -x "$$(command -v adb)" && test -x "$$(command -v appium)" && tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module NodeNext --moduleResolution NodeNext --typeRoots /opt/qa11x/node_modules/@types --types node --noEmit mobile-appium/wdio.conf.ts mobile-appium/tests/screenplay/MobileActor.ts mobile-appium/tests/mobile_screenplay.spec.ts mobile-appium/tests/e2e/mobile_app_smoke.spec.ts && node --test mobile-appium/tests/mobile_screenplay.spec.ts'; \
 	if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		sh -c "$$cmd" && python3 .agents/scripts/lint_test_antipatterns.py mobile-appium; \
 	else \
@@ -755,7 +755,7 @@ test: lint lint-docs version-check validate-calm lint-workflows shellcheck shfmt
 
 build:
 	@echo "📦 [Build] Compilando Servidor MCP en Docker efímero..."
-	@docker run --rm --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_OPTIONS="--max-old-space-size=4096" -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "$$(pwd)/mcp-server:/app" -w /app $(NODE_IMG) bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run build"
+	@docker run --rm --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_OPTIONS="--max-old-space-size=4096" -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_verify_deps_before_run=false -e pnpm_config_manage_package_manager_versions=false -v "$$(pwd)/mcp-server:/app" -w /app $(NODE_IMG) bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run build"
 	@echo "✔ [Build] Servidor MCP compilado en mcp-server/dist/."
 
 publish-mcp:
