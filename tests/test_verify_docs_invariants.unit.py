@@ -70,6 +70,10 @@ class TestVerifyDocsInvariants(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
+            (root / "scripts").mkdir(parents=True, exist_ok=True)
+            gen = root / "scripts" / "generar-manifiesto.py"
+            gen.write_text("# m\n", encoding="utf-8")
+            (root / "manifest.json").write_text("{}", encoding="utf-8")
             (root / "docs").mkdir(parents=True, exist_ok=True)
             (root / "mcp-server").mkdir(parents=True, exist_ok=True)
             (root / "SECURITY.md").write_text(
@@ -101,6 +105,10 @@ class TestVerifyDocsInvariants(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
+            (root / "scripts").mkdir(parents=True, exist_ok=True)
+            gen = root / "scripts" / "generar-manifiesto.py"
+            gen.write_text("# m\n", encoding="utf-8")
+            (root / "manifest.json").write_text("{}", encoding="utf-8")
             skill_file = root / ".agents" / "skills" / "qa-11x-architect" / "SKILL.md"
             skill_file.parent.mkdir(parents=True, exist_ok=True)
             skill_file.write_text(
@@ -134,6 +142,10 @@ class TestVerifyDocsInvariants(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
+            (root / "scripts").mkdir(parents=True, exist_ok=True)
+            gen = root / "scripts" / "generar-manifiesto.py"
+            gen.write_text("# m\n", encoding="utf-8")
+            (root / "manifest.json").write_text("{}", encoding="utf-8")
             auditor = root / "mcp-server" / "src" / "tools" / "security-auditor.ts"
             auditor.parent.mkdir(parents=True, exist_ok=True)
             auditor.write_text(
@@ -359,6 +371,10 @@ class TestVerifyDocsInvariants(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
+            (root / "scripts").mkdir(parents=True, exist_ok=True)
+            gen = root / "scripts" / "generar-manifiesto.py"
+            gen.write_text("# m\n", encoding="utf-8")
+            (root / "manifest.json").write_text("{}", encoding="utf-8")
             auditor = root / "mcp-server" / "src" / "tools" / "security-auditor.ts"
             auditor.parent.mkdir(parents=True, exist_ok=True)
             auditor.write_text(
@@ -500,6 +516,11 @@ class TestVerifyDocsInvariants(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
+            (root / "scripts").mkdir(parents=True, exist_ok=True)
+            (root / "scripts" / "generar-manifiesto.py").write_text(
+                "# m\n", encoding="utf-8"
+            )
+            (root / "manifest.json").write_text("{}", encoding="utf-8")
             (root / "llms.txt").write_text("Appium 2\n", encoding="utf-8")
             self.assertEqual(verify_docs.main(["--workspace", str(root)]), 1)
             self.assertEqual(
@@ -1491,6 +1512,96 @@ class TestVerifyDocsInvariants(unittest.TestCase):
                     for e in errs
                 )
             )
+
+    def test_consumer_mode_universal_invariants_warnings_and_historical_links(
+        self,
+    ) -> None:
+        """Verifica modo consumidor (D5): budgets, WARN vendor y enlaces."""
+        import io
+        import tempfile
+        from contextlib import redirect_stderr
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.assertFalse(verify_docs.is_upstream_blueprints_repo(root))
+
+            vendor_skill = root / ".agents" / "skills" / "vendor-large" / "SKILL.md"
+            vendor_skill.parent.mkdir(parents=True, exist_ok=True)
+            vendor_skill.write_text("v" * 21_000, encoding="utf-8")
+
+            (root / "docs" / "specs").mkdir(parents=True, exist_ok=True)
+            (root / "CHANGELOG.md").write_text(
+                "# Changelog\n"
+                "[old rule](.agents/rules/mandatory_qa_pyramid_and_doc_sync.md)\n",
+                encoding="utf-8",
+            )
+            (root / "docs" / "specs" / "01_SPEC.md").write_text(
+                "# Spec\n[old skill](../../.agents/skills/qa-11x-architect/SKILL.md)\n"
+                "[outside](../../../../etc/passwd)\n",
+                encoding="utf-8",
+            )
+            (root / "AGENTS.md").write_text(
+                "<!-- QA_11X_MCP_CONNECTOR_START -->\nok\n"
+                f"<!-- QA_11X_MCP_CONNECTOR_END -->\n{'a' * 9_000}\n",
+                encoding="utf-8",
+            )
+
+            stderr_buf = io.StringIO()
+            with redirect_stderr(stderr_buf):
+                errs = verify_docs.validate_repository_docs(root)
+
+            self.assertIn("WARN [Docs Invariants]", stderr_buf.getvalue())
+            self.assertEqual(
+                [e for e in errs if "fuera del repositorio" not in e], []
+            )
+            self.assertTrue(any("fuera del repositorio" in e for e in errs))
+
+            # Conector >1536B, marcadores inválidos y enlace activo roto fallan
+            (root / "AGENTS.md").write_text(
+                f"<!-- QA_11X_MCP_CONNECTOR_START -->\n{'x' * 1600}\n"
+                "<!-- QA_11X_MCP_CONNECTOR_END -->\n"
+                "[broken](.agents/rules/mandatory_qa_pyramid_and_doc_sync.md)\n",
+                encoding="utf-8",
+            )
+            (root / "docs" / "specs" / "01_SPEC.md").unlink()
+            bad_errs = verify_docs.validate_repository_docs(root)
+            self.assertTrue(any("excede 1536 bytes" in e for e in bad_errs))
+            self.assertTrue(any("enlace interno roto" in e for e in bad_errs))
+
+            (root / "AGENTS.md").write_text(
+                "<!-- QA_11X_MCP_CONNECTOR_START -->\n1\n"
+                "<!-- QA_11X_MCP_CONNECTOR_END -->\n"
+                "<!-- QA_11X_MCP_CONNECTOR_START -->\n2\n"
+                "<!-- QA_11X_MCP_CONNECTOR_END -->\n",
+                encoding="utf-8",
+            )
+            dup_errs = verify_docs.validate_repository_docs(root)
+            self.assertTrue(any("duplicados" in e for e in dup_errs))
+
+            (root / "AGENTS.md").write_text(
+                "<!-- QA_11X_MCP_CONNECTOR_END -->\n"
+                "<!-- QA_11X_MCP_CONNECTOR_START -->\n",
+                encoding="utf-8",
+            )
+            inv_errs = verify_docs.validate_repository_docs(root)
+            self.assertTrue(any("invertidos" in e for e in inv_errs))
+
+            (root / "AGENTS.md").write_text(
+                "<!-- QA_11X_MCP_CONNECTOR_START -->\n", encoding="utf-8"
+            )
+            unbal_errs = verify_docs.validate_repository_docs(root)
+            self.assertTrue(any("desbalanceados" in e for e in unbal_errs))
+
+            # Upstream sí bloquea vendor >=20KB y AGENTS.md >8192B
+            (root / "scripts").mkdir(parents=True, exist_ok=True)
+            (root / "scripts" / "generar-manifiesto.py").write_text(
+                "# up\n", encoding="utf-8"
+            )
+            (root / "manifest.json").write_text("{}", encoding="utf-8")
+            (root / "AGENTS.md").write_text("z" * 9_000, encoding="utf-8")
+            up_errs = verify_docs.check_cognitive_budgets(root)
+            self.assertTrue(any("vendor-large/SKILL.md" in e for e in up_errs))
+            self.assertTrue(any("presupuesto cognitivo" in e for e in up_errs))
 
 
 if __name__ == "__main__":

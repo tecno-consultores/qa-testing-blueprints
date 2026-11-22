@@ -40,6 +40,9 @@ def test_budgets_constants_and_ordering_invariants(
     assert budgets.SKILL_MAX_BYTES == 20_480
     assert budgets.ARCHITECT_SKILL_MAX_BYTES == 12_288
     assert budgets.TACTICAL_SKILL_MAX_BYTES == 2_560
+    assert budgets.REPO_AGENTS_MD_MAX_BYTES == 8_192
+    assert budgets.GLOBAL_CONNECTOR_MAX_BYTES == 1_536
+    assert budgets.PROJECT_CONNECTOR_MAX_BYTES == 1_536
     assert budgets.ACTIVE_TASK_MAX_LINES == 40
     assert budgets.ACTIVE_TASK_RULE_MAX_LINES == 25
     assert budgets.HIGH_BLAST_CALLERS_THRESHOLD == 15
@@ -119,6 +122,12 @@ def test_governance_scripts_share_single_source_budgets(
     assert sync_gov.SKILL_MAX_BYTES == budgets.SKILL_MAX_BYTES
     assert sync_gov.ARCHITECT_SKILL_MAX_BYTES == budgets.ARCHITECT_SKILL_MAX_BYTES
     assert sync_gov.TACTICAL_SKILL_MAX_BYTES == budgets.TACTICAL_SKILL_MAX_BYTES
+    assert sync_gov.REPO_AGENTS_MD_MAX_BYTES == budgets.REPO_AGENTS_MD_MAX_BYTES
+    assert verify_docs.REPO_AGENTS_MD_MAX_BYTES == budgets.REPO_AGENTS_MD_MAX_BYTES
+    assert verify_docs.GLOBAL_CONNECTOR_MAX_BYTES == budgets.GLOBAL_CONNECTOR_MAX_BYTES
+    assert (
+        verify_docs.PROJECT_CONNECTOR_MAX_BYTES == budgets.PROJECT_CONNECTOR_MAX_BYTES
+    )
     assert sync_gov.ACTIVE_TASK_MAX_LINES == budgets.ACTIVE_TASK_MAX_LINES
     assert sync_gov.ACTIVE_TASK_RULE_MAX_LINES == budgets.ACTIVE_TASK_RULE_MAX_LINES
     assert ckpt_ctl.ACTIVE_TASK_MAX_LINES == budgets.ACTIVE_TASK_MAX_LINES

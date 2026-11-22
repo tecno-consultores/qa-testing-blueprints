@@ -32,7 +32,7 @@ export async function fetchBlueprintBundle(
   files: FetchedFileItem[];
 }> {
   const resolvedFetcher = fetcher || new GitHubFetcher();
-  const rawFiles = await resolvedFetcher.fetchStackBundle(stack, includeCommonAndAgents);
+  const rawFiles = await resolvedFetcher.fetchStackBundle(stack, includeCommonAndAgents, true);
   const cacheDir = resolvedFetcher.getCacheDir();
   const localOverridePath =
     typeof resolvedFetcher.getLocalOverridePath === 'function'

@@ -1106,3 +1106,105 @@ PY
   assert_output --partial "Symlink rechazado"
   [ "$(cat "${out_h}/victim_bak")" = "SECRET" ]
 }
+
+@test "install-skill.sh: deduplica múltiples bloques QA_11X_MCP_CONNECTOR_START en AGENTS.md y rechaza --lang inválido" {
+  local dup_repo="${BATS_TEST_TMPDIR}/dup_mini_repo"
+  local dup_ws="${BATS_TEST_TMPDIR}/dup_ws"
+  local dup_home="${BATS_TEST_TMPDIR}/dup_home"
+  mkdir -p "${dup_repo}/.agents/skills/qa-11x-architect" "${dup_ws}" "${dup_home}"
+  printf '# Arch\n' >"${dup_repo}/.agents/skills/qa-11x-architect/SKILL.md"
+  python3 - "${dup_repo}" <<'PY'
+import hashlib, json, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+d = (root / ".agents/skills/qa-11x-architect/SKILL.md").read_bytes()
+(root / "manifest.json").write_text(json.dumps({
+    "blueprint_version": "3.2.1",
+    "agent_governance_files": [{
+        "path": ".agents/skills/qa-11x-architect/SKILL.md",
+        "sha256": hashlib.sha256(d).hexdigest(),
+        "size_bytes": len(d),
+    }],
+}), encoding="utf-8")
+PY
+
+  cat >"${dup_ws}/AGENTS.md" <<'EOF'
+# Custom Header
+
+<!-- QA_11X_MCP_CONNECTOR_START -->
+first
+<!-- QA_11X_MCP_CONNECTOR_END -->
+
+<!-- QA_11X_MCP_CONNECTOR_START -->
+second duplicate
+<!-- QA_11X_MCP_CONNECTOR_END -->
+
+# Footer Rule
+EOF
+
+  cd "${dup_ws}"
+  run env QA_BLUEPRINTS_LOCAL_PATH="${dup_repo}" HOME="${dup_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace --init-agents --lang en
+  assert_success
+  [ "$(grep -c 'QA_11X_MCP_CONNECTOR_START' "${dup_ws}/AGENTS.md")" -eq 1 ]
+  run grep -F "Footer Rule" "${dup_ws}/AGENTS.md"
+  assert_success
+  run grep -F "strictly in **English**" "${dup_ws}/AGENTS.md"
+  assert_success
+
+  run env QA_BLUEPRINTS_LOCAL_PATH="${dup_repo}" HOME="${dup_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --lang fr
+  assert_failure 1
+  assert_output --partial "Modo de idioma inválido"
+
+  run env QA_BLUEPRINTS_LOCAL_PATH="${dup_repo}" HOME="${dup_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --lang
+  assert_failure 1
+  assert_output --partial "requiere un argumento"
+}
+
+@test "install-skill.sh: paridad D8 (--lang=, conectores EN/ES $HOME, poda archivos retirados y protección scripts/*)" {
+  local p_repo="${BATS_TEST_TMPDIR}/d8_repo"
+  local p_ws="${BATS_TEST_TMPDIR}/d8_ws"
+  local p_home="${BATS_TEST_TMPDIR}/d8_home"
+  mkdir -p "${p_repo}/.agents/skills/qa-11x-architect" "${p_repo}/scripts" "${p_ws}" "${p_home}/.gemini/antigravity/skills/qa-11x-architect" "${p_home}/.claude"
+  printf '# Architect\n' >"${p_repo}/.agents/skills/qa-11x-architect/SKILL.md"
+  printf '#!/usr/bin/env bash\necho "upstream clean"\n' >"${p_repo}/scripts/limpieza.sh"
+  python3 - "${p_repo}" <<'PY'
+import hashlib, json, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+def ent(p):
+    d = (root / p).read_bytes()
+    return {"path": p, "sha256": hashlib.sha256(d).hexdigest(), "size_bytes": len(d)}
+(root / "manifest.json").write_text(json.dumps({
+    "blueprint_version": "3.2.1",
+    "agent_governance_files": [ent(".agents/skills/qa-11x-architect/SKILL.md")],
+    "common_files": [ent("scripts/limpieza.sh")],
+}), encoding="utf-8")
+PY
+
+  printf '# obsolete retired file\n' >"${p_home}/.gemini/antigravity/skills/qa-11x-architect/retired-obsolete.md"
+  printf '<!-- QA_11X_MCP_CONNECTOR_START -->\nstrictly in **English**\n<!-- QA_11X_MCP_CONNECTOR_END -->\n' >"${p_home}/.gemini/GEMINI.md"
+  printf '<!-- QA_11X_MCP_CONNECTOR_START -->\nstrictly in **Spanish**\n<!-- QA_11X_MCP_CONNECTOR_END -->\n' >"${p_home}/.claude/CLAUDE.md"
+
+  cd "${p_ws}"
+  run env QA_BLUEPRINTS_LOCAL_PATH="${p_repo}" HOME="${p_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target auto
+  assert_success
+  [ ! -e "${p_home}/.gemini/antigravity/skills/qa-11x-architect/retired-obsolete.md" ]
+  run grep -F "strictly in **English**" "${p_home}/.gemini/GEMINI.md"
+  assert_success
+  run grep -F "Conector Global Thin-Client QA 11X" "${p_home}/.claude/CLAUDE.md"
+  assert_success
+
+  run env QA_BLUEPRINTS_LOCAL_PATH="${p_repo}" HOME="${p_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace --init-agents --lang=es
+  assert_success
+  run grep -F "strictly in **Spanish**" "${p_ws}/AGENTS.md"
+  assert_success
+
+  run env QA_BLUEPRINTS_LOCAL_PATH="${p_repo}" HOME="${p_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace --include-scripts --lang=auto
+  assert_success
+  printf '#!/usr/bin/env bash\necho "custom user edit"\n' >"${p_ws}/scripts/limpieza.sh"
+  run env QA_BLUEPRINTS_LOCAL_PATH="${p_repo}" HOME="${p_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace --include-scripts
+  assert_success
+  run grep -F "custom user edit" "${p_ws}/scripts/limpieza.sh"
+  assert_success
+  [ -f "${p_ws}/scripts/limpieza.sh.11x-incoming" ]
+}

@@ -184,6 +184,39 @@ function scanDirectoryForArtifacts(baseDir: string, deepPrune = false, preserveD
   return found;
 }
 
+const LOOSE_BACKUP_FILE_RE = /\.(?:11x-backup|11x-incoming|bak)$/i;
+
+function isValidLooseBackupDir(targetDir: string): boolean {
+  const dirStat = entryExistsNoFollow(targetDir);
+  return Boolean(dirStat && !dirStat.isSymbolicLink() && dirStat.isDirectory());
+}
+
+function isLooseBackupFile(entry: fs.Dirent, baseDir: string, relPath: string): boolean {
+  if (entry.isSymbolicLink() || !entry.isFile()) return false;
+  return LOOSE_BACKUP_FILE_RE.test(entry.name) && !hasSymlinkAncestorSegment(baseDir, relPath);
+}
+
+function scanDirForLooseBackups(baseDir: string, relDir: string): string[] {
+  const targetDir = relDir ? path.join(baseDir, relDir) : baseDir;
+  if (!isValidLooseBackupDir(targetDir)) return [];
+  const found: string[] = [];
+  for (const entry of fs.readdirSync(targetDir, { withFileTypes: true })) {
+    const relPath = path.join(relDir, entry.name);
+    if (isLooseBackupFile(entry, baseDir, relPath)) {
+      found.push(relPath);
+    }
+  }
+  return found;
+}
+
+function collectLooseBackupArtifacts(baseDir: string): string[] {
+  return [
+    ...scanDirForLooseBackups(baseDir, ''),
+    ...scanDirForLooseBackups(baseDir, '.agents'),
+    ...scanDirForLooseBackups(baseDir, 'scripts'),
+  ];
+}
+
 function scanSubdirectories(baseDir: string, deepPrune = false): string[] {
   const found: string[] = [];
 
@@ -367,9 +400,10 @@ function executeCleanWorkspace11x(
   const preserveRootDist = path.basename(resolvedPath) === MCP_SERVER_DIR_NAME;
   const rootArtifacts = scanDirectoryForArtifacts(resolvedPath, deepPrune, preserveRootDist);
   const subArtifacts = scanSubdirectories(resolvedPath, deepPrune);
-  const allFoundTargets = Array.from(new Set([...rootArtifacts, ...subArtifacts])).sort((a, b) =>
-    a.localeCompare(b)
-  );
+  const looseBackupArtifacts = deepPrune ? collectLooseBackupArtifacts(resolvedPath) : [];
+  const allFoundTargets = Array.from(
+    new Set([...rootArtifacts, ...subArtifacts, ...looseBackupArtifacts])
+  ).sort((a, b) => a.localeCompare(b));
 
   let removedTargets: string[] = [];
   let dockerFallbackUsed = false;

@@ -909,6 +909,10 @@ def test_sync_governance_classifiers_compare_git_and_cli_branches(
         ".agents/ACTIVE_TASK.md",
         "copy_if_missing",
     )
+    assert mod.classify_governance_file(".agents/README.md") == (
+        ".agents/README.md",
+        "copy_if_missing",
+    )
 
     legacy_ws = tmp_path / "legacy_common_ws"
     (legacy_ws / "scripts").mkdir(parents=True)
@@ -936,8 +940,14 @@ def test_sync_governance_classifiers_compare_git_and_cli_branches(
     (legacy_ws / ".agents" / "ACTIVE_TASK.md.example").write_text(
         "\n".join(["line"] * 41) + "\n", encoding="utf-8"
     )
+    gen = legacy_ws / "scripts" / "generar-manifiesto.py"
+    gen.write_text("# m\n", encoding="utf-8")
+    (legacy_ws / "manifest.json").write_text("{}", encoding="utf-8")
+    assert mod._check_upstream_agents_md_budget(legacy_ws) is None
+    (legacy_ws / "AGENTS.md").write_text("a" * 9_000, encoding="utf-8")
     budget_errs = mod.validate_cognitive_budgets(legacy_ws)
     assert any("ACTIVE_TASK.md.example" in err for err in budget_errs)
+    assert any("AGENTS.md excede" in err for err in budget_errs)
 
     exp = {
         "schema_version": "0.0.1",

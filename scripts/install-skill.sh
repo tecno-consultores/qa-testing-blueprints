@@ -101,6 +101,7 @@ fetch_file() {
 
 # Parsear argumentos de línea de comandos
 TARGET_ARG=""
+LANG_ARG=""
 INCLUDE_SCRIPTS=0
 INIT_AGENTS=0
 DRY_RUN=0
@@ -117,6 +118,18 @@ while [ $# -gt 0 ]; do
       ;;
     --target=*)
       TARGET_ARG="${1#*=}"
+      shift
+      ;;
+    --lang | -l)
+      if [ -n "${2:-}" ]; then
+        LANG_ARG="$2"
+        shift 2
+      else
+        log_error "La opción --lang requiere un argumento (auto|es|en)." && exit 1
+      fi
+      ;;
+    --lang=*)
+      LANG_ARG="${1#*=}"
       shift
       ;;
     --include-scripts)
@@ -136,7 +149,8 @@ while [ $# -gt 0 ]; do
       printf "Uso: install-skill.sh [opciones]\n\n"
       printf "Opciones:\n"
       printf "  --target, -t <entorno>   Destino: auto (defecto) | workspace | antigravity | claude | cursor | windsurf | codex | hermes | all\n"
-      printf "  --include-scripts        Instala también .agents/scripts/* y archivos comunes (respeta copy_if_missing; excluye .env.example y publicar-mcp.sh)\n"
+      printf "  --lang, -l <auto|es|en>  Política de idioma (defecto: conserva idioma previo o auto)\n"
+      printf "  --include-scripts        Instala también .agents/scripts/* y archivos comunes (excluye monorepo y protege scripts/* propios)\n"
       printf "  --init-agents            Inyecta o actualiza el bloque conector Thin-Repo en AGENTS.md del proyecto\n"
       printf "  --dry-run                Muestra el plan de instalación sin escribir archivos en disco\n"
       printf "  --help, -h               Muestra esta ayuda\n"
@@ -148,6 +162,14 @@ while [ $# -gt 0 ]; do
       ;;
   esac
 done
+
+EXPLICIT_LANG="${LANG_ARG:-${QA_OUTPUT_LANG:-}}"
+if [ -n "${EXPLICIT_LANG}" ]; then
+  EXPLICIT_LANG="$(printf '%s' "${EXPLICIT_LANG}" | tr '[:upper:]' '[:lower:]')"
+  if [ "${EXPLICIT_LANG}" != "auto" ] && [ "${EXPLICIT_LANG}" != "es" ] && [ "${EXPLICIT_LANG}" != "en" ]; then
+    log_error "Modo de idioma inválido: '${EXPLICIT_LANG}'. Valores permitidos: auto, es, en." && exit 1
+  fi
+fi
 
 TARGET_SELECTION="${TARGET_ARG:-${QA_SKILL_TARGET:-${TARGET:-auto}}}"
 
@@ -186,26 +208,6 @@ printf "%b═══════════════════════�
 TMP_DIR="$(mktemp -d 2>/dev/null || mktemp -d -t 'qa11x_install')"
 
 # Obtener manifest.json (local si existe y se configuró, o remoto de GitHub)
-should_sync_gemini_md() {
-  case "${TARGET_SELECTION:-auto}" in
-    antigravity | all)
-      return 0
-      ;;
-    auto)
-      [ -d "${HOME_DIR}/.gemini" ] && return 0
-      if [ -d "${HOME_DIR}" ]; then
-        home_real="$(cd "${HOME_DIR}" 2>/dev/null && pwd -P)"
-        cwd_real="$(pwd -P)"
-        [ -n "${home_real}" ] && [ "${cwd_real}" = "${home_real}" ] && return 0
-      fi
-      return 1
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-}
-
 is_qa11x_local_manifest() {
   grep -q '"agent_governance_files"' "$1" 2>/dev/null &&
     grep -q '"tecno-consultores/qa-testing-blueprints"' "$1" 2>/dev/null
@@ -362,15 +364,15 @@ extract_script_index() {
   if command -v jq >/dev/null 2>&1; then
     jq -r '
       [
-        ((.common_files // [])[] | select(.path != ".env.example" and .path != "scripts/publicar-mcp.sh" and .path != "scripts/probar-mcp-example.sh")),
-        ((.agent_governance_files // [])[] | select(((.path | startswith(".agents/scripts/") or startswith(".agents/schemas/") or startswith("scripts/")) or .path == ".agents/ACTIVE_TASK.md.example") and .path != "scripts/publicar-mcp.sh" and .path != "scripts/probar-mcp-example.sh"))
+        ((.common_files // [])[] | select(.path != ".env.example" and .path != "scripts/publicar-mcp.sh" and .path != "scripts/probar-mcp-example.sh" and .path != "scripts/install-skill.sh")),
+        ((.agent_governance_files // [])[] | select(((.path | startswith(".agents/scripts/") or startswith(".agents/schemas/") or startswith("scripts/")) or .path == ".agents/ACTIVE_TASK.md.example") and .path != "scripts/publicar-mcp.sh" and .path != "scripts/probar-mcp-example.sh" and .path != "scripts/install-skill.sh" and .path != ".agents/scripts/bump_version_11x.py" and .path != ".agents/scripts/sync_governance.py"))
       ] | unique_by(.path)[] | "\(.path)|\(.target_name // .path)|\(.merge_strategy // "")|\(.sha256)"
     ' "${MANIFEST_FILE}" >"${_out_idx}"
   else
     run_manifest_py '
 import json, sys
 data = json.load(open(sys.argv[1], encoding="utf-8"))
-excluded = {".env.example", "scripts/publicar-mcp.sh", "scripts/probar-mcp-example.sh"}
+excluded = {".env.example", "scripts/publicar-mcp.sh", "scripts/probar-mcp-example.sh", "scripts/install-skill.sh", ".agents/scripts/bump_version_11x.py", ".agents/scripts/sync_governance.py"}
 seen = set()
 for item in data.get("common_files", []):
     p = item.get("path", "")
@@ -499,11 +501,13 @@ merge_delimited_block() {
     _merged_tmp="${TMP_DIR}/merged_block.md"
     awk -v start="${_start_marker}" -v end="${_end_marker}" -v bfile="${_block_file}" '
       BEGIN { in_blk = 0; replaced = 0 }
-      index($0, start) > 0 && !replaced {
-        while ((getline bline < bfile) > 0) print bline
-        close(bfile)
+      index($0, start) > 0 {
+        if (!replaced) {
+          while ((getline bline < bfile) > 0) print bline
+          close(bfile)
+          replaced = 1
+        }
         in_blk = 1
-        replaced = 1
         next
       }
       in_blk {
@@ -520,26 +524,88 @@ merge_delimited_block() {
   fi
 }
 
-sync_global_gemini_md() {
-  if [ ! -d "${HOME_DIR}/.gemini" ]; then
+detect_connector_lang() {
+  _probe_file="$1"
+  if [ -n "${EXPLICIT_LANG}" ]; then
+    printf '%s' "${EXPLICIT_LANG}"
     return 0
   fi
-  _gemini_md="${HOME_DIR}/.gemini/GEMINI.md"
-  _blk_file="${TMP_DIR}/global_gemini_block.md"
-  cat >"${_blk_file}" <<'EOF'
+  if [ -f "${_probe_file}" ]; then
+    if grep -qF "Conector Global Thin-Client QA 11X" "${_probe_file}" ||
+      grep -qF "strictly in **Spanish**" "${_probe_file}" ||
+      grep -qF "estrictamente en **Español**" "${_probe_file}"; then
+      printf 'es'
+      return 0
+    fi
+    if grep -qF "strictly in **English**" "${_probe_file}"; then
+      printf 'en'
+      return 0
+    fi
+  fi
+  printf 'auto'
+}
+
+write_global_connector_block() {
+  _out_blk="$1"
+  _eff_lang="$2"
+  case "${_eff_lang}" in
+    es)
+      cat >"${_out_blk}" <<'EOF'
+<!-- QA_11X_MCP_CONNECTOR_START -->
+## 🤖 Conector Global Thin-Client QA 11X (`@sinfallas/mcp-qa-11x`)
+
+- **Idioma y Economía Cognitiva:** Razonar, responder, hacer commits y documentar estrictamente en **Español** (`AGENTS.md`/`.agents/**` en inglés conciso). Usar 3-Tier Disclosure, lecturas `40–80L` (sin `>150L` a ciegas), Zero Redundant Re-Read, lotes paralelos y resúmenes `<=20L`.
+- **Crítica Técnica Objetiva (Sin Adulación):** Omitir elogios. Verificar propuestas no triviales/ambiguas contra AST/archivos/budgets; señalar fallos, duplicación o alternativas más simples (o no actuar), o aprobar directo si es sólido; no debatir órdenes rutinarias.
+- **Rule Zero Supremo y Graphify AST-First:** Ejecutar TODOS los tests, linters, migraciones e installs en Docker efímero sin root (`run_ephemeral_qa`/`make`). Consultar `graphify-out/graph.json` y `GRAPH_REPORT.md` (`inspect_ast_blast_radius`; `./scripts/actualizar-grafos-graphify.sh`) ANTES de `grep`/`read_file`.
+- **Skills Globales, `QA-TEST-SYNC-01` y `QA-GIT-GATE-01`:** Enrutar vía `qa-11x-architect` sin duplicación local (`reconcile_agents_governance`); co-evolucionar tests (`QA-TEST-SYNC-01`), detenerse en `git commit` local (NUNCA auto-`git push`) y reportar brechas (`propose_skill_evolution_pr`).
+<!-- QA_11X_MCP_CONNECTOR_END -->
+EOF
+      ;;
+    en)
+      cat >"${_out_blk}" <<'EOF'
 <!-- QA_11X_MCP_CONNECTOR_START -->
 ## 🤖 Global Thin-Client QA 11X Connector (`@sinfallas/mcp-qa-11x`)
 
-- **Language & High-IQ Token Economy:** Interact and explain reasoning in the **user's prompt language**; write commit messages and human-facing docs matching the **existing language of `README.md` and `CHANGELOG.md`** (explicitly ignoring `AGENTS.md` and `.agents/**`, which remain in concise English for token economy).
-- **Rule Zero Supreme:** NEVER run tests, migrations, linters, compilers, or package installs directly on the host OS (`Ubuntu`, `macOS`, `Windows`); execute exclusively inside ephemeral non-root Docker containers (`make`, `docker compose`, or `@sinfallas/mcp-qa-11x` / `run_ephemeral_qa`).
-- **Graphify AST-First:** For ANY code/architecture Q&A or pre-change, query `graphify-out/graph.json` (`inspect_ast_blast_radius` / `.agents/scripts/inspect_blast_radius.py`) BEFORE `grep` or `read_file`.
-- **Zero-Duplication Global Consumption:** Consume the 11 global skills (`qa-11x-architect`, `qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `qa-11x-docker-certifier`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui`, `tactical-patterns-11x`) without duplicating them locally.
-- **Mandatory Test Co-Evolution (`QA-TEST-SYNC-01`):** Whenever modifying code, schemas, configs, or catalogs, audit, update, and re-run all affected pre-existing unit, integration, BATS, and Karate BDD tests.
-- **Proactive Continuous Evolution:** Whenever you spot a reusable improvement, edge case, or gap in QA 11X skills/rules/tools during work, inform the user (`💡 Oportunidad de Mejora Detectada para el Estándar QA 11X`) and invoke `propose_skill_evolution_pr` (or apply the modular fix in `qa-testing-blueprints`).
+- **Language & Token Economy:** Interact, write commits & docs strictly in **English**. Apply 3-Tier Disclosure, `40–80L` reads (no blind `>150L`), Zero Redundant Re-Read, parallel batching & `<=20L` summaries.
+- **Objective Technical Critique (No Sycophancy):** Skip praise openers. Verify non-trivial/ambiguous proposals against live AST/files/budgets; cite flaws, duplication, or simpler options (incl. doing nothing), or approve directly when solid; never debate routine commands.
+- **Rule Zero Supreme & Graphify AST-First:** Run ALL tests, linters, migrations & installs inside non-root ephemeral Docker (`run_ephemeral_qa`/`make`). Query `graphify-out/graph.json` & `GRAPH_REPORT.md` (`inspect_ast_blast_radius`; `./scripts/actualizar-grafos-graphify.sh`) BEFORE `grep`/`read_file`.
+- **Global Skills, `QA-TEST-SYNC-01` & `QA-GIT-GATE-01`:** Route via `qa-11x-architect` & global skills without local duplication (`reconcile_agents_governance`); co-evolve affected tests (`QA-TEST-SYNC-01`), stop at local `git commit` (NEVER auto-`git push`) & log gaps (`propose_skill_evolution_pr`).
 <!-- QA_11X_MCP_CONNECTOR_END -->
-
 EOF
-  _hdr_file="${TMP_DIR}/gemini_hdr.md"
+      ;;
+    *)
+      cat >"${_out_blk}" <<'EOF'
+<!-- QA_11X_MCP_CONNECTOR_START -->
+## 🤖 Global Thin-Client QA 11X Connector (`@sinfallas/mcp-qa-11x`)
+
+- **Language & Token Economy:** Interact in user's prompt language; commits/human docs match README.md/CHANGELOG.md (AGENTS.md/.agents/** concise English). Apply 3-Tier Disclosure, `40–80L` reads (no blind `>150L`), Zero Redundant Re-Read, parallel batching & `<=20L` summaries.
+- **Objective Technical Critique (No Sycophancy):** Skip praise openers. Verify non-trivial/ambiguous proposals against live AST/files/budgets; cite flaws, duplication, or simpler options (incl. doing nothing), or approve directly when solid; never debate routine commands.
+- **Rule Zero Supreme & Graphify AST-First:** Run ALL tests, linters, migrations & installs inside non-root ephemeral Docker (`run_ephemeral_qa`/`make`). Query `graphify-out/graph.json` & `GRAPH_REPORT.md` (`inspect_ast_blast_radius`; `./scripts/actualizar-grafos-graphify.sh`) BEFORE `grep`/`read_file`.
+- **Global Skills, `QA-TEST-SYNC-01` & `QA-GIT-GATE-01`:** Route via `qa-11x-architect` & global skills without local duplication (`reconcile_agents_governance`); co-evolve affected tests (`QA-TEST-SYNC-01`), stop at local `git commit` (NEVER auto-`git push`) & log gaps (`propose_skill_evolution_pr`).
+<!-- QA_11X_MCP_CONNECTOR_END -->
+EOF
+      ;;
+  esac
+}
+
+sync_single_global_connector() {
+  _detect_rel="$1"
+  _target_rel="$2"
+  _dry_mode="$3"
+  if [ ! -d "${HOME_DIR}/${_detect_rel}" ]; then
+    return 0
+  fi
+  assert_no_symlink_segments "${HOME_REAL}" "${_target_rel}" "global.connector"
+  _target_abs="${HOME_DIR}/${_target_rel}"
+  assert_safe_target_file "${_target_abs}" "global.connector.file"
+  if [ "${_dry_mode}" -eq 1 ]; then
+    printf "  - Sincronizaría conector global: %s\n" "${_target_abs}"
+    return 0
+  fi
+  _eff_lang="$(detect_connector_lang "${_target_abs}")"
+  _blk_file="${TMP_DIR}/global_connector_${_eff_lang}.md"
+  _hdr_file="${TMP_DIR}/global_connector_hdr.md"
+  write_global_connector_block "${_blk_file}" "${_eff_lang}"
   cat >"${_hdr_file}" <<'EOF'
 # SPDX-License-Identifier: MIT
 <!-- QA-11X Standard Governance -->
@@ -547,10 +613,24 @@ EOF
 # 🤖 Global AI Agent Directives — QA 11X Standard (`@sinfallas/mcp-qa-11x`)
 
 EOF
-  assert_no_symlink_segments "${HOME_REAL}" ".gemini/GEMINI.md" "gemini.md"
-  assert_safe_target_file "${_gemini_md}" "gemini.md"
-  merge_delimited_block "${_gemini_md}" "${_blk_file}" "${_hdr_file}"
-  log_ok "Conector global sincronizado en: ${_gemini_md}"
+  merge_delimited_block "${_target_abs}" "${_blk_file}" "${_hdr_file}"
+  log_ok "Conector global sincronizado en: ${_target_abs}"
+}
+
+sync_global_agent_connectors() {
+  _dry_mode="${1:-0}"
+  case "${TARGET_SELECTION:-auto}" in
+    auto | all)
+      sync_single_global_connector ".gemini" ".gemini/GEMINI.md" "${_dry_mode}"
+      sync_single_global_connector ".claude" ".claude/CLAUDE.md" "${_dry_mode}"
+      sync_single_global_connector ".codex" ".codex/AGENTS.md" "${_dry_mode}"
+      sync_single_global_connector ".codeium/windsurf" ".codeium/windsurf/memories/global_rules.md" "${_dry_mode}"
+      ;;
+    antigravity) sync_single_global_connector ".gemini" ".gemini/GEMINI.md" "${_dry_mode}" ;;
+    claude) sync_single_global_connector ".claude" ".claude/CLAUDE.md" "${_dry_mode}" ;;
+    codex) sync_single_global_connector ".codex" ".codex/AGENTS.md" "${_dry_mode}" ;;
+    windsurf) sync_single_global_connector ".codeium/windsurf" ".codeium/windsurf/memories/global_rules.md" "${_dry_mode}" ;;
+  esac
 }
 
 sync_project_agents_md() {
@@ -558,16 +638,25 @@ sync_project_agents_md() {
   assert_no_symlink_segments "${PWD_REAL}" "AGENTS.md" "agents.md"
   assert_safe_target_file "${_agents_md}" "agents.md"
   _proj_name="$(basename "${PWD_REAL}")"
+  _eff_lang="$(detect_connector_lang "${_agents_md}")"
+  case "${_eff_lang}" in
+    es) _lang_line="Interact, explain reasoning, and write commits/docs strictly in **Spanish** (keep AGENTS.md & .agents/** concise English)." ;;
+    en) _lang_line="Interact, explain reasoning, and write commits/docs strictly in **English**." ;;
+    *) _lang_line="Interact in user's prompt language; commits & human docs match README.md/CHANGELOG.md (keep AGENTS.md & .agents/** concise English)." ;;
+  esac
   _raw_blk="${TMP_DIR}/project_agents_raw.md"
   _blk_file="${TMP_DIR}/project_agents_block.md"
   _raw_hdr="${TMP_DIR}/project_hdr_raw.md"
   _hdr_file="${TMP_DIR}/project_hdr.md"
   cat >"${_raw_blk}" <<'EOF'
 <!-- QA_11X_MCP_CONNECTOR_START -->
-## 🤖 Central QA 11X Skill & MCP Server Connector (`@sinfallas/mcp-qa-11x`)
+## 🤖 QA 11X Thin-Repo Connector (`@sinfallas/mcp-qa-11x`)
 
-This project (`__PROJ_NAME__`) enforces the **Level-11X Quality & DevSecOps Standard** using global skills without duplicating `.agents/skills/` locally.
-Run all tests, migrations, and linters in ephemeral Docker containers (**Rule Zero**), co-evolve affected tests (`QA-TEST-SYNC-01`), and stop at a certified local `git commit` (`QA-GIT-GATE-01`).
+Project `__PROJ_NAME__` enforces **Standard QA-11X** (stacks: `general`). Do NOT duplicate global skills/rules into local `.agents/skills/` or `.agents/rules/`.
+
+- **Language Policy:** __LANG_LINE__
+- **Routing (`qa-11x-architect` + MCP `qa-11x`):** Classify every task as `DOCS_ONLY` (`0` Docker QA / `0` AST rebuild), `MICRO_CHANGE` (`<=3` files, `<5` callers: 3-line plan + stack Docker QA), or `FULL_11X` (`/plan` + `session_flight_recorder` + full 11-step workflow from `qa-11x-architect`).
+- **Hard Gates:** (1) **Rule Zero** — run all tests/linters/migrations in non-root ephemeral Docker (`run_ephemeral_qa` / `make`); (2) **AST-First & Objective Critique** — query `inspect_ast_blast_radius` (`graphify-out/graph.json`) before `grep`/edits, skip praise openers, and verify non-trivial premises/simpler options before coding (without debating routine commands); (3) **`QA-TEST-SYNC-01`** — update & re-run all affected unit (`>=95%`), integration, BATS, and Karate `.feature` suites; (4) **`QA-GIT-GATE-01`** — run `certify_11x_gate` and stop at local `git commit` (NEVER auto-`git push`).
 <!-- QA_11X_MCP_CONNECTOR_END -->
 
 EOF
@@ -578,18 +667,57 @@ EOF
 # 🤖 AI Agent Directives & Technical Governance — __PROJ_NAME__
 
 EOF
-  awk -v p="${_proj_name}" '{ i = index($0, "__PROJ_NAME__"); if (i) $0 = substr($0, 1, i - 1) p substr($0, i + 13); print }' "${_raw_blk}" >"${_blk_file}"
-  awk -v p="${_proj_name}" '{ i = index($0, "__PROJ_NAME__"); if (i) $0 = substr($0, 1, i - 1) p substr($0, i + 13); print }' "${_raw_hdr}" >"${_hdr_file}"
+  awk -v p="${_proj_name}" -v l="${_lang_line}" '
+    {
+      ip = index($0, "__PROJ_NAME__");
+      if (ip) $0 = substr($0, 1, ip - 1) p substr($0, ip + 13);
+      il = index($0, "__LANG_LINE__");
+      if (il) $0 = substr($0, 1, il - 1) l substr($0, il + 13);
+      print
+    }
+  ' "${_raw_blk}" >"${_blk_file}"
+  awk -v p="${_proj_name}" '
+    {
+      ip = index($0, "__PROJ_NAME__");
+      if (ip) $0 = substr($0, 1, ip - 1) p substr($0, ip + 13);
+      print
+    }
+  ' "${_raw_hdr}" >"${_hdr_file}"
   merge_delimited_block "${_agents_md}" "${_blk_file}" "${_hdr_file}"
   log_ok "Conector Thin-Repo sincronizado en: ${_agents_md}"
+}
+
+prune_retired_canonical_skill_files() {
+  _dest_skills="$1"
+  for _cskill in \
+    qa-11x-architect \
+    qa-11x-devsecops-hardener \
+    qa-11x-systematic-debugging \
+    qa-11x-screenplay-builder \
+    qa-11x-llm-evaluator \
+    qa-11x-vibe-rescue \
+    qa-11x-docker-certifier \
+    docker-trivy-keydb-hardening \
+    graphify-ast-navigator \
+    refactoring-ui \
+    tactical-patterns-11x; do
+    _cdir="${_dest_skills}/${_cskill}"
+    [ -d "${_cdir}" ] && [ ! -L "${_cdir}" ] || continue
+    find "${_cdir}" -type f | while IFS= read -r _existing_f; do
+      [ -L "${_existing_f}" ] && continue
+      _rel_skill=".agents/skills/${_existing_f#"${_dest_skills}/"}"
+      if ! grep -Fq "${_rel_skill} " "${SKILL_INDEX}"; then
+        rm -f "${_existing_f}"
+      fi
+    done
+    find "${_cdir}" -depth -type d -empty -delete 2>/dev/null || true
+  done
 }
 
 if [ "${DRY_RUN}" -eq 1 ]; then
   printf "🔍 [DRY-RUN] Plan install-skill (v%s):\n" "${BLUEPRINT_VERSION}"
   printf "  - Archivos de skills verificables: %s\n" "${TOTAL_FILES}"
-  if should_sync_gemini_md; then
-    printf "  - Sincronizaría conector global: %s/.gemini/GEMINI.md\n" "${HOME_DIR}"
-  fi
+  sync_global_agent_connectors 1
   if [ "${IN_HOME_DIR}" -eq 1 ] && { [ "${INCLUDE_SCRIPTS}" -eq 1 ] || [ "${INIT_AGENTS}" -eq 1 ]; }; then
     log_info "[Modo Global \$HOME] Omitiría escritura de archivos de proyecto en ${HOME_DIR}."
   else
@@ -672,13 +800,12 @@ printf '%s\n' "${DEST_DIRS}" | while IFS= read -r dest; do
   done
   exec 4<&-
   cp -R "${VERIFIED_STAGING}/"* "${dest}/"
+  prune_retired_canonical_skill_files "${dest}"
   printf '{\n  "blueprint_version": "%s",\n  "mcp_version": "%s",\n  "updated_at_utc": "%s"\n}\n' "${BLUEPRINT_VERSION}" "${BLUEPRINT_VERSION}" "${STAMP_UTC}" >"${dest}/.qa-11x-version"
   log_ok "Skills instaladas en: ${dest}"
 done
 
-if should_sync_gemini_md; then
-  sync_global_gemini_md
-fi
+sync_global_agent_connectors 0
 
 if [ "${IN_HOME_DIR}" -eq 1 ] && { [ "${INCLUDE_SCRIPTS}" -eq 1 ] || [ "${INIT_AGENTS}" -eq 1 ]; }; then
   log_info "[Modo Global \$HOME] Omitiendo escritura de archivos de proyecto (AGENTS.md, scripts/, .agents/, lefthook.yml) en el directorio personal (${HOME_DIR})."
@@ -757,6 +884,17 @@ if [ "${INCLUDE_SCRIPTS}" -eq 1 ]; then
           done
           exec 3<&-
           continue
+          ;;
+      esac
+      case "${dest_rel}" in
+        scripts/*)
+          if [ "$(compute_sha256 "./${dest_rel}")" != "${actual_s_sha}" ]; then
+            assert_safe_target_file "./${dest_rel}.11x-incoming" "scripts.incoming"
+            cp "${s_tmp}" "./${dest_rel}.11x-incoming"
+            chmod 0644 "./${dest_rel}.11x-incoming"
+            log_warn "${dest_rel} tiene personalizaciones locales y se preservó; revisa ${dest_rel}.11x-incoming (usa .agents/limpieza.local.sh para extensiones)."
+            continue
+          fi
           ;;
       esac
     fi

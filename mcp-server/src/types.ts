@@ -775,15 +775,30 @@ export const ReconcileAgentsInputSchema = z.object({
     .describe(
       'If true (default), simulates deduplication reporting duplicate and domain sections without touching disk.'
     ),
+  prune_bridges: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe(
+      'If true, backs up and deletes standalone QA-11X bridge files containing no custom content outside markers.'
+    ),
 }).strict();
+
+export type ReconciledRuleClassification =
+  | 'CANONICAL_CLEAN'
+  | 'REDUNDANT_PROMOTED_REMOVED'
+  | 'DOMAIN_EXTRACTED_TO_DOMAIN_FILE'
+  | 'DOMAIN_PRESERVED'
+  | 'HYBRID_SECTION_REVIEW_RECOMMENDED'
+  | 'BRIDGE_UPDATED'
+  | 'BRIDGE_PRUNED'
+  | 'LEGACY_ARTIFACT_CONSOLIDATED'
+  | 'GITIGNORE_UPDATED'
+  | 'ADVISORY_REPORT_ONLY';
 
 export interface ReconciledRuleItem {
   file: string;
-  classification:
-    | 'CANONICAL_CLEAN'
-    | 'REDUNDANT_PROMOTED_REMOVED'
-    | 'DOMAIN_EXTRACTED_TO_DOMAIN_FILE'
-    | 'DOMAIN_PRESERVED';
+  classification: ReconciledRuleClassification;
   details: string;
 }
 
@@ -795,6 +810,12 @@ export interface ReconcileAgentsResult {
   removed_duplicate_sections_count: number;
   preserved_domain_sections_count: number;
   reconciled_items: ReconciledRuleItem[];
+  advisories?: string[];
+  consolidated_backups?: string[];
+  gitignore_entries_added?: string[];
+  bridges_processed?: string[];
+  suggested_git_commands?: string[];
+  skipped_dirty_git?: boolean;
 }
 
 

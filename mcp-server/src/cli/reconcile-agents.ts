@@ -7,6 +7,19 @@ import { CONNECTOR_START_MARKER, CONNECTOR_END_MARKER } from './init-agents-md.j
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { resolveCliProjectPath } from './cliArgHelpers.js';
 import { pickAt } from '../utils/diagnosticFormatter.js';
+import { classifySectionForPruning, dedupeRepeatedHeadings } from './reconcile/sectionPruner.js';
+import {
+  assertNoSymlinkSegmentsFromRoot,
+  collectReadOnlyAdvisories,
+  consolidateLooseBackups,
+  ensureBackupFile,
+  ensureGitignoreHygiene,
+  hardenBackupTreePermissions,
+  reconcileBridgeFiles,
+  reconcileMonorepoAndRetiredScripts,
+  reconcileMultiAgentShadowSkills,
+} from './reconcile/repoHygiene.js';
+import { scanWorkspacesForReconcile } from './reconcile/workspaceScanner.js';
 import type { ReconcileAgentsResult, ReconciledRuleItem } from '../types.js';
 
 export const RECONCILE_AGENTS_HELP_TEXT = [
@@ -14,7 +27,12 @@ export const RECONCILE_AGENTS_HELP_TEXT = [
   '',
   'Opciones:',
   '  --project-path, --dir, -p <dir>  Directorio del proyecto destino (por defecto: cwd)',
+  '  --scan-workspaces <dir>          Escanea repositorios bajo <dir> (por defecto: --dry-run)',
+  '  --apply                          Aplica cambios durante --scan-workspaces',
+  '  --allow-dirty                    Permite --apply en repos con git status sucio',
+  '  --prune-bridges                  Respalda y elimina puentes QA-11X puros sin reglas propias',
   '  --dry-run                        Simula poda sin modificar archivos ni respaldos',
+  '  --json                           Emite salida estructurada JSON',
   '  --help, -h                       Muestra esta ayuda y sale con código 0',
 ].join('\n');
 
@@ -233,56 +251,82 @@ export function splitMarkdownSections(content: string): string[] {
   return sections;
 }
 
-function assertNoSymlinkSegmentsFromRoot(
-  rootDir: string,
-  targetPath: string,
-  label: string
-): fs.Stats | undefined {
-  const rel = path.relative(rootDir, targetPath);
-  let cur = rootDir;
-  let lastStat: fs.Stats | undefined;
-  for (const segment of rel.split(path.sep).filter(Boolean)) {
-    cur = path.join(cur, segment);
-    lastStat = fs.lstatSync(cur, { throwIfNoEntry: false });
-    if (lastStat?.isSymbolicLink()) {
-      throw new Error(`Symlink rechazado por seguridad en ${label}: ${cur}`);
-    }
-  }
-  return lastStat;
-}
-
-function ensureBackupFile(
-  projectPath: string,
-  relFilePath: string,
-  backupDir: string
-): void {
-  const srcFull = path.join(projectPath, relFilePath);
-  const srcStat = assertNoSymlinkSegmentsFromRoot(projectPath, srcFull, 'respaldo');
-  if (!srcStat?.isFile()) return;
-  const destFull = path.join(backupDir, relFilePath);
-  assertNoSymlinkSegmentsFromRoot(projectPath, destFull, LABEL_BACKUP_DEST);
-  fs.mkdirSync(path.dirname(destFull), { recursive: true, mode: 0o700 });
-  assertNoSymlinkSegmentsFromRoot(projectPath, destFull, LABEL_BACKUP_DEST);
-  fs.copyFileSync(srcFull, destFull);
-  fs.chmodSync(destFull, 0o600);
-}
-
 interface ReconcileRuleCtx {
   readonly fullPath: string;
   readonly relPath: string;
   readonly fileName: string;
   readonly dryRun: boolean;
+  readonly upstreamRepo: boolean;
   readonly projectPath: string;
   readonly backupDir: string;
   readonly extractedDomainBlocks: string[];
+  readonly advisories: string[];
 }
 
-function processNonCanonicalRuleFile(ctx: ReconcileRuleCtx): {
+interface FilteredSectionsSummary {
+  readonly kept: string[];
+  readonly removedCount: number;
+  readonly hybridCount: number;
+  readonly domainCount: number;
+}
+
+function accumulateSection(
+  sec: string,
+  isCanonicalFile: boolean,
+  acc: { kept: string[]; removedCount: number; hybridCount: number; domainCount: number }
+): void {
+  if (!sec.trim()) return;
+  const decision = classifySectionForPruning({
+    sectionText: sec,
+    isCanonicalFile,
+    isPromoted: isPromotedSection,
+    isCanonical: isCanonicalRuleSection,
+  });
+  if (decision === 'prune') {
+    acc.removedCount++;
+    return;
+  }
+  if (decision === 'hybrid_keep') acc.hybridCount++;
+  else acc.domainCount++;
+  acc.kept.push(sec);
+}
+
+function filterPromotedSectionsFromText(
+  text: string,
+  isCanonicalFile: boolean
+): FilteredSectionsSummary {
+  const acc = { kept: [] as string[], removedCount: 0, hybridCount: 0, domainCount: 0 };
+  for (const sec of splitMarkdownSections(text)) {
+    accumulateSection(sec, isCanonicalFile, acc);
+  }
+  const deduped = dedupeRepeatedHeadings(acc.kept);
+  return {
+    kept: deduped.kept,
+    removedCount: acc.removedCount + deduped.removedCount,
+    hybridCount: acc.hybridCount,
+    domainCount: acc.domainCount,
+  };
+}
+
+function processDomainRuleFile(ctx: ReconcileRuleCtx): {
   item: ReconciledRuleItem;
   removedCount: number;
   preservedCount: number;
 } {
-  if (ctx.fileName.startsWith(DOMAIN_PREFIX)) {
+  if (ctx.upstreamRepo) {
+    return {
+      item: {
+        file: ctx.relPath,
+        classification: 'DOMAIN_PRESERVED',
+        details: 'Archivo de dominio preservado en repositorio upstream.',
+      },
+      removedCount: 0,
+      preservedCount: 1,
+    };
+  }
+  const content = fs.readFileSync(ctx.fullPath, UTF8);
+  const filtered = filterPromotedSectionsFromText(content, false);
+  if (filtered.removedCount === 0 && filtered.hybridCount === 0) {
     return {
       item: {
         file: ctx.relPath,
@@ -293,35 +337,64 @@ function processNonCanonicalRuleFile(ctx: ReconcileRuleCtx): {
       preservedCount: 1,
     };
   }
+  if (filtered.removedCount > 0 && !ctx.dryRun) {
+    ensureBackupFile(ctx.projectPath, ctx.relPath, ctx.backupDir);
+    const updated = filtered.kept.length > 0 ? `${filtered.kept.join('\n\n').trimEnd()}\n` : '';
+    fs.writeFileSync(ctx.fullPath, updated, UTF8);
+  }
+  if (filtered.hybridCount > 0) {
+    const adv = `Secciones híbridas preservadas para revisión manual en ${ctx.relPath}.`;
+    ctx.advisories.push(adv);
+    return {
+      item: { file: ctx.relPath, classification: 'HYBRID_SECTION_REVIEW_RECOMMENDED', details: adv },
+      removedCount: filtered.removedCount,
+      preservedCount: Math.max(1, filtered.domainCount + filtered.hybridCount),
+    };
+  }
+  return {
+    item: {
+      file: ctx.relPath,
+      classification: 'REDUNDANT_PROMOTED_REMOVED',
+      details: `Podadas ${filtered.removedCount} sección(es) globales promovidas en ${ctx.relPath} preservando reglas de dominio.`,
+    },
+    removedCount: filtered.removedCount,
+    preservedCount: Math.max(1, filtered.domainCount),
+  };
+}
+
+function processNonCanonicalRuleFile(ctx: ReconcileRuleCtx): {
+  item: ReconciledRuleItem;
+  removedCount: number;
+  preservedCount: number;
+} {
+  if (ctx.fileName.startsWith(DOMAIN_PREFIX)) {
+    return processDomainRuleFile(ctx);
+  }
 
   const content = fs.readFileSync(ctx.fullPath, UTF8);
-  const sections = splitMarkdownSections(content);
-  const domainOnlySections: string[] = [];
-  let removedCount = 0;
-
-  for (const sec of sections) {
-    if (isPromotedSection(sec)) {
-      removedCount++;
-    } else if (sec.trim().length > 0) {
-      domainOnlySections.push(sec);
-    }
-  }
+  const filtered = filterPromotedSectionsFromText(content, false);
 
   if (!ctx.dryRun) {
     ensureBackupFile(ctx.projectPath, ctx.relPath, ctx.backupDir);
     fs.unlinkSync(ctx.fullPath);
   }
 
-  if (domainOnlySections.length > 0) {
-    ctx.extractedDomainBlocks.push(...domainOnlySections);
+  if (filtered.hybridCount > 0) {
+    ctx.advisories.push(
+      `Secciones híbridas extraídas a archivo de dominio desde ${ctx.relPath} (revisar separación).`
+    );
+  }
+
+  if (filtered.kept.length > 0) {
+    ctx.extractedDomainBlocks.push(...filtered.kept);
     return {
       item: {
         file: ctx.relPath,
         classification: 'DOMAIN_EXTRACTED_TO_DOMAIN_FILE',
-        details: `Eliminadas ${removedCount} sección(es) ya promovidas al estándar global y extraídas ${domainOnlySections.length} sección(es) de dominio.`,
+        details: `Eliminadas ${filtered.removedCount} sección(es) ya promovidas al estándar global y extraídas ${filtered.kept.length} sección(es) de dominio.`,
       },
-      removedCount,
-      preservedCount: domainOnlySections.length,
+      removedCount: filtered.removedCount,
+      preservedCount: filtered.kept.length,
     };
   }
 
@@ -329,119 +402,108 @@ function processNonCanonicalRuleFile(ctx: ReconcileRuleCtx): {
     item: {
       file: ctx.relPath,
       classification: 'REDUNDANT_PROMOTED_REMOVED',
-      details: `Archivo redundante eliminado (${removedCount} sección(es) ya forman parte de qa-testing-blueprints global).`,
+      details: `Archivo redundante eliminado (${filtered.removedCount} sección(es) ya forman parte de qa-testing-blueprints global).`,
     },
-    removedCount: Math.max(1, removedCount),
+    removedCount: Math.max(1, filtered.removedCount),
     preservedCount: 0,
   };
 }
 
-function filterPromotedSectionsFromText(text: string): { kept: string[]; removedCount: number } {
-  const sections = splitMarkdownSections(text);
-  const kept: string[] = [];
-  let removedCount = 0;
-  for (const sec of sections) {
-    if (isPromotedSection(sec)) {
-      removedCount++;
-    } else {
-      kept.push(sec);
-    }
+function splitAgentsConnectorWindow(content: string): {
+  preConnector: string;
+  connectorBlock: string;
+  postConnector: string;
+} {
+  const startIdx = content.indexOf(CONNECTOR_START_MARKER);
+  const endIdx = content.indexOf(CONNECTOR_END_MARKER);
+  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+    return {
+      preConnector: content.slice(0, startIdx),
+      connectorBlock: content.slice(startIdx, endIdx + CONNECTOR_END_MARKER.length),
+      postConnector: content.slice(endIdx + CONNECTOR_END_MARKER.length),
+    };
   }
-  return { kept, removedCount };
+  return { preConnector: content, connectorBlock: '', postConnector: '' };
+}
+
+function writeUpdatedAgentsMd(
+  agentsMdPath: string,
+  parts: { readonly pre: readonly string[]; readonly connector: string; readonly post: readonly string[] }
+): void {
+  const assembled: string[] = [];
+  if (parts.pre.length > 0) assembled.push(parts.pre.join('\n\n').trimEnd());
+  if (parts.connector) assembled.push(parts.connector.trim());
+  if (parts.post.length > 0) assembled.push(parts.post.join('\n\n').trim());
+  fs.writeFileSync(agentsMdPath, `${assembled.join('\n\n').trimEnd()}\n`, UTF8);
 }
 
 function cleanPromotedDuplicatesInAgentsMd(
   projectPath: string,
   dryRun: boolean,
   backupDir: string
-): { item: ReconciledRuleItem | null; removedCount: number } {
+): { items: ReconciledRuleItem[]; removedCount: number; advisories: string[] } {
   if (isUpstreamBlueprintsRepo(projectPath)) {
-    return { item: null, removedCount: 0 };
+    return { items: [], removedCount: 0, advisories: [] };
   }
   const agentsMdPath = path.join(projectPath, AGENTS_MD_FILENAME);
   const agentsStat = assertNoSymlinkSegmentsFromRoot(projectPath, agentsMdPath, AGENTS_MD_FILENAME);
-  if (!agentsStat) {
-    return { item: null, removedCount: 0 };
-  }
-  if (!agentsStat.isFile()) {
-    throw new Error(`Ruta no regular rechazada en ${AGENTS_MD_FILENAME}.`);
-  }
+  if (!agentsStat) return { items: [], removedCount: 0, advisories: [] };
+  if (!agentsStat.isFile()) throw new Error(`Ruta no regular rechazada en ${AGENTS_MD_FILENAME}.`);
 
   const content = fs.readFileSync(agentsMdPath, UTF8);
-  const startIdx = content.indexOf(CONNECTOR_START_MARKER);
-  const endIdx = content.indexOf(CONNECTOR_END_MARKER);
-
-  let preConnector = content;
-  let connectorBlock = '';
-  let postConnector = '';
-
-  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-    preConnector = content.slice(0, startIdx);
-    connectorBlock = content.slice(startIdx, endIdx + CONNECTOR_END_MARKER.length);
-    postConnector = content.slice(endIdx + CONNECTOR_END_MARKER.length);
-  }
-
-  const preRes = filterPromotedSectionsFromText(preConnector);
-  const postRes = filterPromotedSectionsFromText(postConnector);
+  const { preConnector, connectorBlock, postConnector } = splitAgentsConnectorWindow(content);
+  const preRes = filterPromotedSectionsFromText(preConnector, false);
+  const postRes = filterPromotedSectionsFromText(postConnector, false);
   const totalRemoved = preRes.removedCount + postRes.removedCount;
+  const totalHybrid = preRes.hybridCount + postRes.hybridCount;
 
-  if (totalRemoved === 0) {
-    return { item: null, removedCount: 0 };
-  }
-
-  if (!dryRun) {
+  if (totalRemoved > 0 && !dryRun) {
     ensureBackupFile(projectPath, AGENTS_MD_FILENAME, backupDir);
-    const assembledParts: string[] = [];
-    if (preRes.kept.length > 0) assembledParts.push(preRes.kept.join('\n\n').trimEnd());
-    if (connectorBlock) assembledParts.push(connectorBlock.trim());
-    if (postRes.kept.length > 0) assembledParts.push(postRes.kept.join('\n\n').trim());
-
-    fs.writeFileSync(agentsMdPath, assembledParts.join('\n\n').trimEnd() + '\n', UTF8);
+    writeUpdatedAgentsMd(agentsMdPath, { pre: preRes.kept, connector: connectorBlock, post: postRes.kept });
   }
 
-  return {
-    item: {
+  const items: ReconciledRuleItem[] = [];
+  const advisories: string[] = [];
+  if (totalRemoved > 0) {
+    items.push({
       file: AGENTS_MD_FILENAME,
       classification: 'REDUNDANT_PROMOTED_REMOVED',
       details: `Podadas ${totalRemoved} sección(es) duplicadas en AGENTS.md que ya residen en la skill global qa-11x-architect.`,
-    },
-    removedCount: totalRemoved,
-  };
+    });
+  }
+  if (totalHybrid > 0) {
+    const adv = `Preservada(s) ${totalHybrid} sección(es) híbrida(s) en AGENTS.md para revisión manual.`;
+    advisories.push(adv);
+    items.push({ file: AGENTS_MD_FILENAME, classification: 'HYBRID_SECTION_REVIEW_RECOMMENDED', details: adv });
+  }
+  return { items, removedCount: totalRemoved, advisories };
 }
 
-function processCanonicalRuleFileInConsumer(ctx: Omit<ReconcileRuleCtx, 'fileName'>): {
+function processCanonicalRuleFileInConsumer(
+  ctx: Pick<ReconcileRuleCtx, 'fullPath' | 'relPath' | 'dryRun' | 'projectPath' | 'backupDir' | 'extractedDomainBlocks'>
+): {
   item: ReconciledRuleItem;
   removedCount: number;
   preservedCount: number;
 } {
   const content = fs.readFileSync(ctx.fullPath, UTF8);
-  const sections = splitMarkdownSections(content);
-  const domainOnlySections: string[] = [];
-  let removedCount = 0;
-
-  for (const sec of sections) {
-    if (isPromotedSection(sec) || isCanonicalRuleSection(sec)) {
-      removedCount++;
-    } else if (sec.trim().length > 0) {
-      domainOnlySections.push(sec);
-    }
-  }
+  const filtered = filterPromotedSectionsFromText(content, true);
 
   if (!ctx.dryRun) {
     ensureBackupFile(ctx.projectPath, ctx.relPath, ctx.backupDir);
     fs.unlinkSync(ctx.fullPath);
   }
 
-  if (domainOnlySections.length > 0) {
-    ctx.extractedDomainBlocks.push(...domainOnlySections);
+  if (filtered.kept.length > 0) {
+    ctx.extractedDomainBlocks.push(...filtered.kept);
     return {
       item: {
         file: ctx.relPath,
         classification: 'DOMAIN_EXTRACTED_TO_DOMAIN_FILE',
-        details: `Archivo canónico global eliminado tras extraer ${domainOnlySections.length} sección(es) de dominio personalizada(s) y podar ${removedCount} sección(es) canónicas/promovidas.`,
+        details: `Archivo canónico global eliminado tras extraer ${filtered.kept.length} sección(es) de dominio personalizada(s) y podar ${filtered.removedCount} sección(es) canónicas/promovidas.`,
       },
-      removedCount: Math.max(1, removedCount),
-      preservedCount: domainOnlySections.length,
+      removedCount: Math.max(1, filtered.removedCount),
+      preservedCount: filtered.kept.length,
     };
   }
 
@@ -452,7 +514,7 @@ function processCanonicalRuleFileInConsumer(ctx: Omit<ReconcileRuleCtx, 'fileNam
       details:
         'Archivo canónico global respaldado en .agents/backups/ y eliminado de .agents/rules/ local (consumido desde la skill global).',
     },
-    removedCount: Math.max(1, removedCount),
+    removedCount: Math.max(1, filtered.removedCount),
     preservedCount: 0,
   };
 }
@@ -463,6 +525,7 @@ interface ReconcileRulesDirOpts {
   readonly dryRun: boolean;
   readonly backupDir: string;
   readonly extractedDomainBlocks: string[];
+  readonly advisories: string[];
 }
 
 function reconcileRulesDir(opts: ReconcileRulesDirOpts): {
@@ -522,9 +585,11 @@ function reconcileRulesDir(opts: ReconcileRulesDirOpts): {
       relPath,
       fileName,
       dryRun: opts.dryRun,
+      upstreamRepo,
       projectPath: opts.resolvedPath,
       backupDir: opts.backupDir,
       extractedDomainBlocks: opts.extractedDomainBlocks,
+      advisories: opts.advisories,
     });
     items.push(res.item);
     removed += res.removedCount;
@@ -532,21 +597,6 @@ function reconcileRulesDir(opts: ReconcileRulesDirOpts): {
   }
 
   return { items, removed, preserved };
-}
-
-function hardenBackupTreePermissions(targetPath: string): void {
-  const stat = fs.lstatSync(targetPath);
-  if (stat.isSymbolicLink()) return;
-  if (stat.isDirectory()) {
-    fs.chmodSync(targetPath, 0o700);
-    for (const child of fs.readdirSync(targetPath)) {
-      hardenBackupTreePermissions(path.join(targetPath, child));
-    }
-    return;
-  }
-  if (stat.isFile()) {
-    fs.chmodSync(targetPath, 0o600);
-  }
 }
 
 function reconcileSingleCanonicalSkill(opts: {
@@ -650,13 +700,60 @@ function persistExtractedDomainRules(args: PersistDomainRulesArgs): void {
 export function reconcileAgentsGovernance(options: {
   projectPath: string;
   dryRun?: boolean;
+  pruneBridges?: boolean;
 }): Promise<ReconcileAgentsResult> {
   return Promise.resolve().then(() => executeReconcileAgentsGovernance(options));
+}
+
+function runConsumerHygienePass(opts: {
+  readonly resolvedPath: string;
+  readonly dryRun: boolean;
+  readonly backupDir: string;
+  readonly pruneBridges: boolean;
+  readonly items: ReconciledRuleItem[];
+  readonly advisories: string[];
+}): {
+  removedCount: number;
+  consolidatedBackups: string[];
+  gitignoreAdded: string[];
+  bridgesProcessed: string[];
+  suggestedGitCommands: string[];
+} {
+  const shadow = reconcileMultiAgentShadowSkills(opts.resolvedPath, opts.dryRun, opts.backupDir);
+  const bridges = reconcileBridgeFiles(
+    opts.resolvedPath,
+    opts.dryRun,
+    opts.backupDir,
+    opts.pruneBridges
+  );
+  const scripts = reconcileMonorepoAndRetiredScripts(opts.resolvedPath, opts.dryRun, opts.backupDir);
+  const backups = consolidateLooseBackups(opts.resolvedPath, opts.dryRun, opts.backupDir);
+  const gitignore = ensureGitignoreHygiene(opts.resolvedPath, opts.dryRun);
+  const advisoryRes = collectReadOnlyAdvisories(opts.resolvedPath);
+
+  opts.items.push(
+    ...shadow.items,
+    ...bridges.items,
+    ...scripts.items,
+    ...backups.items,
+    ...(gitignore.item ? [gitignore.item] : []),
+    ...advisoryRes.items
+  );
+  opts.advisories.push(...advisoryRes.advisories);
+
+  return {
+    removedCount: shadow.removedCount + scripts.removedCount,
+    consolidatedBackups: backups.consolidatedBackups,
+    gitignoreAdded: gitignore.addedEntries,
+    bridgesProcessed: bridges.bridgesProcessed,
+    suggestedGitCommands: advisoryRes.suggestedGitCommands,
+  };
 }
 
 function executeReconcileAgentsGovernance(options: {
   projectPath: string;
   dryRun?: boolean;
+  pruneBridges?: boolean;
 }): ReconcileAgentsResult {
   const resolvedPath = resolveSafeProjectPath(options.projectPath);
   if (!fs.existsSync(resolvedPath) || !fs.statSync(resolvedPath).isDirectory()) {
@@ -664,6 +761,7 @@ function executeReconcileAgentsGovernance(options: {
   }
 
   const dryRun = options.dryRun ?? true;
+  const upstreamRepo = isUpstreamBlueprintsRepo(resolvedPath);
   const projectSlug =
     path
       .basename(resolvedPath)
@@ -684,12 +782,14 @@ function executeReconcileAgentsGovernance(options: {
   assertNoSymlinkSegmentsFromRoot(resolvedPath, backupDir, LABEL_BACKUP_DEST);
 
   const extractedDomainBlocks: string[] = [];
+  const advisories: string[] = [];
   const rulesSummary = reconcileRulesDir({
     resolvedPath,
     rulesDirPath,
     dryRun,
     backupDir,
     extractedDomainBlocks,
+    advisories,
   });
 
   const reconciledItems: ReconciledRuleItem[] = [...rulesSummary.items];
@@ -701,10 +801,27 @@ function executeReconcileAgentsGovernance(options: {
   totalRemoved += skillsSummary.removed;
 
   const agentsRes = cleanPromotedDuplicatesInAgentsMd(resolvedPath, dryRun, backupDir);
-  if (agentsRes.item) {
-    reconciledItems.push(agentsRes.item);
-    totalRemoved += agentsRes.removedCount;
-  }
+  reconciledItems.push(...agentsRes.items);
+  advisories.push(...agentsRes.advisories);
+  totalRemoved += agentsRes.removedCount;
+
+  const hygiene = upstreamRepo
+    ? {
+        removedCount: 0,
+        consolidatedBackups: [] as string[],
+        gitignoreAdded: [] as string[],
+        bridgesProcessed: [] as string[],
+        suggestedGitCommands: [] as string[],
+      }
+    : runConsumerHygienePass({
+        resolvedPath,
+        dryRun,
+        backupDir,
+        pruneBridges: options.pruneBridges ?? false,
+        items: reconciledItems,
+        advisories,
+      });
+  totalRemoved += hygiene.removedCount;
 
   let domainRulesFile: string | null = null;
   if (extractedDomainBlocks.length > 0) {
@@ -734,29 +851,41 @@ function executeReconcileAgentsGovernance(options: {
     removed_duplicate_sections_count: totalRemoved,
     preserved_domain_sections_count: totalPreserved,
     reconciled_items: reconciledItems,
+    ...(advisories.length > 0 ? { advisories } : {}),
+    ...(hygiene.consolidatedBackups.length > 0
+      ? { consolidated_backups: hygiene.consolidatedBackups }
+      : {}),
+    ...(hygiene.gitignoreAdded.length > 0
+      ? { gitignore_entries_added: hygiene.gitignoreAdded }
+      : {}),
+    ...(hygiene.bridgesProcessed.length > 0
+      ? { bridges_processed: hygiene.bridgesProcessed }
+      : {}),
+    ...(hygiene.suggestedGitCommands.length > 0
+      ? { suggested_git_commands: hygiene.suggestedGitCommands }
+      : {}),
   };
 }
 
-function readReconcilePathFlagValue(
+function readNamedFlagValue(
   args: readonly string[],
   index: number,
-  arg: string
+  arg: string,
+  flagNames: readonly string[]
 ): { value: string; step: number } | null {
-  for (const pathFlag of ['--project-path', '--dir', '-p']) {
-    if (arg.startsWith(`${pathFlag}=`)) {
-      const inlineValue = arg.slice(pathFlag.length + 1);
-      if (!inlineValue) {
-        throw new Error(`Falta el valor requerido para la opción '${pathFlag}'.`);
-      }
+  for (const flag of flagNames) {
+    if (arg.startsWith(`${flag}=`)) {
+      const inlineValue = arg.slice(flag.length + 1);
+      if (!inlineValue) throw new Error(`Falta el valor requerido para la opción '${flag}'.`);
       return { value: inlineValue, step: 0 };
     }
-  }
-  if (arg === '--project-path' || arg === '--dir' || arg === '-p') {
-    const nextValue = args[index + 1];
-    if (!nextValue || nextValue.startsWith('-')) {
-      throw new Error(`Falta el valor requerido para la opción '${arg}'.`);
+    if (arg === flag) {
+      const nextValue = args[index + 1];
+      if (!nextValue || nextValue.startsWith('-')) {
+        throw new Error(`Falta el valor requerido para la opción '${flag}'.`);
+      }
+      return { value: nextValue, step: 1 };
     }
-    return { value: nextValue, step: 1 };
   }
   return null;
 }
@@ -766,48 +895,116 @@ export interface ReconcileAgentsCliOptions {
   readonly log?: (message: string) => void;
 }
 
+export interface ParsedReconcileAgentsArgs {
+  readonly projectPath: string;
+  readonly dryRun: boolean;
+  readonly help: boolean;
+  readonly pruneBridges?: boolean;
+  readonly scanWorkspaces?: string;
+  readonly apply?: boolean;
+  readonly allowDirty?: boolean;
+  readonly json?: boolean;
+}
+
+interface MutableReconcileParseState {
+  projectPath: string;
+  hasPositionalDir: boolean;
+  dryRun: boolean;
+  help: boolean;
+  pruneBridges: boolean;
+  scanWorkspaces?: string;
+  apply: boolean;
+  allowDirty: boolean;
+  json: boolean;
+}
+
+const RECONCILE_BOOL_FLAGS: Readonly<Record<string, (s: MutableReconcileParseState) => void>> = {
+  '--help': (s) => {
+    s.help = true;
+  },
+  '-h': (s) => {
+    s.help = true;
+  },
+  '--dry-run': (s) => {
+    s.dryRun = true;
+  },
+  '--prune-bridges': (s) => {
+    s.pruneBridges = true;
+  },
+  '--apply': (s) => {
+    s.apply = true;
+  },
+  '--allow-dirty': (s) => {
+    s.allowDirty = true;
+  },
+  '--json': (s) => {
+    s.json = true;
+  },
+};
+
+function applyReconcileToken(
+  args: readonly string[],
+  index: number,
+  state: MutableReconcileParseState
+): number {
+  const arg = pickAt(args, index);
+  const boolHandler = RECONCILE_BOOL_FLAGS[arg];
+  if (boolHandler) {
+    boolHandler(state);
+    return 0;
+  }
+  const pathOpt = readNamedFlagValue(args, index, arg, ['--project-path', '--dir', '-p']);
+  if (pathOpt) {
+    state.projectPath = pathOpt.value;
+    return pathOpt.step;
+  }
+  const scanOpt = readNamedFlagValue(args, index, arg, ['--scan-workspaces']);
+  if (scanOpt) {
+    state.scanWorkspaces = scanOpt.value;
+    return scanOpt.step;
+  }
+  if (arg.startsWith('-')) {
+    throw new Error(
+      `Opción CLI desconocida en reconcile-agents: '${arg}'. Ejecuta con --help para ver las opciones válidas.`
+    );
+  }
+  if (state.hasPositionalDir) {
+    throw new Error(`Argumento posicional inesperado en reconcile-agents: '${arg}'.`);
+  }
+  state.projectPath = arg;
+  state.hasPositionalDir = true;
+  return 0;
+}
+
 export function parseReconcileAgentsArgs(
   args: readonly string[],
   defaultCwd: string = process.cwd()
-): {
-  projectPath: string;
-  dryRun: boolean;
-  help: boolean;
-} {
-  let projectPath = defaultCwd;
-  let hasPositionalDir = false;
-  let dryRun = false;
-  let help = false;
-
+): ParsedReconcileAgentsArgs {
+  const state: MutableReconcileParseState = {
+    projectPath: defaultCwd,
+    hasPositionalDir: false,
+    dryRun: false,
+    help: false,
+    pruneBridges: false,
+    apply: false,
+    allowDirty: false,
+    json: false,
+  };
   for (let i = 0; i < args.length; i++) {
-    const arg = pickAt(args, i);
-    if (arg === '--help' || arg === '-h') {
-      help = true;
-      continue;
-    }
-    if (arg === '--dry-run') {
-      dryRun = true;
-      continue;
-    }
-    const pathOpt = readReconcilePathFlagValue(args, i, arg);
-    if (pathOpt) {
-      projectPath = pathOpt.value;
-      i += pathOpt.step;
-      continue;
-    }
-    if (arg.startsWith('-')) {
-      throw new Error(
-        `Opción CLI desconocida en reconcile-agents: '${arg}'. Ejecuta con --help para ver las opciones válidas.`
-      );
-    }
-    if (hasPositionalDir) {
-      throw new Error(`Argumento posicional inesperado en reconcile-agents: '${arg}'.`);
-    }
-    projectPath = arg;
-    hasPositionalDir = true;
+    i += applyReconcileToken(args, i, state);
   }
-
-  return { projectPath: resolveCliProjectPath(projectPath, defaultCwd), dryRun, help };
+  return {
+    projectPath: resolveCliProjectPath(state.projectPath, defaultCwd),
+    dryRun: state.dryRun,
+    help: state.help,
+    ...(state.pruneBridges ? { pruneBridges: true } : {}),
+    ...(state.scanWorkspaces !== undefined
+      ? { scanWorkspaces: resolveCliProjectPath(state.scanWorkspaces, defaultCwd) }
+      : {}),
+    ...(state.apply ? { apply: true } : {}),
+    ...(state.allowDirty ? { allowDirty: true } : {}),
+    ...(state.json ? { json: true } : {}),
+  };
 }
 
 export async function runReconcileAgentsCli(
@@ -819,15 +1016,36 @@ export async function runReconcileAgentsCli(
     log(RECONCILE_AGENTS_HELP_TEXT);
     return;
   }
-  const { projectPath, dryRun } = parseReconcileAgentsArgs(args, options?.cwd ?? process.cwd());
-  const result = await reconcileAgentsGovernance({ projectPath, dryRun });
+  const parsed = parseReconcileAgentsArgs(args, options?.cwd ?? process.cwd());
+  if (parsed.scanWorkspaces !== undefined) {
+    await scanWorkspacesForReconcile({
+      rootDir: parsed.scanWorkspaces,
+      apply: Boolean(parsed.apply && !parsed.dryRun),
+      allowDirty: Boolean(parsed.allowDirty),
+      pruneBridges: Boolean(parsed.pruneBridges),
+      json: Boolean(parsed.json),
+      log,
+      deps: {
+        isUpstreamRepo: isUpstreamBlueprintsRepo,
+        reconcileRepo: reconcileAgentsGovernance,
+      },
+    });
+    return;
+  }
+  const result = await reconcileAgentsGovernance({
+    projectPath: parsed.projectPath,
+    dryRun: parsed.dryRun,
+    pruneBridges: parsed.pruneBridges,
+  });
+  if (parsed.json) {
+    log(JSON.stringify(result, null, 2));
+    return;
+  }
   log(
     `✔ [Reconcile 11X] ${result.removed_duplicate_sections_count} sección(es) duplicada(s) podada(s), ${result.preserved_domain_sections_count} sección(es) de dominio preservada(s).`
   );
-  if (result.domain_rules_file) {
-    log(`ℹ Reglas de dominio aisladas en: ${result.domain_rules_file}`);
-  }
-  if (result.backup_dir) {
-    log(`ℹ Respaldo creado en: ${result.backup_dir}`);
-  }
+  if (result.domain_rules_file) log(`ℹ Reglas de dominio aisladas en: ${result.domain_rules_file}`);
+  if (result.backup_dir) log(`ℹ Respaldo creado en: ${result.backup_dir}`);
+  for (const adv of result.advisories ?? []) log(`⚠️ ${adv}`);
+  for (const cmd of result.suggested_git_commands ?? []) log(`💡 Sugerido (solo lectura): ${cmd}`);
 }

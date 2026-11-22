@@ -1174,6 +1174,7 @@ function registerQaGovernanceTools(server: McpServer, fetcher: GitHubFetcher): v
         await reconcileAgentsGovernance({
           projectPath: safePath,
           dryRun: args.dry_run,
+          pruneBridges: args.prune_bridges,
         })
       );
     }

@@ -93,6 +93,7 @@ export interface ParsedCliArgs {
   readonly projectPath: string;
   readonly explicitProjectPath?: boolean;
   readonly lang: SupportedLang;
+  readonly explicitLang?: boolean;
   readonly agents?: AgentsTargetSpec;
   readonly target?: string;
   readonly tier?: QuickstartTier;
@@ -241,14 +242,27 @@ interface MutableParseState {
   rawLang?: string;
   rawAgents?: string;
   target?: string;
+  scanWorkspaces?: string;
   dryRun: boolean;
   initAgents: boolean;
   includeScripts: boolean;
   reconcile: boolean;
+  apply?: boolean;
+  pruneBridges?: boolean;
+  allowDirty?: boolean;
+  json?: boolean;
 }
 
-type ValueFlagField = 'rawLang' | 'rawAgents' | 'projectPath' | 'target';
-type BooleanFlagField = 'dryRun' | 'initAgents' | 'includeScripts' | 'reconcile';
+type ValueFlagField = 'rawLang' | 'rawAgents' | 'projectPath' | 'target' | 'scanWorkspaces';
+type BooleanFlagField =
+  | 'dryRun'
+  | 'initAgents'
+  | 'includeScripts'
+  | 'reconcile'
+  | 'apply'
+  | 'pruneBridges'
+  | 'allowDirty'
+  | 'json';
 
 const VALUE_FLAG_FIELDS: Readonly<Record<string, ValueFlagField>> = Object.freeze({
   [FLAG_LANG]: 'rawLang',
@@ -259,6 +273,7 @@ const VALUE_FLAG_FIELDS: Readonly<Record<string, ValueFlagField>> = Object.freez
   [FLAG_PROJECT_PATH_SHORT]: 'projectPath',
   [FLAG_TARGET]: 'target',
   [FLAG_TARGET_SHORT]: 'target',
+  '--scan-workspaces': 'scanWorkspaces',
 });
 
 const BOOLEAN_FLAG_FIELDS: Readonly<Record<string, BooleanFlagField>> = Object.freeze({
@@ -266,6 +281,10 @@ const BOOLEAN_FLAG_FIELDS: Readonly<Record<string, BooleanFlagField>> = Object.f
   [FLAG_INIT_AGENTS]: 'initAgents',
   [FLAG_INCLUDE_SCRIPTS]: 'includeScripts',
   [FLAG_RECONCILE]: 'reconcile',
+  '--apply': 'apply',
+  '--prune-bridges': 'pruneBridges',
+  '--allow-dirty': 'allowDirty',
+  [FLAG_JSON]: 'json',
 });
 
 type QuickstartValueFlagField = 'projectPath' | 'rawTier' | 'rawLang' | 'rawAgents' | 'rawCi';
@@ -339,7 +358,13 @@ function readMappedFlagValue<TField extends string>(
 const CLI_BOOLEAN_FLAGS_BY_CMD: Readonly<Record<CliCommandName, ReadonlySet<string>>> = Object.freeze({
   [CMD_INIT_AGENTS]: new Set([FLAG_DRY_RUN]),
   [CMD_INSTALL_SKILL]: new Set([FLAG_DRY_RUN, FLAG_INIT_AGENTS, FLAG_INCLUDE_SCRIPTS, FLAG_RECONCILE]),
-  [CMD_RECONCILE_AGENTS]: new Set([FLAG_DRY_RUN]),
+  [CMD_RECONCILE_AGENTS]: new Set([
+    FLAG_DRY_RUN,
+    '--apply',
+    '--prune-bridges',
+    '--allow-dirty',
+    FLAG_JSON,
+  ]),
   [CMD_QUICKSTART]: new Set([FLAG_DRY_RUN, FLAG_FORCE, FLAG_FORCE_SHORT, FLAG_JSON]),
   [CMD_TMS_SYNC]: new Set<string>(),
   [CMD_DOCTOR]: new Set<string>(),
@@ -375,7 +400,12 @@ const CLI_VALUE_FLAGS_BY_CMD: Readonly<Record<CliCommandName, ReadonlySet<string
     FLAG_PROJECT_PATH_SHORT,
     FLAG_DIR,
   ]),
-  [CMD_RECONCILE_AGENTS]: new Set([FLAG_PROJECT_PATH, FLAG_PROJECT_PATH_SHORT, FLAG_DIR]),
+  [CMD_RECONCILE_AGENTS]: new Set([
+    FLAG_PROJECT_PATH,
+    FLAG_PROJECT_PATH_SHORT,
+    FLAG_DIR,
+    '--scan-workspaces',
+  ]),
   [CMD_QUICKSTART]: new Set<string>(),
   [CMD_TMS_SYNC]: new Set<string>(),
   [CMD_DOCTOR]: new Set<string>(),
@@ -656,11 +686,14 @@ function buildFinalParsedArgs(
   state: MutableParseState,
   cwd: string
 ): ParsedCliArgs {
+  const rawLangInput = state.rawLang ?? process.env.QA_OUTPUT_LANG;
+  const explicitLang = rawLangInput !== undefined && rawLangInput !== 'undefined';
   return {
     command,
     projectPath: resolveRelativeToCwd(state.projectPath, cwd),
     explicitProjectPath: state.explicitProjectPath,
-    lang: validateSupportedLang(state.rawLang ?? process.env.QA_OUTPUT_LANG ?? 'auto'),
+    lang: validateSupportedLang(rawLangInput ?? 'auto'),
+    explicitLang,
     agents: state.rawAgents !== undefined ? parseAgentsOption(state.rawAgents) : undefined,
     target: state.target,
     dryRun: state.dryRun,
@@ -728,7 +761,9 @@ function buildInstallSkillForwardArgs(parsed: ParsedCliArgs): string[] {
   if (parsed.explicitProjectPath) {
     forwarded.push(FLAG_PROJECT_PATH, parsed.projectPath);
   }
-  forwarded.push(FLAG_LANG, parsed.lang);
+  if (parsed.explicitLang) {
+    forwarded.push(FLAG_LANG, parsed.lang);
+  }
   return forwarded;
 }
 
@@ -774,7 +809,7 @@ async function handleInstallSkillCommand(
   }
   const initResult = await initOrAppendAgentsMd({
     projectPath: parsed.projectPath,
-    lang: parsed.lang,
+    ...(parsed.explicitLang ? { lang: parsed.lang } : {}),
     agents: parsed.agents,
     dryRun: parsed.dryRun,
   });

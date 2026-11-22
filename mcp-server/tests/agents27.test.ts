@@ -129,7 +129,7 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
       expect(res.action).toBe('created');
       expect(res.bridged_agents).toEqual([]);
       expect(res.bridge_files).toEqual([]);
-      expect(res.content).toContain('OUTPUT LANGUAGE & HIGH-IQ TOKEN ECONOMY');
+      expect(res.content).toContain('Language Policy:');
       expect(res.content).toContain("user's prompt language");
       expect(res.content).toContain('QA-GIT-GATE-01');
       expect(res.content).not.toContain('Jesus Palencia');
@@ -141,7 +141,7 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
       const fallbackName = resolveProjectDisplayName('/');
       expect(fallbackName).toBe('Project');
       const emptyBlock = buildAgentsMdConnectorBlock(fallbackName, [], 'en');
-      expect(emptyBlock).toContain('This project (`Project`)');
+      expect(emptyBlock).toContain('Project `Project`');
       expect(emptyBlock).toContain('stacks: `general`');
       expect(emptyBlock).toContain('strictly in **English**');
 
@@ -516,12 +516,27 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
       const logSpyInstall = vi.spyOn(console, 'log').mockImplementation(() => undefined);
       try {
         await runCli(
-          ['install-skill', '-t=workspace', '-l=es', '--include-scripts', '-p', customTargetDir],
+          ['install-skill', '-t=workspace', '-l=es', '--include-scripts', '--init-agents', '-p', customTargetDir],
           { cwd: outsideDir, fetcher: localFetcher, log: vi.fn() }
         );
         expect(fs.existsSync(path.join(customTargetDir, '.agents/skills/qa-11x-architect/SKILL.md'))).toBe(true);
         expect(fs.existsSync(path.join(customTargetDir, 'scripts/demo.sh'))).toBe(true);
         expect(fs.existsSync(path.join(outsideDir, 'scripts/demo.sh'))).toBe(false);
+        expect(fs.readFileSync(path.join(customTargetDir, 'AGENTS.md'), 'utf8')).toContain(
+          'strictly in **Spanish**'
+        );
+
+        // Customize scripts/demo.sh locally & omit --lang -> must protect scripts/demo.sh (.11x-incoming) and keep Spanish AGENTS.md
+        fs.writeFileSync(path.join(customTargetDir, 'scripts', 'demo.sh'), '#!/bin/sh\necho custom\n', 'utf8');
+        await runCli(
+          ['install-skill', '-t=workspace', '--include-scripts', '--init-agents', '-p', customTargetDir],
+          { cwd: outsideDir, fetcher: localFetcher, log: vi.fn() }
+        );
+        expect(fs.readFileSync(path.join(customTargetDir, 'scripts', 'demo.sh'), 'utf8')).toContain('echo custom');
+        expect(fs.existsSync(path.join(customTargetDir, 'scripts', 'demo.sh.11x-incoming'))).toBe(true);
+        expect(fs.readFileSync(path.join(customTargetDir, 'AGENTS.md'), 'utf8')).toContain(
+          'strictly in **Spanish**'
+        );
 
         await runInstallSkillCli(
           ['-t=workspace', '-a=cursor', '-l=en', `-p=${customTargetDir}`, '--dry-run'],

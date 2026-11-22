@@ -310,3 +310,39 @@ EOF
   run grep -F "rm -fv cid_empty" "${fb_log}"
   assert_failure
 }
+
+@test "limpieza.sh: excluye docs/examples, borra *.11x-backup/*.11x-incoming en --deep y ejecuta hook local sin symlink" {
+  local d4_ws="${BATS_TEST_TMPDIR}/limp_d4_ws"
+  local d4_bin="${BATS_TEST_TMPDIR}/limp_d4_bin"
+  local d4_log="${BATS_TEST_TMPDIR}/limp_d4.log"
+  local fake_home="${BATS_TEST_TMPDIR}/limp_d4_home"
+  mkdir -p "${d4_ws}/scripts" "${d4_ws}/docs/examples/fastapi" "${d4_ws}/.agents" "${d4_bin}" "${fake_home}"
+  cp "${CLEAN_SCRIPT}" "${d4_ws}/scripts/limpieza.sh"
+  chmod +x "${d4_ws}/scripts/limpieza.sh"
+  printf 'services:\n  demo:\n    image: alpine\n' >"${d4_ws}/docs/examples/fastapi/docker-compose.qa.yml"
+  printf 'old\n' >"${d4_ws}/AGENTS.md.11x-backup"
+  printf 'new\n' >"${d4_ws}/scripts/limpieza.sh.11x-incoming"
+  printf 'printf "custom-hook-ran\\n" >"%s"\n' "${d4_ws}/.hook_ran" >"${d4_ws}/.agents/limpieza.local.sh"
+
+  cat >"${d4_bin}/docker" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>"${d4_log}"
+exit 0
+EOF
+  chmod +x "${d4_bin}/docker"
+
+  run env HOME="${fake_home}" TMPDIR="${BATS_TEST_TMPDIR}" PATH="${d4_bin}:/usr/bin:/bin" LC_ALL=C "${d4_ws}/scripts/limpieza.sh" --deep --quiet
+  assert_success
+  [ ! -f "${d4_ws}/AGENTS.md.11x-backup" ]
+  [ ! -f "${d4_ws}/scripts/limpieza.sh.11x-incoming" ]
+  [ -f "${d4_ws}/.hook_ran" ]
+  run grep -F "docs/examples" "${d4_log}"
+  assert_failure
+
+  rm -f "${d4_ws}/.hook_ran" "${d4_ws}/.agents/limpieza.local.sh"
+  printf 'printf "pwned"\n' >"${BATS_TEST_TMPDIR}/outside_hook.sh"
+  ln -s "${BATS_TEST_TMPDIR}/outside_hook.sh" "${d4_ws}/.agents/limpieza.local.sh"
+  run env HOME="${fake_home}" TMPDIR="${BATS_TEST_TMPDIR}" PATH="${d4_bin}:/usr/bin:/bin" LC_ALL=C "${d4_ws}/scripts/limpieza.sh" --quiet
+  assert_success
+  [ ! -f "${d4_ws}/.hook_ran" ]
+}

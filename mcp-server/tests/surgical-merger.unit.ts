@@ -1054,5 +1054,36 @@ qa-unit:
       expect(res.merged).not.toContain('missing-only:');
       expect(res.merged).toContain('empty-root:');
     });
+
+    it('preserves existing stacks and language when merging AGENTS.md via SurgicalMerger', async () => {
+      const projDir = path.join(tmpDir, 'preserve-agents-proj');
+      fs.mkdirSync(projDir, { recursive: true });
+      const existingAgents = [
+        '# Custom Project',
+        '<!-- QA_11X_MCP_CONNECTOR_START -->',
+        'Project `preserve-agents-proj` (stacks: `python, vue3`).',
+        'strictly in **Spanish**.',
+        '<!-- QA_11X_MCP_CONNECTOR_END -->',
+      ].join('\n');
+      fs.writeFileSync(path.join(projDir, 'AGENTS.md'), existingAgents, 'utf-8');
+
+      const merged = await merger.mergeFiles(
+        projDir,
+        [
+          {
+            path: 'AGENTS.md',
+            target_name: 'AGENTS.md',
+            merge_strategy: 'surgical_merge',
+            content: '# upstream\n',
+            sha256_verified: true,
+          },
+        ],
+        { dryRun: false }
+      );
+      expect(merged.applied_changes[0]?.status).toBe('merged');
+      const finalAgents = fs.readFileSync(path.join(projDir, 'AGENTS.md'), 'utf-8');
+      expect(finalAgents).toContain('`python, vue3`');
+      expect(finalAgents).toContain('strictly in **Spanish**');
+    });
   });
 });

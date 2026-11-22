@@ -7,12 +7,15 @@ import { hasHelpFlag, matchFlagValue } from './cliArgHelpers.js';
 import {
   CONNECTOR_START_MARKER,
   CONNECTOR_END_MARKER,
+  GLOBAL_CONNECTOR_TARGETS,
   buildLanguagePolicyLine,
   buildThinConnectorBlock,
   buildConnectorBlock,
+  buildGlobalConnectorBlock,
   buildGlobalGeminiBlock,
   mergeOrAppendAgentsMdContent,
   resolveProjectDisplayName,
+  syncGlobalAgentConnectors,
   syncGlobalGeminiMd,
 } from '../services/agents-connector.js';
 import {
@@ -31,13 +34,16 @@ import type {
 export {
   CONNECTOR_START_MARKER,
   CONNECTOR_END_MARKER,
+  GLOBAL_CONNECTOR_TARGETS,
   buildLanguagePolicyLine,
   buildThinConnectorBlock,
   buildConnectorBlock,
+  buildGlobalConnectorBlock,
   buildGlobalGeminiBlock,
   initOrAppendAgentsMd,
   mergeOrAppendAgentsMdContent,
   resolveProjectDisplayName,
+  syncGlobalAgentConnectors,
   syncGlobalGeminiMd,
 };
 
@@ -170,7 +176,7 @@ export function parseInitAgentsArgs(
 ): {
   projectPath: string;
   dryRun: boolean;
-  lang: OutputLanguageMode;
+  lang?: OutputLanguageMode;
   agents?: AgentsTargetSpec;
 } {
   const state: InitAgentsCliParseState = {
@@ -185,10 +191,11 @@ export function parseInitAgentsArgs(
     i += consumeInitAgentsToken(args, i, state);
   }
 
+  const hasExplicitLang = state.rawLang !== undefined && state.rawLang !== 'undefined';
   return {
     projectPath: resolveInitProjectPath(state.projectPath, defaultCwd),
     dryRun: state.dryRun,
-    lang: resolveLangOption(state.rawLang),
+    ...(hasExplicitLang ? { lang: resolveLangOption(state.rawLang) } : {}),
     ...(state.rawAgents !== undefined ? { agents: parseAgentsOption(state.rawAgents) } : {}),
   };
 }
@@ -245,12 +252,12 @@ export async function executeInitAgentsCli(
     return undefined;
   }
   const { projectPath, dryRun, lang, agents } = parseInitAgentsArgs(args, deps.cwd);
-  logInitAgentsBanner(log, deps.quietBanner, { projectPath, lang, dryRun });
+  logInitAgentsBanner(log, deps.quietBanner, { projectPath, lang: lang ?? 'auto', dryRun });
 
   const result = await initOrAppendAgentsMd({
     projectPath,
     dryRun,
-    lang,
+    ...(lang !== undefined ? { lang } : {}),
     ...(agents !== undefined ? { agents } : {}),
   });
 

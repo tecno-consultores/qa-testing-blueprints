@@ -54,7 +54,7 @@ import {
 import { parseCliArgs, runCli } from '../src/cli.js';
 import { dispatchCliArgs } from '../src/index.js';
 import { GitHubFetcher, MCP_SERVER_VERSION } from '../src/services/github-fetcher.js';
-import { writeVersionStamp } from '../src/services/version-manager.js';
+import { readVersionStampData, writeVersionStamp } from '../src/services/version-manager.js';
 
 function writeFile(targetPath: string, content: string): void {
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
@@ -762,6 +762,101 @@ describe('CLI Arg Helpers, Doctor & Upgrade Subcommands (QA-11X)', () => {
       expect(nonErrCatch.exitCode).toBe(1);
       expect(nonErrCatch.errorMessage).toBe('raw-string-error');
       expect(errLogs[0]).toContain('raw-string-error');
+    });
+
+    it('inspects 4 $HOME connectors, AGENTS.md budget, secret-safe IDE pinning, Antigravity split, and stamp drift in doctor', async () => {
+      const secretToken = 'mock-secret-env-token-never-print'; // qa-secret-fixture-ok
+      const diagHome = path.join(tmpRoot, 'diag-home');
+      const diagProj = path.join(tmpRoot, 'diag-proj');
+      fs.mkdirSync(path.join(diagHome, '.gemini', 'antigravity', 'skills', 'qa-11x-architect'), {
+        recursive: true,
+      });
+      fs.mkdirSync(path.join(diagHome, '.gemini', 'config'), { recursive: true });
+      fs.mkdirSync(path.join(diagHome, '.claude'), { recursive: true });
+      fs.mkdirSync(path.join(diagProj, '.agents'), { recursive: true });
+
+      fs.writeFileSync(
+        path.join(diagHome, '.gemini', 'GEMINI.md'),
+        `<!-- QA_11X_MCP_CONNECTOR_START -->\n${'x'.repeat(1600)}\n<!-- QA_11X_MCP_CONNECTOR_END -->\n`,
+        'utf-8'
+      );
+      fs.writeFileSync(
+        path.join(diagHome, '.gemini', 'antigravity', 'skills', 'qa-11x-architect', 'SKILL.md'),
+        '# A\n',
+        'utf-8'
+      );
+      fs.writeFileSync(
+        path.join(diagHome, '.gemini', 'antigravity', 'mcp_config.json'),
+        JSON.stringify({ mcpServers: { 'qa-11x': { command: 'npx', args: ['-y', '@sinfallas/mcp-qa-11x@latest'], env: { TOKEN: secretToken } } } }),
+        'utf-8'
+      );
+      fs.writeFileSync(
+        path.join(diagHome, '.gemini', 'config', 'mcp_config.json'),
+        '{"mcpServers":{}}',
+        'utf-8'
+      );
+      fs.writeFileSync(
+        path.join(diagHome, '.claude.json'),
+        JSON.stringify({
+          mcpServers: {
+            'other-mcp': { command: 'npx', args: [] },
+            'qa-11x-null': null,
+            'qa-11x-pinned': {
+              command: 'npx',
+              args: ['-y', `@sinfallas/mcp-qa-11x@${MCP_SERVER_VERSION}`],
+            },
+          },
+        }),
+        'utf-8'
+      );
+      fs.mkdirSync(path.join(diagHome, '.cursor'), { recursive: true });
+      fs.writeFileSync(
+        path.join(diagHome, '.cursor', 'mcp.json'),
+        '{ "mcpServers": { "qa-11x": invalid_json }',
+        'utf-8'
+      );
+      fs.writeFileSync(
+        path.join(diagProj, '.agents', '.qa-11x-version'),
+        JSON.stringify({ blueprint_version: '3.2.1', mcp_version: '3.1.0' }),
+        'utf-8'
+      );
+      fs.writeFileSync(
+        path.join(diagProj, 'AGENTS.md'),
+        '<!-- QA_11X_MCP_CONNECTOR_START -->\n# Proj\n<!-- QA_11X_MCP_CONNECTOR_END -->\n',
+        'utf-8'
+      );
+
+      const jsonDiag = await runDoctorCli([diagProj, '--offline', '--json'], {
+        cwd: diagProj,
+        homeDir: diagHome,
+        platform: 'linux',
+        dockerProbeFn: () => null,
+      });
+      const textDiag = await runDoctorCli([diagProj, '--offline'], {
+        cwd: diagProj,
+        homeDir: diagHome,
+        platform: 'linux',
+        dockerProbeFn: () => null,
+      });
+
+      expect(jsonDiag.output).not.toContain(secretToken);
+      expect(textDiag.output).not.toContain(secretToken);
+      const parsed = JSON.parse(jsonDiag.output) as DoctorReport;
+      expect(parsed.global_connectors).toHaveLength(4);
+      expect(parsed.global_connectors.find((c) => c.agent === 'antigravity')?.exceeds_budget).toBe(true);
+      expect(parsed.project_connector?.exists).toBe(true);
+      expect(parsed.ide_config_warnings.some((w) => w.includes('antigravity/ y config/'))).toBe(true);
+      expect(parsed.ide_config_warnings.some((w) => w.includes('@latest'))).toBe(true);
+      expect(parsed.stamp_drift_warnings.some((w) => w.includes('blueprint=3.2.1 != mcp=3.1.0'))).toBe(
+        true
+      );
+      expect(textDiag.output).toContain('Conectores globales $HOME:');
+      expect(textDiag.output).toContain('⚠️>1536B');
+
+      const badStampDir = path.join(tmpRoot, 'bad-stamp');
+      fs.mkdirSync(badStampDir, { recursive: true });
+      fs.writeFileSync(path.join(badStampDir, '.qa-11x-version'), '{corrupt json', 'utf-8');
+      expect(readVersionStampData(badStampDir)).toBeNull();
     });
   });
 });

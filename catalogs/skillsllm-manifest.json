@@ -118,8 +118,8 @@
       "name": "qa-11x-architect",
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-architect/SKILL.md",
-      "size_bytes": 11723,
-      "sha256": "f28706077f6bad5b7f66061803530637ce4e16485dcd7071c058f8648cc4ec58",
+      "size_bytes": 11851,
+      "sha256": "38ec491283c0955366c4101303819805826d43c252718c0ad4e5f24209939c91",
       "description": "Master QA 11X & DevSecOps Architect (qa-testing-blueprints v3.2+). Use whenever the user asks to initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md."
     },
     {

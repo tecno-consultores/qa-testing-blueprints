@@ -707,6 +707,29 @@ describe('Version Manager, .qa-11x-version Stamp, 24h TTL Fail-Open & Global Aut
         '# Custom without markers\n'
       );
 
+      // Even when SKILL.md SHA matches (updatedFilesCount === 0), existing marked connectors sync AND retired canonical skill files prune without touching custom vendor skills
+      const claudeDir = path.join(fakeHome, '.claude');
+      fs.mkdirSync(claudeDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(claudeDir, 'CLAUDE.md'),
+        '<!-- QA_11X_MCP_CONNECTOR_START -->\nStale old connector\n<!-- QA_11X_MCP_CONNECTOR_END -->\n',
+        'utf-8'
+      );
+      const retiredSub = path.join(geminiSkillsDir, 'qa-11x-architect', 'retired-dir');
+      fs.mkdirSync(retiredSub, { recursive: true });
+      fs.writeFileSync(path.join(retiredSub, 'obsolete.md'), '# Retired\n', 'utf-8');
+      const vendorSkill = path.join(geminiSkillsDir, 'custom-vendor-skill', 'SKILL.md');
+      fs.mkdirSync(path.dirname(vendorSkill), { recursive: true });
+      fs.writeFileSync(vendorSkill, '# Custom Vendor\n', 'utf-8');
+
+      const pruneSync = await syncGlobalSkillsInBackground({ homeDir: fakeHome, fetcher, onLog: () => {} });
+      expect(pruneSync.synced).toBe(true);
+      expect(fs.existsSync(retiredSub)).toBe(false);
+      expect(fs.existsSync(vendorSkill)).toBe(true);
+      expect(fs.readFileSync(path.join(claudeDir, 'CLAUDE.md'), 'utf-8')).toContain(
+        'Objective Technical Critique'
+      );
+
       // Timeout + external AbortSignal fail-open inside resolveLatestPublishedVersion & onLog catch reporting
       const hangFetcher = {
         getCacheDir: () => path.join(tmpRoot, 'hang-cache'),

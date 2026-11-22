@@ -1043,15 +1043,22 @@ describe('Tools and Resources Integration Suite', () => {
         // --include-scripts no debe copiar las 8 reglas canónicas .agents/rules/*.md dentro del proyecto consumidor
         expect(fs.existsSync(path.join(testDir, '.agents/rules'))).toBe(false);
 
-        // Segunda ejecución con ACTIVE_TASK.md ya existente y script modificado: preserva ACTIVE_TASK.md y crea .bak del script
+        // Segunda ejecución idempotente sin cambios locales en scripts/* (no genera .11x-incoming)
+        await runInstallSkillCli(['--target', 'workspace', '--include-scripts'], fetcher);
+        expect(fs.existsSync(path.join(testDir, 'scripts/limpieza.sh.11x-incoming'))).toBe(false);
+
+        // Tercera ejecución con ACTIVE_TASK.md ya existente y script modificado: preserva script custom y emite .11x-incoming (D4)
         fs.writeFileSync(path.join(testDir, '.agents/ACTIVE_TASK.md'), '# Diario En Progreso', 'utf-8');
         fs.writeFileSync(path.join(testDir, 'scripts/limpieza.sh'), '#!/usr/bin/env bash\necho "custom"\n', 'utf-8');
         await runInstallSkillCli(['--target', 'workspace', '--include-scripts'], fetcher);
         expect(fs.readFileSync(path.join(testDir, '.agents/ACTIVE_TASK.md'), 'utf-8')).toBe(
           '# Diario En Progreso'
         );
-        expect(fs.existsSync(path.join(testDir, 'scripts/limpieza.sh.bak'))).toBe(true);
-        expect(fs.readFileSync(path.join(testDir, 'scripts/limpieza.sh.bak'), 'utf-8')).toContain('custom');
+        expect(fs.readFileSync(path.join(testDir, 'scripts/limpieza.sh'), 'utf-8')).toContain('custom');
+        expect(fs.existsSync(path.join(testDir, 'scripts/limpieza.sh.11x-incoming'))).toBe(true);
+        expect(
+          fs.readFileSync(path.join(testDir, 'scripts/limpieza.sh.11x-incoming'), 'utf-8')
+        ).toContain('cleaning');
 
         // Probar rama cuando no hay scripts comunes ni de agentes
         const emptyScriptsFetcher = new GitHubFetcher({ cacheDir: path.join(tmpDir, 'empty-scripts-cache') });
@@ -1579,9 +1586,12 @@ describe('Tools and Resources Integration Suite', () => {
       const dummyRelease = path.join(targetProjectDir, 'release-readiness.json');
       const dummyDsStore = path.join(targetProjectDir, '.DS_Store');
       const dummyRootActive = path.join(targetProjectDir, 'ACTIVE_TASK.md');
+      const dummyLooseBak = path.join(targetProjectDir, 'AGENTS.md.bak');
+      const dummyIncoming = path.join(targetProjectDir, 'scripts', 'limpieza.sh.11x-incoming');
       const validAgentsActive = path.join(targetProjectDir, '.agents', 'ACTIVE_TASK.md');
       const dummyEvidence = path.join(targetProjectDir, '.agents', '.qa-evidence.json');
       const validCheckpoint = path.join(targetProjectDir, '.agents', '.cache', 'session_checkpoint.json');
+      const validBackupTree = path.join(targetProjectDir, '.agents', 'backups', 'keep.bak');
       const dummyCovCache = path.join(targetProjectDir, '.agents', '.cache', 'coverage');
       fs.writeFileSync(dummyCoverage, 'cov');
       fs.mkdirSync(dummySubdir, { recursive: true });
@@ -1589,9 +1599,14 @@ describe('Tools and Resources Integration Suite', () => {
       fs.mkdirSync(dummyDeepeval, { recursive: true });
       fs.mkdirSync(dummyPromptfoo, { recursive: true });
       fs.mkdirSync(dummyCovCache, { recursive: true });
+      fs.mkdirSync(path.join(targetProjectDir, 'scripts'), { recursive: true });
+      fs.mkdirSync(path.join(targetProjectDir, '.agents', 'backups'), { recursive: true });
       fs.writeFileSync(dummyRelease, '{}');
       fs.writeFileSync(dummyDsStore, 'mac');
       fs.writeFileSync(dummyRootActive, '# misplaced');
+      fs.writeFileSync(dummyLooseBak, 'old\n');
+      fs.writeFileSync(dummyIncoming, 'new\n');
+      fs.writeFileSync(validBackupTree, 'keep\n');
       fs.writeFileSync(validAgentsActive, '# valid');
       fs.writeFileSync(dummyEvidence, '{}');
       fs.writeFileSync(validCheckpoint, '{"status":"IN_PROGRESS"}');
@@ -1611,13 +1626,21 @@ describe('Tools and Resources Integration Suite', () => {
       expect(fs.existsSync(dummyEvidence)).toBe(true);
       expect(fs.existsSync(validAgentsActive)).toBe(true);
       expect(fs.existsSync(validCheckpoint)).toBe(true);
+      expect(fs.existsSync(validBackupTree)).toBe(true);
 
       const res = await cleanWorkspace11x(targetProjectDir, false, true);
       expect(res.dry_run).toBe(false);
       expect(res.deep_prune).toBe(true);
       expect(res.removed_targets).toContain('.agents/.qa-evidence.json');
       expect(res.removed_targets).toContain('.agents/.cache');
+      expect(res.removed_targets).toContain('.agents/backups');
+      expect(res.removed_targets).not.toContain(path.join('.agents', 'backups', 'keep.bak'));
+      expect(res.removed_targets).toContain('AGENTS.md.bak');
+      expect(res.removed_targets).toContain(path.join('scripts', 'limpieza.sh.11x-incoming'));
       expect(res.recommended_command).toBe('./scripts/limpieza.sh --deep');
+      expect(fs.existsSync(dummyLooseBak)).toBe(false);
+      expect(fs.existsSync(dummyIncoming)).toBe(false);
+      expect(fs.existsSync(validBackupTree)).toBe(false);
 
       expect(fs.existsSync(dummyCoverage)).toBe(false);
       expect(fs.existsSync(dummySubdir)).toBe(false);

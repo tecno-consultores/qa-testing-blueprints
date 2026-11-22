@@ -18,6 +18,8 @@ import {
   CANONICAL_GLOBAL_SKILL_DIRS,
   PROMOTED_INVARIANT_FINGERPRINTS,
 } from '../src/cli/reconcile-agents.js';
+import { isGitWorktreeDirty } from '../src/cli/reconcile/repoHygiene.js';
+import { dedupeRepeatedHeadings } from '../src/cli/reconcile/sectionPruner.js';
 import { runCli } from '../src/cli.js';
 import { syncGlobalGeminiMd, buildConnectorBlock } from '../src/cli/init-agents-md.js';
 import { certify11xGate } from '../src/tools/certify-gate.js';
@@ -688,6 +690,239 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
       expect(fs.existsSync(path.join(outsideAgents, 'skills', 'qa-11x-architect', 'SKILL.md'))).toBe(true);
       expect(fs.existsSync(path.join(outsideAgents, 'rules', 'custom.md'))).toBe(true);
       expect(fs.existsSync(path.join(outsideAgents, 'backups'))).toBe(false);
+    });
+
+    it('v2: conservative AGENTS.md & domain_* pruning, bridge prune/preserve, shadow skills, loose backups, .gitignore, advisories & --scan-workspaces', async () => {
+      const { execFileSync } = await import('node:child_process');
+      const wsRoot = path.join(tmpDir, 'workspaces-root');
+      const repoClean = path.join(wsRoot, 'clean-consumer');
+      const repoDirty = path.join(wsRoot, 'dirty-consumer');
+      const upstreamRepo = path.join(wsRoot, 'qa-testing-blueprints-mirror');
+
+      // 1. Clean consumer with rich legacy clutter
+      fs.mkdirSync(path.join(repoClean, '.agents', 'rules'), { recursive: true });
+      fs.mkdirSync(path.join(repoClean, '.claude', 'skills', 'qa-11x-architect'), { recursive: true });
+      fs.mkdirSync(path.join(repoClean, '.claude', 'skills', 'custom-vendor'), { recursive: true });
+      fs.mkdirSync(path.join(repoClean, '.cursor', 'rules'), { recursive: true });
+      await fs.promises.mkdir(path.join(repoClean, '.codex', 'skills', 'qa-11x-architect'), {
+        recursive: true,
+      });
+      await fs.promises.writeFile(
+        path.join(repoClean, '.codex', 'skills', 'qa-11x-architect', 'SKILL.md'),
+        '# Canonical copy in codex\n',
+        'utf-8'
+      );
+      fs.mkdirSync(path.join(repoClean, 'scripts'), { recursive: true });
+      fs.mkdirSync(path.join(repoClean, 'docs', 'examples', 'python'), { recursive: true });
+      fs.writeFileSync(
+        path.join(repoClean, '.claude', 'skills', 'qa-11x-architect', 'SKILL.md'),
+        '# Canonical copy\n',
+        'utf-8'
+      );
+      fs.writeFileSync(
+        path.join(repoClean, '.claude', 'skills', 'custom-vendor', 'SKILL.md'),
+        '# Keep custom vendor skill\n',
+        'utf-8'
+      );
+      fs.writeFileSync(path.join(repoClean, 'scripts', 'install-skill.sh'), '#!/bin/sh\n', 'utf-8');
+      fs.writeFileSync(path.join(repoClean, '.agents', 'README.md'), '# Stale ref\n', 'utf-8');
+      fs.writeFileSync(path.join(repoClean, 'AGENTS.md.bak'), 'old\n', 'utf-8');
+      fs.writeFileSync(path.join(repoClean, '.agents', 'rule.11x-backup'), 'old\n', 'utf-8');
+      fs.writeFileSync(path.join(repoClean, 'scripts', 'limpieza.sh.11x-incoming'), 'new\n', 'utf-8');
+      fs.writeFileSync(
+        path.join(repoClean, 'CLAUDE.md'),
+        '<!-- QA_11X_BRIDGE_START -->\n# Old bridge\n<!-- QA_11X_BRIDGE_END -->\n',
+        'utf-8'
+      );
+      fs.writeFileSync(
+        path.join(repoClean, '.cursor', 'rules', 'qa-11x.mdc'),
+        '---\ndescription: test\nglobs: "**/*"\nalwaysApply: true\n---\n\n<!-- QA_11X_BRIDGE_START -->\n# Old\n<!-- QA_11X_BRIDGE_END -->\n\n# Custom Cursor Rule\nKeep me.\n',
+        'utf-8'
+      );
+      fs.writeFileSync(
+        path.join(repoClean, '.aider.conf.yml'),
+        '# User aider config\n# QA_11X_BRIDGE_START\nread:\n  - OLD.md\n# QA_11X_BRIDGE_END\n',
+        'utf-8'
+      );
+      fs.writeFileSync(
+        path.join(repoClean, '.windsurfrules'),
+        '<!-- QA_11X_MCP_CONNECTOR_START -->\n# Legacy connector bridge\n<!-- QA_11X_MCP_CONNECTOR_END -->\n# User Windsurf Rule\n',
+        'utf-8'
+      );
+      fs.writeFileSync(path.join(repoClean, '.clinerules'), '# Plain custom cline rules without bridge markers\n', 'utf-8');
+      fs.writeFileSync(
+        path.join(repoClean, '.agents', 'rules', 'domain_clean_rules.md'),
+        [
+          '# Domain Rules',
+          '## Invariante Anti-Silo',
+          'Regla global pura sin rutas locales.',
+          '## Hybrid Check',
+          'Aplica Rule Zero y SILO MOCK BLINDNESS en backend/app/billing.py.',
+          '## Billing Domain',
+          'Regla de dominio pura.',
+          '## Billing Domain',
+          'Regla de dominio pura.',
+        ].join('\n\n'),
+        'utf-8'
+      );
+      fs.writeFileSync(
+        path.join(repoClean, '.agents', 'rules', 'domain_pure_prune_rules.md'),
+        [
+          '## High-IQ Token Economy Duplicate',
+          'Generic promoted guidance.',
+          '## Tenant Storage Isolation',
+          'Keep S3 prefix strict per tenant in src/storage/s3.ts.',
+        ].join('\n\n'),
+        'utf-8'
+      );
+      fs.writeFileSync(
+        path.join(repoClean, '.agents', 'rules', 'legacy_mixed_notes.md'),
+        [
+          'Headerless duplicate note.',
+          'Headerless duplicate note.',
+          '## Hybrid Legacy Rule',
+          'Enforce Graphify AST-First inside backend/services/auth.py.',
+        ].join('\n\n'),
+        'utf-8'
+      );
+      fs.writeFileSync(
+        path.join(repoClean, 'AGENTS.md'),
+        [
+          '# AGENTS',
+          buildConnectorBlock('clean-consumer', ['python']),
+          '## High-IQ Token Economy Duplicate',
+          'Duplicate generic text.',
+          '## Mixed Agent Gate',
+          'Follow Graphify AST-First in src/orders/service.ts.',
+        ].join('\n\n'),
+        'utf-8'
+      );
+      fs.writeFileSync(path.join(repoClean, '.gitignore'), 'node_modules/\n', 'utf-8');
+      fs.writeFileSync(path.join(repoClean, '.agents', 'ACTIVE_TASK.md'), 'Status\n', 'utf-8');
+
+      execFileSync('git', ['init'], { cwd: repoClean, stdio: 'ignore' });
+      execFileSync('git', ['config', 'user.email', 'qa@example.com'], { cwd: repoClean, stdio: 'ignore' });
+      execFileSync('git', ['config', 'user.name', 'QA'], { cwd: repoClean, stdio: 'ignore' });
+      execFileSync('git', ['add', '.'], { cwd: repoClean, stdio: 'ignore' });
+      execFileSync('git', ['commit', '-m', 'init'], { cwd: repoClean, stdio: 'ignore' });
+
+      // 2. Dirty git consumer
+      fs.mkdirSync(path.join(repoDirty, '.agents'), { recursive: true });
+      fs.writeFileSync(path.join(repoDirty, 'AGENTS.md'), '# Dirty\n## Silo Mock Blindness\ndup\n', 'utf-8');
+      execFileSync('git', ['init'], { cwd: repoDirty, stdio: 'ignore' });
+      execFileSync('git', ['config', 'user.email', 'qa@example.com'], { cwd: repoDirty, stdio: 'ignore' });
+      execFileSync('git', ['config', 'user.name', 'QA'], { cwd: repoDirty, stdio: 'ignore' });
+      execFileSync('git', ['add', '.'], { cwd: repoDirty, stdio: 'ignore' });
+      execFileSync('git', ['commit', '-m', 'init'], { cwd: repoDirty, stdio: 'ignore' });
+      fs.writeFileSync(path.join(repoDirty, 'uncommitted.txt'), 'dirty\n', 'utf-8');
+
+      // 3. Upstream repo mirror (must be UPSTREAM_SKIPPED; also verifies upstream domain_* preservation)
+      fs.mkdirSync(path.join(upstreamRepo, 'scripts'), { recursive: true });
+      fs.mkdirSync(path.join(upstreamRepo, '.agents', 'rules'), { recursive: true });
+      fs.writeFileSync(path.join(upstreamRepo, 'scripts', 'generar-manifiesto.py'), '# up\n', 'utf-8');
+      fs.writeFileSync(path.join(upstreamRepo, 'manifest.json'), '{}', 'utf-8');
+      fs.writeFileSync(path.join(upstreamRepo, 'AGENTS.md'), '# Upstream\n', 'utf-8');
+      fs.writeFileSync(
+        path.join(upstreamRepo, '.agents', 'rules', 'domain_upstream_rules.md'),
+        '# Upstream domain\n',
+        'utf-8'
+      );
+      const upstreamRes = await reconcileAgentsGovernance({ projectPath: upstreamRepo, dryRun: true });
+      expect(
+        upstreamRes.reconciled_items.some(
+          (i) => i.file.endsWith('domain_upstream_rules.md') && i.classification === 'DOMAIN_PRESERVED'
+        )
+      ).toBe(true);
+
+      // Default scan-workspaces is read-only DRY-RUN
+      const dryLogs: string[] = [];
+      await runReconcileAgentsCli(['--scan-workspaces', wsRoot], { log: (m) => dryLogs.push(m) });
+      expect(dryLogs.join('\n')).toContain('DRY_RUN');
+      expect(dryLogs.join('\n')).toContain('UPSTREAM_SKIPPED');
+      expect(fs.existsSync(path.join(repoClean, 'scripts', 'install-skill.sh'))).toBe(true);
+
+      // --apply without --allow-dirty reconciles repoClean & skips repoDirty
+      const applyLogs: string[] = [];
+      await runReconcileAgentsCli(
+        ['--scan-workspaces', wsRoot, '--apply', '--prune-bridges'],
+        { log: (m) => applyLogs.push(m) }
+      );
+      expect(applyLogs.join('\n')).toContain('RECONCILED');
+      expect(applyLogs.join('\n')).toContain('DIRTY_SKIPPED');
+      expect(fs.existsSync(path.join(repoDirty, 'uncommitted.txt'))).toBe(true);
+      expect(fs.readFileSync(path.join(repoDirty, 'AGENTS.md'), 'utf-8')).toContain('Silo Mock Blindness');
+
+      // Verify clean-consumer changes
+      expect(fs.existsSync(path.join(repoClean, 'CLAUDE.md'))).toBe(false);
+      expect(fs.readFileSync(path.join(repoClean, '.cursor', 'rules', 'qa-11x.mdc'), 'utf-8')).toContain(
+        'Custom Cursor Rule'
+      );
+      expect(fs.existsSync(path.join(repoClean, 'scripts', 'install-skill.sh'))).toBe(false);
+      expect(fs.existsSync(path.join(repoClean, 'AGENTS.md.bak'))).toBe(false);
+      expect(fs.existsSync(path.join(repoClean, '.claude', 'skills', 'qa-11x-architect'))).toBe(false);
+      expect(fs.existsSync(path.join(repoClean, '.claude', 'skills', 'custom-vendor', 'SKILL.md'))).toBe(
+        true
+      );
+      expect(fs.existsSync(path.join(repoClean, 'docs', 'examples', 'python'))).toBe(true);
+      const cleanDomain = fs.readFileSync(
+        path.join(repoClean, '.agents', 'rules', 'domain_clean_rules.md'),
+        'utf-8'
+      );
+      expect(cleanDomain).not.toContain('Regla global pura');
+      expect(cleanDomain).toContain('Hybrid Check');
+      expect(cleanDomain.match(/## Billing Domain/g)).toHaveLength(1);
+      expect(fs.existsSync(path.join(repoClean, '.codex', 'skills'))).toBe(false);
+      expect(
+        fs.readFileSync(path.join(repoClean, '.agents', 'rules', 'domain_pure_prune_rules.md'), 'utf-8')
+      ).not.toContain('High-IQ Token Economy Duplicate');
+      expect(fs.readFileSync(path.join(repoClean, '.aider.conf.yml'), 'utf-8')).toContain(
+        '# QA_11X_BRIDGE_START'
+      );
+      expect(dedupeRepeatedHeadings(['Headerless note', 'Headerless note'])).toEqual({
+        kept: ['Headerless note', 'Headerless note'],
+        removedCount: 0,
+      });
+      expect(fs.readFileSync(path.join(repoClean, '.windsurfrules'), 'utf-8')).toContain(
+        '# User Windsurf Rule'
+      );
+      expect(fs.readFileSync(path.join(repoClean, '.gitignore'), 'utf-8')).toContain('graphify-out/');
+
+      // --allow-dirty + --json reconciles repoDirty too; single-repo --json verifies advisories & suggested git rm --cached
+      const unreadableDir = path.join(wsRoot, 'unreadable-ws');
+      fs.mkdirSync(unreadableDir, { recursive: true });
+      fs.chmodSync(unreadableDir, 0o000);
+      const dirtyJsonLogs: string[] = [];
+      try {
+        await runReconcileAgentsCli(
+          ['--scan-workspaces', wsRoot, '--apply', '--allow-dirty', '--json'],
+          { log: (m) => dirtyJsonLogs.push(m) }
+        );
+      } finally {
+        fs.chmodSync(unreadableDir, 0o700);
+      }
+      expect(dirtyJsonLogs[0]).toContain('"RECONCILED"');
+      expect(fs.readFileSync(path.join(repoDirty, 'AGENTS.md'), 'utf-8')).not.toContain(
+        'Silo Mock Blindness'
+      );
+      expect(
+        isGitWorktreeDirty(repoClean, () => {
+          throw new Error('git unavailable');
+        })
+      ).toBe(false);
+      await expect(
+        runReconcileAgentsCli(['--scan-workspaces', path.join(tmpDir, 'does-not-exist')])
+      ).rejects.toThrow('Directorio raíz de workspaces inválido');
+
+      const singleJsonLogs: string[] = [];
+      await runReconcileAgentsCli([repoClean, '--dry-run', '--json'], {
+        log: (m) => singleJsonLogs.push(m),
+      });
+      const singleParsed = JSON.parse(singleJsonLogs[0] ?? '{}') as {
+        advisories?: string[];
+        suggested_git_commands?: string[];
+      };
+      expect(singleParsed.advisories?.some((a) => a.includes('docs/examples'))).toBe(true);
+      expect(singleParsed.suggested_git_commands?.[0]).toContain('git rm --cached');
     });
   });
 });

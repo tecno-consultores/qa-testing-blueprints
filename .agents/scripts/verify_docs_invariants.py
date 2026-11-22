@@ -37,12 +37,51 @@ ARCHITECT_SKILL_MAX_BYTES: int = int(_BUDGETS.ARCHITECT_SKILL_MAX_BYTES)
 TACTICAL_SKILL_MAX_BYTES: int = int(_BUDGETS.TACTICAL_SKILL_MAX_BYTES)
 ACTIVE_TASK_MAX_LINES: int = int(_BUDGETS.ACTIVE_TASK_MAX_LINES)
 ACTIVE_TASK_RULE_MAX_LINES: int = int(_BUDGETS.ACTIVE_TASK_RULE_MAX_LINES)
+REPO_AGENTS_MD_MAX_BYTES: int = int(_BUDGETS.REPO_AGENTS_MD_MAX_BYTES)
+GLOBAL_CONNECTOR_MAX_BYTES: int = int(_BUDGETS.GLOBAL_CONNECTOR_MAX_BYTES)
+PROJECT_CONNECTOR_MAX_BYTES: int = int(_BUDGETS.PROJECT_CONNECTOR_MAX_BYTES)
+
+CONNECTOR_START_MARKER = "<!-- QA_11X_MCP_CONNECTOR_START -->"
+CONNECTOR_END_MARKER = "<!-- QA_11X_MCP_CONNECTOR_END -->"
+
+CANONICAL_GLOBAL_RULE_FILES: frozenset[str] = frozenset({
+    "mandatory_qa_pyramid_and_doc_sync.md",
+    "secure_development_and_testing_guidelines.md",
+    "frontend_parity_and_closure.md",
+    "continuous_agent_evolution.md",
+    "anti_regression_and_side_effects_guardrail.md",
+    "ground_truth_fixtures_and_negative_invariants.md",
+    "active_task_and_planning_resilience.md",
+    "git_closure_gate.md",
+})
+
+CANONICAL_GLOBAL_SKILL_DIRS: frozenset[str] = frozenset({
+    "qa-11x-architect",
+    "qa-11x-docker-certifier",
+    "docker-trivy-keydb-hardening",
+    "graphify-ast-navigator",
+    "refactoring-ui",
+    "qa-11x-devsecops-hardener",
+    "qa-11x-systematic-debugging",
+    "qa-11x-screenplay-builder",
+    "qa-11x-llm-evaluator",
+    "qa-11x-vibe-rescue",
+    "tactical-patterns-11x",
+})
 
 MAX_SKILL_MD_BYTES = SKILL_MAX_BYTES
 MAX_ARCHITECT_SKILL_BYTES = ARCHITECT_SKILL_MAX_BYTES
 MAX_TACTICAL_SKILL_BYTES = TACTICAL_SKILL_MAX_BYTES
 MAX_ACTIVE_TASK_LINES = ACTIVE_TASK_MAX_LINES
 MAX_ACTIVE_TASK_RULE_LINES = ACTIVE_TASK_RULE_MAX_LINES
+
+
+def is_upstream_blueprints_repo(root: Path) -> bool:
+    """Devuelve True solo dentro del monorepo origen qa-testing-blueprints (D5)."""
+    return (
+        (root / "scripts" / "generar-manifiesto.py").is_file()
+        and (root / "manifest.json").is_file()
+    )
 
 EXPECTED_SKILLS_COUNT = 11
 EXPECTED_TOOLS_COUNT = 19
@@ -702,15 +741,74 @@ def _validate_single_skill_size(root: Path, skill_md: Path) -> str | None:
     return None
 
 
-def _check_skill_size(root: Path) -> list[str]:
+def _check_skill_size(root: Path, upstream: bool = True) -> list[str]:
     skills_dir = root / ".agents" / "skills"
     if not skills_dir.is_dir():
         return []
     errors: list[str] = []
     for skill_md in sorted(skills_dir.glob("*/SKILL.md")):
         err = _validate_single_skill_size(root, skill_md)
-        if err:
-            errors.append(err)
+        if not err:
+            continue
+        is_vendor = (
+            not upstream and skill_md.parent.name not in CANONICAL_GLOBAL_SKILL_DIRS
+        )
+        if is_vendor:
+            print(f"WARN [Docs Invariants]: {err}", file=sys.stderr)
+            continue
+        errors.append(err)
+    return errors
+
+
+def _check_connector_counts(starts: int, ends: int) -> list[str]:
+    if starts > 1 or ends > 1:
+        return [
+            "AGENTS.md contiene bloques de conector QA-11X duplicados "
+            f"({starts}/{ends} marcadores)."
+        ]
+    if starts != ends:
+        return ["AGENTS.md tiene marcadores QA_11X_MCP_CONNECTOR desbalanceados."]
+    return []
+
+
+def _check_connector_slice(text: str) -> list[str]:
+    start_idx = text.find(CONNECTOR_START_MARKER)
+    end_idx = text.find(CONNECTOR_END_MARKER)
+    if end_idx < start_idx:
+        return ["AGENTS.md tiene marcadores QA_11X_MCP_CONNECTOR invertidos."]
+    block = text[start_idx : end_idx + len(CONNECTOR_END_MARKER)]
+    block_bytes = len(block.encode("utf-8"))
+    if block_bytes > PROJECT_CONNECTOR_MAX_BYTES:
+        return [
+            "AGENTS.md bloque conector QA-11X excede "
+            f"{PROJECT_CONNECTOR_MAX_BYTES} bytes ({block_bytes})."
+        ]
+    return []
+
+
+def _validate_connector_markers(text: str) -> list[str]:
+    starts = text.count(CONNECTOR_START_MARKER)
+    ends = text.count(CONNECTOR_END_MARKER)
+    if starts == 0 and ends == 0:
+        return []
+    count_errors = _check_connector_counts(starts, ends)
+    if count_errors:
+        return count_errors
+    return _check_connector_slice(text)
+
+
+def _check_agents_connector_budget(root: Path, upstream: bool) -> list[str]:
+    agents_md = root / "AGENTS.md"
+    if not agents_md.is_file():
+        return []
+    text = agents_md.read_text(encoding="utf-8")
+    errors = _validate_connector_markers(text)
+    if upstream and len(text.encode("utf-8")) > REPO_AGENTS_MD_MAX_BYTES:
+        raw_bytes = len(text.encode("utf-8"))
+        errors.append(
+            "AGENTS.md excede el presupuesto cognitivo "
+            f"({raw_bytes} > {REPO_AGENTS_MD_MAX_BYTES} bytes)."
+        )
     return errors
 
 
@@ -726,10 +824,12 @@ def _check_scratchpad_lines(
     return [f"{rel} excede el límite compacto ({count} > {max_lines} líneas)."]
 
 
-def check_cognitive_budgets(root: Path) -> list[str]:
-    """Verifica SKILL.md (<=20KB/12KB/2.5KB), ACTIVE_TASK <=40L y regla <=25L."""
+def check_cognitive_budgets(root: Path, upstream: bool | None = None) -> list[str]:
+    """Verifica SKILL.md (<=20KB/12KB/2.5KB), conector y scratchpads."""
+    is_upstream = is_upstream_blueprints_repo(root) if upstream is None else upstream
     return [
-        *_check_skill_size(root),
+        *_check_skill_size(root, is_upstream),
+        *_check_agents_connector_budget(root, is_upstream),
         *_check_scratchpad_lines(root, ".agents/ACTIVE_TASK.md.example"),
         *_check_scratchpad_lines(root, ".agents/ACTIVE_TASK.md"),
         *_check_scratchpad_lines(
@@ -1535,20 +1635,62 @@ def _extract_internal_targets(content: str) -> list[str]:
     return targets
 
 
-def _validate_doc_links(root: Path, rel_path: str) -> list[str]:
+def _is_historical_exempt_doc(rel_path: str) -> bool:
+    return (
+        bool(_CHANGELOG_REL_RE.search(rel_path))
+        or rel_path.startswith("docs/specs/")
+    )
+
+
+def _is_canonical_agent_target(parts: tuple[str, ...]) -> bool:
+    if len(parts) == 3 and parts[:2] == (".agents", "rules"):
+        return parts[2] in CANONICAL_GLOBAL_RULE_FILES
+    if len(parts) >= 3 and parts[:2] == (".agents", "skills"):
+        return parts[2] in CANONICAL_GLOBAL_SKILL_DIRS
+    return False
+
+
+def _is_pruned_canonical_link(
+    root_resolved: Path, rel_path: str, candidate: Path
+) -> bool:
+    if not _is_historical_exempt_doc(rel_path):
+        return False
+    return _is_canonical_agent_target(candidate.relative_to(root_resolved).parts)
+
+
+def _check_single_doc_target(
+    root_resolved: Path,
+    doc_path: Path,
+    rel_path: str,
+    target: str,
+    upstream: bool,
+) -> str | None:
+    candidate = (doc_path.parent / target).resolve()
+    if not candidate.is_relative_to(root_resolved):
+        return f"{rel_path}: enlace interno fuera del repositorio ('{target}')."
+    if candidate.exists():
+        return None
+    if not upstream and _is_pruned_canonical_link(
+        root_resolved, rel_path, candidate
+    ):
+        return None
+    return f"{rel_path}: enlace interno roto ('{target}')."
+
+
+def _validate_doc_links(
+    root: Path, rel_path: str, upstream: bool = True
+) -> list[str]:
     doc_path = root / rel_path
     if not doc_path.is_file():
         return []
     root_resolved = root.resolve()
     errors: list[str] = []
     for target in _extract_internal_targets(doc_path.read_text(encoding="utf-8")):
-        candidate = (doc_path.parent / target).resolve()
-        if not candidate.is_relative_to(root_resolved):
-            errors.append(
-                f"{rel_path}: enlace interno fuera del repositorio ('{target}')."
-            )
-        elif not candidate.exists():
-            errors.append(f"{rel_path}: enlace interno roto ('{target}').")
+        err = _check_single_doc_target(
+            root_resolved, doc_path, rel_path, target, upstream
+        )
+        if err:
+            errors.append(err)
     return errors
 
 
@@ -1582,20 +1724,35 @@ def _collect_agent_markdown_targets(root: Path) -> list[str]:
     return targets
 
 
-def check_internal_markdown_links(root: Path) -> list[str]:
-    """Audita enlaces Markdown e imágenes internas en portadas, docs y .agents/."""
-    seen: set[str] = set()
-    targets: list[str] = []
-    for rel_path in (
+def _collect_consumer_specs_targets(root: Path) -> list[str]:
+    specs_dir = root / "docs" / "specs"
+    if not specs_dir.is_dir():
+        return []
+    return [
+        p.relative_to(root).as_posix()
+        for p in sorted(specs_dir.glob("*.md"))
+        if p.is_file()
+    ]
+
+
+def _build_link_audit_targets(root: Path, is_upstream: bool) -> list[str]:
+    candidates = [
         *INTERNAL_LINK_AUDIT_TARGETS,
         *_collect_agent_markdown_targets(root),
-    ):
-        if rel_path not in seen:
-            seen.add(rel_path)
-            targets.append(rel_path)
+    ]
+    if not is_upstream:
+        candidates.extend(_collect_consumer_specs_targets(root))
+    return list(dict.fromkeys(candidates))
+
+
+def check_internal_markdown_links(
+    root: Path, upstream: bool | None = None
+) -> list[str]:
+    """Audita enlaces Markdown e imágenes internas en portadas, docs y .agents/."""
+    is_upstream = is_upstream_blueprints_repo(root) if upstream is None else upstream
     errors: list[str] = []
-    for rel_path in targets:
-        errors.extend(_validate_doc_links(root, rel_path))
+    for rel_path in _build_link_audit_targets(root, is_upstream):
+        errors.extend(_validate_doc_links(root, rel_path, upstream=is_upstream))
     return errors
 
 
@@ -2130,10 +2287,16 @@ def _check_specs_and_stack_contracts(root: Path) -> list[str]:
 
 
 def validate_repository_docs(root: Path) -> list[str]:
-    """Ejecuta todas las validaciones documentales sobre el directorio raíz."""
+    """Ejecuta validaciones upstream o universales en consumidores (D5)."""
+    upstream = is_upstream_blueprints_repo(root)
+    if not upstream:
+        return [
+            *check_cognitive_budgets(root, upstream=False),
+            *check_internal_markdown_links(root, upstream=False),
+        ]
     counts = derive_expected_counts(root)
     return [
-        *check_cognitive_budgets(root),
+        *check_cognitive_budgets(root, upstream=True),
         *check_security_section_numbering(root),
         *check_active_docs(root),
         *check_stale_surface_counts(root, counts),
@@ -2141,7 +2304,7 @@ def validate_repository_docs(root: Path) -> list[str]:
         *check_bilingual_readme_parity(root),
         *check_bilingual_pair_parity(root),
         *check_v2_mcp_surface_counts(root),
-        *check_internal_markdown_links(root),
+        *check_internal_markdown_links(root, upstream=True),
         *check_historical_spec_links(root),
         *_check_refactoring_ui_topics(root),
         *_check_specs_and_stack_contracts(root),

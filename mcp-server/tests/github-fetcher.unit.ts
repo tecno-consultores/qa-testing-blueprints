@@ -336,6 +336,8 @@ describe('GitHubFetcher Service (DISA STIG V-222513 & Zero-Clone Hydration)', ()
 
     const fetcher = new GitHubFetcher({ cacheDir, localOverridePath: localRepoDir });
     const bundle = await fetcher.fetchStackBundle('fastapi', true);
+    const fullBundle = await fetcher.fetchStackBundle('fastapi', true, false);
+    expect(fullBundle).toHaveLength(2);
 
     expect(bundle).toHaveLength(2);
     expect(bundle[0]?.target_name).toBe('Makefile');

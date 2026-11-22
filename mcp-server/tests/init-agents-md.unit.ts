@@ -10,14 +10,24 @@ import {
   CONNECTOR_END_MARKER,
   INIT_AGENTS_HELP_TEXT,
   buildConnectorBlock,
+  buildGlobalConnectorBlock,
   buildGlobalGeminiBlock,
   mergeOrAppendAgentsMdContent,
   initOrAppendAgentsMd,
   parseInitAgentsArgs,
   resolveProjectDisplayName,
   runInitAgentsCli,
+  syncGlobalAgentConnectors,
 } from '../src/cli/init-agents-md.js';
-import { detectProjectSpdxLicense } from '../src/services/agents-connector.js';
+import {
+  GLOBAL_CONNECTOR_MAX_BYTES,
+  PROJECT_CONNECTOR_MAX_BYTES,
+  detectConnectorLang,
+  detectExistingStacks,
+  detectProjectSpdxLicense,
+  inspectDelimitedConnector,
+  replaceDelimitedSection,
+} from '../src/services/agents-connector.js';
 import { WorkspacePathValidationError } from '../src/security/workspacePathValidator.js';
 
 describe('init-agents-md (Non-destructive AGENTS.md connector injection)', () => {
@@ -32,26 +42,26 @@ describe('init-agents-md (Non-destructive AGENTS.md connector injection)', () =>
   });
 
   describe('buildConnectorBlock', () => {
-    it('generates canonical connector block with given project name and detected stacks', () => {
+    it('generates canonical connector block with given project name and detected stacks <= 1536B', () => {
       const block = buildConnectorBlock('mi-proyecto-backend', ['fastapi', 'bash-scripts']);
+      expect(Buffer.byteLength(block, 'utf-8')).toBeLessThanOrEqual(PROJECT_CONNECTOR_MAX_BYTES);
       expect(block).toContain(CONNECTOR_START_MARKER);
       expect(block).toContain(CONNECTOR_END_MARKER);
       expect(block).toContain('mi-proyecto-backend');
       expect(block).toContain('fastapi, bash-scripts');
       expect(block).toContain('@sinfallas/mcp-qa-11x');
       expect(block).toContain('Rule Zero');
-      expect(block).toContain('Mandatory 11-Step Execution & Closure Workflow');
+      expect(block).toContain('Routing (`qa-11x-architect` + MCP `qa-11x`)');
       expect(block).toContain('/plan');
-      expect(block).toContain('.agents/ACTIVE_TASK.md');
-      expect(block).toContain('./scripts/actualizar-grafos-graphify.sh');
-      expect(block).toContain('docs/specs/');
-      expect(block).toContain('CHANGELOG.md');
-      expect(block).toContain('ROADMAP.md');
-      expect(block).toContain('3-Path Proportional Execution');
+      expect(block).toContain('session_flight_recorder');
+      expect(block).toContain('DOCS_ONLY');
       expect(block).toContain('MICRO_CHANGE');
-      expect(block).toContain('HIGH-IQ TOKEN ECONOMY');
-      expect(block).toContain('Karate Labs BDD');
+      expect(block).toContain('FULL_11X');
+      expect(block).toContain('Objective Critique');
+      expect(block).toContain('inspect_ast_blast_radius');
+      expect(block).toContain('Karate');
       expect(block).toContain('QA-TEST-SYNC-01');
+      expect(block).toContain('QA-GIT-GATE-01');
       expect(block).toContain('git push');
     });
 
@@ -59,45 +69,109 @@ describe('init-agents-md (Non-destructive AGENTS.md connector injection)', () =>
       const block = buildConnectorBlock('repo-vacio', []);
       expect(block).toContain('repo-vacio');
       expect(block).toContain('general');
+      expect(detectExistingStacks(block)).toEqual([]);
+      expect(detectExistingStacks(buildConnectorBlock('ros', ['python', 'vue3']))).toEqual([
+        'python',
+        'vue3',
+      ]);
     });
 
-    it('generates ultra-compact zero-duplication global GEMINI.md block with Graphify AST-First Q&A', () => {
+    it('generates ultra-compact <= 1536B global connectors with Objective Critique and syncs all 4 $HOME targets', () => {
+      expect(buildGlobalConnectorBlock).toBe(buildGlobalGeminiBlock);
       const defaultBlock = buildGlobalGeminiBlock();
+      expect(Buffer.byteLength(defaultBlock, 'utf-8')).toBeLessThanOrEqual(GLOBAL_CONNECTOR_MAX_BYTES);
       expect(defaultBlock).toContain(CONNECTOR_START_MARKER);
       expect(defaultBlock).toContain(CONNECTOR_END_MARKER);
       expect(defaultBlock).toContain('Global Thin-Client QA 11X Connector');
-      expect(defaultBlock).toContain('Graphify AST-First (Code Q&A & Pre-Change)');
-      expect(defaultBlock).toContain('Zero-Duplication Global Consumption');
+      expect(defaultBlock).toContain('Objective Technical Critique (No Sycophancy)');
+      expect(defaultBlock).toContain('Rule Zero Supreme & Graphify AST-First');
+      expect(defaultBlock).toContain('reconcile_agents_governance');
       expect(defaultBlock).toContain('QA-TEST-SYNC-01');
       expect(defaultBlock).toContain("user's prompt language");
       expect(defaultBlock).not.toContain('Step 1 (Plan):');
 
       const esBlock = buildGlobalGeminiBlock('es');
+      expect(Buffer.byteLength(esBlock, 'utf-8')).toBeLessThanOrEqual(GLOBAL_CONNECTOR_MAX_BYTES);
       expect(esBlock).toContain('Conector Global Thin-Client QA 11X');
-      expect(esBlock).toContain('Rule Zero Supremo');
-      expect(esBlock).toContain('Graphify AST-First (Consultas de Código Q&A y Pre-Cambio)');
-      expect(esBlock).toContain('sin duplicar reglas ni skills en los proyectos locales');
+      expect(esBlock).toContain('Crítica Técnica Objetiva (Sin Adulación)');
+      expect(esBlock).toContain('Rule Zero Supremo y Graphify AST-First');
+      expect(esBlock).toContain('sin duplicación local');
       expect(esBlock).toContain('QA-TEST-SYNC-01');
       expect(esBlock).toContain('propose_skill_evolution_pr');
 
       const enBlock = buildGlobalGeminiBlock('en');
+      expect(Buffer.byteLength(enBlock, 'utf-8')).toBeLessThanOrEqual(GLOBAL_CONNECTOR_MAX_BYTES);
       expect(enBlock).toContain('Global Thin-Client QA 11X Connector');
-      expect(enBlock).toContain('Rule Zero Supreme');
       expect(enBlock).toContain('strictly in **English**');
       expect(enBlock).toContain('QA-TEST-SYNC-01');
       expect(enBlock).toContain('propose_skill_evolution_pr');
+
+      const fakeHome = path.join(tmpDir, 'multi-home');
+      fs.mkdirSync(path.join(fakeHome, '.gemini'), { recursive: true });
+      fs.mkdirSync(path.join(fakeHome, '.claude'), { recursive: true });
+      fs.mkdirSync(path.join(fakeHome, '.codex'), { recursive: true });
+      fs.mkdirSync(path.join(fakeHome, '.codeium', 'windsurf'), { recursive: true });
+      fs.writeFileSync(
+        path.join(fakeHome, '.claude', 'CLAUDE.md'),
+        `${CONNECTOR_START_MARKER}\nSpanish legacy: strictly in **Spanish**\n${CONNECTOR_END_MARKER}\n\n${CONNECTOR_START_MARKER}\ndup\n${CONNECTOR_END_MARKER}\n`,
+        'utf-8'
+      );
+
+      const synced = syncGlobalAgentConnectors(fakeHome, false);
+      expect(synced.filter((s) => s.updated)).toHaveLength(4);
+      expect(fs.existsSync(path.join(fakeHome, '.gemini', 'GEMINI.md'))).toBe(true);
+      expect(fs.existsSync(path.join(fakeHome, '.codex', 'AGENTS.md'))).toBe(true);
+      expect(
+        fs.existsSync(path.join(fakeHome, '.codeium', 'windsurf', 'memories', 'global_rules.md'))
+      ).toBe(true);
+      const claudeContent = fs.readFileSync(path.join(fakeHome, '.claude', 'CLAUDE.md'), 'utf-8');
+      expect(claudeContent).toContain('Conector Global Thin-Client QA 11X');
+      expect(inspectDelimitedConnector(path.join(fakeHome, '.claude', 'CLAUDE.md'), GLOBAL_CONNECTOR_MAX_BYTES)).toMatchObject({
+        exists: true,
+        has_markers: true,
+        block_count: 1,
+        exceeds_budget: false,
+        duplicated_blocks: false,
+        detected_lang: 'es',
+      });
+
+      const plainFile = path.join(fakeHome, 'plain.md');
+      fs.writeFileSync(plainFile, '# Plain user notes\n', 'utf-8');
+      expect(inspectDelimitedConnector(plainFile, GLOBAL_CONNECTOR_MAX_BYTES)).toMatchObject({
+        exists: true,
+        has_markers: false,
+        block_count: 0,
+        block_bytes: 0,
+        exceeds_budget: false,
+      });
     });
 
-    it('injects dynamic mirroring language policy into connector block based on lang param', () => {
+    it('injects dynamic mirroring language policy and deduplicates repeated marker blocks', () => {
       const autoBlock = buildConnectorBlock('app', ['fastapi'], 'auto');
       expect(autoBlock).toContain("user's prompt language");
-      expect(autoBlock).toContain('explicitly ignoring `AGENTS.md` and `.agents/**`');
+      expect(autoBlock).toContain('AGENTS.md & .agents/** concise English');
+      expect(detectConnectorLang(autoBlock)).toBe('auto');
 
       const esBlock = buildConnectorBlock('app', ['fastapi'], 'es');
       expect(esBlock).toContain('strictly in **Spanish**');
+      expect(detectConnectorLang(esBlock)).toBe('es');
 
       const enBlock = buildConnectorBlock('app', ['fastapi'], 'en');
       expect(enBlock).toContain('strictly in **English**');
+      expect(detectConnectorLang(enBlock)).toBe('en');
+      expect(detectConnectorLang('# Plain user header without markers')).toBeUndefined();
+
+      const dupInput = `# Head\n${CONNECTOR_START_MARKER}\none\n${CONNECTOR_END_MARKER}\n\n${CONNECTOR_START_MARKER}\ntwo\n${CONNECTOR_END_MARKER}\n\n# Tail`;
+      const deduped = replaceDelimitedSection(dupInput, {
+        startMarker: CONNECTOR_START_MARKER,
+        endMarker: CONNECTOR_END_MARKER,
+        block: `${CONNECTOR_START_MARKER}\nclean\n${CONNECTOR_END_MARKER}`,
+        emptyDocument: '',
+        appendSeparator: '\n\n',
+      });
+      expect(deduped.finalContent.match(/QA_11X_MCP_CONNECTOR_START/g)).toHaveLength(1);
+      expect(deduped.finalContent).toContain('# Head');
+      expect(deduped.finalContent).toContain('# Tail');
     });
   });
 
@@ -269,7 +343,7 @@ Regla Final`;
       );
       const fallbackName = resolveProjectDisplayName('/');
       expect(fallbackName).toBe('Project');
-      expect(buildConnectorBlock(fallbackName, [])).toContain('This project (`Project`)');
+      expect(buildConnectorBlock(fallbackName, [])).toContain('Project `Project`');
     });
 
     it('covers SPDX edge cases: malformed JSON, UNLICENSED, PEP 639 license string, unsafe tokens, and MPL-2.0 text', () => {
@@ -307,7 +381,7 @@ Regla Final`;
         const parsed = parseInitAgentsArgs([]);
         expect(parsed.projectPath).toBe(process.cwd());
         expect(parsed.dryRun).toBe(false);
-        expect(parsed.lang).toBe('auto');
+        expect(parsed.lang).toBeUndefined();
 
         process.env.QA_OUTPUT_LANG = 'en';
         expect(parseInitAgentsArgs([]).lang).toBe('en');
@@ -327,7 +401,7 @@ Regla Final`;
         const parsed1 = parseInitAgentsArgs(['--dry-run', '--project-path', '/custom/path']);
         expect(parsed1.projectPath).toBe('/custom/path');
         expect(parsed1.dryRun).toBe(true);
-        expect(parsed1.lang).toBe('auto');
+        expect(parsed1.lang).toBeUndefined();
       } finally {
         if (prevLang === undefined) {
           delete process.env.QA_OUTPUT_LANG;

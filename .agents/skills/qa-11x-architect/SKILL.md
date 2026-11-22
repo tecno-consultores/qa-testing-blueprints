@@ -62,7 +62,7 @@ Classify every task first. **NEVER auto-run `git push`** (`QA-GIT-GATE-01` — s
   8. **RED Pre-Chaos:** Expose `/metrics` (`trace_id`) prior to load/chaos profiles.
   9. **Trimodal & 3-Phase Clock:** Test Virgin/Nominal/Degraded across all 3 clock phases; run `inspect_ast_blast_radius` pre-edit and refresh AST post-edit.
   10. **Closure & `QA-GIT-GATE-01`:** Keep `.agents/ACTIVE_TASK.md <= 40L`, run `make sync-governance` + `make certify` (`certify_task_completion.sh` writes `.agents/.cache/qa-11x-last-failure.json` on fail), commit locally without `git push`, and invoke `propose_skill_evolution_pr` on QA escapes.
-- **High-IQ Token Economy:** `AST-First -> Grep-Fallback -> 40–80L Windowed-Read` (no blind `>150L` reads), `Zero Redundant Re-Read`, `Parallel Tool Batching`, `Subagent Isolation (<=20L)`, `Surgical Diffs`, `Pass-Quiet / Fail-Verbose`.
+- **High-IQ Token Economy:** `AST-First -> Grep-Fallback -> 40–80L Windowed-Read` (no blind `>150L` reads), `Zero Redundant Re-Read`, `Parallel Tool Batching`, `Subagent Isolation (<=20L)`, `Surgical Diffs`, `Pass-Quiet / Fail-Verbose`, and Objective Critique (skip praise; verify non-trivial premises vs repo/budgets before coding; don't debate routine commands).
 
 ---
 

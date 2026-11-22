@@ -443,6 +443,128 @@ class TestInstallSkill(unittest.TestCase):
         self.assertTrue(installed.is_file())
         self.assertIn("--network none", docker_log.read_text(encoding="utf-8"))
 
+    def test_bash_install_parity_lang_4_connectors_prune_and_script_protection(
+        self,
+    ) -> None:
+        """Verifica paridad D8: 4 conectores, --lang, exclusiones, poda y scripts."""
+        repo = self.temp_path / "parity_repo"
+        arch = repo / ".agents" / "skills" / "qa-11x-architect"
+        arch.mkdir(parents=True)
+        (arch / "SKILL.md").write_text("# Architect\n", encoding="utf-8")
+        (repo / ".agents" / "scripts").mkdir(parents=True)
+        (repo / "scripts").mkdir(parents=True)
+        bump = repo / ".agents" / "scripts" / "bump_version_11x.py"
+        bump.write_text("# monorepo\n", encoding="utf-8")
+        self_inst = repo / "scripts" / "install-skill.sh"
+        self_inst.write_text("#!/bin/sh\n", encoding="utf-8")
+        limpieza = repo / "scripts" / "limpieza.sh"
+        limpieza.write_text("#!/bin/sh\necho new-limpieza\n", encoding="utf-8")
+
+        def _ent(rel: str, strat: str = "") -> dict[str, object]:
+            raw = (repo / rel).read_bytes()
+            d: dict[str, object] = {
+                "path": rel,
+                "sha256": hashlib.sha256(raw).hexdigest(),
+                "size_bytes": len(raw),
+            }
+            if strat:
+                d["merge_strategy"] = strat
+            return d
+
+        (repo / "manifest.json").write_text(
+            json.dumps(
+                {
+                    "blueprint_version": "3.2.1",
+                    "common_files": [
+                        _ent("scripts/limpieza.sh"),
+                        _ent("scripts/install-skill.sh"),
+                    ],
+                    "agent_governance_files": [
+                        _ent(".agents/skills/qa-11x-architect/SKILL.md"),
+                        _ent(".agents/scripts/bump_version_11x.py"),
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        home = self.temp_path / "parity_home"
+        for sub in (
+            ".gemini/config/skills/qa-11x-architect",
+            ".gemini/config/skills/custom-vendor",
+            ".claude",
+            ".codex",
+            ".codeium/windsurf",
+        ):
+            (home / sub).mkdir(parents=True)
+        retired = home / ".gemini/config/skills/qa-11x-architect/retired.md"
+        retired.write_text("obsolete\n", encoding="utf-8")
+        vendor = home / ".gemini/config/skills/custom-vendor/SKILL.md"
+        vendor.write_text("# Keep Vendor\n", encoding="utf-8")
+
+        ws = self.temp_path / "parity_ws"
+        (ws / "scripts").mkdir(parents=True)
+        (ws / "scripts" / "limpieza.sh").write_text(
+            "#!/bin/sh\necho local-custom\n", encoding="utf-8"
+        )
+        env = {**os.environ, "HOME": str(home), "QA_BLUEPRINTS_LOCAL_PATH": str(repo)}
+
+        res_es = subprocess.run(
+            [
+                "sh",
+                str(INSTALL_SCRIPT),
+                "--target",
+                "auto",
+                "--lang",
+                "es",
+                "--include-scripts",
+                "--init-agents",
+            ],
+            cwd=str(ws),
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(res_es.returncode, 0, res_es.stderr + res_es.stdout)
+        self.assertFalse(retired.exists())
+        self.assertTrue(vendor.is_file())
+        self.assertIn("local-custom", (ws / "scripts/limpieza.sh").read_text("utf-8"))
+        self.assertTrue((ws / "scripts/limpieza.sh.11x-incoming").is_file())
+        self.assertFalse((ws / ".agents/scripts/bump_version_11x.py").exists())
+        self.assertFalse((ws / "scripts/install-skill.sh").exists())
+
+        for rel_conn in (
+            ".gemini/GEMINI.md",
+            ".claude/CLAUDE.md",
+            ".codex/AGENTS.md",
+            ".codeium/windsurf/memories/global_rules.md",
+        ):
+            conn_text = (home / rel_conn).read_text(encoding="utf-8")
+            self.assertIn("Conector Global Thin-Client QA 11X", conn_text)
+            start = conn_text.index("<!-- QA_11X_MCP_CONNECTOR_START -->")
+            end = conn_text.index("<!-- QA_11X_MCP_CONNECTOR_END -->") + len(
+                "<!-- QA_11X_MCP_CONNECTOR_END -->"
+            )
+            self.assertLessEqual(len(conn_text[start:end].encode("utf-8")), 1_536)
+
+        agents_text = (ws / "AGENTS.md").read_text(encoding="utf-8")
+        self.assertIn("strictly in **Spanish**", agents_text)
+
+        # Omitir --lang en 2da corrida debe preservar idioma español
+        res_pres = subprocess.run(
+            ["sh", str(INSTALL_SCRIPT), "--target", "auto", "--init-agents"],
+            cwd=str(ws),
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(res_pres.returncode, 0, res_pres.stderr)
+        self.assertIn(
+            "Conector Global Thin-Client QA 11X",
+            (home / ".claude/CLAUDE.md").read_text(encoding="utf-8"),
+        )
+        self.assertIn("strictly in **Spanish**", (ws / "AGENTS.md").read_text("utf-8"))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -19,12 +19,23 @@ _SCRIPTS_DIR = str(Path(__file__).resolve().parent)
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
-from _budgets import ACTIVE_TASK_MAX_LINES as ACTIVE_TASK_MAX_LINES  # noqa: E402
+from _budgets import (  # noqa: E402
+    ACTIVE_TASK_MAX_LINES as ACTIVE_TASK_MAX_LINES,
+)
 from _budgets import (  # noqa: E402
     ACTIVE_TASK_RULE_MAX_LINES as ACTIVE_TASK_RULE_MAX_LINES,
 )
 from _budgets import (  # noqa: E402
     ARCHITECT_SKILL_MAX_BYTES as ARCHITECT_SKILL_MAX_BYTES,
+)
+from _budgets import (  # noqa: E402
+    GLOBAL_CONNECTOR_MAX_BYTES as GLOBAL_CONNECTOR_MAX_BYTES,
+)
+from _budgets import (  # noqa: E402
+    PROJECT_CONNECTOR_MAX_BYTES as PROJECT_CONNECTOR_MAX_BYTES,
+)
+from _budgets import (  # noqa: E402
+    REPO_AGENTS_MD_MAX_BYTES as REPO_AGENTS_MD_MAX_BYTES,
 )
 from _budgets import SKILL_MAX_BYTES as SKILL_MAX_BYTES  # noqa: E402
 from _budgets import (  # noqa: E402
@@ -313,13 +324,16 @@ def classify_governance_file(rel_path: str) -> tuple[str, str]:
     path_obj = Path(rel_path)
     if path_obj.name == "ACTIVE_TASK.md.example":
         return ".agents/ACTIVE_TASK.md", "copy_if_missing"
-    if path_obj.name == "_budgets.py" or path_obj.suffix == ".json":
-        return rel_path, "copy_or_overwrite"
-    if path_obj.suffix in (".sh", ".py"):
-        return rel_path, "overwrite_executable"
-    if path_obj.name == "AGENTS.md":
-        return rel_path, "surgical_merge"
-    return rel_path, "copy_or_overwrite"
+    if rel_path == ".agents/README.md":
+        return rel_path, "copy_if_missing"
+    exact_strategies = {
+        "_budgets.py": "copy_or_overwrite",
+        "AGENTS.md": "surgical_merge",
+    }
+    if path_obj.name in exact_strategies:
+        return rel_path, exact_strategies[path_obj.name]
+    exec_suffixes = {".sh": "overwrite_executable", ".py": "overwrite_executable"}
+    return rel_path, exec_suffixes.get(path_obj.suffix, "copy_or_overwrite")
 
 
 def _should_ignore_stack_item(item: Path, rel_in_stack: Path) -> bool:
@@ -812,11 +826,31 @@ def _collect_line_limit_errors(repo_root: Path) -> list[str]:
     return errors
 
 
+def _check_upstream_agents_md_budget(repo_root: Path) -> str | None:
+    is_upstream = (repo_root / "scripts" / "generar-manifiesto.py").is_file() and (
+        repo_root / "manifest.json"
+    ).is_file()
+    if not is_upstream:
+        return None
+    agents_md = repo_root / "AGENTS.md"
+    if not agents_md.is_file():
+        return None
+    size = agents_md.stat().st_size
+    if size > REPO_AGENTS_MD_MAX_BYTES:
+        return (
+            f"AGENTS.md excede el presupuesto cognitivo raíz "
+            f"({size} > {REPO_AGENTS_MD_MAX_BYTES} bytes)."
+        )
+    return None
+
+
 def validate_cognitive_budgets(repo_root: Path) -> list[str]:
-    """Valida SKILL.md (<20KB / architect <=12KB / tactical <=2.5KB) y líneas."""
+    """Valida SKILL.md (<20KB / <=12KB / <=2.5KB), AGENTS.md raíz y líneas."""
+    agents_err = _check_upstream_agents_md_budget(repo_root)
     return [
         *_collect_skill_budget_errors(repo_root),
         *_collect_line_limit_errors(repo_root),
+        *([agents_err] if agents_err else []),
     ]
 
 

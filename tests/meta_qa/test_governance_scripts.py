@@ -1660,6 +1660,10 @@ def test_verify_docs_invariants_bilingual_readme_and_internal_links(
 ) -> None:
     """Valida modelo bilingüe, enlaces internos reales y anti-traversal."""
     mod = _load_script("verify_docs_invariants.py", "meta_qa_verify_docs_bilingual")
+    (tmp_path / "scripts").mkdir(parents=True)
+    gen = tmp_path / "scripts" / "generar-manifiesto.py"
+    gen.write_text("# gen\n", encoding="utf-8")
+    (tmp_path / "manifest.json").write_text("{}", encoding="utf-8")
     (tmp_path / "docs").mkdir(parents=True)
     (tmp_path / "assets").mkdir()
     (tmp_path / "assets" / "qa-logo.jpeg").write_bytes(b"jpeg")

@@ -8,6 +8,9 @@ All notable changes to the `@sinfallas/mcp-qa-11x` npm package and MCP server ar
 
 ## [Unreleased]
 
+### Added
+- **True Thin-Client Connectors, `reconcile-agents` v2 (`--scan-workspaces` / `--prune-bridges`) & Enriched `doctor`:** Compacted global `$HOME` (Antigravity, Claude, Codex, Windsurf) and project `AGENTS.md` connector templates (`<= 1,536 B`) with Objective Technical Critique, preserved prior connector language/stacks in `init-agents-md` / `install-skill` / `SurgicalMerger`, protected customized `scripts/*` (`.11x-incoming`), retired canonical skill file pruning, defaulted `fetchStackBundle` to Thin-Repo excluding monorepo scripts, extended `clean_workspace_11x` (`--deep`), and added conservative deduplication, bridge lifecycle, shadow-skill pruning, loose-backup consolidation, `.gitignore` hygiene, multi-repo workspace scanning, and secret-safe IDE diagnostics to `reconcile-agents` and `doctor`.
+
 ### Fixed
 - **POSIX `'...'\''...'` Quote Tokenization & `<!DOCTYPE` Cobertura Harvesting in `ephemeral-runner.ts`:** Fixed unquoted POSIX backslash handling (`\'`, `\"`, `\\`) in `tokenizeCommandArgs`, `hasUnquotedShellSyntax`, and `splitUnquotedStatements` so `run_ephemeral_qa` GNU Make fallbacks execute [`bash-scripts/Makefile.example`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/bash-scripts/Makefile.example) without shell quote inversion, and stripped single/multi-line `<!DOCTYPE coverage ...>` declarations in `harvestCoverageReports` while preserving `<!ENTITY` Anti-XXE traps and harvesting `bash-scripts/.agents/.cache/coverage/bash.xml`.
 

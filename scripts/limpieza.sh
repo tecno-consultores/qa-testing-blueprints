@@ -82,6 +82,7 @@ if command -v docker >/dev/null 2>&1; then
   find . -maxdepth 3 -name "docker-compose*.yml" \
     -not -path "*/.git/*" \
     -not -path "*/node_modules/*" \
+    -not -path "./docs/examples/*" \
     -not -path "./mcp-server/example/*" | while IFS= read -r compose_file; do
     compose_dir="$(dirname "${compose_file}")"
     compose_name="${compose_file##*/}"
@@ -234,6 +235,10 @@ if [ "${DEEP_CLEAN}" = true ]; then
     .agents/.cache .agents/artifacts \
     ./*/.agents/backups ./*/.agents/proposals ./*/.agents/.qa-evidence.json ./*/.agents/.cache \
     "${HOME}/.cache/qa-11x-blueprints" "${tmp_base}/.qa11x_trivy_cache_"* /tmp/.qa11x_trivy_cache_* 2>/dev/null || true
+  find . \
+    \( -name ".git" -o -name "node_modules" -o -name ".venv" -o -name "venv" -o -name "vendor" \) -prune \
+    -o -type f \( -name "*.11x-backup" -o -name "*.11x-incoming" \) \
+    -exec rm -f {} + 2>/dev/null || true
 fi
 
 if [ "${DOCKER_PRUNE}" = true ]; then
@@ -243,6 +248,11 @@ if [ "${DOCKER_PRUNE}" = true ]; then
     echo "❌ [Clean 11X] --docker-prune rechazado: añade --yes para confirmar la poda global de Docker en el host." >&2
     exit 1
   fi
+fi
+
+if [ -f "${REPO_ROOT}/.agents/limpieza.local.sh" ] && [ ! -L "${REPO_ROOT}/.agents/limpieza.local.sh" ]; then
+  # shellcheck source=/dev/null
+  . "${REPO_ROOT}/.agents/limpieza.local.sh"
 fi
 
 if [ "${QUIET}" = false ]; then

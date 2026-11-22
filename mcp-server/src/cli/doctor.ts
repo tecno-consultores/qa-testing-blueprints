@@ -11,14 +11,27 @@ import {
   resolveSafeHomeDir,
 } from '../services/github-fetcher.js';
 import {
+  type ConnectorInspectionResult,
+  GLOBAL_CONNECTOR_MAX_BYTES,
+  GLOBAL_CONNECTOR_TARGETS,
+  PROJECT_CONNECTOR_MAX_BYTES,
+  inspectDelimitedConnector,
+} from '../services/agents-connector.js';
+import {
   detectExistingQa11xSkillDirs,
   evaluateUpdateStatus,
   readVersionStamp,
+  readVersionStampData,
 } from '../services/version-manager.js';
 import { inspectProjectConfig } from '../tools/inspect-project.js';
 import type { ProjectAuditResult } from '../types.js';
 import { pickAt, reportDebugCatchError } from '../utils/diagnosticFormatter.js';
-import { getDoctorIdeMcpTargets, type IdeMcpTargetSpec } from '../utils/ideConfigPaths.js';
+import {
+  ANTIGRAVITY_CANONICAL_MCP_REL_PATH,
+  ANTIGRAVITY_FALLBACK_MCP_REL_PATH,
+  getDoctorIdeMcpTargets,
+  type IdeMcpTargetSpec,
+} from '../utils/ideConfigPaths.js';
 import {
   type CliCommandOutput,
   formatCliJson,
@@ -83,6 +96,10 @@ export interface DoctorCliDeps {
   readonly dockerProbeFn?: () => string | null;
 }
 
+export interface GlobalConnectorHealth extends ConnectorInspectionResult {
+  readonly agent: string;
+}
+
 export interface DoctorReport {
   readonly mcp_version: string;
   readonly node_version: string;
@@ -96,7 +113,11 @@ export interface DoctorReport {
     readonly multiple_npx_caches: boolean;
   };
   readonly global_skills: readonly GlobalSkillStatus[];
+  readonly global_connectors: readonly GlobalConnectorHealth[];
+  readonly project_connector: ConnectorInspectionResult | null;
   readonly ide_mcp_configs: readonly IdeMcpConfigStatus[];
+  readonly ide_config_warnings: readonly string[];
+  readonly stamp_drift_warnings: readonly string[];
   readonly docker_version: string | null;
   readonly graphify_graph_present: boolean;
   readonly project_inspection: ProjectAuditResult;
@@ -270,16 +291,128 @@ function formatIdeMcpStatus(cfg: IdeMcpConfigStatus): string {
   return cfg.has_qa_11x ? 'qa-11x activo' : 'sin qa-11x';
 }
 
+function inspectGlobalConnectors(homeDir: string): GlobalConnectorHealth[] {
+  return GLOBAL_CONNECTOR_TARGETS.map((target) => {
+    const filePath = resolveSafeChildPath(homeDir, target.relFile);
+    return {
+      agent: target.agent,
+      ...inspectDelimitedConnector(filePath, GLOBAL_CONNECTOR_MAX_BYTES),
+    };
+  });
+}
+
+function checkQaServerEntryPinning(
+  filePath: string,
+  serverKey: string,
+  entryRaw: unknown
+): string | null {
+  if (!/qa[-_]?11x/i.test(serverKey) || typeof entryRaw !== 'object' || entryRaw === null) {
+    return null;
+  }
+  const argsRaw = (entryRaw as { args?: unknown }).args;
+  const argsList = Array.isArray(argsRaw) ? argsRaw.map(String) : [];
+  const pkgArg = argsList.find((item) => item.includes(PKG_NAME));
+  if (!pkgArg) return null;
+  const unpinned = pkgArg.includes('@latest') || !pkgArg.includes(`${PKG_NAME}@`);
+  return unpinned
+    ? `IDE MCP '${filePath}' usa '${pkgArg}' sin versión fija (recomendado @${MCP_SERVER_VERSION}).`
+    : null;
+}
+
+function inspectQaServerPinningSafe(filePath: string): string | null {
+  if (!filePath.endsWith('.json') || !fs.existsSync(filePath)) return null;
+  try {
+    const raw = JSON.parse(fs.readFileSync(filePath, UTF8_ENCODING)) as Record<string, unknown>;
+    const servers = raw.mcpServers;
+    if (typeof servers !== 'object' || servers === null || Array.isArray(servers)) return null;
+    for (const [serverKey, entryRaw] of Object.entries(servers as Record<string, unknown>)) {
+      const warn = checkQaServerEntryPinning(filePath, serverKey, entryRaw);
+      if (warn) return warn;
+    }
+    return null;
+  } catch (err: unknown) {
+    reportDebugCatchError('doctor.inspectQaServerPinningSafe', err);
+    return null;
+  }
+}
+
+function collectIdeConfigWarnings(
+  homeDir: string,
+  ideConfigs: readonly IdeMcpConfigStatus[]
+): string[] {
+  const warnings: string[] = [];
+  const antigravityMain = resolveSafeChildPath(homeDir, ANTIGRAVITY_CANONICAL_MCP_REL_PATH);
+  const antigravityFallback = resolveSafeChildPath(homeDir, ANTIGRAVITY_FALLBACK_MCP_REL_PATH);
+  if (fs.existsSync(antigravityMain) && fs.existsSync(antigravityFallback)) {
+    warnings.push(
+      'Detectados dos archivos mcp_config.json en ~/.gemini/ (antigravity/ y config/); consolida en ~/.gemini/antigravity/mcp_config.json.'
+    );
+  }
+  for (const cfg of ideConfigs) {
+    const pinWarn = cfg.exists && cfg.has_qa_11x ? inspectQaServerPinningSafe(cfg.path) : null;
+    if (pinWarn) warnings.push(pinWarn);
+  }
+  return warnings;
+}
+
+function collectStampDriftWarnings(
+  skillDirs: readonly string[],
+  projectPath: string,
+  inHomeMode: boolean
+): string[] {
+  const warnings: string[] = [];
+  const checkDirs = inHomeMode ? skillDirs : [...skillDirs, path.join(projectPath, '.agents')];
+  for (const dir of checkDirs) {
+    const data = readVersionStampData(dir);
+    const hasDrift =
+      Boolean(data?.blueprint_version && data?.mcp_version) &&
+      data?.blueprint_version !== data?.mcp_version;
+    if (hasDrift) {
+      warnings.push(
+        `Deriva en ${dir}/.qa-11x-version: blueprint=${data?.blueprint_version} != mcp=${data?.mcp_version}.`
+      );
+    }
+  }
+  return warnings;
+}
+
+function formatConnectorHealthLine(gc: GlobalConnectorHealth): string {
+  const budgetNote = gc.exceeds_budget ? ' ⚠️>1536B' : '';
+  const status = gc.exists ? `${gc.block_bytes}B${budgetNote}` : 'no encontrado';
+  return `    - ${gc.agent}: ${status} (${gc.path})`;
+}
+
+function appendDoctorConnectorAndIdeLines(lines: string[], report: DoctorReport): void {
+  lines.push('  Conectores globales $HOME:');
+  for (const gc of report.global_connectors) {
+    lines.push(formatConnectorHealthLine(gc));
+  }
+  if (report.project_connector?.exists) {
+    const projWarn = report.project_connector.exceeds_budget ? ' ⚠️>1536B' : '';
+    lines.push(`  Conector proyecto AGENTS.md: ${report.project_connector.block_bytes}B${projWarn}`);
+  }
+  lines.push('  Configuración MCP por IDE:');
+  for (const cfg of report.ide_mcp_configs) {
+    lines.push(`    - ${cfg.client}: ${formatIdeMcpStatus(cfg)} (${cfg.path})`);
+  }
+  for (const warn of [...report.ide_config_warnings, ...report.stamp_drift_warnings]) {
+    lines.push(`  ⚠️ ${warn}`);
+  }
+}
+
 function formatDoctorText(report: DoctorReport): string {
   const isHomeScope = isSameResolvedDir(report.project_path, report.home_dir);
   const projectLine = isHomeScope
     ? `  Proyecto: ${report.project_path} (modo global $HOME; stacks: ninguno)`
     : `  Proyecto: ${report.project_path} (stacks: ${report.project_inspection.detected_stacks.join(', ') || 'ninguno'})`;
+  const multiCacheNote = report.npx_cache.multiple_npx_caches
+    ? ' (⚠️ múltiples cachés detectados; ejecuta upgrade --cache-only)'
+    : '';
   const lines: string[] = [
     `🩺 [QA-11X Doctor] MCP v${report.mcp_version} | origin=${report.binary_origin} | node=${report.node_version}`,
     projectLine,
     `  Docker: ${report.docker_version ?? 'no detectado'} | Graphify AST: ${report.graphify_graph_present ? 'presente' : 'ausente'}`,
-    `  Cachés _npx: ${report.npx_cache.entries.length}${report.npx_cache.multiple_npx_caches ? ' (⚠️ múltiples cachés detectados; ejecuta upgrade --cache-only)' : ''}`,
+    `  Cachés _npx: ${report.npx_cache.entries.length}${multiCacheNote}`,
   ];
   for (const cache of report.npx_cache.entries) {
     lines.push(`    - ${cache.hashDir}: v${cache.version}`);
@@ -288,10 +421,7 @@ function formatDoctorText(report: DoctorReport): string {
   for (const skill of report.global_skills) {
     lines.push(`    - ${skill.dir}: ${skill.version ?? 'sin estampa'}`);
   }
-  lines.push('  Configuración MCP por IDE:');
-  for (const cfg of report.ide_mcp_configs) {
-    lines.push(`    - ${cfg.client}: ${formatIdeMcpStatus(cfg)} (${cfg.path})`);
-  }
+  appendDoctorConnectorAndIdeLines(lines, report);
   if (report.project_inspection.update_available?.agent_notice) {
     lines.push(`  Actualización: ${report.project_inspection.update_available.agent_notice}`);
   }
@@ -362,6 +492,11 @@ export async function runDoctorCli(
     const ideTargets =
       deps.platform !== undefined ? getDoctorIdeMcpTargets(deps.platform) : IDE_MCP_TARGETS;
 
+    const ideConfigs = ideTargets.map((t) => inspectIdeMcpConfig(homeDir, t));
+    const projectConnector = inHomeMode
+      ? null
+      : inspectDelimitedConnector(path.join(projectPath, 'AGENTS.md'), PROJECT_CONNECTOR_MAX_BYTES);
+
     const report: DoctorReport = {
       mcp_version: MCP_SERVER_VERSION,
       node_version: process.version,
@@ -375,7 +510,11 @@ export async function runDoctorCli(
         multiple_npx_caches: npxEntries.length > 1,
       },
       global_skills: skillDirs.map((dir) => ({ dir, version: readVersionStamp(dir) })),
-      ide_mcp_configs: ideTargets.map((t) => inspectIdeMcpConfig(homeDir, t)),
+      global_connectors: inspectGlobalConnectors(homeDir),
+      project_connector: projectConnector,
+      ide_mcp_configs: ideConfigs,
+      ide_config_warnings: collectIdeConfigWarnings(homeDir, ideConfigs),
+      stamp_drift_warnings: collectStampDriftWarnings(skillDirs, projectPath, inHomeMode),
       docker_version: dockerProbeFn(),
       graphify_graph_present:
         !inHomeMode && fs.existsSync(path.join(projectPath, 'graphify-out', 'graph.json')),

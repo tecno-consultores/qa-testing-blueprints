@@ -11,14 +11,16 @@ import {
   resolveSafeChildPath,
   resolveSafeHomeDir,
 } from './github-fetcher.js';
-import { CONNECTOR_START_MARKER, syncGlobalGeminiMd } from './agents-connector.js';
+import {
+  CANONICAL_GLOBAL_SKILL_DIRS,
+  syncExistingGlobalConnectors,
+} from './agents-connector.js';
 import { assertNoSymlinkSegments, assertNotSymlinkPath } from '../security/pathRealResolver.js';
 import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 import type {
   GlobalSkillAutoSyncResult,
   Manifest,
   ManifestFileEntry,
-  OutputLanguageMode,
   UpdateAvailabilityInfo,
   VersionStampData,
 } from '../types.js';
@@ -125,6 +127,19 @@ export function writeVersionStamp(
   };
   fs.writeFileSync(resolvedStamp, `${JSON.stringify(payload, null, 2)}\n`, UTF8);
   return resolvedStamp;
+}
+
+export function readVersionStampData(targetDir: string): Partial<VersionStampData> | null {
+  const stampPath = path.join(targetDir, VERSION_STAMP_FILENAME);
+  if (!fs.existsSync(stampPath)) return null;
+  try {
+    const raw = fs.readFileSync(stampPath, UTF8).trim();
+    if (!raw.startsWith('{')) return null;
+    return JSON.parse(raw) as Partial<VersionStampData>;
+  } catch (err: unknown) {
+    reportDebugCatchError('versionManager.readVersionStampData', err);
+    return null;
+  }
 }
 
 export function readVersionStamp(targetDir: string): string | null {
@@ -515,20 +530,56 @@ export async function evaluateUpdateStatus(
   };
 }
 
-function detectGeminiConnectorLang(content: string): OutputLanguageMode {
-  if (content.includes('Conector Global Thin-Client QA 11X')) return 'es';
-  if (content.includes('strictly in **English**')) return 'en';
-  return 'auto';
+function pruneSingleEntryInSkillDir(
+  skillsRoot: string,
+  absEntry: string,
+  entry: fs.Dirent,
+  manifestRelPaths: ReadonlySet<string>
+): number {
+  const relFromSkills = path.relative(skillsRoot, absEntry).replace(/\\/g, '/');
+  assertNoSymlinkSegments(skillsRoot, relFromSkills);
+  if (entry.isSymbolicLink()) return 0;
+  if (entry.isDirectory()) {
+    const subPruned = pruneRetiredInDir(skillsRoot, absEntry, manifestRelPaths);
+    if (fs.readdirSync(absEntry).length === 0) fs.rmdirSync(absEntry);
+    return subPruned;
+  }
+  if (entry.isFile() && !manifestRelPaths.has(relFromSkills)) {
+    fs.unlinkSync(absEntry);
+    return 1;
+  }
+  return 0;
 }
 
-function syncExistingGeminiConnectorIfPresent(homeDir: string): void {
-  const relGeminiMd = path.join('.gemini', 'GEMINI.md');
-  const geminiMdPath = resolveSafeChildPath(homeDir, relGeminiMd);
-  assertNoSymlinkSegments(homeDir, relGeminiMd);
-  if (!fs.existsSync(geminiMdPath)) return;
-  const existing = fs.readFileSync(geminiMdPath, UTF8);
-  if (!existing.includes(CONNECTOR_START_MARKER)) return;
-  syncGlobalGeminiMd(homeDir, false, detectGeminiConnectorLang(existing));
+function pruneRetiredInDir(
+  skillsRoot: string,
+  currentDir: string,
+  manifestRelPaths: ReadonlySet<string>
+): number {
+  let pruned = 0;
+  for (const entry of fs.readdirSync(currentDir, { withFileTypes: true })) {
+    const absEntry = path.join(currentDir, entry.name);
+    pruned += pruneSingleEntryInSkillDir(skillsRoot, absEntry, entry, manifestRelPaths);
+  }
+  return pruned;
+}
+
+export function pruneRetiredFilesInCanonicalSkillDirs(
+  targetSkillsDir: string,
+  manifestRelSkillPaths: ReadonlySet<string>,
+  confinementRoot: string
+): number {
+  const normalizedRoot = path.resolve(confinementRoot);
+  const relSkillsRoot = path.relative(normalizedRoot, path.resolve(targetSkillsDir));
+  assertNoSymlinkSegments(normalizedRoot, relSkillsRoot);
+  let totalPruned = 0;
+  for (const canonicalSkill of CANONICAL_GLOBAL_SKILL_DIRS) {
+    const skillDir = path.join(targetSkillsDir, canonicalSkill);
+    const stat = fs.lstatSync(skillDir, { throwIfNoEntry: false });
+    if (!stat || stat.isSymbolicLink() || !stat.isDirectory()) continue;
+    totalPruned += pruneRetiredInDir(targetSkillsDir, skillDir, manifestRelSkillPaths);
+  }
+  return totalPruned;
 }
 
 function assertSafeGlobalTargetDirs(homeDir: string, targetDirs: readonly string[]): void {
@@ -607,10 +658,16 @@ async function executeGlobalSkillsSync(
   const skillEntries = manifest.agent_governance_files.filter((item) =>
     item.path.startsWith(SKILLS_PREFIX)
   );
+  const manifestRelSkillPaths = new Set(
+    skillEntries.map((item) => item.path.slice(SKILLS_PREFIX.length).replace(/\\/g, '/'))
+  );
   let updatedFilesCount = 0;
 
   for (const entry of skillEntries) {
     updatedFilesCount += await syncSkillEntryAcrossDirs(entry, targetDirs, fetcher, homeDir);
+  }
+  for (const dir of targetDirs) {
+    updatedFilesCount += pruneRetiredFilesInCanonicalSkillDirs(dir, manifestRelSkillPaths, homeDir);
   }
 
   for (const dir of targetDirs) {
@@ -619,8 +676,8 @@ async function executeGlobalSkillsSync(
     }
   }
 
+  syncExistingGlobalConnectors(homeDir);
   if (updatedFilesCount > 0) {
-    syncExistingGeminiConnectorIfPresent(homeDir);
     logFn(
       `✔ [QA-11X Auto-Sync] ${updatedFilesCount} archivo(s) de skills globales actualizado(s) a v${manifest.blueprint_version} (SHA-256 verificado).`
     );

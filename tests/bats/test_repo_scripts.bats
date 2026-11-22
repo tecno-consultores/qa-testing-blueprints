@@ -1557,12 +1557,12 @@ EOF
   run env PATH="${infra_bin}:/usr/bin:/bin" LC_ALL=C bash "${fb_ws}/.agents/scripts/certify_task_completion.sh" --unknown-flag
   assert_failure 1
   run env PATH="${infra_bin}:/usr/bin:/bin" LC_ALL=C bash "${fb_ws}/.agents/scripts/certify_task_completion.sh"
-  assert_failure 2
+  assert_failure 1
   assert_output --partial "SKIPPED: Script auditar-infra.sh no encontrado"
   printf '#!/usr/bin/env bash\nexit 0\n' >"${fb_ws}/auditar-infra.sh"
   chmod +x "${fb_ws}/auditar-infra.sh"
   run env PATH="${infra_bin}:/usr/bin:/bin" LC_ALL=C bash "${fb_ws}/.agents/scripts/certify_task_completion.sh"
-  assert_failure 2
+  assert_failure 1
   assert_output --partial "[2/10] ✔ [Trivy IaC & FS] OK"
 
   # Trivy config fail & Trivy fs fail en auditar-infra.sh con docker stub
@@ -2062,4 +2062,40 @@ for ln in pathlib.Path(sys.argv[1]).read_text(encoding="utf-8").splitlines():
   [ -f "${ws}/.agents/.cache/coverage/bash.xml" ]
   run grep -i "<!DOCTYPE" "${ws}/.agents/.cache/coverage/bash.xml"
   assert_failure 1
+}
+
+@test "certify_task_completion.sh: Consumer Governance Maintenance Fast-Path permite cambios solo en gobernanza QA-11X" {
+  local cons_ws="${BATS_TEST_TMPDIR}/cons_fastpath_ws"
+  local cons_bin="${BATS_TEST_TMPDIR}/cons_fastpath_bin"
+  mkdir -p "${cons_ws}/.agents/scripts" "${cons_ws}/scripts" "${cons_ws}/app" "${cons_bin}"
+  cp "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh" "${cons_ws}/.agents/scripts/certify_task_completion.sh"
+  chmod +x "${cons_ws}/.agents/scripts/certify_task_completion.sh"
+  printf '#!/usr/bin/env bash\nexit 0\n' >"${cons_ws}/scripts/verificar-secretos.sh"
+  chmod +x "${cons_ws}/scripts/verificar-secretos.sh"
+  printf 'x = 1\n' >"${cons_ws}/app/main.py"
+  printf '# Agents\n' >"${cons_ws}/AGENTS.md"
+  printf '**Estado:** `COMPLETED`\n' >"${cons_ws}/.agents/ACTIVE_TASK.md"
+
+  cat >"${cons_bin}/docker" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+  chmod +x "${cons_bin}/docker"
+
+  git -C "${cons_ws}" init -q
+  git -C "${cons_ws}" config user.email "qa@example.com"
+  git -C "${cons_ws}" config user.name "QA"
+  git -C "${cons_ws}" add .
+  git -C "${cons_ws}" commit -qm "init"
+
+  printf '<!-- QA_11X_MCP_CONNECTOR_START -->\n# Slim\n<!-- QA_11X_MCP_CONNECTOR_END -->\n' >"${cons_ws}/AGENTS.md"
+  cat >"${cons_ws}/.agents/scripts/verify_docs_invariants.py" <<'PY'
+import sys
+sys.exit(0)
+PY
+
+  cd "${cons_ws}"
+  run env QA11X_DOCKERENV_PATH="/.dockerenv" PATH="${cons_bin}:/usr/bin:/bin" LC_ALL=C bash "${cons_ws}/.agents/scripts/certify_task_completion.sh"
+  assert_success
+  assert_output --partial "Governance Maintenance Fast-Path"
 }

@@ -62,6 +62,11 @@ Before altering any shared code, service definition, or configuration:
    - Never re-read a file in the same session if it has not been modified externally. Always use surgical `edit_file` blocks instead of rewriting entire files via `write_file`.
 3. **`Parallel Tool Call Batching` & `Subagent Context Isolation`:**
    - Batch independent file reads and checks into a single parallel tool-call turn to avoid $O(N^2)$ prompt history re-billing. Delegate multi-file (`> 4` files) exploratory research to a read-only subagent instructed to return a `<= 20` line summary with exact `file:line` pointers.
+4. **`Objective Pre-Execution Critique (Anti-Sycophancy & Anti-Contrarianism Guard)`:**
+   - **(a) Skip Praise Openers:** Omit empty flattery openers (*"great idea"*, *"excellent point"*) to conserve tokens and keep technical objectivity.
+   - **(b) Empirical Premise Check:** Before endorsing or implementing non-trivial or ambiguous proposals, verify assumptions against live repo state (AST blast radius, existing helpers, schemas, cognitive budgets) and state concrete flaws, duplication, or simpler alternatives (including doing nothing).
+   - **(c) Anti-Contrarianism Guard:** Approve cleanly and execute directly without inventing artificial objections when verification finds no real issues.
+   - **(d) Routine Command Exemption:** Do NOT debate or stall on clear, routine explicit instructions.
 
 ---
 

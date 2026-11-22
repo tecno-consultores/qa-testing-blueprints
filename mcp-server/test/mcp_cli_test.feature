@@ -387,8 +387,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
 
   Scenario: 14. El servidor MCP y las directrices soportan Fast-Path Documental (DOCS_ONLY) y Zero Hardcoded Pass
     * def agentsContent = karate.readAsString(repoRoot + '/AGENTS.md')
-    * match agentsContent contains 'Documentation Fast-Path (`DOCS_ONLY`'
-    * match agentsContent contains 'Full Code Path (`CODE_CHANGE`'
+    * match agentsContent contains '`DOCS_ONLY` (human'
+    * match agentsContent contains '**`FULL_11X`:**'
 
     * def runnerSrc14 = karate.readAsString(mcpRoot + '/src/tools/ephemeral-runner.ts')
     * assert runnerSrc14.contains('options?.skipIfDocsOnly && isDocsOnlyWorkspaceChange')
@@ -404,7 +404,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
 
   Scenario: 15. Contrato de 3 Vías Proporcionales (DOCS_ONLY, MICRO_CHANGE, FULL_11X), Token Economy y Grouped Findings
     * def agentsContent = karate.readAsString(repoRoot + '/AGENTS.md')
-    * match agentsContent contains '3-Path Proportional Execution'
+    * match agentsContent contains '3-Path Execution'
     * match agentsContent contains 'DOCS_ONLY'
     * match agentsContent contains 'MICRO_CHANGE'
     * match agentsContent contains 'FULL_11X'
@@ -499,7 +499,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert initAgentsSource.contains('buildGlobalGeminiBlock')
     * def agentsConnectorSource = karate.readAsString(mcpRoot + '/src/services/agents-connector.ts')
     * assert agentsConnectorSource.contains('Conector Global Thin-Client QA 11X')
-    * assert agentsConnectorSource.contains('Graphify AST-First (Consultas de Código Q&A y Pre-Cambio)')
+    * assert agentsConnectorSource.contains('Rule Zero Supreme & Graphify AST-First')
+    * assert agentsConnectorSource.contains('GLOBAL_CONNECTOR_MAX_BYTES = 1_536')
     * assert agentsConnectorSource.contains('QA-TEST-SYNC-01')
 
     * def graphifySkillSource = karate.readAsString(repoRoot + '/.agents/skills/graphify-ast-navigator/SKILL.md')

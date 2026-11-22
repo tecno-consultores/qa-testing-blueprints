@@ -5,9 +5,13 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { GitHubFetcher, resolveSafeChildPath, resolveSafeHomeDir } from '../services/github-fetcher.js';
 import { SurgicalMerger } from '../services/surgical-merger.js';
-import { VERSION_STAMP_FILENAME, writeVersionStamp } from '../services/version-manager.js';
+import {
+  VERSION_STAMP_FILENAME,
+  pruneRetiredFilesInCanonicalSkillDirs,
+  writeVersionStamp,
+} from '../services/version-manager.js';
 import { assertNoSymlinkSegments, assertNotSymlinkPath } from '../security/pathRealResolver.js';
-import { initOrAppendAgentsMd, syncGlobalGeminiMd } from './init-agents-md.js';
+import { initOrAppendAgentsMd, syncGlobalAgentConnectors } from './init-agents-md.js';
 import { parseAgentsOption } from '../tools/initOrAppendAgentsMd.js';
 import { reconcileAgentsGovernance } from './reconcile-agents.js';
 import { pickAt, reportDebugCatchError } from '../utils/diagnosticFormatter.js';
@@ -24,7 +28,13 @@ import type { AgentsTargetSpec, Manifest, ManifestFileEntry, OutputLanguageMode 
 const EXCLUDED_COMMON_SCRIPT_PATHS = new Set([
   'scripts/publicar-mcp.sh',
   'scripts/probar-mcp-example.sh',
+  'scripts/install-skill.sh',
   '.env.example',
+]);
+const MONOREPO_ONLY_GOV_SCRIPT_PATHS = new Set([
+  '.agents/scripts/bump_version_11x.py',
+  '.agents/scripts/sync_governance.py',
+  'scripts/install-skill.sh',
 ]);
 
 const AGENTS_DIR_NAME = '.agents';
@@ -61,6 +71,7 @@ interface InstallSkillCliOptions {
   targetArg: string;
   projectPathArg?: string;
   lang: OutputLanguageMode;
+  explicitLang?: OutputLanguageMode;
   agents?: AgentsTargetSpec;
   includeScripts: boolean;
   initAgents: boolean;
@@ -112,10 +123,12 @@ function validateAndParseInstallSkillArgs(args: string[]): InstallSkillCliOption
   for (let i = 0; i < args.length; i++) {
     i += validateSingleInstallToken(args, i);
   }
+  const explicitLang = parseExplicitLangArg(args);
   return {
     targetArg: parseTargetArg(args),
     projectPathArg: parseProjectPathArg(args),
-    lang: parseLangArg(args),
+    lang: explicitLang ?? parseLangArg(args),
+    explicitLang,
     agents: parseAgentsArg(args),
     includeScripts: args.includes('--include-scripts'),
     initAgents: args.includes('--init-agents'),
@@ -164,6 +177,14 @@ const VALID_LANG_MODES = new Set<string>(['auto', 'es', 'en']);
 function resolveRawLangInput(args: string[]): string {
   const rawLang = findLastFlagValue(args, ['--lang', '-l']) ?? process.env.QA_OUTPUT_LANG;
   return rawLang && rawLang !== 'undefined' ? rawLang : 'auto';
+}
+
+function parseExplicitLangArg(args: string[]): OutputLanguageMode | undefined {
+  const rawLang = findLastFlagValue(args, ['--lang', '-l']) ?? process.env.QA_OUTPUT_LANG;
+  if (!rawLang || rawLang === 'undefined') {
+    return undefined;
+  }
+  return parseLangArg(args);
 }
 
 export function parseLangArg(args: string[]): OutputLanguageMode {
@@ -298,6 +319,7 @@ function resolveDestinationDirs(targetArg: string, homeDir: string, cwd: string)
 interface WriteDownloadedSkillsInput {
   readonly destDirs: string[];
   readonly files: Array<{ relSkillPath: string; content: string }>;
+  readonly manifestRelSkillPaths: ReadonlySet<string>;
   readonly blueprintVersion: string;
   readonly workspaceCwd: string;
   readonly homeDir: string;
@@ -318,7 +340,15 @@ function validateSkillDestDir(dest: string, workspaceCwd: string, homeDir: strin
 }
 
 function writeDownloadedSkills(input: WriteDownloadedSkillsInput): void {
-  const { destDirs, files, blueprintVersion, workspaceCwd, homeDir, log } = input;
+  const {
+    destDirs,
+    files,
+    manifestRelSkillPaths,
+    blueprintVersion,
+    workspaceCwd,
+    homeDir,
+    log,
+  } = input;
   for (const dest of destDirs) {
     const confinementRoot = validateSkillDestDir(dest, workspaceCwd, homeDir);
     for (const item of files) {
@@ -330,6 +360,7 @@ function writeDownloadedSkills(input: WriteDownloadedSkillsInput): void {
       }
       fs.writeFileSync(fullPath, item.content, UTF8);
     }
+    pruneRetiredFilesInCanonicalSkillDirs(dest, manifestRelSkillPaths, confinementRoot);
     writeVersionStamp(dest, blueprintVersion, undefined, confinementRoot);
     log(`✅ Skills instaladas con éxito en: ${dest}`);
   }
@@ -390,10 +421,62 @@ async function mergeExistingScriptEntry(
   }
 }
 
+function protectCustomRepoScript(
+  fullPath: string,
+  targetRel: string,
+  content: string,
+  log: (message: string) => void
+): boolean {
+  if (!targetRel.startsWith('scripts/') || !fs.existsSync(fullPath)) {
+    return false;
+  }
+  assertNotSymlinkPath(fullPath);
+  const existing = fs.readFileSync(fullPath, UTF8);
+  if (existing === content) {
+    return false;
+  }
+  const incomingPath = `${fullPath}.11x-incoming`;
+  assertNotSymlinkPath(incomingPath);
+  fs.writeFileSync(incomingPath, content, UTF8);
+  fs.chmodSync(incomingPath, 0o600);
+  log(
+    `⚠️ [Scripts 11X] '${targetRel}' tiene personalizaciones locales y se preservó; revisa '${targetRel}.11x-incoming' (usa .agents/limpieza.local.sh para extensiones persistentes).`
+  );
+  return true;
+}
+
+async function handleSpecialScriptStrategy(
+  cwd: string,
+  entry: ManifestFileEntry,
+  fullPath: string,
+  content: string
+): Promise<boolean> {
+  if (entry.path === ACTIVE_TASK_EXAMPLE_PATH) {
+    const exampleFullPath = resolveSafeChildPath(cwd, entry.path);
+    assertNoSymlinkSegments(cwd, entry.path);
+    fs.writeFileSync(exampleFullPath, content, UTF8);
+    if (!fs.existsSync(fullPath)) fs.writeFileSync(fullPath, content, UTF8);
+    return true;
+  }
+  if (entry.merge_strategy === 'copy_if_missing') {
+    if (!fs.existsSync(fullPath)) {
+      fs.writeFileSync(fullPath, content, UTF8);
+      ensureScriptExecutableMode(fullPath);
+    }
+    return true;
+  }
+  if (entry.merge_strategy === 'surgical_merge' && fs.existsSync(fullPath)) {
+    await mergeExistingScriptEntry(cwd, entry, fullPath, content);
+    return true;
+  }
+  return false;
+}
+
 async function writeScriptEntry(
   cwd: string,
   entry: ManifestFileEntry,
-  content: string
+  content: string,
+  log: (message: string) => void
 ): Promise<void> {
   const targetRel = entry.target_name || entry.path;
   const fullPath = resolveSafeChildPath(cwd, targetRel);
@@ -402,24 +485,10 @@ async function writeScriptEntry(
   if (!fs.existsSync(parentDir)) {
     fs.mkdirSync(parentDir, { recursive: true });
   }
-  if (entry.path === ACTIVE_TASK_EXAMPLE_PATH) {
-    const exampleFullPath = resolveSafeChildPath(cwd, entry.path);
-    assertNoSymlinkSegments(cwd, entry.path);
-    fs.writeFileSync(exampleFullPath, content, UTF8);
-    if (!fs.existsSync(fullPath)) {
-      fs.writeFileSync(fullPath, content, UTF8);
-    }
+  if (await handleSpecialScriptStrategy(cwd, entry, fullPath, content)) {
     return;
   }
-  if (entry.merge_strategy === 'copy_if_missing') {
-    if (!fs.existsSync(fullPath)) {
-      fs.writeFileSync(fullPath, content, UTF8);
-      ensureScriptExecutableMode(fullPath);
-    }
-    return;
-  }
-  if (entry.merge_strategy === 'surgical_merge' && fs.existsSync(fullPath)) {
-    await mergeExistingScriptEntry(cwd, entry, fullPath, content);
+  if (protectCustomRepoScript(fullPath, targetRel, content, log)) {
     return;
   }
   writeScriptWithBak(fullPath, content);
@@ -430,9 +499,10 @@ function selectScriptEntries(manifest: Manifest): ManifestFileEntry[] {
     ...(manifest.common_files || []).filter((f) => !EXCLUDED_COMMON_SCRIPT_PATHS.has(f.path)),
     ...(manifest.agent_governance_files || []).filter(
       (f) =>
-        f.path.startsWith(AGENT_SCRIPTS_PREFIX) ||
-        f.path.startsWith(AGENT_SCHEMAS_PREFIX) ||
-        f.path === ACTIVE_TASK_EXAMPLE_PATH
+        !MONOREPO_ONLY_GOV_SCRIPT_PATHS.has(f.path) &&
+        (f.path.startsWith(AGENT_SCRIPTS_PREFIX) ||
+          f.path.startsWith(AGENT_SCHEMAS_PREFIX) ||
+          f.path === ACTIVE_TASK_EXAMPLE_PATH)
     ),
   ];
 }
@@ -440,7 +510,8 @@ function selectScriptEntries(manifest: Manifest): ManifestFileEntry[] {
 async function installIncludedScripts(
   cwd: string,
   manifest: Manifest,
-  fetcher: GitHubFetcher
+  fetcher: GitHubFetcher,
+  log: (message: string) => void = console.log
 ): Promise<void> {
   const scriptEntries = selectScriptEntries(manifest);
   if (scriptEntries.length === 0) {
@@ -450,11 +521,11 @@ async function installIncludedScripts(
   assertNoSymlinkSegments(cwd, path.join(AGENTS_DIR_NAME, 'scripts'));
   for (const entry of scriptEntries) {
     const content = await fetcher.fetchFileContent(entry.path, entry.sha256);
-    await writeScriptEntry(cwd, entry, content);
+    await writeScriptEntry(cwd, entry, content, log);
   }
   assertNoSymlinkSegments(cwd, AGENTS_DIR_NAME);
   writeVersionStamp(path.join(cwd, AGENTS_DIR_NAME), manifest.blueprint_version, undefined, cwd);
-  console.log(`✔ [Scripts 11X] ${scriptEntries.length} scripts y archivos comunes instalados [0o755].`);
+  log(`✔ [Scripts 11X] ${scriptEntries.length} scripts y archivos comunes instalados [0o755].`);
 }
 
 interface DryRunPlanContext {
@@ -472,9 +543,11 @@ async function executeDryRunPlan(ctx: DryRunPlanContext): Promise<void> {
   console.log(`🔍 [DRY-RUN] Plan install-skill (v${manifest.blueprint_version}):`);
   console.log(`  - Destinos de skills (${destDirs.length}): ${destDirs.join(', ')}`);
   console.log(`  - Archivos de skills planificados: ${skillCount}`);
-  if (fs.existsSync(path.join(homeDir, GEMINI_DIR_NAME))) {
-    syncGlobalGeminiMd(homeDir, true, opts.lang);
-    console.log(`  - Actualizaría conector global en ${path.join(homeDir, GEMINI_DIR_NAME, 'GEMINI.md')}`);
+  const connectorPlans = syncGlobalAgentConnectors(homeDir, true, opts.explicitLang, opts.targetArg);
+  for (const entry of connectorPlans) {
+    if (entry.updated) {
+      console.log(`  - Actualizaría conector global (${entry.agent}) en ${entry.path}`);
+    }
   }
   if (!inHomeDir && opts.includeScripts) {
     const plannedScripts = selectScriptEntries(manifest);
@@ -484,7 +557,7 @@ async function executeDryRunPlan(ctx: DryRunPlanContext): Promise<void> {
     const initPlan = await initOrAppendAgentsMd({
       projectPath: cwd,
       dryRun: true,
-      lang: opts.lang,
+      ...(opts.explicitLang !== undefined ? { lang: opts.explicitLang } : {}),
       ...(opts.agents !== undefined ? { agents: opts.agents } : {}),
     });
     console.log(`  - AGENTS.md planificado (${initPlan.action}) en ${initPlan.agents_md_path}`);
@@ -546,7 +619,7 @@ async function runOptionalInitAgentsHook(
   const initResult = await initOrAppendAgentsMd({
     projectPath: cwd,
     dryRun: false,
-    lang: opts.lang,
+    ...(opts.explicitLang !== undefined ? { lang: opts.explicitLang } : {}),
     ...(opts.agents !== undefined ? { agents: opts.agents } : {}),
   });
   log(`✔ [AGENTS.md] Conector procesado (${initResult.action}) en ${initResult.agents_md_path}`);
@@ -560,15 +633,14 @@ async function runProjectInstallHooks(params: {
   readonly log: (message: string) => void;
 }): Promise<void> {
   if (params.opts.includeScripts) {
-    await installIncludedScripts(params.cwd, params.manifest, params.resolvedFetcher);
+    await installIncludedScripts(
+      params.cwd,
+      params.manifest,
+      params.resolvedFetcher,
+      params.log
+    );
   }
   await runOptionalInitAgentsHook(params.opts, params.cwd, params.log);
-}
-
-function maybeSyncGlobalGemini(homeDir: string, lang: OutputLanguageMode): void {
-  if (fs.existsSync(path.join(homeDir, GEMINI_DIR_NAME))) {
-    syncGlobalGeminiMd(homeDir, false, lang);
-  }
 }
 
 async function applyPostSkillInstallSteps(params: {
@@ -581,7 +653,7 @@ async function applyPostSkillInstallSteps(params: {
   readonly log: (message: string) => void;
 }): Promise<void> {
   const { opts, cwd, homeDir, inHomeDir, manifest, resolvedFetcher, log } = params;
-  maybeSyncGlobalGemini(homeDir, opts.lang);
+  syncGlobalAgentConnectors(homeDir, false, opts.explicitLang, opts.targetArg);
   const wantsProjectFiles = opts.includeScripts || opts.initAgents || opts.reconcile;
   if (inHomeDir && wantsProjectFiles) {
     log(
@@ -648,10 +720,12 @@ export async function runInstallSkillCli(
   }
 
   const downloadedFiles = await fetchVerifiedSkillFiles(resolvedFetcher, skillEntries);
+  const manifestRelSkillPaths = new Set(downloadedFiles.map((item) => item.relSkillPath));
   log(`✔ [Skills 11X] ${downloadedFiles.length} archivos verificados con SHA-256 (DISA STIG V-222513).`);
   writeDownloadedSkills({
     destDirs,
     files: downloadedFiles,
+    manifestRelSkillPaths,
     blueprintVersion: manifest.blueprint_version,
     workspaceCwd: cwd,
     homeDir,

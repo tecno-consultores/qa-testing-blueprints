@@ -13,6 +13,10 @@
     "seal_manifest": true,
     "files": [
       {
+        "path": "scripts/generar-manifiesto.py",
+        "content": "#!/usr/bin/env python3\n"
+      },
+      {
         "path": "README.md",
         "content": "# Nominal Valid Repo\n\nEste repositorio semilla verifica invariantes QA 11X con 13 resources.\n"
       },

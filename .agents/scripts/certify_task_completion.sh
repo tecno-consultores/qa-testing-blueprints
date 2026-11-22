@@ -564,6 +564,10 @@ gate_08_manifest() {
 
 run_validator_gate() {
   local script_path="$1"
+  if [ ! -f "${script_path}" ]; then
+    printf '⚠️ [SKIPPED] Script %s no encontrado (omitido).\n' "$(basename "${script_path}")"
+    return 20
+  fi
   if grep -q -- '--exit-skipped-code' "${script_path}" 2>/dev/null; then
     run_py_rule_zero "${script_path}" --exit-skipped-code 20
   else
@@ -596,6 +600,23 @@ gate_10_doc_and_test_sync() {
   if [ -z "${all_changed}" ] && git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
     all_changed=$(git -c core.quotePath=false diff --name-only HEAD~1..HEAD 2>/dev/null | sort -u || true)
     [ -n "${all_changed}" ] && used_head_fallback=1
+  fi
+
+  local is_upstream_repo=0
+  if [ -f "${REPO_ROOT}/scripts/generar-manifiesto.py" ] && [ -f "${REPO_ROOT}/manifest.json" ]; then
+    is_upstream_repo=1
+  fi
+
+  local non_gov_changes=""
+  if [ "${is_upstream_repo}" -eq 0 ] && [ -n "${all_changed}" ]; then
+    non_gov_changes=$(printf '%s\n' "${all_changed}" | grep -vE '^(\.agents/|AGENTS\.md$|\.gitignore$|CLAUDE\.md$|GEMINI\.md$|\.windsurfrules$|\.clinerules$|\.cursor/rules/qa-11x\.mdc$|\.github/copilot-instructions\.md$|\.junie/guidelines\.md$)' || true)
+    if [ -z "${non_gov_changes}" ]; then
+      if [ -f "${SCRIPT_DIR}/verify_docs_invariants.py" ]; then
+        run_py_rule_zero "${SCRIPT_DIR}/verify_docs_invariants.py" || return $?
+      fi
+      printf '✔ [Governance Maintenance Fast-Path] Solo mantenimiento de gobernanza QA-11X en proyecto consumidor; sin cambios en código de aplicación.\n'
+      return 0
+    fi
   fi
 
   local test_file_re='(\.(unit|spec|test|e2e)\.(py|ts|tsx|js|jsx)|(^|/)test_[^/]+\.py|[^/]+_test\.py|[^/]+Test\.php|\.feature(\.example)?|\.bats)$'
@@ -718,7 +739,7 @@ run_gate 8 "Manifest SHA-256 Sync" \
 run_gate 9 "Roadmap & ActiveTask Sync" \
   "Alinea los porcentajes en ROADMAP.md y verifica que .agents/ACTIVE_TASK.md tenga <= 40 líneas sin pendientes al cerrar." \
   "python3 .agents/scripts/verify_roadmap_consistency.py" \
-  run_py_rule_zero "${SCRIPT_DIR}/verify_roadmap_consistency.py"
+  run_validator_gate "${SCRIPT_DIR}/verify_roadmap_consistency.py"
 
 run_gate 10 "Doc & Test Sync" \
   "Añade pruebas unitarias/BDD junto al código modificado y actualiza CHANGELOG.md o docs/ correspondientes." \

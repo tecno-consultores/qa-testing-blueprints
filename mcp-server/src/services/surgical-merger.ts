@@ -6,6 +6,8 @@ import * as path from 'node:path';
 import { FetchedFileItem, MergeFilesOptions, MergeResultItem } from '../types.js';
 import {
   type AgentsMdMergeOptions,
+  detectConnectorLang,
+  detectExistingStacks,
   mergeOrAppendAgentsMdContent,
 } from './agents-connector.js';
 import { resolveSafeChildPath } from './github-fetcher.js';
@@ -869,7 +871,12 @@ export class SurgicalMerger {
       return { finalContent: res.merged, changes: res.changes };
     }
     if (base === 'AGENTS.md') {
-      const res = this.mergeAgentsMd(existingContent, projectName, [], { projectDir: targetProjectDir });
+      const preservedStacks = detectExistingStacks(existingContent);
+      const preservedLang = detectConnectorLang(existingContent);
+      const res = this.mergeAgentsMd(existingContent, projectName, preservedStacks, {
+        projectDir: targetProjectDir,
+        ...(preservedLang !== undefined ? { lang: preservedLang } : {}),
+      });
       return { finalContent: res.merged, changes: res.changes };
     }
     const res = this.mergeGitignoreOrNpmrc(existingContent, exampleContent);

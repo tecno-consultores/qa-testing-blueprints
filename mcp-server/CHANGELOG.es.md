@@ -8,6 +8,9 @@ Todos los cambios notables en el paquete npm y servidor MCP `@sinfallas/mcp-qa-1
 
 ## [Unreleased]
 
+### Añadido
+- **Conectores True Thin-Client, `reconcile-agents` v2 (`--scan-workspaces` / `--prune-bridges`) y `doctor` Enriquecido:** Compactados los conectores globales `$HOME` (Antigravity, Claude, Codex, Windsurf) y `AGENTS.md` (`<= 1,536 B`) con Crítica Técnica Objetiva, preservados idioma/stacks previos en `init-agents-md` / `install-skill` / `SurgicalMerger`, protegidos `scripts/*` personalizados (`.11x-incoming`), añadida poda de archivos retirados en skills canónicas, fijado Thin-Repo por defecto en `fetchStackBundle` excluyendo scripts monorepo, ampliado `clean_workspace_11x` (`--deep`), y añadidas poda conservadora, ciclo de puentes, skills sombra, consolidación de respaldos, `.gitignore`, escaneo multi-repo y diagnóstico IDE seguro en `reconcile-agents` y `doctor`.
+
 ### Corregido
 - **Tokenización POSIX `'...'\''...'` y Saneamiento `<!DOCTYPE` Cobertura en `ephemeral-runner.ts`:** Corregido el manejo de escapes POSIX fuera de comillas (`\'`, `\"`, `\\`) en `tokenizeCommandArgs`, `hasUnquotedShellSyntax` y `splitUnquotedStatements` para que el fallback sin GNU Make de `run_ephemeral_qa` ejecute [`bash-scripts/Makefile.example`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/bash-scripts/Makefile.example) sin inversión de comillas, y purgadas declaraciones `<!DOCTYPE coverage ...>` de una o múltiples líneas en `harvestCoverageReports` preservando trampas `<!ENTITY` Anti-XXE y recolectando `bash-scripts/.agents/.cache/coverage/bash.xml`.
 

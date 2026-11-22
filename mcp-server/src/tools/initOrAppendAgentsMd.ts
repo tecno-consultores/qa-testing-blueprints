@@ -10,6 +10,7 @@ import {
   CONNECTOR_START_MARKER,
   CONNECTOR_END_MARKER,
   buildAgentsMdConnectorBlock,
+  detectConnectorLang,
   mergeAgentsMdContent,
   replaceDelimitedSection,
   resolveProjectDisplayName,
@@ -719,7 +720,6 @@ export async function initOrAppendAgentsMd(
   }
 
   const resolvedPath = resolveValidProjectDirectory(rawProjectPath);
-  const lang = validateSupportedLang(options.lang);
   const dryRun = options.dryRun ?? options.dry_run ?? true;
   const inspection = await inspectProjectConfig(resolvedPath);
   const detectedStacks = inspection.detected_stacks;
@@ -727,6 +727,10 @@ export async function initOrAppendAgentsMd(
 
   const agentsMdPath = resolveSafeBridgePath(resolvedPath, AGENTS_MD_FILENAME);
   const existingAgentsMd = fs.existsSync(agentsMdPath) ? fs.readFileSync(agentsMdPath, UTF8) : '';
+  const lang =
+    options.lang !== undefined
+      ? validateSupportedLang(options.lang)
+      : (detectConnectorLang(existingAgentsMd) ?? 'auto');
   const mergedAgentsMd = mergeAgentsMdContent(existingAgentsMd, projectName, detectedStacks, {
     lang,
     projectDir: resolvedPath,

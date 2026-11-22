@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.2.1",
-  "generated_at_utc": "2026-11-22T02:43:58Z",
+  "generated_at_utc": "2026-11-22T14:18:17Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -1110,8 +1110,8 @@
       "path": "scripts/limpieza.sh",
       "target_name": "scripts/limpieza.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "6d351f647c53d55a3909b450aff040ca18b3d8b3dd827bb58caeab3cb9d91724",
-      "size_bytes": 15104
+      "sha256": "6257e3877cf56e86d590b4ee323517c1f6736219836c17ba430616eebec70a70",
+      "size_bytes": 15561
     },
     {
       "path": "scripts/verificar-secretos.sh",
@@ -1132,7 +1132,7 @@
     {
       "path": ".agents/README.md",
       "target_name": ".agents/README.md",
-      "merge_strategy": "copy_or_overwrite",
+      "merge_strategy": "copy_if_missing",
       "sha256": "185b295d7a2c2eb544d701a52aeb1c3a667717b6dce6e12b54d846d789d81f1d",
       "size_bytes": 12466
     },
@@ -1147,15 +1147,15 @@
       "path": ".agents/rules/anti_regression_and_side_effects_guardrail.md",
       "target_name": ".agents/rules/anti_regression_and_side_effects_guardrail.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "7094721094d45fee55b1680fe32dadc2382325dfb2ce409d9159cf7101f5d7ce",
-      "size_bytes": 8407
+      "sha256": "ee0a9e81104bf4a5faaf1d559eb41d3a2d8b2046cc0357f9535edf127eb51813",
+      "size_bytes": 9211
     },
     {
       "path": ".agents/rules/continuous_agent_evolution.md",
       "target_name": ".agents/rules/continuous_agent_evolution.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "677100c889e5e9bd9211db5822b7d81f6dc1ffd268bc260d3e5f1d0fcb59d132",
-      "size_bytes": 6415
+      "sha256": "db9eb0ff0dc75d1562563f5d5ce1965fda6649b4ba04cc6f69e2e15b0a4f706d",
+      "size_bytes": 6701
     },
     {
       "path": ".agents/rules/frontend_parity_and_closure.md",
@@ -1203,8 +1203,8 @@
       "path": ".agents/scripts/_budgets.py",
       "target_name": ".agents/scripts/_budgets.py",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "50aea46bd05e202ed97a5b38d7bc86326dad68aae4954332673d5c08d082b428",
-      "size_bytes": 2579
+      "sha256": "0765bf44515a0e7fe76eae8d80f2ff5f50251b099388e40bc7df254c7965fd6e",
+      "size_bytes": 2698
     },
     {
       "path": ".agents/scripts/audit_pagespeed_insights.py",
@@ -1224,8 +1224,8 @@
       "path": ".agents/scripts/certify_task_completion.sh",
       "target_name": ".agents/scripts/certify_task_completion.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "5403dd6cc4b41a6a683ed6c0146c23cfd69bc77aa55193cfd2e81eff4486ae7c",
-      "size_bytes": 29654
+      "sha256": "4059b68ab7854cf23d112b6b02516df0af164b7e234eebaa016f70fabba7285f",
+      "size_bytes": 30701
     },
     {
       "path": ".agents/scripts/checkpoint_ctl.py",
@@ -1280,8 +1280,8 @@
       "path": ".agents/scripts/sync_governance.py",
       "target_name": ".agents/scripts/sync_governance.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "84f88141d42d3c41bb80d2c1ca677b88630eb44d3089d747e679e24ea620dc50",
-      "size_bytes": 42115
+      "sha256": "800eea3201bbbaa69b252f088efc4213fac9bee9bfa80632086bdca49d79f367",
+      "size_bytes": 43249
     },
     {
       "path": ".agents/scripts/track_findings_state.py",
@@ -1315,8 +1315,8 @@
       "path": ".agents/scripts/verify_docs_invariants.py",
       "target_name": ".agents/scripts/verify_docs_invariants.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "9d908696382344b0a4c77f090aaeb690081a1867ba353e1a93dd9bf67da3cd22",
-      "size_bytes": 74225
+      "sha256": "05d1122fe7af876749ef4b2ed4d9dc451265cde190d5bf8a6e38b251a784a346",
+      "size_bytes": 79847
     },
     {
       "path": ".agents/scripts/verify_json_no_duplicate_keys.py",
@@ -1371,8 +1371,8 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "f28706077f6bad5b7f66061803530637ce4e16485dcd7071c058f8648cc4ec58",
-      "size_bytes": 11723
+      "sha256": "38ec491283c0955366c4101303819805826d43c252718c0ad4e5f24209939c91",
+      "size_bytes": 11851
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
@@ -1567,8 +1567,8 @@
       "path": "AGENTS.md",
       "target_name": "AGENTS.md",
       "merge_strategy": "surgical_merge",
-      "sha256": "5a3f13145670dc8155b9af3dc0f413555dea83e41dec31e811e4ec09caf0040f",
-      "size_bytes": 30568
+      "sha256": "8e67c44ca4c80037f1224d7624c0bf7afe54132eca29c91dfc5c8498682682c6",
+      "size_bytes": 7067
     },
     {
       "path": "AI_MASTER_PROMPT.es.md",
@@ -1616,7 +1616,7 @@
       "path": "catalogs/skillsllm-manifest.json",
       "target_name": "catalogs/skillsllm-manifest.json",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "02e0118669efd00cd04ce7c41d049f5ff1278cb7977b65a4b15cdee506b0adbd",
+      "sha256": "6aade54c5e87eb23beae5c3b44c4e7983810fdf997c31b26faaf0eabfa58301b",
       "size_bytes": 11952
     },
     {
@@ -1630,8 +1630,8 @@
       "path": "scripts/install-skill.sh",
       "target_name": "scripts/install-skill.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "8833507895291160e36ab4728bd52d1e5cec39dfab4e736b999c38daf5924d46",
-      "size_bytes": 30765
+      "sha256": "54af3f13fd99f876f7ffab0da80b9ad8caf1f3e10bf4865ea302a7f66e9cf6f8",
+      "size_bytes": 38109
     }
   ]
 }

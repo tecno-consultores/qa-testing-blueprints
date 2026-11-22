@@ -16,7 +16,13 @@ const FORBIDDEN_PATH_SEGMENTS = new Set(['..', '__proto__', 'constructor', 'prot
 const EXCLUDED_REMOTE_COMMON_PATHS = new Set([
   'scripts/publicar-mcp.sh',
   'scripts/probar-mcp-example.sh',
+  'scripts/install-skill.sh',
   '.env.example',
+]);
+const MONOREPO_ONLY_GOV_PATHS = new Set([
+  '.agents/scripts/bump_version_11x.py',
+  '.agents/scripts/sync_governance.py',
+  'scripts/install-skill.sh',
 ]);
 const DEFAULT_FETCH_TIMEOUT_MS = 15000;
 const PACKAGE_JSON_URL = new URL('../../package.json', import.meta.url);
@@ -424,7 +430,7 @@ export class GitHubFetcher {
   public async fetchStackBundle(
     stackName: string,
     includeCommonAndAgents = true,
-    thinRepoOnly = false
+    thinRepoOnly = true
   ): Promise<FetchedFileItem[]> {
     const manifest = await this.fetchManifest();
     const stackDef = isOwnObjectProperty(manifest.stacks, stackName)
@@ -448,9 +454,10 @@ export class GitHubFetcher {
       const agentItems = thinRepoOnly
         ? manifest.agent_governance_files.filter(
             (f) =>
-              f.path.startsWith('.agents/scripts/') ||
-              f.path.startsWith('.agents/schemas/') ||
-              f.path === '.agents/ACTIVE_TASK.md.example'
+              !MONOREPO_ONLY_GOV_PATHS.has(f.path) &&
+              (f.path.startsWith('.agents/scripts/') ||
+                f.path.startsWith('.agents/schemas/') ||
+                f.path === '.agents/ACTIVE_TASK.md.example')
           )
         : manifest.agent_governance_files;
       itemsToFetch.push(...commonItems);
