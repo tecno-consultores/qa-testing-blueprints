@@ -85,7 +85,7 @@ Al utilizar herramientas avanzadas de análisis de recursos y profiling como `py
 Por defecto, Docker aplica un perfil estricto de `seccomp` que prohíbe que un proceso inspeccione la memoria de otro proceso mediante llamadas al sistema de bajo nivel.
 
 **La Solución:**
-Debes otorgar capacidades extendidas temporalmente al contenedor en tu archivo `docker-compose.qa.yml`:
+Debes otorgar capacidades extendidas temporalmente SOLO a sidecars opt-in de profiling (`profiles: [profiling]`) en tu archivo `docker-compose.qa.yml` (nota: la cobertura Bash con `kcov` + `BATS` utiliza `BashEngine` `PS4`/`BASH_XTRACEFD` y opera 100% rootless bajo `no-new-privileges:true` + `cap_drop: [ALL]` sin `SYS_PTRACE` ni `seccomp:unconfined`):
 
 ```yaml
     cap_add:

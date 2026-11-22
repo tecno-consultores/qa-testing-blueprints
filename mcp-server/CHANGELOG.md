@@ -8,6 +8,9 @@ All notable changes to the `@sinfallas/mcp-qa-11x` npm package and MCP server ar
 
 ## [Unreleased]
 
+### Fixed
+- **POSIX `'...'\''...'` Quote Tokenization & `<!DOCTYPE` Cobertura Harvesting in `ephemeral-runner.ts`:** Fixed unquoted POSIX backslash handling (`\'`, `\"`, `\\`) in `tokenizeCommandArgs`, `hasUnquotedShellSyntax`, and `splitUnquotedStatements` so `run_ephemeral_qa` GNU Make fallbacks execute [`bash-scripts/Makefile.example`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/bash-scripts/Makefile.example) without shell quote inversion, and stripped single/multi-line `<!DOCTYPE coverage ...>` declarations in `harvestCoverageReports` while preserving `<!ENTITY` Anti-XXE traps and harvesting `bash-scripts/.agents/.cache/coverage/bash.xml`.
+
 ## [3.2.1] - 2026-11-21
 
 ### Fixed

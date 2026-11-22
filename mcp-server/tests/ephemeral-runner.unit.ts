@@ -20,6 +20,15 @@ import {
 } from '../src/tools/ephemeral-runner.js';
 import { isDocFilePath } from '../src/services/qa-evidence.js';
 
+function assertShellCommandsParseCleanly(commands: readonly string[][]): void {
+  for (const cmd of commands) {
+    const cIdx = cmd.findIndex((tok) => tok === '-c');
+    if (cIdx > 0 && (cmd[cIdx - 1] === 'bash' || cmd[cIdx - 1] === 'sh')) {
+      execFileSync(cmd[cIdx - 1]!, ['-n', '-c', cmd[cIdx + 1]!]);
+    }
+  }
+}
+
 describe('ephemeral-runner', () => {
   let tempDir: string;
 
@@ -1231,5 +1240,77 @@ describe('ephemeral-runner', () => {
       const res = resolveMakefileDockerRecipes(mk, 'qa-bad', stackRoot);
       expect(res.ok, `Condicional malformado debía bloquearse: ${mk}`).toBe(false);
     }
+  });
+
+  it('harvestCoverageReports purga <!DOCTYPE coverage ...> (1 o varias líneas) preservando <!ENTITY anti-XXE y valida sintaxis bash -n en los 10 stacks', () => {
+    expect(tokenizeCommandArgs("bash -c 'PS4='\\''kcov@ok'\\''' a\\ b sub\\docker-compose.qa.yml trailing\\")).toEqual([
+      'bash',
+      '-c',
+      "PS4='kcov@ok'",
+      'a b',
+      'sub\\docker-compose.qa.yml',
+      'trailing\\',
+    ]);
+    expect(tokenizeCommandArgs('echo hi\\\nworld')).toEqual(['echo', 'hiworld']);
+    expect(hasUnquotedShellSyntax("docker run --rm app bash -c 'PS4='\\''kcov@ok'\\'' && echo ok'")).toBe(false);
+
+    const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+    const stacks = [
+      'bash-scripts',
+      'fastapi',
+      'python',
+      'node-backend',
+      'vue3',
+      'react-frontend',
+      'php',
+      'mobile-appium',
+      'ai-evals',
+      'vibe-rescue',
+    ];
+    for (const stack of stacks) {
+      const mk = fs.readFileSync(path.join(repoRoot, stack, 'Makefile.example'), 'utf8');
+      for (const target of ['qa-lint', 'qa-unit']) {
+        const res = resolveMakefileDockerRecipes(mk, target, tempDir);
+        expect(res.ok, `${stack}:${target} -> ${res.ok ? '' : res.reason}`).toBe(true);
+        if (!res.ok) continue;
+        assertShellCommandsParseCleanly(res.commands);
+      }
+    }
+    const bashUnitRes = resolveMakefileDockerRecipes(
+      fs.readFileSync(path.join(repoRoot, 'bash-scripts', 'Makefile.example'), 'utf8'),
+      'qa-unit',
+      tempDir
+    );
+    expect(bashUnitRes.ok && bashUnitRes.prepDirs).toContain(path.join('.agents', '.cache', 'coverage'));
+
+    const wsClean = path.join(tempDir, 'ws-kcov-dtd');
+    fs.mkdirSync(path.join(wsClean, 'coverage_report', 'kcov-merged'), { recursive: true });
+    fs.writeFileSync(
+      path.join(wsClean, 'coverage_report', 'kcov-merged', 'cobertura.xml'),
+      "<?xml version=\"1.0\" ?>\n<!DOCTYPE coverage\n  SYSTEM 'http://cobertura.sourceforge.net/xml/coverage-04.dtd'>\n<coverage line-rate=\"1.0\"/>\n",
+      'utf8'
+    );
+    const harvestedClean = harvestCoverageReports(wsClean);
+    expect(harvestedClean).toEqual([path.join(wsClean, '.agents', '.cache', 'coverage', 'bash.xml')]);
+    const sanitizedXml = fs.readFileSync(harvestedClean[0]!, 'utf8');
+    expect(sanitizedXml).not.toContain('<!DOCTYPE');
+    expect(sanitizedXml).toContain('<coverage line-rate="1.0"/>');
+
+    const wsEntity = path.join(tempDir, 'ws-xxe-entity');
+    fs.mkdirSync(path.join(wsEntity, 'coverage_report'), { recursive: true });
+    const maliciousXml = '<?xml version="1.0"?>\n<!DOCTYPE coverage [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>\n<coverage>&xxe;</coverage>\n';
+    fs.writeFileSync(path.join(wsEntity, 'coverage_report', 'cobertura.xml'), maliciousXml, 'utf8');
+    const harvestedEntity = harvestCoverageReports(wsEntity);
+    expect(fs.readFileSync(harvestedEntity[0]!, 'utf8')).toContain('<!ENTITY');
+
+    const wsMonoBash = path.join(tempDir, 'ws-mono-bash');
+    fs.mkdirSync(path.join(wsMonoBash, 'bash-scripts', '.agents', '.cache', 'coverage'), { recursive: true });
+    fs.writeFileSync(
+      path.join(wsMonoBash, 'bash-scripts', '.agents', '.cache', 'coverage', 'bash.xml'),
+      '<?xml version="1.0"?>\n<coverage line-rate="0.98"/>\n',
+      'utf8'
+    );
+    const harvestedMonoBash = harvestCoverageReports(wsMonoBash);
+    expect(harvestedMonoBash).toEqual([path.join(wsMonoBash, '.agents', '.cache', 'coverage', 'bash-scripts.xml')]);
   });
 });

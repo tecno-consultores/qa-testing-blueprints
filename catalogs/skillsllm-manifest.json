@@ -172,8 +172,8 @@
       "name": "qa-11x-docker-certifier",
       "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-docker-certifier/SKILL.md",
-      "size_bytes": 9349,
-      "sha256": "cc9e0278fde8ad416dc69656618d341fddc2b5c8888ddca616c77b3886b2051e",
+      "size_bytes": 10395,
+      "sha256": "4afb5bb749a9dd1f35a2928862bd1dd76ebcc6c94b9962b86278bbd72984c142",
       "description": "QA 11X Corporate Standard certifier in ephemeral Docker containers. Enforces Rule Zero (zero host executions on Ubuntu/macOS/Windows), Cyclomatic/Cognitive Complexity Grade A, unit test coverage >= 95%, mutation testing, WCAG 2.1 AA accessibility, Lighthouse CI, and silent mode RAM conservation."
     },
     {

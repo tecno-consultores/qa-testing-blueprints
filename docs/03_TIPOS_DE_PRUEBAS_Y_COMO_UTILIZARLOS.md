@@ -64,6 +64,7 @@
 * **Tools:**
   - Python: `pytest`, `pytest-mock`, `pytest-cov`.
   - Frontend: `vitest` with `@vitest/coverage-v8` engine.
+  - Bash / DevOps: `BATS-core` (`bats-support`, `bats-assert`, `bats-mock`) + rootless `kcov` (`no-new-privileges:true`, `cap_drop: [ALL]`, zero `SYS_PTRACE`).
 * **Example (Backend - Python with Pytest):**
   ```python
   # fastapi/tests/core/test_token_manager.unit.py (illustrative path)
@@ -93,6 +94,9 @@
     });
   });
   ```
+* **Rootless Bash `kcov` + `BATS` Recipe (`kernel.yama.ptrace_scope = 2`, Zero `SYS_PTRACE`):**
+  - Inside `sinfallas/base-bash-qa` (`no-new-privileges:true`, `cap_drop: [ALL]`), wrap `bats` in `/tmp/run-bats.sh` (`export -n BASH_XTRACEFD` + `export BASH_ENV=/tmp/kcov-env.sh` guarded by `[ -p "/proc/${BASHPID}/fd/${KCOV_BASH_XTRACEFD}" ]` without `${0} == /app/*` restrictions) and pass `--bash-dont-parse-binary-dir --bash-parse-files-in-dir` with `--exclude-pattern` excluding vendored QA-11X helpers (`/limpieza.sh`, `/instalar-hooks.sh`, `/.agents/`, `/scripts/{verificar-secretos,auditar-infra,auditar-pagespeed,actualizar-grafos-graphify,generar-sbom-cyclonedx,install-skill}.sh`).
+  - Write raw `kcov` artifacts to `/tmp/kcov-out` and strip `<!DOCTYPE` declarations when exporting `.agents/.cache/coverage/bash.xml` (`0600`) so [`.agents/scripts/verify_diff_coverage.py`](../.agents/scripts/verify_diff_coverage.py) validates Cobertura XML without Anti-XXE DTD rejections or `coverage_report/` workspace clutter.
 * **Non-Negotiable Threshold:** **`>= 95.0%` line and branch coverage**. If it drops to 94.9%, the command fails.
 * **Execution:**
   ```bash

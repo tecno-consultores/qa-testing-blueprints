@@ -71,7 +71,9 @@ VENDORED_QA11X_PATHS = frozenset(
         "instalar-hooks.sh",
         "scripts/actualizar-grafos-graphify.sh",
         "scripts/auditar-infra.sh",
+        "scripts/auditar-pagespeed.sh",
         "scripts/generar-sbom-cyclonedx.sh",
+        "scripts/install-skill.sh",
         "scripts/limpieza.sh",
         "scripts/verificar-secretos.sh",
     }

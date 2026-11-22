@@ -16,11 +16,10 @@ services:
     volumes:
       - .:/app
     working_dir: /app
-    # NOTA 11X: kcov requiere ptrace exclusivamente en el contenedor efímero de cobertura (prohibido en contenedores de producción)
-    cap_add:
-      - SYS_PTRACE
+    # NOTA 11X: kcov BashEngine (PS4 + BASH_XTRACEFD) opera 100% rootless bajo kernel.yama.ptrace_scope=2 sin capacidades privilegiadas
+    cap_drop:
+      - ALL
     security_opt:
-      - seccomp:unconfined
       - no-new-privileges:true
     command: bash -c "echo 'Contenedor QA Bash listo para ShellCheck, shfmt, BATS y kcov. Usa docker compose run --rm -T qa-bash [comando]'; sleep infinity"
 

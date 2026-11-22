@@ -472,7 +472,7 @@ class TestStacksHydrationSmoke(unittest.TestCase):
         )
 
     def test_php_node_and_bash_invariants(self) -> None:
-        """Verifica PHP 8.4/8.5 ini, Karate Idempotency-Key y kcov SYS_PTRACE."""
+        """Verifica PHP 8.4/8.5 ini, Karate Idempotency-Key y kcov rootless."""
         php_ini_lines = (
             (REPO_ROOT / "php" / "php.ini.example")
             .read_text(encoding="utf-8")
@@ -553,7 +553,10 @@ class TestStacksHydrationSmoke(unittest.TestCase):
         bash_compose = (REPO_ROOT / "bash-scripts" / "docker-compose.qa.yml").read_text(
             encoding="utf-8"
         )
-        self.assertIn("SYS_PTRACE", bash_compose)
+        self.assertNotIn("SYS_PTRACE", bash_compose)
+        self.assertNotIn("seccomp:unconfined", bash_compose)
+        self.assertIn("no-new-privileges:true", bash_compose)
+        self.assertIn("- ALL", bash_compose)
         self.assertNotIn("..:/repo:ro", bash_compose)
         self.assertFalse(
             (REPO_ROOT / "bash-scripts" / "test" / "test_install_skill.bats").exists()
@@ -1225,6 +1228,247 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             self.assertEqual(hits[7], 0)
             self.assertEqual(hits[8], 0)
             self.assertEqual(hits[10], 0)
+
+    def _extract_bash_makefile_kcov_py(self) -> str:
+        """Extrae el validador Python de bash-scripts/Makefile.example."""
+        mk_text = (REPO_ROOT / "bash-scripts" / "Makefile.example").read_text(
+            encoding="utf-8"
+        )
+        match = re.search(
+            r'/usr/bin/python3 -c "(.*?)" "\$\$\{kcov_out\}"', mk_text
+        )
+        self.assertIsNotNone(match)
+        assert match is not None
+        return match.group(1).replace("$$", "$").replace(r"\"", '"')
+
+    def test_bash_rootless_kcov_doctype_and_diff_coverage(self) -> None:
+        """Valida saneamiento <!DOCTYPE, umbral >= 95% y verify_diff_coverage."""
+        mk_text = (REPO_ROOT / "bash-scripts" / "Makefile.example").read_text(
+            encoding="utf-8"
+        )
+        for expected in (
+            "--bash-dont-parse-binary-dir",
+            "--bash-parse-files-in-dir=",
+            "/limpieza.sh",
+            "/instalar-hooks.sh",
+            "/scripts/auditar-pagespeed.sh",
+            "/scripts/install-skill.sh",
+            "/.agents/",
+            "export -n BASH_XTRACEFD",
+            "[ -p ",
+            "/proc/",
+            ".agents/.cache/coverage/bash.xml",
+        ):
+            self.assertIn(expected, mk_text)
+        self.assertNotIn('== /app/*', mk_text)
+
+        py_gate = self._extract_bash_makefile_kcov_py()
+        spec = importlib.util.spec_from_file_location(
+            "verify_diff_coverage_mod",
+            REPO_ROOT / ".agents" / "scripts" / "verify_diff_coverage.py",
+        )
+        assert spec is not None and spec.loader is not None
+        vdc = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = vdc
+        spec.loader.exec_module(vdc)
+        self.assertIn("scripts/auditar-pagespeed.sh", vdc.VENDORED_QA11X_PATHS)
+        self.assertIn("scripts/install-skill.sh", vdc.VENDORED_QA11X_PATHS)
+
+        with tempfile.TemporaryDirectory(prefix="qa11x_bash_cov_") as tmp:
+            ws = Path(tmp)
+            (ws / "clean_artifacts.sh").write_text(
+                "#!/usr/bin/env bash\necho ok\n", encoding="utf-8"
+            )
+            kout = ws / "kcov-out" / "run-bats.sh"
+            cov_dir = ws / ".agents" / ".cache" / "coverage"
+            kout.mkdir(parents=True)
+            cov_dir.mkdir(parents=True)
+            raw_dtd_xml = (
+                '<?xml version="1.0" ?>\n'
+                "<!DOCTYPE coverage\n  SYSTEM "
+                "'http://cobertura.sourceforge.net/xml/coverage-04.dtd'>\n"
+                '<coverage line-rate="0.960" lines-covered="96" lines-valid="100">'
+                "<sources><source>/app/</source></sources><packages><package>"
+                '<classes><class name="c" filename="clean_artifacts.sh"><lines>'
+                '<line number="2" hits="3"/></lines></class></classes>'
+                "</package></packages></coverage>\n"
+            )
+            (kout / "cobertura.xml").write_text(raw_dtd_xml, encoding="utf-8")
+            (kout / "coverage.json").write_text(
+                '{"covered_lines": 96, "total_lines": 100, "percent_covered": "96.00"}',
+                encoding="utf-8",
+            )
+            with self.assertRaises(vdc.SecurityValidationError):
+                vdc.parse_cobertura_xml(raw_dtd_xml, ws, {}, "bash")
+
+            bash_xml = cov_dir / "bash.xml"
+            ok_run = subprocess.run(
+                [sys.executable, "-c", py_gate, str(ws / "kcov-out"), str(bash_xml)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(ok_run.returncode, 0, msg=ok_run.stderr)
+            self.assertIn("96.00%", ok_run.stdout)
+            sanitized = bash_xml.read_text(encoding="utf-8")
+            self.assertNotIn("<!DOCTYPE", sanitized.upper())
+            cov_map: dict[str, Any] = {}
+            vdc.parse_cobertura_xml(sanitized, ws, cov_map, "bash")
+            self.assertEqual(cov_map["clean_artifacts.sh"].line_hits[2], 3)
+
+            xxe_xml = (
+                '<?xml version="1.0"?>\n'
+                '<!DOCTYPE coverage [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>\n'
+                "<coverage>&xxe;</coverage>\n"
+            )
+            (kout / "cobertura.xml").write_text(xxe_xml, encoding="utf-8")
+            subprocess.run(
+                [sys.executable, "-c", py_gate, str(ws / "kcov-out"), str(bash_xml)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            with self.assertRaises(vdc.SecurityValidationError):
+                vdc.parse_cobertura_xml(
+                    bash_xml.read_text(encoding="utf-8"), ws, {}, "bash"
+                )
+
+            (kout / "coverage.json").write_text(
+                '{"covered_lines": 94, "total_lines": 100, "percent_covered": "94.00"}',
+                encoding="utf-8",
+            )
+            low_run = subprocess.run(
+                [sys.executable, "-c", py_gate, str(ws / "kcov-out"), str(bash_xml)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(low_run.returncode, 1)
+
+            (kout / "coverage.json").write_text(
+                '{"covered_lines": 0, "total_lines": 0, "percent_covered": "100.00"}',
+                encoding="utf-8",
+            )
+            empty_run = subprocess.run(
+                [sys.executable, "-c", py_gate, str(ws / "kcov-out"), str(bash_xml)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(empty_run.returncode, 1)
+
+    def test_lefthook_single_root_and_monorepo_coexistence(self) -> None:
+        """Verifica coexistencia raíz única y monorepo en lefthook.yml."""
+        parsed = _load_yaml_mapping(
+            (REPO_ROOT / "lefthook.yml").read_text(encoding="utf-8")
+        )
+        cmds = parsed["pre-commit"]["commands"]
+        py_glob = str(cmds["repo-python-lint"]["glob"])
+        sh_glob = str(cmds["repo-bash-lint"]["glob"])
+        py_run = str(cmds["repo-python-lint"]["run"]).removesuffix(" {staged_files}")
+        sh_run = str(cmds["repo-bash-lint"]["run"]).removesuffix(" {staged_files}")
+
+        for tok in (
+            "*.py",
+            "**/*.py",
+            "src/*.py",
+            "src/**/*.py",
+            ".agents/scripts/*.py",
+        ):
+            self.assertIn(tok, py_glob)
+        for tok in ("*.sh", "**/*.sh", "scripts/*.sh", ".agents/scripts/*.sh"):
+            self.assertIn(tok, sh_glob)
+        self.assertIn("uv sync --frozen", py_run)
+        self.assertIn("--entrypoint bash", py_run)
+        hooks_sh = (REPO_ROOT / "instalar-hooks.sh").read_text(encoding="utf-8")
+        self.assertIn("uv sync --frozen", hooks_sh)
+        self.assertIn("--entrypoint bash", hooks_sh)
+
+        with tempfile.TemporaryDirectory(prefix="qa11x_lh_coex_") as tmp:
+            root = Path(tmp)
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            log_file = root / "docker_calls.log"
+            mock_docker = bin_dir / "docker"
+            mock_docker.write_text(
+                f'#!/usr/bin/env bash\nprintf "%s\\n" "$*" >>"{log_file}"\n',
+                encoding="utf-8",
+            )
+            mock_docker.chmod(0o755)
+            env = {
+                "PATH": f"{bin_dir}:/usr/bin:/bin",
+                "HOME": str(root),
+            }
+
+            mono = root / "monorepo"
+            (mono / "fastapi").mkdir(parents=True)
+            (mono / "bash-scripts").mkdir(parents=True)
+            (mono / "scripts").mkdir(parents=True)
+            (mono / "fastapi" / "pyproject.toml").write_text("[project]\n", "utf-8")
+            (mono / "fastapi" / "app.py").write_text("x = 1\n", "utf-8")
+            (mono / "scripts" / "tool.py").write_text("y = 2\n", "utf-8")
+            (mono / "bash-scripts" / "docker-compose.qa.yml").write_text(
+                "services: {}\n", "utf-8"
+            )
+            (mono / "bash-scripts" / "clean_artifacts.sh").write_text(
+                "#!/usr/bin/env bash\n", "utf-8"
+            )
+            (mono / "root_script.sh").write_text("#!/usr/bin/env bash\n", "utf-8")
+
+            subprocess.run(
+                ["bash", "-c", f"{py_run} fastapi/app.py scripts/tool.py"],
+                cwd=mono,
+                env=env,
+                check=True,
+            )
+            subprocess.run(
+                [
+                    "bash",
+                    "-c",
+                    f"{sh_run} bash-scripts/clean_artifacts.sh root_script.sh",
+                ],
+                cwd=mono,
+                env=env,
+                check=True,
+            )
+            mono_calls = log_file.read_text(encoding="utf-8")
+            self.assertIn("scripts/tool.py", mono_calls)
+            self.assertNotIn("fastapi/app.py", mono_calls)
+            self.assertIn("root_script.sh", mono_calls)
+            self.assertNotIn("bash-scripts/clean_artifacts.sh", mono_calls)
+
+            log_file.write_text("", encoding="utf-8")
+            single = root / "single_root"
+            single.mkdir()
+            (single / "pyproject.toml").write_text("[project]\n", "utf-8")
+            (single / "uv.lock").write_text("version = 1\n", "utf-8")
+            (single / "docker-compose.qa.yml").write_text(
+                "services:\n    api: # commented 4-space service\n      image: x\n",
+                "utf-8",
+            )
+            (single / "hermes_bridge").mkdir()
+            (single / ".venv").mkdir()
+            (single / "acp_api.py").write_text("z = 3\n", "utf-8")
+            (single / "hermes_bridge" / "server.py").write_text("w = 4\n", "utf-8")
+            (single / ".venv" / "ignored.py").write_text("v = 0\n", "utf-8")
+            subprocess.run(
+                [
+                    "bash",
+                    "-c",
+                    f"{py_run} acp_api.py hermes_bridge/server.py .venv/ignored.py",
+                ],
+                cwd=single,
+                env=env,
+                check=True,
+            )
+            single_calls = log_file.read_text(encoding="utf-8")
+            self.assertIn("compose -f docker-compose.qa.yml run", single_calls)
+            self.assertIn("--no-deps", single_calls)
+            self.assertIn("--entrypoint bash", single_calls)
+            self.assertIn("uv sync --frozen", single_calls)
+            self.assertIn("acp_api.py", single_calls)
+            self.assertIn("hermes_bridge/server.py", single_calls)
+            self.assertNotIn(".venv/ignored.py", single_calls)
 
 
 if __name__ == "__main__":

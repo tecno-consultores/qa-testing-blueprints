@@ -8,6 +8,9 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### Corregido
+* **Cobertura `kcov >= 95%` Rootless sin `SYS_PTRACE`, Saneamiento `<!DOCTYPE`, Tokenización Fallback POSIX y Hooks de Raíz Única:** Eliminados `SYS_PTRACE` y `seccomp:unconfined` en [`bash-scripts/docker-compose.qa.yml`](bash-scripts/docker-compose.qa.yml) (`cap_drop: [ALL]` + `no-new-privileges:true` bajo `kernel.yama.ptrace_scope = 2`), actualizados [`bash-scripts/Makefile.example`](bash-scripts/Makefile.example), [`Makefile`](Makefile) y [`verify_diff_coverage.py`](.agents/scripts/verify_diff_coverage.py) con `--bash-dont-parse-binary-dir`, exclusión completa de utilerías vendoreadas QA-11X (`limpieza.sh`, `instalar-hooks.sh`, `.agents/`, `scripts/{verificar-secretos,auditar-infra,auditar-pagespeed,actualizar-grafos-graphify,generar-sbom-cyclonedx,install-skill}.sh`), `BATS_TARGETS` tolerante a espacios, guarda `[ -p "/proc/${BASHPID}/fd/${KCOV_BASH_XTRACEFD}" ]` + `export -n BASH_XTRACEFD` y emisión de `.agents/.cache/coverage/bash.xml` sin `<!DOCTYPE`; corregidos la tokenización POSIX `'...'\''...'` y el saneamiento `<!DOCTYPE` en [`ephemeral-runner.ts`](mcp-server/src/tools/ephemeral-runner.ts); y ampliados [`lefthook.yml`](lefthook.yml) e [`instalar-hooks.sh`](instalar-hooks.sh) (`**/*.py`, `**/*.sh`, `--entrypoint bash`, fallback dinámico de `UV_CACHE_DIR`, `uv sync --frozen`) para repositorios de raíz única y monorepo.
+
 ---
 
 ## [3.2.1] - 2026-11-21

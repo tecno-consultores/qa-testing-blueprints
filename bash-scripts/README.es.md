@@ -50,8 +50,8 @@ make qa-lint
 ```
 
 * **Paso 3: Pruebas unitarias y lógicas (BATS-core)**
-* **Paso 4: Auditoría de Cobertura (kcov) - Exigencia del 95%**
-Ejecuta las pruebas sobre `clean_artifacts.sh` (`test/ejemplo_mock.bats`) y genera el reporte de cobertura unificado con:
+* **Paso 4: Auditoría de Cobertura rootless (`kcov`) - Exigencia del 95% (cero `SYS_PTRACE`)**
+Ejecuta las pruebas sobre `clean_artifacts.sh` (`test/ejemplo_mock.bats`) dentro de `qa-bash` bajo `no-new-privileges:true` + `cap_drop: [ALL]` (compatible con `kernel.yama.ptrace_scope = 2` sin `SYS_PTRACE` ni `seccomp:unconfined`). `make qa-unit` aplica `--bash-dont-parse-binary-dir --bash-parse-files-in-dir` excluyendo utilerías vendoreadas QA-11X (`limpieza.sh`, `instalar-hooks.sh`, `.agents/`, `scripts/{verificar-secretos,auditar-infra,auditar-pagespeed,actualizar-grafos-graphify,generar-sbom-cyclonedx,install-skill}.sh`), protege `BASH_ENV` mediante `[ -p "/proc/${BASHPID}/fd/${KCOV_BASH_XTRACEFD}" ]` + `export -n BASH_XTRACEFD`, y exporta el reporte Cobertura saneado sin `<!DOCTYPE` directamente a `.agents/.cache/coverage/bash.xml` (`0600`) para `verify_diff_coverage.py`:
 ```bash
 make qa-unit
 ```

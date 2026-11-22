@@ -59,12 +59,12 @@ pre-commit:
       run: bash -c 'if [ ! -f docker-compose.qa.yml ]; then exit 0; fi; docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-bash bash -c '\''shellcheck -x "$@" && shfmt -i 2 -ci -d "$@"'\'' _ "$@"' _ {staged_files}
 
     repo-bash-lint:
-      glob: "{scripts/*.sh,.agents/scripts/*.sh,instalar-hooks.sh,*/limpieza.sh,mcp-server/example/verify-v2.sh}"
-      run: docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/repo:ro" -w /repo sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7 bash -c 'shellcheck -x "$@" && shfmt -i 2 -ci -d "$@"' _ {staged_files}
+      glob: "{*.sh,**/*.sh,scripts/*.sh,scripts/**/*.sh,.agents/scripts/*.sh,*/limpieza.sh,mcp-server/example/verify-v2.sh}"
+      run: bash -c 'files=(); for f in "$@"; do [ -f "$f" ] || continue; case "$f" in .venv/*|venv/*|.tox/*|.nox/*|mutants/*|node_modules/*|vendor/*|.bats-battery/*|graphify-out/*) continue ;; esac; if [ -f bash-scripts/docker-compose.qa.yml ] && [[ "$f" == bash-scripts/* ]] && [ "$f" != "bash-scripts/limpieza.sh" ]; then continue; fi; files+=("$f"); done; [ "${#files[@]}" -eq 0 ] && exit 0; docker run --rm --network none --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e _USER=qa -v "$(pwd):/repo:ro" -w /repo sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7 bash -c '\''shellcheck -x "$@" && shfmt -i 2 -ci -d "$@"'\'' _ "${files[@]}"' _ {staged_files}
 
     repo-python-lint:
-      glob: "{.agents/scripts/*.py,scripts/*.py,tests/**/*.py,vibe-rescue/**/*.py,ai-evals/**/*.py}"
-      run: docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -e MYPYPATH=/app/.agents/scripts:/app/ai-evals:/app/vibe-rescue -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 bash -c 'ruff check --select E,F,W,I,UP,B,C901,FLY --config "lint.mccabe.max-complexity=5" "$@" && mypy --strict --cache-dir=/tmp/mypy "$@"' _ {staged_files}
+      glob: "{*.py,**/*.py,src/*.py,src/**/*.py,app/*.py,app/**/*.py,.agents/scripts/*.py,scripts/*.py,tests/*.py,tests/**/*.py,vibe-rescue/*.py,vibe-rescue/**/*.py,ai-evals/*.py,ai-evals/**/*.py}"
+      run: bash -c 'files=(); for f in "$@"; do [ -f "$f" ] || continue; case "$f" in .venv/*|venv/*|.tox/*|.nox/*|mutants/*|node_modules/*|vendor/*|graphify-out/*) continue ;; fastapi/*) [ -f fastapi/pyproject.toml ] && continue ;; python/*) [ -f python/pyproject.toml ] && continue ;; node-backend/*|vue3/*|react-frontend/*|php/*|mcp-server/*|mobile-appium/*) continue ;; esac; files+=("$f"); done; [ "${#files[@]}" -eq 0 ] && exit 0; qa_svc=""; qa_deps=(); if [ -f docker-compose.qa.yml ] && [ -f pyproject.toml ]; then for cand in qa-backend qa-python api; do if grep -Eq "^[[:space:]]{2,4}${cand}:([[:space:]]*(#.*)?)?$" docker-compose.qa.yml; then qa_svc="${cand}"; [ "${cand}" = "api" ] && qa_deps=(--no-deps); break; fi; done; fi; if [ -n "${qa_svc}" ]; then QA_UID="$(id -u)" QA_GID="$(id -g)" docker compose -f docker-compose.qa.yml run --rm -T ${qa_deps[@]+"${qa_deps[@]}"} --entrypoint bash -u "$(id -u):$(id -g)" -e HOME=/tmp -e UV_CACHE_DIR=/tmp/uv-cache -e UV_PROJECT_ENVIRONMENT=/tmp/qa-venv -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 "${qa_svc}" -c '\''if ! mkdir -p "${UV_CACHE_DIR:-/tmp/uv-cache}" 2>/dev/null || [ ! -w "${UV_CACHE_DIR:-/tmp/uv-cache}" ]; then export UV_CACHE_DIR=/tmp/qa-uv-cache; fi; if [ -f uv.lock ]; then uv sync --frozen --all-extras -q && uv run --frozen --no-sync ruff check "$@" && uv run --frozen --no-sync ruff format --check "$@" && uv run --frozen --no-sync mypy --strict --cache-dir=/tmp/mypy "$@"; elif [ -w . ]; then uv sync --all-extras -q && uv run --no-sync ruff check "$@" && uv run --no-sync ruff format --check "$@" && uv run --no-sync mypy --strict --cache-dir=/tmp/mypy "$@"; else PATH="/tmp/qa-venv/bin:${PATH}" ruff check "$@" && PATH="/tmp/qa-venv/bin:${PATH}" ruff format --check "$@" && PATH="/tmp/qa-venv/bin:${PATH}" mypy --strict --cache-dir=/tmp/mypy "$@"; fi'\'' _ "${files[@]}"; else docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -e MYPYPATH=/app/.agents/scripts:/app/ai-evals:/app/vibe-rescue -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 bash -c '\''ruff check --select E,F,W,I,UP,B,C901,FLY --config "lint.mccabe.max-complexity=5" "$@" && mypy --strict --cache-dir=/tmp/mypy "$@"'\'' _ "${files[@]}"; fi' _ {staged_files}
 
     mcp-lint:
       root: "mcp-server/"
@@ -116,7 +116,7 @@ pre-push:
 
     mcp-unit-and-lint:
       glob: "{mcp-server/**,manifest.json,mobile-appium/**,vibe-rescue/**,.github/**}"
-      run: bash -c '[ ! -f mcp-server/package.json ] && exit 0; MCP_EXTRA_VOLS=(); for dir in mobile-appium vibe-rescue .github architecture .agents fastapi python node-backend vue3 react-frontend php bash-scripts ai-evals; do [ -d "./${dir}" ] && MCP_EXTRA_VOLS+=(-v "$(pwd)/${dir}:/${dir}:ro"); done; docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "$(pwd)/mcp-server:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60 bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run lint && pnpm --silent run typecheck && pnpm --silent run test:unit && rm -rf coverage .eslintcache"'
+      run: bash -c '[ ! -f mcp-server/package.json ] && exit 0; mkdir -p .agents/.cache/coverage && chmod 0700 .agents/.cache; MCP_EXTRA_VOLS=(); for dir in mobile-appium vibe-rescue .github architecture .agents fastapi python node-backend vue3 react-frontend php bash-scripts ai-evals; do [ -d "./${dir}" ] && MCP_EXTRA_VOLS+=(-v "$(pwd)/${dir}:/${dir}:ro"); done; docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "$(pwd)/mcp-server:/app" -v "$(pwd)/.agents/.cache/coverage:/cov-out" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60 bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run lint && pnpm --silent run typecheck && pnpm --silent run test:unit && if [ -f coverage/lcov.info ]; then sed -E '\''s|^SF:/app/|SF:mcp-server/|; s|^SF:(src/)|SF:mcp-server/\1|'\'' coverage/lcov.info > /cov-out/mcp-server.info; fi && rm -rf coverage .eslintcache"'
 
     ai-evals-offline:
       glob: "{ai-evals/**,tests/evals/**,.agents/skills/**}"
@@ -131,7 +131,73 @@ pre-push:
       run: bash -c '[ ! -d mcp-server/test ] && exit 0; docker run --rm --network none --security-opt=no-new-privileges:true -v "$(pwd)/mcp-server/test:/app/src/test/java/examples/test:ro" -v "$(pwd):/repo:ro" sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89 mvn -B -q clean test'
 
     bash-shellcheck-bats:
-      run: bash -c '[ ! -d bash-scripts/test ] && exit 0; if [ -f ./Makefile ] && [ -d ./tests/bats ] && command -v make >/dev/null 2>&1; then make shellcheck && make shfmt && make test-bats; else docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -e _USER=qa -v "$(pwd):/repo:ro" -w /repo/bash-scripts sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7 bash -c "shopt -s nullglob; mapfile -t lint_files < <(printf '\''%s\n'\'' ../scripts/*.sh ../.agents/scripts/*.sh ../instalar-hooks.sh ../*/limpieza.sh ../mcp-server/example/verify-v2.sh ./*.sh | sort -u); if [ \"\${#lint_files[@]}\" -gt 0 ]; then shellcheck -x \"\${lint_files[@]}\" && shfmt -i 2 -ci -d \"\${lint_files[@]}\"; fi && bats test/*.bats ../tests/bats/*.bats"; fi'
+      run: |-
+        if [ ! -d bash-scripts/test ]; then exit 0; fi
+        if [ -f ./Makefile ] && [ -d ./tests/bats ] && command -v make >/dev/null 2>&1; then
+          make shellcheck && make shfmt && make test-bats
+          exit $?
+        fi
+        mkdir -p .agents/.cache/coverage && chmod 0700 .agents/.cache
+        KCOV_RUNNER_PY='import os, pathlib, re, shutil, stat, subprocess, sys
+        shutil.rmtree("/tmp/kcov-bash", ignore_errors=True)
+        env_sh = pathlib.Path("/tmp/kcov-env.sh")
+        env_sh.write_text(
+            "if [[ \"${KCOV_BASH_XTRACEFD:-}\" =~ ^[0-9]+$ ]] && [ -p \"/proc/${BASHPID}/fd/${KCOV_BASH_XTRACEFD}\" ]; then\n"
+            "  PS4=\x27kcov@${BASH_SOURCE}@${LINENO}@\x27\n"
+            "  BASH_XTRACEFD=\"${KCOV_BASH_XTRACEFD}\"\n"
+            "  set -x\n"
+            "fi\n",
+            encoding="utf-8",
+        )
+        rb = pathlib.Path("/tmp/run-bats.sh")
+        rb.write_text(
+            "#!/usr/bin/env bash\n"
+            "export -n BASH_XTRACEFD 2>/dev/null || unset BASH_XTRACEFD\n"
+            "export BASH_ENV=/tmp/kcov-env.sh\n"
+            "exec bats \"$@\"\n",
+            encoding="utf-8",
+        )
+        rb.chmod(rb.stat().st_mode | stat.S_IXUSR)
+        suites = ["tests/bats/", "bash-scripts/test/"] if pathlib.Path("/repo/tests/bats").is_dir() else ["bash-scripts/test/"]
+        p = subprocess.run(
+            [
+                "kcov",
+                "--bash-dont-parse-binary-dir",
+                "--include-path=/repo,/tmp",
+                "--exclude-pattern=/repo/tests,/repo/bash-scripts/test,/tmp/kcov-bash,/tmp/kcov-env.sh,/tmp/run-bats.sh,.bats.src,/tmp/bats-mock",
+                "/tmp/kcov-bash",
+                "/tmp/run-bats.sh",
+                *suites,
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        sys.stdout.write(p.stdout)
+        if p.returncode != 0:
+            if "\nnot ok " not in ("\n" + p.stdout):
+                sys.stderr.write("\n".join(p.stderr.splitlines()[-40:]) + "\n")
+            sys.exit(p.returncode)
+        mk = pathlib.Path("/repo/Makefile")
+        mk_txt = mk.read_text(encoding="utf-8", errors="replace") if mk.is_file() else ""
+        marker = "@kcov_norm_py=$$(printf \x27%s\\n\x27 \\\n"
+        if marker in mk_txt:
+            blk = mk_txt.split(marker, 1)[1].split("\n\t);", 1)[0]
+            code = "\n".join(re.sub(r"^\t\x27(.*)\x27(?:\s*\\)?$", r"\1", ln).replace("$$", "$") for ln in blk.splitlines())
+            exec(compile(code, "<Makefile:kcov_norm_py>", "exec"), {})
+        else:
+            xmls = sorted(x for x in pathlib.Path("/tmp/kcov-bash").rglob("cobertura.xml") if not x.parent.is_symlink())
+            mxmls = [x for x in xmls if x.parent.name == "kcov-merged"]
+            src = (mxmls[0] if mxmls else xmls[0]) if xmls else None
+            if src is None:
+                sys.exit(1)
+            raw = src.read_text(encoding="utf-8")
+            san = raw if "<!ENTITY" in raw.upper() else re.sub(r"<!DOCTYPE\s+coverage\s+[^\s[\]<>][^[\]<>]*>\r?\n?", "", raw, flags=re.I)
+            out_p = pathlib.Path("/cov-out/bash.xml")
+            out_p.write_text(san, encoding="utf-8")
+            os.chmod(out_p, 0o600)'
+        export KCOV_RUNNER_PY
+        docker run --rm --network none --cap-drop=ALL --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e _USER=qa -e KCOV_RUNNER_PY -v "$(pwd):/repo:ro" -v "$(pwd)/.agents/.cache/coverage:/cov-out" -w /repo sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7 bash -c 'shopt -s nullglob; mapfile -t lint_files < <(printf "%s\n" scripts/*.sh .agents/scripts/*.sh instalar-hooks.sh */limpieza.sh mcp-server/example/verify-v2.sh bash-scripts/*.sh | sort -u); if [ "${#lint_files[@]}" -gt 0 ]; then shellcheck -x "${lint_files[@]}" && shfmt -i 2 -ci -d "${lint_files[@]}"; fi && /usr/bin/python3 -c "${KCOV_RUNNER_PY}"'
 
     calm-architecture-gate:
       run: bash -c '[ ! -x .agents/scripts/validate_calm_architecture.sh ] && exit 0; ./.agents/scripts/validate_calm_architecture.sh'

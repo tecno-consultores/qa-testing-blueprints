@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.2.1",
-  "generated_at_utc": "2026-11-21T21:34:10Z",
+  "generated_at_utc": "2026-11-22T02:43:58Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -95,16 +95,16 @@
     "bash-scripts": {
       "description": "POSIX / Bash DevOps Automation Scripts (ShellCheck, shfmt, BATS-core, kcov >= 95%)",
       "readme": "bash-scripts/README.md",
-      "readme_sha256": "4a5d718745c128844bc62a19e9e83bcec26eff4ac0495dac2d63d9175af7980c",
+      "readme_sha256": "6846b6d4a526eabc78eeb1f634780830d37a26cc7dcb73aaafd1722fdff14f94",
       "readme_es": "bash-scripts/README.es.md",
-      "readme_es_sha256": "535cb6bb9eacf00d407e7e39648619f250266ae0b8797884ded95e02fb0e40ce",
+      "readme_es_sha256": "045c2b71f3d6637d66fa53b52da5c356a7c6a41ca0650f205ae3c97916972146",
       "files": [
         {
           "path": "bash-scripts/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "b969d8c541587a4dfc1b270dd96a29ae277cb7ed04e4b01a12d02d4d80e92d5c",
-          "size_bytes": 2729
+          "sha256": "04a47180087f8a61bfc98849d4d56322286cbdf37937ae73c4329e6f77576653",
+          "size_bytes": 5887
         },
         {
           "path": "bash-scripts/clean_artifacts.sh",
@@ -117,8 +117,8 @@
           "path": "bash-scripts/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "66935d02b1ac46e89d1916c7ab8c5185b197574687e3b16c050dabeb11f2b0bc",
-          "size_bytes": 2230
+          "sha256": "3bd35eb60532ccef5e4c86e24a2c19737d01889b2a5808a26e8e576badf8dd23",
+          "size_bytes": 2199
         },
         {
           "path": "bash-scripts/gitignore.example",
@@ -1068,15 +1068,15 @@
       "path": "instalar-hooks.sh",
       "target_name": "instalar-hooks.sh",
       "merge_strategy": "copy_if_missing",
-      "sha256": "c9ecb26e3e78fce9537089204b7dac90de39282ff519501235cf980242e970fd",
-      "size_bytes": 10473
+      "sha256": "ed1bad15b88a4bc0e5b178c722af6258c2d6dcfe47f97cfc8940825aae759c61",
+      "size_bytes": 15808
     },
     {
       "path": "lefthook.yml",
       "target_name": "lefthook.yml",
       "merge_strategy": "copy_if_missing",
-      "sha256": "265a5a780a505d22e9b7c8e597e778b2c3f2166b93bb0d335516081f7778e0fa",
-      "size_bytes": 15646
+      "sha256": "ba34f913bb3b76725e456b5653f36ea11a1b80c4a6c45428134e8f35357c4719",
+      "size_bytes": 21546
     },
     {
       "path": "scripts/actualizar-grafos-graphify.sh",
@@ -1308,8 +1308,8 @@
       "path": ".agents/scripts/verify_diff_coverage.py",
       "target_name": ".agents/scripts/verify_diff_coverage.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "c465a072e6101e19ca62b79f146dedbebe04ba5f89dbf5d097dfed57a190f4ce",
-      "size_bytes": 33590
+      "sha256": "4d4e7d3dfe3252da7366af965492cb21787f8a14497c2c86ddaeae35fd5fa969",
+      "size_bytes": 33666
     },
     {
       "path": ".agents/scripts/verify_docs_invariants.py",
@@ -1406,8 +1406,8 @@
       "path": ".agents/skills/qa-11x-architect/references/05-stack-bash-devops.md",
       "target_name": ".agents/skills/qa-11x-architect/references/05-stack-bash-devops.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "429203eda88fa7b46d52c8c7b581bb49cc0f042e711d19fa1b90af8b6e884775",
-      "size_bytes": 6179
+      "sha256": "200a7f6ed80fb04433cf1dbdf2a536c21e0f61d8aca5fa974f0a0b7767bd8fc3",
+      "size_bytes": 10327
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/06-stack-php.md",
@@ -1455,8 +1455,8 @@
       "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "target_name": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "cc9e0278fde8ad416dc69656618d341fddc2b5c8888ddca616c77b3886b2051e",
-      "size_bytes": 9349
+      "sha256": "4afb5bb749a9dd1f35a2928862bd1dd76ebcc6c94b9962b86278bbd72984c142",
+      "size_bytes": 10395
     },
     {
       "path": ".agents/skills/qa-11x-llm-evaluator/SKILL.md",
@@ -1616,8 +1616,8 @@
       "path": "catalogs/skillsllm-manifest.json",
       "target_name": "catalogs/skillsllm-manifest.json",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "df213b5bc662470d0772ffee71776f3c86634f7cccd7881ed7f9d4fea51fdc30",
-      "size_bytes": 11951
+      "sha256": "02e0118669efd00cd04ce7c41d049f5ff1278cb7977b65a4b15cdee506b0adbd",
+      "size_bytes": 11952
     },
     {
       "path": "llms.txt",

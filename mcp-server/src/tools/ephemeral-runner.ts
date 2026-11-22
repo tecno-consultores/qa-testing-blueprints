@@ -120,6 +120,9 @@ function harvestCoverageForStage(resolvedPath: string, stage: string): void {
 function buildCoverageCandidates(): CoverageHarvestCandidate[] {
   const subdirCandidates = MONOREPO_COVERAGE_SUBDIRS.flatMap((subDir) => [
     { srcRel: path.join(subDir, COBERTURA_XML_NAME), destName: `${subDir}.xml` },
+    { srcRel: path.join(subDir, '.agents', '.cache', 'coverage', 'bash.xml'), destName: `${subDir}.xml` },
+    { srcRel: path.join(subDir, 'coverage_report', 'kcov-merged', DIRECT_COBERTURA_NAME), destName: `${subDir}.xml` },
+    { srcRel: path.join(subDir, 'coverage_report', DIRECT_COBERTURA_NAME), destName: `${subDir}.xml` },
     {
       srcRel: path.join(subDir, 'coverage', LCOV_INFO_NAME),
       destName: `${subDir}.info`,
@@ -152,6 +155,22 @@ function rewriteLcovSubdirPrefix(content: string, subDir?: string): string {
     .replace(/^SF:src\//gm, `SF:${subDir}/src/`);
 }
 
+const SAFE_COBERTURA_DOCTYPE_RE = /<!DOCTYPE\s+coverage\s+[^\s[\]<>][^[\]<>]*>\r?\n?/gi;
+
+function sanitizeHarvestedCoveragePayload(
+  content: string,
+  destName: string,
+  subDir?: string
+): string {
+  if (!destName.endsWith('.xml')) {
+    return rewriteLcovSubdirPrefix(content, subDir);
+  }
+  if (content.toUpperCase().includes('<!ENTITY')) {
+    return content;
+  }
+  return content.replace(SAFE_COBERTURA_DOCTYPE_RE, '');
+}
+
 export function harvestCoverageReports(resolvedPath: string): string[] {
   if (!fs.existsSync(resolvedPath)) {
     return [];
@@ -170,10 +189,14 @@ export function harvestCoverageReports(resolvedPath: string): string[] {
     }
     const destRel = path.join('.agents', '.cache', 'coverage', item.destName);
     const destPath = resolveSafeCacheTarget(resolvedPath, destRel);
-    fs.writeFileSync(destPath, rewriteLcovSubdirPrefix(raw, item.rewriteSubDir), {
-      encoding: 'utf8',
-      mode: 0o600,
-    });
+    fs.writeFileSync(
+      destPath,
+      sanitizeHarvestedCoveragePayload(raw, item.destName, item.rewriteSubDir),
+      {
+        encoding: 'utf8',
+        mode: 0o600,
+      }
+    );
     resolveSafeCacheTarget(resolvedPath, destRel);
     fs.chmodSync(destPath, 0o600);
     seenDest.add(item.destName);
@@ -273,8 +296,39 @@ function readDoubleQuotedToken(src: string, start: number): { value: string; nex
   return { value: out, nextIndex: src.length - 1 };
 }
 
+const UNQUOTED_POSIX_ESCAPABLE = new Set(["'", '"', '\\', ' ', '\t', '\n']);
+
+function readUnquotedBackslash(src: string, idx: number): { value: string; nextIndex: number } {
+  if (idx + 1 >= src.length) {
+    return { value: '\\', nextIndex: idx + 1 };
+  }
+  const next = pickAt(src, idx + 1);
+  if (next === '\n') {
+    return { value: '', nextIndex: idx + 2 };
+  }
+  return UNQUOTED_POSIX_ESCAPABLE.has(next)
+    ? { value: next, nextIndex: idx + 2 }
+    : { value: '\\', nextIndex: idx + 1 };
+}
+
+function consumeShellAtom(src: string, idx: number): { value: string; nextIndex: number } {
+  const ch = pickAt(src, idx);
+  if (ch === "'") {
+    const seg = readSingleQuotedToken(src, idx);
+    return { value: seg.value, nextIndex: seg.nextIndex + 1 };
+  }
+  if (ch === '"') {
+    const seg = readDoubleQuotedToken(src, idx);
+    return { value: seg.value, nextIndex: seg.nextIndex + 1 };
+  }
+  if (ch === '\\') {
+    return readUnquotedBackslash(src, idx);
+  }
+  return { value: ch, nextIndex: idx + 1 };
+}
+
 /**
- * Tokenizador lineal de argumentos CLI respetando comillas simples y dobles sin usar regex complejas.
+ * Tokenizador lineal de argumentos CLI respetando comillas simples, dobles y escapes POSIX sin usar regex complejas.
  */
 export function tokenizeCommandArgs(commandLine: string): string[] {
   const tokens: string[] = [];
@@ -293,19 +347,10 @@ export function tokenizeCommandArgs(commandLine: string): string[] {
       i += 1;
       continue;
     }
-    if (ch === "'" || ch === '"') {
-      const seg =
-        ch === "'"
-          ? readSingleQuotedToken(commandLine, i)
-          : readDoubleQuotedToken(commandLine, i);
-      current += seg.value;
-      i = seg.nextIndex + 1;
-      hasToken = true;
-      continue;
-    }
-    current += ch;
+    const atom = consumeShellAtom(commandLine, i);
+    current += atom.value;
+    i = atom.nextIndex;
     hasToken = true;
-    i += 1;
   }
 
   if (hasToken) {
@@ -589,6 +634,22 @@ function isUnquotedShellToken(src: string, idx: number): boolean {
   );
 }
 
+const ESCAPED_QUOTE_OR_SLASH = new Set(["'", '"', '\\']);
+
+function advanceQuotedOrEscapedIndex(src: string, idx: number): number | null {
+  const ch = src[idx];
+  if (ch === "'") {
+    return readSingleQuotedToken(src, idx).nextIndex + 1;
+  }
+  if (ch === '"') {
+    return readDoubleQuotedToken(src, idx).nextIndex + 1;
+  }
+  if (ch === '\\' && ESCAPED_QUOTE_OR_SLASH.has(src[idx + 1] ?? '')) {
+    return idx + 2;
+  }
+  return null;
+}
+
 /**
  * Detecta operadores de encadenamiento/redirección fuera de comillas o subshells no expandidos.
  * Permite `$(id -u)`, `$(id -g)` y `$(pwd)` dentro de comillas dobles en invocaciones Docker (`shell: false`).
@@ -596,13 +657,9 @@ function isUnquotedShellToken(src: string, idx: number): boolean {
 export function hasUnquotedShellSyntax(commandLine: string): boolean {
   let i = 0;
   while (i < commandLine.length) {
-    const ch = commandLine[i];
-    if (ch === "'") {
-      i = readSingleQuotedToken(commandLine, i).nextIndex + 1;
-      continue;
-    }
-    if (ch === '"') {
-      i = readDoubleQuotedToken(commandLine, i).nextIndex + 1;
+    const advanced = advanceQuotedOrEscapedIndex(commandLine, i);
+    if (advanced !== null) {
+      i = advanced;
       continue;
     }
     if (isUnquotedShellToken(commandLine, i)) {
@@ -733,22 +790,14 @@ function readShellSeparatorLen(src: string, idx: number): number {
   return 0;
 }
 
-function skipQuotedSegment(src: string, idx: number): number {
-  const ch = src[idx];
-  if (ch === "'") {
-    return readSingleQuotedToken(src, idx).nextIndex + 1;
-  }
-  return readDoubleQuotedToken(src, idx).nextIndex + 1;
-}
-
 function splitUnquotedStatements(body: string): string[] {
   const out: string[] = [];
   let start = 0;
   let i = 0;
   while (i < body.length) {
-    const ch = body[i];
-    if (ch === "'" || ch === '"') {
-      i = skipQuotedSegment(body, i);
+    const advanced = advanceQuotedOrEscapedIndex(body, i);
+    if (advanced !== null) {
+      i = advanced;
       continue;
     }
     const sepLen = readShellSeparatorLen(body, i);
@@ -826,12 +875,12 @@ function splitUnquotedOrSegments(stmt: string): string[] {
   let start = 0;
   let i = 0;
   while (i < stmt.length) {
-    const ch = stmt[i];
-    if (ch === "'" || ch === '"') {
-      i = skipQuotedSegment(stmt, i);
+    const advanced = advanceQuotedOrEscapedIndex(stmt, i);
+    if (advanced !== null) {
+      i = advanced;
       continue;
     }
-    if (ch === '|' && stmt[i + 1] === '|') {
+    if (stmt[i] === '|' && stmt[i + 1] === '|') {
       const seg = stmt.slice(start, i).trim();
       if (seg) out.push(seg);
       i += 2;
@@ -917,12 +966,12 @@ function isBenignIfZEcho(trimmed: string): boolean {
 function findUnquotedElseSpan(body: string): { index: number; length: number } | null {
   let i = 0;
   while (i < body.length) {
-    const ch = body[i];
-    if (ch === "'" || ch === '"') {
-      i = skipQuotedSegment(body, i);
+    const advanced = advanceQuotedOrEscapedIndex(body, i);
+    if (advanced !== null) {
+      i = advanced;
       continue;
     }
-    if (ch === ';') {
+    if (body[i] === ';') {
       const m = ELSE_AFTER_SEMI_RE.exec(body.slice(i));
       if (m) {
         return { index: i, length: m[0].length };

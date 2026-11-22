@@ -1780,6 +1780,8 @@ EOF
   run env PATH="${utf_bin}:/usr/bin:/bin" LC_ALL=C.UTF-8 bash "${utf_ws}/instalar-hooks.sh"
   assert_success
   assert_output --partial "Barrera Git POSIX activada"
+  grep -q '/cov-out/mcp-server.info' "${utf_ws}/.git/hooks/pre-push"
+  grep -q '/cov-out/bash.xml' "${utf_ws}/.git/hooks/pre-push"
 
   run env PATH="${utf_bin}:/usr/bin:/bin" LC_ALL=C.UTF-8 bash -c 'cd "$1" && ./.git/hooks/pre-commit' _ "${utf_ws}"
   assert_success
@@ -1966,4 +1968,98 @@ EOF
   run env QA11X_DOCKERENV_PATH="/.dockerenv" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${unborn_ws}" "${REPO_ROOT}"
   assert_success
   assert_output --partial "0 secretos expuestos (1 archivos escaneados)"
+}
+
+@test "bash-scripts/Makefile.example: kcov rootless cubre source, rutas relativas, espacios en BATS_TARGETS y reutilizacion FD excluyendo common_files y <!DOCTYPE" {
+  local ws="${BATS_TEST_TMPDIR}/rootless_kcov_ws"
+  local ktmp="${BATS_TEST_TMPDIR}/ktmp"
+  local kout="${BATS_TEST_TMPDIR}/kout"
+  mkdir -p "${ws}/scripts" "${ws}/tests/my suite" "${ktmp}"
+
+  for vendored in limpieza.sh instalar-hooks.sh scripts/auditar-pagespeed.sh scripts/install-skill.sh scripts/verificar-secretos.sh scripts/auditar-infra.sh scripts/actualizar-grafos-graphify.sh scripts/generar-sbom-cyclonedx.sh; do
+    cat >"${ws}/${vendored}" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+echo "vendored-never-executed-1"
+echo "vendored-never-executed-2"
+EOF
+    chmod +x "${ws}/${vendored}"
+  done
+
+  cat >"${ws}/scripts/lib.sh" <<'EOF'
+#!/usr/bin/env bash
+helper_msg() {
+  printf 'lib:%s\n' "$1"
+}
+EOF
+  cat >"${ws}/scripts/runner.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/lib.sh"
+helper_msg "${1:-default}"
+printf 'clean-err\n' >&2
+EOF
+  chmod +x "${ws}/scripts/lib.sh" "${ws}/scripts/runner.sh"
+
+  cat >"${ws}/tests/my suite/test_flow.bats" <<'EOF'
+#!/usr/bin/env bats
+bats_require_minimum_version 1.5.0
+setup() {
+  export _USER="${_USER:-qa}"
+  load '/opt/bats-libs/bats-support/load.bash'
+  load '/opt/bats-libs/bats-assert/load.bash'
+}
+@test "source directo y ruta relativa sin contaminar stdout/stderr" {
+  source ./scripts/lib.sh
+  run helper_msg "plain"
+  assert_success
+  assert_output "lib:plain"
+
+  run --separate-stderr helper_msg "src"
+  assert_success
+  assert_output "lib:src"
+  [ -z "${stderr}" ]
+
+  run --separate-stderr ./scripts/runner.sh "rel"
+  assert_success
+  assert_output "lib:rel"
+  [ "${stderr}" = "clean-err" ]
+}
+@test "subproceso python3 close_fds y reutilizacion de FD regular no filtran BASH_XTRACEFD ni PS4" {
+  run python3 -c '
+import os, subprocess, sys, tempfile
+r = subprocess.run(["bash", "./scripts/runner.sh", "py"], capture_output=True, text=True)
+kfd = int(os.environ.get("KCOV_BASH_XTRACEFD", "256"))
+tmpf = tempfile.NamedTemporaryFile("w+", delete=False)
+tmpf.write("{\"clean\":true}")
+tmpf.flush()
+os.dup2(tmpf.fileno(), kfd)
+os.set_inheritable(kfd, True)
+r2 = subprocess.run(["bash", "./scripts/runner.sh", "fdreuse"], close_fds=False, capture_output=True, text=True)
+tmpf.close()
+content = open(tmpf.name, encoding="utf-8").read()
+os.unlink(tmpf.name)
+sys.stdout.write(f"{r.stdout.strip()}|{r.stderr.strip()}|{r2.stdout.strip()}|{content}")
+'
+  assert_success
+  assert_output 'lib:py|clean-err|lib:fdreuse|{"clean":true}'
+}
+EOF
+
+  local recipe_file="${BATS_TEST_TMPDIR}/qa_unit_recipe.sh"
+  python3 -c '
+import pathlib, shlex, sys
+for ln in pathlib.Path(sys.argv[1]).read_text(encoding="utf-8").splitlines():
+    if ln.startswith("\t@docker compose") and "kcov" in ln:
+        sys.stdout.write(shlex.split(ln.lstrip("\t@").replace("$$", "$"))[-1])
+' "${REPO_ROOT}/bash-scripts/Makefile.example" >"${recipe_file}"
+
+  run bash -c 'cd "$1" && QA_BATS_TARGETS="tests/my suite" QA_KCOV_TMP="$2" QA_KCOV_OUT="$3" bash "$4"' _ "${ws}" "${ktmp}" "${kout}" "${recipe_file}"
+  assert_success
+  assert_output --partial "Cobertura kcov: 100.00% (umbral >= 95.0%)"
+  [ -f "${ws}/.agents/.cache/coverage/bash.xml" ]
+  run grep -i "<!DOCTYPE" "${ws}/.agents/.cache/coverage/bash.xml"
+  assert_failure 1
 }

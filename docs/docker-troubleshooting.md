@@ -85,7 +85,7 @@ When running advanced resource analysis and profiling tools such as `py-spy` in 
 By default, Docker enforces a strict `seccomp` profile that forbids a process from inspecting another process's memory via low-level system calls.
 
 **The Solution:**
-Temporarily grant extended capabilities to the container in your `docker-compose.qa.yml` file:
+Temporarily grant extended capabilities ONLY to opt-in profiler sidecars (`profiles: [profiling]`) in your `docker-compose.qa.yml` file (note: Bash coverage with `kcov` + `BATS` uses `BashEngine` `PS4`/`BASH_XTRACEFD` and runs 100% rootless under `no-new-privileges:true` + `cap_drop: [ALL]` without `SYS_PTRACE` or `seccomp:unconfined`):
 
 ```yaml
     cap_add:

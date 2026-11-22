@@ -8,6 +8,9 @@ Todos los cambios notables en el paquete npm y servidor MCP `@sinfallas/mcp-qa-1
 
 ## [Unreleased]
 
+### Corregido
+- **Tokenización POSIX `'...'\''...'` y Saneamiento `<!DOCTYPE` Cobertura en `ephemeral-runner.ts`:** Corregido el manejo de escapes POSIX fuera de comillas (`\'`, `\"`, `\\`) en `tokenizeCommandArgs`, `hasUnquotedShellSyntax` y `splitUnquotedStatements` para que el fallback sin GNU Make de `run_ephemeral_qa` ejecute [`bash-scripts/Makefile.example`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/bash-scripts/Makefile.example) sin inversión de comillas, y purgadas declaraciones `<!DOCTYPE coverage ...>` de una o múltiples líneas en `harvestCoverageReports` preservando trampas `<!ENTITY` Anti-XXE y recolectando `bash-scripts/.agents/.cache/coverage/bash.xml`.
+
 ## [3.2.1] - 2026-11-21
 
 ### Corregido
