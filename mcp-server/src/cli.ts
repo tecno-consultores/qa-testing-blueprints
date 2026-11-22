@@ -324,6 +324,13 @@ const QUICKSTART_BOOLEAN_FLAG_FIELDS: Readonly<Record<string, QuickstartBooleanF
     [FLAG_JSON]: 'json',
   });
 
+function lookupMappedField<TField extends string>(
+  flagMap: Readonly<Record<string, TField>>,
+  key: string
+): TField | undefined {
+  return Object.hasOwn(flagMap, key) ? flagMap[key] : undefined;
+}
+
 function readMappedFlagValue<TField extends string>(
   argv: readonly string[],
   index: number,
@@ -333,23 +340,23 @@ function readMappedFlagValue<TField extends string>(
   const eqIdx = token.indexOf('=');
   if (eqIdx !== -1) {
     const flagName = token.slice(0, eqIdx);
-    const field = flagMap[flagName];
+    const field = lookupMappedField(flagMap, flagName);
     if (!field) {
       return null;
     }
-    const inlineValue = token.slice(eqIdx + 1);
+    const inlineValue = token.slice(eqIdx + 1).trim();
     if (!inlineValue) {
       throw new Error(`Missing value for flag '${flagName}'.`);
     }
     return { field, value: inlineValue, step: 0 };
   }
 
-  const field = flagMap[token];
+  const field = lookupMappedField(flagMap, token);
   if (!field) {
     return null;
   }
-  const nextValue = argv[index + 1];
-  if (nextValue === undefined || nextValue.startsWith('-')) {
+  const nextValue = argv[index + 1]?.trim();
+  if (!nextValue || nextValue.startsWith('-')) {
     throw new Error(`Missing value for flag '${token}'.`);
   }
   return { field, value: nextValue, step: 1 };
@@ -510,7 +517,7 @@ function applyQuickstartToken(
   state: MutableQuickstartParseState
 ): number {
   const token = pickAt(argv, index);
-  const boolField = QUICKSTART_BOOLEAN_FLAG_FIELDS[token];
+  const boolField = lookupMappedField(QUICKSTART_BOOLEAN_FLAG_FIELDS, token);
   if (boolField) {
     state[boolField] = true;
     return 0;
@@ -686,11 +693,24 @@ function buildFinalParsedArgs(
   state: MutableParseState,
   cwd: string
 ): ParsedCliArgs {
+  if (
+    command === CMD_RECONCILE_AGENTS &&
+    state.scanWorkspaces !== undefined &&
+    state.explicitProjectPath
+  ) {
+    throw new Error(
+      "Las opciones '--scan-workspaces' y '--project-path'/'--dir'/'-p' (o directorio posicional) son mutuamente excluyentes."
+    );
+  }
   const rawLangInput = state.rawLang ?? process.env.QA_OUTPUT_LANG;
   const explicitLang = rawLangInput !== undefined && rawLangInput !== 'undefined';
+  const effectiveProjectPath =
+    command === CMD_RECONCILE_AGENTS && state.scanWorkspaces !== undefined
+      ? state.scanWorkspaces
+      : state.projectPath;
   return {
     command,
-    projectPath: resolveRelativeToCwd(state.projectPath, cwd),
+    projectPath: resolveRelativeToCwd(effectiveProjectPath, cwd),
     explicitProjectPath: state.explicitProjectPath,
     lang: validateSupportedLang(rawLangInput ?? 'auto'),
     explicitLang,

@@ -5,7 +5,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { CONNECTOR_START_MARKER, CONNECTOR_END_MARKER } from './init-agents-md.js';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
-import { resolveCliProjectPath } from './cliArgHelpers.js';
+import { hasHelpFlag, resolveCliProjectPath } from './cliArgHelpers.js';
 import { pickAt } from '../utils/diagnosticFormatter.js';
 import { classifySectionForPruning, dedupeRepeatedHeadings } from './reconcile/sectionPruner.js';
 import {
@@ -911,7 +911,6 @@ interface MutableReconcileParseState {
   hasExplicitProjectPath: boolean;
   hasPositionalDir: boolean;
   dryRun: boolean;
-  help: boolean;
   pruneBridges: boolean;
   scanWorkspaces?: string;
   apply: boolean;
@@ -919,29 +918,24 @@ interface MutableReconcileParseState {
   json: boolean;
 }
 
-const RECONCILE_BOOL_FLAGS: Readonly<Record<string, (s: MutableReconcileParseState) => void>> = {
-  '--help': (s) => {
-    s.help = true;
-  },
-  '-h': (s) => {
-    s.help = true;
-  },
-  '--dry-run': (s) => {
-    s.dryRun = true;
-  },
-  '--prune-bridges': (s) => {
-    s.pruneBridges = true;
-  },
-  '--apply': (s) => {
-    s.apply = true;
-  },
-  '--allow-dirty': (s) => {
-    s.allowDirty = true;
-  },
-  '--json': (s) => {
-    s.json = true;
-  },
-};
+const RECONCILE_BOOL_FLAGS: Readonly<Record<string, (s: MutableReconcileParseState) => void>> =
+  Object.freeze({
+    '--dry-run': (s) => {
+      s.dryRun = true;
+    },
+    '--prune-bridges': (s) => {
+      s.pruneBridges = true;
+    },
+    '--apply': (s) => {
+      s.apply = true;
+    },
+    '--allow-dirty': (s) => {
+      s.allowDirty = true;
+    },
+    '--json': (s) => {
+      s.json = true;
+    },
+  });
 
 function applyReconcileToken(
   args: readonly string[],
@@ -949,7 +943,9 @@ function applyReconcileToken(
   state: MutableReconcileParseState
 ): number {
   const arg = pickAt(args, index);
-  const boolHandler = RECONCILE_BOOL_FLAGS[arg];
+  const boolHandler = Object.hasOwn(RECONCILE_BOOL_FLAGS, arg)
+    ? RECONCILE_BOOL_FLAGS[arg]
+    : undefined;
   if (boolHandler) {
     boolHandler(state);
     return 0;
@@ -965,15 +961,21 @@ function applyReconcileToken(
     state.scanWorkspaces = scanOpt.value;
     return scanOpt.step;
   }
-  if (arg.startsWith('-')) {
+  const trimmedArg = arg.trim();
+  if (!trimmedArg) {
     throw new Error(
-      `Opción CLI desconocida en reconcile-agents: '${arg}'. Ejecuta con --help para ver las opciones válidas.`
+      'Argumento posicional vacío en reconcile-agents: indica una ruta de directorio válida.'
+    );
+  }
+  if (trimmedArg.startsWith('-')) {
+    throw new Error(
+      `Opción CLI desconocida en reconcile-agents: '${trimmedArg}'. Ejecuta con --help para ver las opciones válidas.`
     );
   }
   if (state.hasPositionalDir) {
-    throw new Error(`Argumento posicional inesperado en reconcile-agents: '${arg}'.`);
+    throw new Error(`Argumento posicional inesperado en reconcile-agents: '${trimmedArg}'.`);
   }
-  state.projectPath = arg;
+  state.projectPath = trimmedArg;
   state.hasPositionalDir = true;
   state.hasExplicitProjectPath = true;
   return 0;
@@ -983,12 +985,18 @@ export function parseReconcileAgentsArgs(
   args: readonly string[],
   defaultCwd: string = process.cwd()
 ): ParsedReconcileAgentsArgs {
+  if (hasHelpFlag(args)) {
+    return {
+      projectPath: defaultCwd,
+      dryRun: false,
+      help: true,
+    };
+  }
   const state: MutableReconcileParseState = {
     projectPath: defaultCwd,
     hasExplicitProjectPath: false,
     hasPositionalDir: false,
     dryRun: false,
-    help: false,
     pruneBridges: false,
     apply: false,
     allowDirty: false,
@@ -1012,7 +1020,7 @@ export function parseReconcileAgentsArgs(
   return {
     projectPath: resolvedProjectPath,
     dryRun: state.dryRun,
-    help: state.help,
+    help: false,
     ...(state.pruneBridges ? { pruneBridges: true } : {}),
     ...(resolvedScanWorkspaces !== undefined ? { scanWorkspaces: resolvedScanWorkspaces } : {}),
     ...(state.apply ? { apply: true } : {}),
@@ -1026,7 +1034,7 @@ export async function runReconcileAgentsCli(
   options?: ReconcileAgentsCliOptions
 ): Promise<void> {
   const log = options?.log ?? console.log;
-  if (args.includes('--help') || args.includes('-h')) {
+  if (hasHelpFlag(args)) {
     log(RECONCILE_AGENTS_HELP_TEXT);
     return;
   }
