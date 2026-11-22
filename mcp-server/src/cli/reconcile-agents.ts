@@ -875,12 +875,12 @@ function readNamedFlagValue(
 ): { value: string; step: number } | null {
   for (const flag of flagNames) {
     if (arg.startsWith(`${flag}=`)) {
-      const inlineValue = arg.slice(flag.length + 1);
+      const inlineValue = arg.slice(flag.length + 1).trim();
       if (!inlineValue) throw new Error(`Falta el valor requerido para la opción '${flag}'.`);
       return { value: inlineValue, step: 0 };
     }
     if (arg === flag) {
-      const nextValue = args[index + 1];
+      const nextValue = args[index + 1]?.trim();
       if (!nextValue || nextValue.startsWith('-')) {
         throw new Error(`Falta el valor requerido para la opción '${flag}'.`);
       }
@@ -908,6 +908,7 @@ export interface ParsedReconcileAgentsArgs {
 
 interface MutableReconcileParseState {
   projectPath: string;
+  hasExplicitProjectPath: boolean;
   hasPositionalDir: boolean;
   dryRun: boolean;
   help: boolean;
@@ -956,6 +957,7 @@ function applyReconcileToken(
   const pathOpt = readNamedFlagValue(args, index, arg, ['--project-path', '--dir', '-p']);
   if (pathOpt) {
     state.projectPath = pathOpt.value;
+    state.hasExplicitProjectPath = true;
     return pathOpt.step;
   }
   const scanOpt = readNamedFlagValue(args, index, arg, ['--scan-workspaces']);
@@ -973,6 +975,7 @@ function applyReconcileToken(
   }
   state.projectPath = arg;
   state.hasPositionalDir = true;
+  state.hasExplicitProjectPath = true;
   return 0;
 }
 
@@ -982,6 +985,7 @@ export function parseReconcileAgentsArgs(
 ): ParsedReconcileAgentsArgs {
   const state: MutableReconcileParseState = {
     projectPath: defaultCwd,
+    hasExplicitProjectPath: false,
     hasPositionalDir: false,
     dryRun: false,
     help: false,
@@ -993,14 +997,24 @@ export function parseReconcileAgentsArgs(
   for (let i = 0; i < args.length; i++) {
     i += applyReconcileToken(args, i, state);
   }
+  if (state.scanWorkspaces !== undefined && state.hasExplicitProjectPath) {
+    throw new Error(
+      "Las opciones '--scan-workspaces' y '--project-path'/'--dir'/'-p' (o directorio posicional) son mutuamente excluyentes."
+    );
+  }
+  const resolvedScanWorkspaces =
+    state.scanWorkspaces !== undefined
+      ? resolveCliProjectPath(state.scanWorkspaces, defaultCwd)
+      : undefined;
+  const resolvedProjectPath =
+    resolvedScanWorkspaces ?? resolveCliProjectPath(state.projectPath, defaultCwd);
+
   return {
-    projectPath: resolveCliProjectPath(state.projectPath, defaultCwd),
+    projectPath: resolvedProjectPath,
     dryRun: state.dryRun,
     help: state.help,
     ...(state.pruneBridges ? { pruneBridges: true } : {}),
-    ...(state.scanWorkspaces !== undefined
-      ? { scanWorkspaces: resolveCliProjectPath(state.scanWorkspaces, defaultCwd) }
-      : {}),
+    ...(resolvedScanWorkspaces !== undefined ? { scanWorkspaces: resolvedScanWorkspaces } : {}),
     ...(state.apply ? { apply: true } : {}),
     ...(state.allowDirty ? { allowDirty: true } : {}),
     ...(state.json ? { json: true } : {}),

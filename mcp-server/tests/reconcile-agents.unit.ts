@@ -924,5 +924,123 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
       expect(singleParsed.advisories?.some((a) => a.includes('docs/examples'))).toBe(true);
       expect(singleParsed.suggested_git_commands?.[0]).toContain('git rm --cached');
     });
+
+    it('permite --scan-workspaces desde os.tmpdir()/$HOME y rechaza flags excluyentes o valores en blanco', async () => {
+      const wsRoot = path.join(tmpDir, 'ws-from-tmpdir');
+      const repoAlpha = path.join(wsRoot, 'repo-alpha');
+      fs.mkdirSync(path.join(repoAlpha, '.agents', 'rules'), { recursive: true });
+      fs.writeFileSync(
+        path.join(repoAlpha, 'AGENTS.md'),
+        '# AGENTS\n\n## Silo Mock Blindness\nDuplicated rule.\n',
+        'utf-8'
+      );
+      const realWsRoot = fs.realpathSync(wsRoot);
+      const relFromTmp = path.relative(os.tmpdir(), wsRoot);
+
+      // Positivos: defaultCwd = os.tmpdir() y os.homedir() no deben disparar [SEC-PATH-01]
+      expect(parseReconcileAgentsArgs(['--scan-workspaces', wsRoot], os.tmpdir())).toEqual({
+        projectPath: realWsRoot,
+        scanWorkspaces: realWsRoot,
+        dryRun: false,
+        help: false,
+      });
+      expect(
+        parseReconcileAgentsArgs([`--scan-workspaces=  ${wsRoot}  `, '--json'], os.tmpdir())
+      ).toEqual({
+        projectPath: realWsRoot,
+        scanWorkspaces: realWsRoot,
+        dryRun: false,
+        help: false,
+        json: true,
+      });
+      expect(parseReconcileAgentsArgs(['--scan-workspaces', relFromTmp], os.tmpdir())).toEqual({
+        projectPath: realWsRoot,
+        scanWorkspaces: realWsRoot,
+        dryRun: false,
+        help: false,
+      });
+      expect(parseReconcileAgentsArgs(['--scan-workspaces', wsRoot], os.homedir())).toEqual({
+        projectPath: realWsRoot,
+        scanWorkspaces: realWsRoot,
+        dryRun: false,
+        help: false,
+      });
+
+      // Ejecución CLI completa con cwd: os.tmpdir() (directa y vía runCli)
+      const cliLogs: string[] = [];
+      await runReconcileAgentsCli(['--scan-workspaces', wsRoot, '--json'], {
+        cwd: os.tmpdir(),
+        log: (m) => cliLogs.push(m),
+      });
+      const cliReport = JSON.parse(cliLogs[0] ?? '{}') as {
+        root_dir?: string;
+        dry_run?: boolean;
+        scanned_count?: number;
+      };
+      expect(cliReport.root_dir).toBe(realWsRoot);
+      expect(cliReport.dry_run).toBe(true);
+      expect(cliReport.scanned_count).toBe(1);
+
+      const dispatchLogs: string[] = [];
+      const dispatchRes = await runCli(['reconcile-agents', '--scan-workspaces', wsRoot], {
+        cwd: os.tmpdir(),
+        log: (m) => dispatchLogs.push(m),
+      });
+      expect(dispatchRes.exitCode).toBe(0);
+      expect(dispatchLogs.join('\n')).toContain('DRY_RUN');
+
+      // Negativos: mutual exclusion fail-fast entre --scan-workspaces y --project-path/--dir/-p/posicional
+      const mutuallyExclusiveCases: string[][] = [
+        ['--scan-workspaces', wsRoot, '--project-path', repoAlpha],
+        ['--project-path', repoAlpha, '--scan-workspaces', wsRoot],
+        ['--scan-workspaces', wsRoot, `--project-path=${repoAlpha}`],
+        ['--scan-workspaces', wsRoot, '--dir', repoAlpha],
+        ['--scan-workspaces', wsRoot, `--dir=${repoAlpha}`],
+        ['--scan-workspaces', wsRoot, '-p', repoAlpha],
+        ['--scan-workspaces', wsRoot, `-p=${repoAlpha}`],
+        ['--scan-workspaces', wsRoot, repoAlpha],
+        [repoAlpha, '--scan-workspaces', wsRoot],
+        [`--scan-workspaces=${wsRoot}`, repoAlpha],
+      ];
+      for (const argv of mutuallyExclusiveCases) {
+        expect(() => parseReconcileAgentsArgs(argv, os.tmpdir())).toThrow(/mutuamente excluyentes/);
+      }
+
+      const exclusiveErrLogs: string[] = [];
+      const exclusiveCliRes = await runCli(
+        ['reconcile-agents', '--scan-workspaces', wsRoot, '-p', repoAlpha],
+        { cwd: os.tmpdir(), errorLog: (m) => exclusiveErrLogs.push(m) }
+      );
+      expect(exclusiveCliRes.exitCode).toBe(1);
+      expect(exclusiveErrLogs.join('\n')).toContain('mutuamente excluyentes');
+
+      // Negativos: valores vacíos / solo espacios rechazados por readNamedFlagValue (.trim())
+      const missingValueCases: Array<{ argv: string[]; flag: string }> = [
+        { argv: ['--scan-workspaces='], flag: '--scan-workspaces' },
+        { argv: ['--scan-workspaces=   '], flag: '--scan-workspaces' },
+        { argv: ['--scan-workspaces'], flag: '--scan-workspaces' },
+        { argv: ['--scan-workspaces', '   '], flag: '--scan-workspaces' },
+        { argv: ['--scan-workspaces', '--apply'], flag: '--scan-workspaces' },
+        { argv: ['--scan-workspaces', '  --apply'], flag: '--scan-workspaces' },
+        { argv: ['--project-path=   '], flag: '--project-path' },
+        { argv: ['--project-path', '   '], flag: '--project-path' },
+        { argv: ['--dir=   '], flag: '--dir' },
+        { argv: ['-p', '   '], flag: '-p' },
+        { argv: ['-p', '  --dry-run'], flag: '-p' },
+      ];
+      for (const { argv, flag } of missingValueCases) {
+        expect(() => parseReconcileAgentsArgs(argv, os.tmpdir())).toThrow(
+          `Falta el valor requerido para la opción '${flag}'.`
+        );
+      }
+
+      // Negativo de seguridad: [SEC-PATH-01] sigue bloqueando --scan-workspaces sobre /tmp o '.' en /tmp
+      expect(() => parseReconcileAgentsArgs(['--scan-workspaces', os.tmpdir()], os.tmpdir())).toThrow(
+        WorkspacePathValidationError
+      );
+      expect(() => parseReconcileAgentsArgs(['--scan-workspaces', '.'], os.tmpdir())).toThrow(
+        WorkspacePathValidationError
+      );
+    });
   });
 });
