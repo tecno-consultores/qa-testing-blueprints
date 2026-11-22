@@ -8,6 +8,10 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+---
+
+## [3.3.0] - 2026-11-22
+
 ### Añadido
 * **Conectores True Thin-Client (`<= 1.5 KB` / `8 KB` Raíz), Crítica Técnica Objetiva y `reconcile-agents` v2:** Compactados los conectores globales `$HOME` (`.gemini/GEMINI.md`, `.claude/CLAUDE.md`, `.codex/AGENTS.md`, `.codeium/windsurf/memories/global_rules.md`) y de proyecto `AGENTS.md` junto al adelgazamiento del `AGENTS.md` raíz, añadida la directiva Anti-Adulación + Anti-Contrarianismo previa a ejecución, ampliado `reconcile-agents` con `--prune-bridges`, `--scan-workspaces` (`--apply`/`--allow-dirty`), poda conservadora en `AGENTS.md`/`domain_*`, poda de skills sombra, consolidación de respaldos sueltos, higiene `.gitignore` e informes solo lectura + telemetría enriquecida en `doctor`, y alineada la paridad base en `scripts/install-skill.sh` (`--lang` preservado y protección `.11x-incoming` + `.agents/limpieza.local.sh` en `scripts/*` propios).
 

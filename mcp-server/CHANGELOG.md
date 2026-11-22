@@ -8,6 +8,8 @@ All notable changes to the `@sinfallas/mcp-qa-11x` npm package and MCP server ar
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-11-22
+
 ### Added
 - **True Thin-Client Connectors, `reconcile-agents` v2 (`--scan-workspaces` / `--prune-bridges`) & Enriched `doctor`:** Compacted global `$HOME` (Antigravity, Claude, Codex, Windsurf) and project `AGENTS.md` connector templates (`<= 1,536 B`) with Objective Technical Critique, preserved prior connector language/stacks in `init-agents-md` / `install-skill` / `SurgicalMerger`, protected customized `scripts/*` (`.11x-incoming`), retired canonical skill file pruning, defaulted `fetchStackBundle` to Thin-Repo excluding monorepo scripts, extended `clean_workspace_11x` (`--deep`), and added conservative deduplication, bridge lifecycle, shadow-skill pruning, loose-backup consolidation, `.gitignore` hygiene, multi-repo workspace scanning, and secret-safe IDE diagnostics to `reconcile-agents` and `doctor`.
 

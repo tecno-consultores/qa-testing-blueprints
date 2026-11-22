@@ -8,6 +8,8 @@ Todos los cambios notables en el paquete npm y servidor MCP `@sinfallas/mcp-qa-1
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-11-22
+
 ### Añadido
 - **Conectores True Thin-Client, `reconcile-agents` v2 (`--scan-workspaces` / `--prune-bridges`) y `doctor` Enriquecido:** Compactados los conectores globales `$HOME` (Antigravity, Claude, Codex, Windsurf) y `AGENTS.md` (`<= 1,536 B`) con Crítica Técnica Objetiva, preservados idioma/stacks previos en `init-agents-md` / `install-skill` / `SurgicalMerger`, protegidos `scripts/*` personalizados (`.11x-incoming`), añadida poda de archivos retirados en skills canónicas, fijado Thin-Repo por defecto en `fetchStackBundle` excluyendo scripts monorepo, ampliado `clean_workspace_11x` (`--deep`), y añadidas poda conservadora, ciclo de puentes, skills sombra, consolidación de respaldos, `.gitignore`, escaneo multi-repo y diagnóstico IDE seguro en `reconcile-agents` y `doctor`.
 

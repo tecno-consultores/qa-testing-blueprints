@@ -2,9 +2,9 @@
 
 > 🌐 **Idioma:** [🇺🇸 English (Canonical)](README.md) · **Español (Espejo 1:1)**
 
-# Guía Canónica de Pruebas y Validación para PHP 8.2–8.5 (QA-11X v3.2)
+# Guía Canónica de Pruebas y Validación para PHP 8.2–8.5 (QA-11X v3.3)
 
-Este documento contiene las instrucciones corporativas de **Nivel 11X (QA-11X v3.2)** que DEBES seguir innegociablemente para generar, estructurar y ejecutar pruebas automatizadas en APIs y microservicios backend construidos en **PHP (versiones 8.2, 8.3, 8.4 y 8.5)**. El objetivo es garantizar resiliencia bajo estrés extremo, paridad de contratos inter-servicios sin infraestructura externa (*Zero-Infra*), seguridad por diseño (DISA ASD STIG V6R5 + OWASP Developer Guide v4.2) y cero ejecución local en el host.
+Este documento contiene las instrucciones corporativas de **Nivel 11X (QA-11X v3.3)** que DEBES seguir innegociablemente para generar, estructurar y ejecutar pruebas automatizadas en APIs y microservicios backend construidos en **PHP (versiones 8.2, 8.3, 8.4 y 8.5)**. El objetivo es garantizar resiliencia bajo estrés extremo, paridad de contratos inter-servicios sin infraestructura externa (*Zero-Infra*), seguridad por diseño (DISA ASD STIG V6R5 + OWASP Developer Guide v4.2) y cero ejecución local en el host.
 
 ---
 
