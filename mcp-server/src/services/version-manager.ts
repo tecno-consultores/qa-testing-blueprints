@@ -536,9 +536,9 @@ function pruneSingleEntryInSkillDir(
   entry: fs.Dirent,
   manifestRelPaths: ReadonlySet<string>
 ): number {
+  if (entry.isSymbolicLink()) return 0;
   const relFromSkills = path.relative(skillsRoot, absEntry).replace(/\\/g, '/');
   assertNoSymlinkSegments(skillsRoot, relFromSkills);
-  if (entry.isSymbolicLink()) return 0;
   if (entry.isDirectory()) {
     const subPruned = pruneRetiredInDir(skillsRoot, absEntry, manifestRelPaths);
     if (fs.readdirSync(absEntry).length === 0) fs.rmdirSync(absEntry);

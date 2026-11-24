@@ -127,11 +127,11 @@ qa-unit:
 	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c '[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 "$$(command -v composer)" install --no-interaction --prefer-dist --quiet; php -d allow_url_fopen=1 "$$(command -v composer)" run-script qa:unit'
 
 qa-parity:
-	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml --profile \"*\" down -v >/dev/null 2>&1 || true" EXIT; \
+	bash -c 'set -euo pipefail; trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml --profile \"*\" down -v >/dev/null 2>&1 || true" EXIT; \
 		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml --profile integration up -d --wait postgres-qa keydb-qa && \
 		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c "[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 \"\$$(command -v composer)\" install --no-interaction --prefer-dist --quiet; if [ -f bin/console ]; then DATABASE_URL=\"\$$MIGRATION_DATABASE_URL\" php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration && DATABASE_URL=\"\$$MIGRATION_DATABASE_URL\" php bin/console doctrine:schema:validate; elif [ -f artisan ]; then DB_URL=\"\$$MIGRATION_DATABASE_URL\" php artisan migrate --force --no-interaction && DB_URL=\"\$$MIGRATION_DATABASE_URL\" php artisan migrate:status; else echo \"[SKIPPED] ORM console absent (Doctrine/Laravel).\"; fi" && \
-		unprotected=$$(docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml exec -T postgres-qa psql -U qa_user -d qa_db -tAc "SELECT COUNT(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='\''public'\'' AND c.relkind='\''r'\'' AND (NOT c.relrowsecurity OR NOT c.relforcerowsecurity);"); \
-		[ "$${unprotected:-0}" -eq 0 ]'
+		unprotected=$$(docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml --profile integration exec -T postgres-qa psql -U qa_user -d qa_db -tAc "SELECT COUNT(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='\''public'\'' AND c.relkind='\''r'\'' AND c.relname NOT IN ('\''doctrine_migration_versions'\'', '\''migrations'\'') AND (NOT c.relrowsecurity OR NOT c.relforcerowsecurity);" | tr -d "[:space:]"); \
+		[[ "$$unprotected" =~ ^[0-9]+$$ ]] && [ "$$unprotected" -eq 0 ]'
 
 qa-contracts:
 	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-php sh -c '[ -f vendor/autoload.php ] || php -d allow_url_fopen=1 "$$(command -v composer)" install --no-interaction --prefer-dist --quiet; if [ -f vendor/bin/openapi ]; then ./vendor/bin/openapi src/ -o openapi.json --format json; else echo "[SKIPPED] OpenAPI generator not installed."; fi'
@@ -152,7 +152,8 @@ qa-dast:
 qa-load:
 	mkdir -p "$(PROJECT_DIR)/reports"
 	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml --profile \"*\" down -v >/dev/null 2>&1 || true" EXIT; \
-		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml --profile load up --abort-on-container-exit --exit-code-from k6-smoke'
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml --profile load up -d --wait postgres-qa keydb-qa php-api && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml --profile load run --rm -T -u "$(QA_UID):$(QA_GID)" k6-smoke'
 
 qa-chaos:
 	mkdir -p "$(PROJECT_DIR)/reports"

@@ -55,6 +55,30 @@ class TestTelemetryApiEndpoints(unittest.TestCase):
         self.assertEqual(replay.status_code, 201)
         self.assertEqual(replay.json(), payload)
 
+        # Viewer NO puede evadir RBAC reutilizando una Idempotency-Key cacheada
+        viewer_replay = client.post(
+            "/api/v1/devices",
+            json=body,
+            headers={**headers, "X-Actor-Role": "viewer"},
+        )
+        self.assertEqual(viewer_replay.status_code, 403)
+
+        # Reuso de Idempotency-Key con payload divergente -> 409 Conflict
+        divergent = client.post(
+            "/api/v1/devices",
+            json={"id": "dev-api-01", "hostname": "gw-mutated", "cpu_load_pct": 99.0},
+            headers=headers,
+        )
+        self.assertEqual(divergent.status_code, 409)
+
+        # Idempotency-Key con solo espacios -> 422 tras strip()
+        blank_key = client.post(
+            "/api/v1/devices",
+            json={"id": "dev-api-09", "hostname": "gw-09", "cpu_load_pct": 12.0},
+            headers={**headers, "Idempotency-Key": "        "},
+        )
+        self.assertEqual(blank_key.status_code, 422)
+
         # Duplicate ID con otra Idempotency-Key -> 409 Conflict
         dup = client.post(
             "/api/v1/devices",

@@ -36,7 +36,7 @@ Subcomandos y flags disponibles (**12 subcomandos CLI**):
 - `quickstart [dir] [-T|--tier starter|standard|enterprise] [--lang|-l auto|en|es] [--agents|-a auto|all|<csv>] [--ci github|none] [--force|-f] [--dry-run] [--json] [--help|-h]` — Detecta el stack automáticamente (FastAPI, Python, Node, Vue 3, React, PHP, Bash, Mobile, AI Evals, Vibe) y genera el andamiaje QA-11X.
 - `install-skill` (alias: `install`) `[--target|-t auto|workspace|antigravity|claude|cursor|windsurf|codex|hermes|all] [--lang|-l auto|en|es] [--agents|-a auto|all|<csv>] [--project-path|--dir|-p <dir>] [--init-agents] [--include-scripts] [--reconcile] [--dry-run] [--help|-h]` — Usa `--target auto` y `--lang auto` por defecto al activar `--init-agents`; se ejecuta en modo global seguro `$HOME` cuando se invoca desde `$HOME` sin `--project-path`/`--dir`/`-p` explícito (instalando solo skills globales sin escribir archivos de proyecto, mientras `-p ~`/`--dir ~` explícito sigue bloqueado por `SEC-PATH-01`).
 - `init-agents` (alias: `init-agents-md`) `[dir] [--project-path|--dir|-p <dir>] [--lang|-l auto|en|es] [--agents|-a auto|all|<csv>] [--dry-run] [--help|-h]` — Usa `--lang auto` por defecto (*Dynamic Language Mirroring*).
-- `reconcile-agents [dir] [--project-path|--dir|-p <dir>] [--dry-run] [--help|-h]` — Deduplica reglas/skills globales fuera de `.agents/` y aísla reglas de dominio con respaldos.
+- `reconcile-agents [dir] [--project-path|--dir|-p <dir>] [--scan-workspaces <dir>] [--apply] [--prune-bridges] [--allow-dirty] [--dry-run] [--json] [--help|-h]` — Deduplica reglas/skills globales fuera de `.agents/` y aísla reglas de dominio con respaldos.
 - `tms-sync --mode <inventory|push-results|pull-stories> --provider <jira|zephyr|xray|github-issues> [--target-dir <dir>] [--junit-xml <path>] [--base-url <https://...>] [--project-key <key>] [--issue-key <key>] [--test-execution-key <key>] [--repo <owner/repo>] [--required-keys <k1,k2>] [--timeout-ms <ms>] [--dry-run|--live] [--json] [--help|-h]` — Normaliza resultados JUnit XML para sincronización bidireccional o reportes de trazabilidad TMS.
 - `doctor` (alias: `status`) `[dir] [--project-path|--dir|-p <dir>] [--offline] [--json] [--help|-h]` — Inspecciona el origen del binario activo, cachés `~/.npm/_npx`, sellos de skills globales, configuraciones MCP en IDEs (`~/.gemini/antigravity/mcp_config.json` canónica + fallback `~/.gemini/config/mcp_config.json`, Claude Desktop multi-OS `claude_desktop_config.json`, Claude Code `~/.claude.json`, Cursor, Windsurf, Codex y Hermes `~/.hermes/mcp.json` / `~/.hermes/config.yaml`), estado del proyecto (o ámbito global `$HOME` cuando `cwd == $HOME` sin directorio explícito, manteniendo `-p ~`/`--dir ~` bloqueado) y demonio Docker.
 - `upgrade` (alias: `cache-clean`) `[--cache-only] [--reconcile] [--target|-t <env>] [--offline] [--dry-run] [--json] [--help|-h]` — Limpia quirúrgicamente solo entradas de `@sinfallas/mcp-qa-11x` en `~/.npm/_npx` más `~/.cache/qa-11x-blueprints`, reconcilia la gobernanza `.agents/` (`--reconcile`) y resincroniza skills globales (`cache-clean` aplica `--cache-only`).
@@ -101,7 +101,7 @@ Lideradas por `qa-11x-architect` (`< 12 KB`), cargando 10 sub-skills especializa
 
 ---
 
-## 🛠️ Herramientas Expuestas en el Servidor MCP (19 herramientas — v3.2)
+## 🛠️ Herramientas Expuestas en el Servidor MCP (19 herramientas — v3.5)
 
 1. **`inspect_project_config`:** Inspecciona señales de stack (`pyproject.toml`, `package.json`, `composer.json`), `docker-compose.qa.yml`, estado de la pirámide y grafos Graphify AST.
 2. **`fetch_blueprint_bundle`:** Descarga plantillas solicitadas desde GitHub/espejo local validando su suma SHA-256 contra `manifest.json`.
@@ -115,8 +115,8 @@ Lideradas por `qa-11x-architect` (`< 12 KB`), cargando 10 sub-skills especializa
 10. **`init_or_append_agents_md`:** Inyecta o actualiza idempotentemente el bloque conector en `AGENTS.md` / reglas de IDE mediante marcadores HTML (`dry_run` es `true` por defecto; pase `dry_run: false` para aplicar escrituras).
 11. **`propose_skill_evolution_pr`:** Genera propuestas *Dual-Consumer* (reglas IA + MCP + documentación EN/ES en `docs/01..05_*.md`) ante escapes QA respetando `QA-GIT-GATE-01` (`dry_run` y `prefer_offline_fallback` son `true` por defecto).
 12. **`reconcile_agents_governance`:** Reconcilia `.agents/` en proyectos consumidores, podando duplicados globales y aislando reglas de dominio en `.agents/rules/domain_<project>_rules.md` (`dry_run` es `true` por defecto; pase `dry_run: false` para aplicar cambios).
-13. **`validate_calm_architecture` *(v2.0)*:** Valida esquemas **FINOS CALM** (*Architecture-as-Code*), 6 nodos núcleo, 5 relaciones tipadas y controles obligatorios 11X.
-14. **`evaluate_release_gate` *(v2.0)*:** Calcula dictámenes cuantitativos `GO` / `NO_GO` a partir de cobertura (`>= 95%`), Trivy `HIGH/CRITICAL = 0`, MSI Stryker/Mutmut, CALM y STIG (devolviendo `SKIPPED` fail-closed en modo `smoke`).
+13. **`validate_calm_architecture` *(v2.0)*:** Valida esquemas **FINOS CALM** (*Architecture-as-Code*, `profile`: `auto` | `generic` | `qa-11x-self`), relaciones tipadas y la gobernanza 11X de 6 nodos / 5 relaciones / 7 controles al validar el modelo QA-11X.
+14. **`evaluate_release_gate` *(v2.0)*:** Calcula dictámenes cuantitativos `GO` / `NO_GO` a partir de 3 señales operacionales — tasa de aprobación JUnit XML, telemetría de observabilidad (tasa de error %, latencia p95/p99, incidentes activos) y defectos abiertos / fugas QA (`open_blockers`, `open_criticals`, `qa_escapes`) — devolviendo `SKIPPED` fail-closed en modo `smoke`.
 15. **`evaluate_agent_trajectory` *(v2.0)*:** Evalúa trayectorias multi-paso de agentes IA en modo offline determinista (precedencia AST-First, tasas de compilación/alucinación, `QA-GIT-GATE-01`) o con DeepEval en Docker.
 16. **`run_llm_red_team` *(v2.0)*:** Audita configuraciones Promptfoo **OWASP LLM Top 10**, sondas `promptGuard` y red-teaming en vivo (`SKIPPED_MISSING_CREDENTIALS` si faltan llaves en CI).
 17. **`audit_vibe_prototype` *(v2.0)*:** Audita prototipos generados por IA (Bolt.new, Lovable, v0, Replit) detectando riesgos `VIBE-SEC-001..QA-005`, secretos expuestos, ausencia de RLS/WORM y planes `dryRun`.
@@ -125,7 +125,7 @@ Lideradas por `qa-11x-architect` (`< 12 KB`), cargando 10 sub-skills especializa
 
 ---
 
-## 📚 Recursos Expuestos en el Servidor MCP (13 recursos: 11 URIs estáticas + 2 plantillas URI — v3.2)
+## 📚 Recursos Expuestos en el Servidor MCP (13 recursos: 11 URIs estáticas + 2 plantillas URI — v3.5)
 
 > **Desglose de Superficie:** **11 URIs estáticas** devueltas por `resources/list` + **2 plantillas URI** (`blueprint://{stack}/readme`, `blueprint://ui/refactoring-ui/{topic}`) devueltas por `resources/templates/list`.
 

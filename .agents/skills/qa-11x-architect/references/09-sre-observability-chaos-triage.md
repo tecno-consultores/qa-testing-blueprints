@@ -52,7 +52,7 @@ docker run --rm --security-opt=no-new-privileges:true --cap-drop ALL \
 
 1. **Telemetry vs. Binary Transfer Timeout Separation:**
    - Standard API/telemetry calls use short timeouts (`5s–10s`).
-   - Synchronous package, firmware, or backup transfers (e.g. `20+ MB` `.npk` / `.tar.gz` archives) MUST accept and pass an explicit per-request timeout override (`timeout >= 180.0`), verify downloaded file size `> 0`, and purge truncated `0-byte` files before/after failed transfers.
+   - Synchronous package, firmware, or backup transfers (e.g. `20+ MB` `.tar.gz` / firmware archives) MUST accept and pass an explicit per-request timeout override (`timeout >= 180.0`), verify downloaded file size `> 0`, and purge truncated `0-byte` files before/after failed transfers.
 2. **Batch `HTTP 200 OK` Per-Item Inspection:**
    - Bulk endpoints (`POST .../execute`, `POST .../batch`) returning `HTTP 200 OK` with per-resource statuses (`results: [{id, status: "SUCCESS" | "FAILED", error}]`) MUST be validated item-by-item in both backend services and frontend views across *Full Success*, *Partial Failure*, and *Total Failure*.
 
@@ -64,4 +64,4 @@ When diagnosing a production/UAT failure or test escape:
 1. **Isolate via AST Blast Radius (`Rule Zero`):** Run `docker run --rm --network none --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/inspect_blast_radius.py "<failing_symbol>"` (or MCP `inspect_ast_blast_radius`) to map callers/dependencies without reading unrelated files.
 2. **Reproduce Before Patching (Anti-Mock Blindness):** Write a failing unit + integration/BDD test reproducing the exact payload, clock phase (`t < starts_at`, `starts_at <= t <= ends_at`, `t > ends_at`), or serialization type (`Decimal`, `UUID`, `datetime`) that escaped previous mocks.
 3. **Verify in Ephemeral Docker (`Rule Zero`):** Execute the targeted and full stack QA suite in Docker.
-4. **Mandatory QA-Escape Evolution:** Present the block `💡 Oportunidad de Mejora Detectada para el Estándar QA 11X` in Spanish and invoke `propose_skill_evolution_pr` so the guardrail is permanently codified upstream.
+4. **Mandatory QA-Escape Evolution:** Present the structured improvement proposal block in the user's prompt language (Spec 19) and invoke `propose_skill_evolution_pr` so the guardrail is permanently codified upstream.

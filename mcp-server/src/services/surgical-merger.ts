@@ -11,6 +11,7 @@ import {
   mergeOrAppendAgentsMdContent,
 } from './agents-connector.js';
 import { resolveSafeChildPath } from './github-fetcher.js';
+import { assertNotSymlinkPath } from '../security/pathRealResolver.js';
 import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 
 const ALLOW_PLUGINS_KEY = 'allow-plugins';
@@ -71,15 +72,8 @@ export class SurgicalMerger {
       /\beslint\b/.test(mergedScripts.lint) &&
       !mergedScripts.lint.includes('--max-warnings')
     ) {
-      const segments = mergedScripts.lint.split(/(&&|\|\||;)/);
-      const patchedSegments = segments.map((part) => {
-        if (!/\beslint\b/.test(part) || part.includes('--max-warnings')) {
-          return part;
-        }
-        const trimmedEnd = part.trimEnd();
-        const trailing = part.slice(trimmedEnd.length);
-        return `${trimmedEnd} --max-warnings 0${trailing}`;
-      });
+      const segments = mergedScripts.lint.split(/(&&|\|\||;|\|(?!\|))/);
+      const patchedSegments = segments.map((part) => this.injectEslintMaxWarnings(part));
       mergedScripts.lint = patchedSegments.join('');
       changes.push('Inyectado flag estricto "--max-warnings 0" en script "lint"');
     }
@@ -556,6 +550,19 @@ export class SurgicalMerger {
     };
   }
 
+  private injectEslintMaxWarnings(part: string): string {
+    if (!/\beslint\b/.test(part) || part.includes('--max-warnings')) {
+      return part;
+    }
+    const trimmedEnd = part.trimEnd();
+    const trailing = part.slice(trimmedEnd.length);
+    const lastChar = trimmedEnd.slice(-1);
+    if ((lastChar === '"' || lastChar === "'") && /\b(?:sh|bash)\s+-c\b/.test(trimmedEnd)) {
+      return `${trimmedEnd.slice(0, -1)} --max-warnings 0${lastChar}${trailing}`;
+    }
+    return `${trimmedEnd} --max-warnings 0${trailing}`;
+  }
+
   private isMakefileCommandBoundary(prefix: string, beforeChar: string): boolean {
     if (beforeChar !== ' ') {
       return beforeChar === '\t' || beforeChar === ';' || beforeChar === '&' || beforeChar === '|';
@@ -651,22 +658,24 @@ export class SurgicalMerger {
     }
 
     const changes: string[] = [];
-    const targetLines = targetContent.split('\n');
+    const normalizedTarget = targetContent.replace(/\r\n/g, '\n');
+    const normalizedExample = exampleContent.replace(/\r\n/g, '\n');
+    const targetLines = normalizedTarget.split('\n');
     const existingTargets = new Set<string>();
 
     for (const line of targetLines) {
-      const targetMatch = /^([a-zA-Z0-9_.-]+):/.exec(line);
+      const targetMatch = /^([a-zA-Z0-9_.-]+):(?!=)/.exec(line);
       if (targetMatch && targetMatch[1] !== undefined) {
         existingTargets.add(targetMatch[1]);
       }
     }
 
     // Dividir exampleContent en bloques de targets
-    const exampleBlocks = exampleContent.split(/\n(?=[a-zA-Z0-9_.-]+:)/);
+    const exampleBlocks = normalizedExample.split(/\n(?=[a-zA-Z0-9_.-]+:(?!=))/);
     let appendedBlocks = '';
 
     for (const block of exampleBlocks) {
-      const targetMatch = /^([a-zA-Z0-9_.-]+):/.exec(block.trim());
+      const targetMatch = /^([a-zA-Z0-9_.-]+):(?!=)/.exec(block.trim());
       if (targetMatch && targetMatch[1] !== undefined) {
         const targetName = targetMatch[1];
         if (!existingTargets.has(targetName)) {
@@ -676,7 +685,7 @@ export class SurgicalMerger {
       }
     }
 
-    const mergedText = targetContent.trimEnd() + (appendedBlocks ? '\n' + appendedBlocks : '\n');
+    const mergedText = normalizedTarget.trimEnd() + (appendedBlocks ? '\n' + appendedBlocks : '\n');
     const hardenedLines = mergedText.split('\n').map((line) => this.hardenMakefileLine(line, changes));
 
     return {
@@ -974,6 +983,7 @@ export class SurgicalMerger {
     if (!fs.existsSync(parentDir)) {
       fs.mkdirSync(parentDir, { recursive: true });
     }
+    assertNotSymlinkPath(targetFilePath);
     fs.writeFileSync(targetFilePath, finalContent, 'utf-8');
 
     if (
@@ -1058,7 +1068,11 @@ export class SurgicalMerger {
       );
     }
     fs.copyFileSync(targetFilePath, backupPath);
-    fs.chmodSync(backupPath, 0o600);
+    try {
+      fs.chmodSync(backupPath, 0o600);
+    } catch (err: unknown) {
+      reportDebugCatchError(`surgicalMerger.backupExistingFile.chmod(${targetName})`, err);
+    }
   }
 
   private executeMergeFiles(

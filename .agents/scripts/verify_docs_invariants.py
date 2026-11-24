@@ -2356,6 +2356,46 @@ def _validate_claude_marketplace_json(
     return []
 
 
+_FENCE_LINE_RE = re.compile(r"^\s*(`{3,}|~{3,})(.*)$")
+
+
+def _find_unclosed_fence_line(text: str) -> int | None:
+    """Detecta bloques cercados (``` o ~~~) sin cierre en un documento Markdown."""
+    open_char = ""
+    open_len = 0
+    open_line: int | None = None
+    for idx, line in enumerate(text.splitlines(), 1):
+        match = _FENCE_LINE_RE.match(line)
+        if not match:
+            continue
+        marker, rest = match.group(1), match.group(2).strip()
+        if not open_char:
+            open_char, open_len, open_line = marker[0], len(marker), idx
+        elif marker[0] == open_char and len(marker) >= open_len and not rest:
+            open_char, open_len, open_line = "", 0, None
+    return open_line
+
+
+def _check_markdown_fence_balance(root: Path) -> list[str]:
+    """Audita balanceo de cercas de código en skills, reglas y guías (anti-H29)."""
+    candidates: list[Path] = [
+        p for p in sorted(root.glob("*.md")) if p.is_file()
+    ]
+    for folder in (".agents/skills", ".agents/rules", "docs"):
+        base = root / folder
+        if base.is_dir():
+            candidates.extend(sorted(p for p in base.rglob("*.md") if p.is_file()))
+    errors: list[str] = []
+    for md_path in candidates:
+        unclosed = _find_unclosed_fence_line(md_path.read_text(encoding="utf-8"))
+        if unclosed is not None:
+            rel = md_path.relative_to(root).as_posix()
+            errors.append(
+                f"{rel}:{unclosed}: bloque cercado Markdown sin cierre."
+            )
+    return errors
+
+
 def _check_claude_plugin_manifests(root: Path) -> list[str]:
     if not (root / ".claude-plugin").is_dir():
         return []
@@ -2388,6 +2428,7 @@ def validate_repository_docs(root: Path) -> list[str]:
         *check_historical_spec_links(root),
         *_check_refactoring_ui_topics(root),
         *_check_skill_backtick_references(root),
+        *_check_markdown_fence_balance(root),
         *_check_claude_plugin_manifests(root),
         *_check_specs_and_stack_contracts(root),
         *check_global_catalogs_and_geo(root),

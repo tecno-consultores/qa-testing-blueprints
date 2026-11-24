@@ -580,7 +580,7 @@ function mergeMdcBridge(
   return merged;
 }
 
-function hasYamlReadKeyOutsideBridge(existingContent: string): boolean {
+export function hasYamlReadKeyOutsideBridge(existingContent: string): boolean {
   const startIdx = existingContent.indexOf(AIDER_BRIDGE_START);
   const endIdx = existingContent.indexOf(AIDER_BRIDGE_END);
   const outside =

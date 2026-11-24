@@ -36,7 +36,7 @@
 ### D. Visual Regression, Accessibility, Design (`refactoring-ui`) & Performance -> `Playwright` + `@axe-core` + `Lighthouse CI`
 *   **Strict Boundary (Tool Boundary):** All tests requiring launching browsers and attacking the live UI MUST be named using `.e2e.ts`.
 *   **Deterministic Design System (`.agents/skills/refactoring-ui/`):** When designing or styling `.tsx` components, apply the rules from `.agents/skills/refactoring-ui/SKILL.md` and its 9 references (`hierarchy.md`, `layout.md`, `type.md`, `color.md`, `depth.md`, `dark-mode.md`, etc.): only 1 solid primary button per view, OKLCH tones without translucent text (`text-white/70` prohibited), `tabular-nums` on numeric columns to avoid *Cumulative Layout Shift* (`CLS = 0`), `outline-hidden` instead of `outline-none`, and zero horizontal scroll at `375x667`, `768x1024`, and `1440x900`.
-*   **Playwright / Axe:** Navigates the application, validates deep DOM structure, accessibility, and compares interface screenshots while freezing CSS animations.
+*   **Playwright / Axe & Screenplay:** Navigates the application, validates deep DOM structure, accessibility, and compares interface screenshots while freezing CSS animations. Compose multi-role RBAC/multi-tenant E2E journeys using `tests/screenplay/Actor.ts` and self-healing semantic ARIA locators (`tests/utils/semanticLocator.ts`).
 *   **Lighthouse CI:** Attacks the static production build on Nginx to audit strict performance (Core Web Vitals), Accessibility, Best Practices, and SEO. If the *Performance Score* drops below 90, the pipeline fails.
 
 ### E. BDD Business Flows -> `Karate Labs` + `Playwright`
@@ -52,7 +52,7 @@
 *   When building or testing React components (`.tsx`) and stores (Zustand/Redux), you MUST apply and verify with unit/BDD tests the controls from **[`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md)**:
     *   **Full Purge on Logout & Explicit Confirmation (`DISA V-222388, V-222392, V-222578` & `OWASP 4.3.7`):** Upon logout or reaching the *idle timeout* (**10 min** privileged role / **15 min** standard role, `V-222389/000080`), clear `sessionStorage.clear()`, `localStorage.clear()`, `CacheStorage`, and in-memory state, displaying an explicit logout message.
     *   **Last Login Notification & Zero Secrets in Hidden Fields (`DISA V-222437, V-222601` & `OWASP 4.3.6 FV-2`):** Display the user's last login date/time after login and prohibit the use of `<input type="hidden">` or `localStorage` for sensitive data or session tokens.
-    *   **Anti-XSS Defense, Anti-Prototype Pollution & OSHP Headers (`DISA V-222602, V-222609` & `OWASP 4.3.5, 5.4.4`):** Prohibit `dangerouslySetInnerHTML` without strict sanitization (`escapeHtml`), filter `__proto__`/`constructor`/`prototype` (`Object.create(null)`), attach `X-CSRF-Token` and `Idempotency-Key` to mutating requests, and preserve the known valid state on transient network errors.
+    *   **Anti-XSS Defense, Anti-Prototype Pollution & OSHP Headers (`DISA V-222602, V-222609` & `OWASP 4.3.5, 5.4.4`):** Prohibit `dangerouslySetInnerHTML` without strict sanitization (`DOMPurify.sanitize` or `escapeHtml`), filter `__proto__`/`constructor`/`prototype` (`Object.create(null)`), attach `X-CSRF-Token` and `Idempotency-Key` to mutating requests, and preserve the known valid state on transient network errors.
 
 ## 3. Local Execution Commands for the Developer (and AI)
 

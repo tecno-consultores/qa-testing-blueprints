@@ -829,7 +829,7 @@ if [ "${INCLUDE_SCRIPTS}" -eq 1 ]; then
       esac
     fi
 
-    if [ "${s_strategy}" = "copy_if_missing" ] && [ -f "./${dest_rel}" ]; then
+    if [ "${s_path}" != ".agents/ACTIVE_TASK.md.example" ] && [ "${s_strategy}" = "copy_if_missing" ] && [ -f "./${dest_rel}" ]; then
       continue
     fi
 

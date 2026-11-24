@@ -68,7 +68,9 @@ for sfile in "${STAGED_FILES[@]+"${STAGED_FILES[@]}"}"; do
 			[ -f "python/pyproject.toml" ] || PY_STAGED+=("${sfile}")
 			;;
 		node-backend/* | vue3/* | react-frontend/* | php/* | mcp-server/* | mobile-appium/*)
-			[ "${sfile}" = "mcp-server/example/verify-v2.sh" ] && SH_STAGED+=("${sfile}")
+			case "${sfile}" in
+				*.sh) SH_STAGED+=("${sfile}") ;;
+			esac
 			;;
 		*.py)
 			PY_STAGED+=("${sfile}")
@@ -252,7 +254,7 @@ PYEOF
 )
 		export KCOV_RUNNER_PY
 		docker run --rm --network none --cap-drop=ALL --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e _USER=qa -e KCOV_RUNNER_PY -v "$(pwd):/repo:ro" -v "$(pwd)/.agents/.cache/coverage:/cov-out" -w /repo sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7 \
-			bash -c 'shopt -s nullglob; mapfile -t lint_files < <(printf "%s\n" scripts/*.sh .agents/scripts/*.sh instalar-hooks.sh */limpieza.sh mcp-server/example/verify-v2.sh bash-scripts/*.sh | sort -u); if [ "${#lint_files[@]}" -gt 0 ]; then shellcheck -x "${lint_files[@]}" && shfmt -i 2 -ci -d "${lint_files[@]}"; fi && /usr/bin/python3 -c "${KCOV_RUNNER_PY}"'
+			bash -c 'shopt -s nullglob; raw=(scripts/*.sh .agents/scripts/*.sh instalar-hooks.sh */limpieza.sh mcp-server/example/verify-v2.sh bash-scripts/*.sh); if [ "${#raw[@]}" -gt 0 ]; then mapfile -t lint_files < <(printf "%s\n" "${raw[@]}" | sort -u); shellcheck -x "${lint_files[@]}" && shfmt -i 2 -ci -d "${lint_files[@]}"; fi && /usr/bin/python3 -c "${KCOV_RUNNER_PY}"'
 	fi
 fi
 if [ -x "./.agents/scripts/validate_calm_architecture.sh" ]; then

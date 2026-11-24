@@ -11,13 +11,14 @@ from pydantic import BaseModel, ConfigDict, Field
 from models.device import TelemetryDevice
 from services.device_service import (
     RegisterDeviceInput,
+    ensure_mutation_role,
     list_tenant_devices,
     register_tenant_device,
 )
 
 router = APIRouter(prefix="/api/v1/devices", tags=["devices"])
 _MEMORY_STORE: list[TelemetryDevice] = []
-_IDEMPOTENCY_CACHE: dict[tuple[str, str], dict[str, Any]] = {}
+_IDEMPOTENCY_CACHE: dict[tuple[str, str], tuple[str, dict[str, Any]]] = {}
 
 
 class CreateDevicePayload(BaseModel):
@@ -63,17 +64,49 @@ async def get_devices_endpoint(
     ]
 
 
+def _payload_fingerprint(payload: CreateDevicePayload) -> str:
+    clean_id = unicodedata.normalize("NFKC", payload.id).strip()
+    clean_host = unicodedata.normalize("NFKC", payload.hostname).strip()
+    return f"{clean_id}|{clean_host}|{payload.cpu_load_pct}"
+
+
+def _validate_idempotency_key(idempotency_key: str) -> str:
+    clean_key = unicodedata.normalize("NFKC", idempotency_key).strip()
+    if len(clean_key) < 8:
+        raise HTTPException(
+            status_code=422, detail="Idempotency-Key must be at least 8 characters"
+        )
+    return clean_key
+
+
+def _lookup_idempotent_replay(
+    cache_key: tuple[str, str], fingerprint: str
+) -> dict[str, Any] | None:
+    if cache_key not in _IDEMPOTENCY_CACHE:
+        return None
+    stored_fp, stored_dto = _IDEMPOTENCY_CACHE[cache_key]
+    if stored_fp != fingerprint:
+        raise HTTPException(
+            status_code=409,
+            detail="Idempotency-Key reused with divergent payload",
+        )
+    return dict(stored_dto)
+
+
 @router.post("", status_code=201)
 async def create_device_endpoint(
     payload: CreateDevicePayload,
     claims: Annotated[dict[str, str], Depends(resolve_verified_claims)],
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8)],
 ) -> dict[str, Any]:
-    clean_key = unicodedata.normalize("NFKC", idempotency_key).strip()
+    clean_key = _validate_idempotency_key(idempotency_key)
+    fingerprint = _payload_fingerprint(payload)
     cache_key = (claims["tenant_id"], clean_key)
-    if cache_key in _IDEMPOTENCY_CACHE:
-        return dict(_IDEMPOTENCY_CACHE[cache_key])
     try:
+        ensure_mutation_role(claims)
+        cached = _lookup_idempotent_replay(cache_key, fingerprint)
+        if cached is not None:
+            return cached
         device, audit = register_tenant_device(
             _MEMORY_STORE,
             claims=claims,
@@ -94,5 +127,5 @@ async def create_device_endpoint(
         "cpu_load_pct": str(device.cpu_load_pct),
         "audit_actor": audit["actor_username"],
     }
-    _IDEMPOTENCY_CACHE[cache_key] = response_dto
+    _IDEMPOTENCY_CACHE[cache_key] = (fingerprint, response_dto)
     return response_dto

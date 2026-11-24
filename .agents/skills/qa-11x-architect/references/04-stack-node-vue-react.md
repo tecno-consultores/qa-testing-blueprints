@@ -133,13 +133,11 @@ qa-orphans:
 	@if [ -f .agents/scripts/verify_zero_orphan_vue_components.py ]; then \
 		docker run --rm --network none --security-opt=no-new-privileges:true -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp -v "$(PROJECT_DIR):/app:ro" -w /app $(PYTHON_QA_IMAGE) python3 .agents/scripts/verify_zero_orphan_vue_components.py; \
 	else \
-		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-frontend node -e "const fs=require('fs'),p=require('path');const walk=d=>fs.existsSync(d)?fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(p.join(d,e.name)):[p.join(d,e.name)]):[];const tests=walk('src').concat(walk('tests')).filter(f=>/\.(unit|spec|test)\.(ts|tsx|js|jsx)$$|\.(test)\.(vue|tsx)$$ /.test(f));const comps=walk('src/components').concat(walk('src/views')).filter(f=>/\.(vue|tsx)$$/.test(f)&&!/\.(unit|spec|test)\./.test(f));const m=comps.filter(c=>{const b=p.basename(c).replace(/\.(vue|tsx)$$/,'');return !tests.some(t=>p.basename(t).startsWith(b+'.'));});if(m.length){console.error('Orphan UI components:',m);process.exit(1)}"; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-frontend node -e "const fs=require('fs'),p=require('path');const walk=d=>fs.existsSync(d)?fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(p.join(d,e.name)):[p.join(d,e.name)]):[];const tests=walk('src').concat(walk('tests')).filter(f=>/\.(unit|spec|test)\.(ts|tsx|js|jsx)$$|\.(test)\.(vue|tsx)$$/.test(f));const comps=walk('src/components').concat(walk('src/views')).filter(f=>/\.(vue|tsx)$$/.test(f)&&!/\.(unit|spec|test)\./.test(f));const m=comps.filter(c=>{const b=p.basename(c).replace(/\.(vue|tsx)$$/,'');return !tests.some(t=>p.basename(t).startsWith(b+'.'));});if(m.length){console.error('Orphan UI components:',m);process.exit(1)}"; \
 	fi
 
 qa-mutation:
 	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-frontend bash -c 'mkdir -p /tmp/qa-bin && printf "#!/bin/sh\nexit 0\n" >/tmp/qa-bin/ps && chmod +x /tmp/qa-bin/ps && pnpm install --silent && PATH="/tmp/qa-bin:$$PATH" pnpm run mutate'
-```
-> **Stryker & Node Hardening (`QA-STRYKER-CFG-01`, `zap.yaml`):** Always configure `"ignoreStatic": true`, `"concurrency": 4` (`<= 4`), and `pnpm_config_manage_package_manager_versions=false` in Node containers alongside the non-root `/tmp/qa-bin/ps` shim; `node-backend/` includes `zap.yaml.example`, `qa-bdd`, `qa-chaos`, and `qa-observability`.
 
 qa-bdd: build-ui
 	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down --remove-orphans >/dev/null 2>&1 || true" EXIT; \
@@ -171,6 +169,8 @@ clean: clean-cache
 
 qa-clean: clean
 ```
+
+> **Stryker & Node Hardening (`QA-STRYKER-CFG-01`, `zap.yaml`):** Always configure `"ignoreStatic": true`, `"concurrency": 4` (`<= 4`), and `pnpm_config_manage_package_manager_versions=false` in Node containers alongside the non-root `/tmp/qa-bin/ps` shim; `node-backend/` includes `zap.yaml.example`, `qa-bdd`, `qa-chaos`, and `qa-observability`.
 
 ---
 

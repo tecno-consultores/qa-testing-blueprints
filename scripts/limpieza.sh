@@ -17,10 +17,19 @@ DOCKER_PRUNE=false
 PRUNE_YES=false
 for arg in "$@"; do
   case "${arg}" in
+    -h | --help)
+      echo "Uso: ./scripts/limpieza.sh [-q|--quiet] [--deep] [--docker-prune] [-y|--yes]"
+      echo "  Limpia artefactos temporales, cachés QA y permisos residuales de Docker (Regla Cero)."
+      exit 0
+      ;;
     -q | --quiet) QUIET=true ;;
     --deep) DEEP_CLEAN=true ;;
     --docker-prune) DOCKER_PRUNE=true ;;
     --yes | -y) PRUNE_YES=true ;;
+    *)
+      echo "❌ ERROR: Opción no reconocida en limpieza.sh: ${arg}" >&2
+      exit 1
+      ;;
   esac
 done
 

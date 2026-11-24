@@ -254,11 +254,24 @@ function isEligibleNode<TRef>(
   return hasValidBounds(candidate.bounds);
 }
 
+function readFirstNonEmpty(...values: readonly (string | undefined)[]): string {
+  for (const val of values) {
+    if (val !== undefined && val.trim().length > 0) {
+      return val;
+    }
+  }
+  return '';
+}
+
 function readCandidateLabel<TRef>(
   candidate: DomCandidateNode<TRef>,
   cleanAttrs: Readonly<Record<string, string>>,
 ): string {
-  const raw = candidate.accessibleName ?? candidate.textContent ?? cleanAttrs['aria-label'] ?? '';
+  const raw = readFirstNonEmpty(
+    candidate.accessibleName,
+    candidate.textContent,
+    cleanAttrs['aria-label'],
+  );
   return normalizeText(raw);
 }
 
@@ -323,19 +336,12 @@ function bestTokenSimilarity(target: SemanticTarget, candLabel: string): number 
   return best;
 }
 
-function scoreSemanticOrFuzzy<TRef>(
+function scoreFuzzyAria<TRef>(
   target: SemanticTarget,
   candidate: DomCandidateNode<TRef>,
   cleanAttrs: Readonly<Record<string, string>>,
   candLabel: string,
 ): ScoredCandidate<TRef> | null {
-  if (candLabel.length === 0) {
-    return null;
-  }
-  const synonymHit = matchSynonym(target, candidate, candLabel);
-  if (synonymHit !== null) {
-    return { ...synonymHit, candidate, cleanAttributes: cleanAttrs };
-  }
   const jaccard = bestTokenSimilarity(target, candLabel);
   if (jaccard <= 0) {
     return null;
@@ -351,6 +357,22 @@ function scoreSemanticOrFuzzy<TRef>(
     strategy: 'fuzzy-aria',
     healed: true,
   };
+}
+
+function scoreSemanticOrFuzzy<TRef>(
+  target: SemanticTarget,
+  candidate: DomCandidateNode<TRef>,
+  cleanAttrs: Readonly<Record<string, string>>,
+  candLabel: string,
+): ScoredCandidate<TRef> | null {
+  if (candLabel.length === 0 || !matchesReactLandmark(target.landmark, candidate)) {
+    return null;
+  }
+  const synonymHit = matchSynonym(target, candidate, candLabel);
+  if (synonymHit !== null) {
+    return { ...synonymHit, candidate, cleanAttributes: cleanAttrs };
+  }
+  return scoreFuzzyAria(target, candidate, cleanAttrs, candLabel);
 }
 
 interface CandidateEvalContext<TRef> {
@@ -446,7 +468,9 @@ function buildTopPreviews<TRef>(
 }
 
 function readRecommendedName<TRef>(best: ScoredCandidate<TRef>): string {
-  return best.candidate.accessibleName ?? best.candidate.textContent ?? best.label;
+  return (
+    readFirstNonEmpty(best.candidate.accessibleName, best.candidate.textContent) || best.label
+  );
 }
 
 function buildRecommendedTargetUpdate<TRef>(

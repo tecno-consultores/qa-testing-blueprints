@@ -8,6 +8,14 @@ All notable changes to the `@sinfallas/mcp-qa-11x` npm package and MCP server ar
 
 ## [Unreleased]
 
+## [3.5.0] - 2026-11-23
+
+### Added
+- **Longitudinal Git Architectural Signals (`blast-radius --git-signals` / `inspect_ast_blast_radius`) & CALM Validation Profiles:** Added `include_git_signals` (`src/utils/git-signals.ts`) with rename normalization (`-M`), fix-weighted hotspots, temporal coupling, and bus-factor diagnostics; added `profile` (`auto` | `generic` | `qa-11x-self`) to `validate_calm_architecture` so consumer CALM models validate without upstream 6-node/5-edge coupling while preserving full QA-11X self-governance.
+
+### Fixed
+- **Audit Hardening Across CLI, Security Scanners, Parsers & Symlink Containment:** Guarded all CLI flag tables with `Object.hasOwn`, hardened `security-auditor.ts` (`SEC-03`/`06`/`08`/`10`, `QA-COV-01` line continuations, fail-closed directory check), tightened `promptGuard` (`xox[baprs]-`, base64 budget `64`, structural sanitization even when disabled, `steps`/`actualOutput`/`retrievalContext` trajectory exemptions) and `diagnosticFormatter` (`glpat-`/`xox[baprs]-`), fixed `evaluateQaStatus` alert gating, `diff-bundle` token duplication, `realpathSync` direct-entry detection, `version-manager` broken-symlink cleanup, `auditVibePrototype` `ALTER TABLE ONLY`, `test-pyramid-auditor` numeric `>= 95%` threshold & L02 actions, `sessionFlightRecorder` globs/reason/CSV escaping, `evaluateReleaseGate` CDATA-aware XXE & nested `<testsuite>` deduplication, `evaluateAgentTrajectory` boundary/command rules, `runLlmRedTeam` colon plugin IDs & broken-symlink detection, `tmsSyncCli` test suffixes & XML entity decoding, `SurgicalMerger` pipes/CRLF/Makefile assignment & symlink guard, `qa-evidence` `L01`–`L13` preservation & `EPERM` tolerance, `blueprint://security/disa-owasp-22?lang=es` content parity, and live `sync_enterprise_tms` heavy timeout routing.
+
 ## [3.3.0] - 2026-11-22
 
 ### Added

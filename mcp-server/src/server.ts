@@ -128,6 +128,10 @@ const ValidateCalmInputSchema = z
       .string()
       .optional()
       .describe("Relative path of the FINOS CALM model inside workspaceRoot (default 'architecture/qa-11x.calm.json')."),
+    profile: z
+      .enum(['auto', 'generic', 'qa-11x-self'])
+      .optional()
+      .describe("Validation profile: 'auto' (default), 'generic' (any consumer CALM model), or 'qa-11x-self' (upstream QA-11X 6-node/5-edge/7-control governance)."),
   })
   .strict();
 

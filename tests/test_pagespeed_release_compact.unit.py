@@ -16,10 +16,15 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Self
 
-import audit_pagespeed_insights as psi
-import compact_context_11x as cc
 import pytest
-import release_readiness_gate as rrg
+
+_SCRIPTS_DIR = str(Path(__file__).resolve().parents[1] / ".agents" / "scripts")
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
+import audit_pagespeed_insights as psi  # noqa: E402
+import compact_context_11x as cc  # noqa: E402
+import release_readiness_gate as rrg  # noqa: E402
 
 
 def _make_bad_json_fetcher(body: str) -> Callable[[str, int], tuple[int, str]]:
@@ -877,3 +882,28 @@ def test_release_gate_smoke_evaluates_junit_when_provided(tmp_path: Path) -> Non
     )
     assert rc_skip == 0
     assert rep_skip["decision"] == "SKIPPED"
+
+
+def test_psi_unparseable_ip_and_cli_threshold_timeout_validation() -> None:
+    """Cubre fail-closed ante IP no parseable y validacion CLI de rangos."""
+    ok, msg = psi.validate_public_https_url(
+        "https://example.org", resolver=lambda _h: ["not-a-valid-ip"]
+    )
+    assert ok is False
+    assert "IP inválida" in msg
+
+    parser = psi.build_arg_parser()
+    parsed = parser.parse_args(
+        ["--url", "https://example.org", "--min-performance", "0.85", "--timeout", "30"]
+    )
+    assert parsed.min_performance == 0.85
+    assert parsed.timeout == 30
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--min-performance", "1.5"])
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--min-performance", "-0.1"])
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--timeout", "0"])
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--timeout", "-5"])

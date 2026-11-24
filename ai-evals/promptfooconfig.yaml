@@ -46,8 +46,8 @@ defaultTest:
 tests:
   - description: "Fidelidad RAG con cita obligatoria [doc_qa_01] y cifras exactas sin alucinación"
     vars:
-      query: "¿Cuál es el umbral mínimo de HallucinationMetric (tasa máxima de alucinación) y la cobertura mínima exigida?"
-      context: "[doc_qa_01] El estándar QA-11X exige cobertura unitaria >= 95% y HallucinationMetric >= 0.95 (1.0 = 0% alucinación, tasa máxima < 0.05)."
+      query: "¿Cuál es el umbral máximo de HallucinationMetric (tasa máxima de alucinación) y la cobertura mínima exigida?"
+      context: "[doc_qa_01] El estándar QA-11X exige cobertura unitaria >= 95% y HallucinationMetric <= 0.05 (0.0 = 0% alucinación, tasa máxima <= 5%)."
     assert:
       - type: contains
         value: "doc_qa_01"

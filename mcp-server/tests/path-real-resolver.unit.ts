@@ -43,7 +43,7 @@ vi.mock('node:fs', async (importOriginal) => {
   };
 });
 
-import { resolveRealTargetWithSymlinks } from '../src/security/pathRealResolver.js';
+import { assertNoSymlinkSegments, resolveRealTargetWithSymlinks } from '../src/security/pathRealResolver.js';
 
 describe('pathRealResolver (fallback defensivo de lstatSync/realpathSync)', () => {
   afterEach(() => {
@@ -99,5 +99,18 @@ describe('pathRealResolver (fallback defensivo de lstatSync/realpathSync)', () =
     };
     mockHooks.readlinkOverride = () => '../resolved-dest';
     expect(() => resolveRealTargetWithSymlinks('/tmp/rel-dir/sym')).not.toThrow();
+
+    // readlinkSync fallido sobre symlink falla cerrado con reason='unresolvable'
+    mockHooks.readlinkOverride = () => {
+      throw new Error('ENOENT');
+    };
+    expect(resolveRealTargetWithSymlinks('/tmp/rel-dir/sym')).toEqual({
+      ok: false,
+      loopPath: path.resolve('/tmp/rel-dir/sym'),
+      reason: 'unresolvable',
+    });
+
+    // Ruta absoluta que escapa de rootDir es rechazada por assertNoSymlinkSegments
+    expect(() => assertNoSymlinkSegments('/tmp/safe-root', '/etc/passwd')).toThrow(/fuera de raíz/i);
   });
 });

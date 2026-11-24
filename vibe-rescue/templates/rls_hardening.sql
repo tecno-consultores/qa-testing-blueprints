@@ -323,3 +323,22 @@ $$;
 
 REVOKE ALL ON FUNCTION append_worm_audit_entry(UUID, UUID, VARCHAR, VARCHAR, VARCHAR, JSONB, JSONB, CHAR(64)) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION append_worm_audit_entry(UUID, UUID, VARCHAR, VARCHAR, VARCHAR, JSONB, JSONB, CHAR(64)) TO app_runtime_user;
+
+-- 5. Endurecimiento de roles Supabase (anon / authenticated) si existen en el cluster
+DO $$
+DECLARE
+    v_role TEXT;
+BEGIN
+    FOREACH v_role IN ARRAY ARRAY['anon', 'authenticated'] LOOP
+        IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = v_role) THEN
+            EXECUTE format('REVOKE ALL ON TABLE public.tenants FROM %I', v_role);
+            EXECUTE format('REVOKE ALL ON TABLE public.audit_log_worm FROM %I', v_role);
+            EXECUTE format('REVOKE ALL ON FUNCTION public.resolve_tenant_by_slug(TEXT) FROM %I', v_role);
+            EXECUTE format(
+                'REVOKE ALL ON FUNCTION public.append_worm_audit_entry(UUID, UUID, VARCHAR, VARCHAR, VARCHAR, JSONB, JSONB, CHAR(64)) FROM %I',
+                v_role
+            );
+        END IF;
+    END LOOP;
+END;
+$$;

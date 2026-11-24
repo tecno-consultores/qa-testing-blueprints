@@ -90,7 +90,7 @@ services:
 
   php-api:
     image: ${PHP_IMAGE:-sinfallas/basephpcomposer:8.5@sha256:56ff6d2dbf8b13833555b56ddc517bf520506b669c235026bb23224b212f0208}
-    container_name: php_qa_api
+    hostname: php_qa_api
     pull_policy: if_not_present
     mem_limit: 2g
     profiles:
@@ -156,10 +156,11 @@ services:
       - no-new-privileges:true
     environment:
       HOME: /tmp
+      _JAVA_OPTIONS: -Duser.home=/tmp
     working_dir: /zap/wrk
     volumes:
       - .:/zap/wrk:ro
-      - ./reports:/zap/wrk/reports:rw
+      - ./reports:/reports:rw
     depends_on:
       php-api:
         condition: service_healthy
@@ -241,7 +242,18 @@ services:
     depends_on:
       php-api:
         condition: service_healthy
-    command: netem --tc-image gaiadocker/iproute2@sha256:d0cd5819fbeaf2e7501dcb223bb5bad4fda7c1e76ff9877baba6e559c70b6d1e --duration 30s delay --time 250 --jitter 25 re2:^php_qa_api$
+    command:
+      - netem
+      - --tc-image
+      - gaiadocker/iproute2@sha256:d0cd5819fbeaf2e7501dcb223bb5bad4fda7c1e76ff9877baba6e559c70b6d1e
+      - --duration
+      - 30s
+      - delay
+      - --time
+      - "250"
+      - --jitter
+      - "25"
+      - 're2:^/?php_qa_api$|^/?.*[-_]php-api[-_][0-9]+$'
 
 volumes:
   composer-cache:

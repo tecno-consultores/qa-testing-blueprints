@@ -61,41 +61,43 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <main class="dashboard-shell">
-    <header class="dashboard-header">
-      <h1>Consola Operativa de Dispositivos</h1>
-      <span class="status-badge" data-testid="event-status-badge">
-        {{ classifyEventBadge(errorBanner ? 'outage' : 'operation') }}
-      </span>
-      <div class="dashboard-actions">
-        <button type="button" @click="loadDevices(true)">🔄 Refrescar</button>
-        <button type="button" @click="handleQuickRegister">+ Registrar Nodo</button>
-      </div>
-    </header>
+  <div class="dashboard-shell">
+    <main class="dashboard-main">
+      <header class="dashboard-header">
+        <h1>Consola Operativa de Dispositivos</h1>
+        <span class="status-badge" data-testid="event-status-badge">
+          {{ classifyEventBadge(errorBanner ? 'outage' : 'operation') }}
+        </span>
+        <div class="dashboard-actions">
+          <button type="button" @click="loadDevices(true)">🔄 Refrescar</button>
+          <button type="button" @click="handleQuickRegister">+ Registrar Nodo</button>
+        </div>
+      </header>
 
-    <p v-if="errorBanner" role="alert">{{ errorBanner }}</p>
+      <p v-if="errorBanner" role="alert">{{ errorBanner }}</p>
 
-    <table class="telemetry-table">
-      <thead>
-        <tr>
-          <th scope="col">ID</th>
-          <th scope="col">Hostname</th>
-          <th scope="col">CPU (%)</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="item in devices" :key="item.id">
-          <td>{{ item.id }}</td>
-          <td>{{ item.hostname }}</td>
-          <td class="metric-cell">{{ item.cpu_load_pct }}</td>
-        </tr>
-      </tbody>
-    </table>
+      <table class="telemetry-table">
+        <thead>
+          <tr>
+            <th scope="col">ID</th>
+            <th scope="col">Hostname</th>
+            <th scope="col">CPU (%)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="item in devices" :key="item.id">
+            <td>{{ item.id }}</td>
+            <td>{{ item.hostname }}</td>
+            <td class="metric-cell">{{ item.cpu_load_pct }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </main>
 
     <footer class="in-flow-footer">
       <span>Telemetría Multi-Tenant 11X</span>
     </footer>
-  </main>
+  </div>
 </template>
 
 <style scoped>

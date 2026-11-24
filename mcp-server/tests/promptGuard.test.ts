@@ -298,7 +298,7 @@ describe('Zero-Infra PromptGuard & MCP Interceptor (T2.4)', () => {
         'export class TenantService { constructor(private readonly port: number) {} }',
         'import os\nPORT = int(os.environ.get("PORT", "8000"))',
         'SELECT id, email, status FROM devices WHERE tenant_id = $1 ORDER BY created_at DESC;',
-        '/home/sinfallas/Dropbox/git/tecno-consultores/qa-testing-blueprints/mcp-server/src/index.ts',
+        '/workspace/qa-testing-blueprints/mcp-server/src/index.ts',
         '- Enforce E2E smoke execution (`mcp-server/example/run-example-e2e.mjs`) prior to git push and npm publish.',
         'NEVER run git push or npm publish without explicit operator authorization (QA-GIT-GATE-01).',
       ];

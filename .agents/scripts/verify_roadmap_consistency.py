@@ -352,8 +352,11 @@ def _check_certified_checkpoint_parity(
             "planned_steps pendientes."
         )
     if active_task_path.is_file():
-        md_low = active_task_path.read_text(encoding="utf-8").lower()
-        if "certified_clean" not in md_low and "completed" not in md_low:
+        state_val = _extract_active_task_state(
+            active_task_path.read_text(encoding="utf-8").splitlines()
+        )
+        state_low = (state_val or "").lower()
+        if "certified_clean" not in state_low and "completed" not in state_low:
             errors.append(
                 "session_checkpoint.json CERTIFIED_CLEAN difiere de ACTIVE_TASK.md."
             )

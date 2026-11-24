@@ -875,7 +875,11 @@ export async function buildSemanticDiffBundle(
     rawTokens > 0
       ? Math.max(0, Number((((rawTokens - compactedTokens) / rawTokens) * 100).toFixed(2)))
       : 0;
-  const summaries = entries.map((e) => e.summary);
+  const summaries = entries.map((e) => {
+    const compactSummary: DiffFileSummary = { ...e.summary };
+    delete compactSummary.rendered_diff;
+    return compactSummary;
+  });
 
   return {
     base_ref: validatedRef,

@@ -1,7 +1,7 @@
 ---
 name: qa-11x-architect
 description: >-
-  Master QA 11X & DevSecOps Architect (qa-testing-blueprints v3.2+). Use whenever the user asks to
+  Master QA 11X & DevSecOps Architect (qa-testing-blueprints v3.5+). Use whenever the user asks to
   initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E
   tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral
   Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md.
@@ -19,7 +19,7 @@ Corporate orchestrator for Standard 11X: 3-path routing, 13-layer pyramid, Rule 
 
 Classify every task first. **NEVER auto-run `git push`** (`QA-GIT-GATE-01` — stop at local `git commit` unless human authorizes push):
 
-- **`DOCS_ONLY` (`*.md` / `docs/**` only):** `0` Docker QA, `0` AST rebuilds -> sync docs/`CHANGELOG.md` -> `make sync-governance` -> `certify_11x_gate` -> local `git commit`.
+- **`DOCS_ONLY` (human `*.md`/`docs/**`; excludes `.agents/{skills,rules,schemas}/`):** `0` Docker QA/AST -> sync docs/`CHANGELOG.md` -> `make sync-governance` -> `certify_11x_gate` -> local `git commit`.
 - **`MICRO_CHANGE` (`<= 3` files, `< 5` callers, `0` routes/ORM):** 3-line plan -> `inspect_ast_blast_radius` -> sync unit/BDD (`QA-TEST-SYNC-01`) + stack QA (`run_ephemeral_qa`) -> AST refresh -> `CHANGELOG.md` -> `certify_11x_gate` -> local `git commit`.
 - **`FULL_11X` (`> 3` files, new API/UI, ORM, security, or `MED`/`HIGH` blast):** 11-step flow (`/plan`, `session_flight_recorder` -> `ACTIVE_TASK.md <= 40L`, full pyramid + `QA-TEST-SYNC-01`, docs, AST, `certify_11x_gate` 10/10, local `git commit`).
 
@@ -82,7 +82,7 @@ Classify every task first. **NEVER auto-run `git push`** (`QA-GIT-GATE-01` — s
 
 ---
 
-## 3. Progressive Hydration Matrix of Modular Sub-Skills (v3.2)
+## 3. Progressive Hydration Matrix of Modular Sub-Skills (v3.5)
 
 Hydrate specialized sub-skills **strictly on demand** by domain (zero eager loading):
 

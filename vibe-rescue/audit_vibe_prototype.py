@@ -133,14 +133,21 @@ def _is_env_target(fname: str) -> bool:
     )
 
 
-def _process_single_file(fpath: Path, ctx: ScanContext) -> None:
-    rel_path = fpath.relative_to(ctx.target_dir)
+def _is_scannable_file(fpath: Path) -> bool:
+    name = fpath.name
+    if _is_env_target(name) or fpath.suffix in (".sql", *CODE_EXTENSIONS):
+        return True
+    if name.startswith("tsconfig") and name.endswith(".json"):
+        return True
+    return name == "Dockerfile" or name.startswith("Dockerfile.")
+
+
+def _scan_decoded_file(
+    fpath: Path, rel_path: Path, has_test: bool, ctx: ScanContext
+) -> None:
     rel = rel_path.as_posix()
-    has_test = is_test_path(rel_path)
-    ctx.has_any_test = ctx.has_any_test or has_test
     text = fpath.read_text(encoding="utf-8", errors="replace")
     lines = text.splitlines()
-
     if _is_env_target(fpath.name):
         scan_env_file(rel, lines, ctx)
         return
@@ -153,6 +160,14 @@ def _process_single_file(fpath: Path, ctx: ScanContext) -> None:
         scan_code_file(rel_path, text, ctx.max_lines, ctx.findings)
         return
     scan_tsconfig_or_docker(rel, fpath.name, text, ctx.findings)
+
+
+def _process_single_file(fpath: Path, ctx: ScanContext) -> None:
+    rel_path = fpath.relative_to(ctx.target_dir)
+    has_test = is_test_path(rel_path)
+    ctx.has_any_test = ctx.has_any_test or has_test
+    if _is_scannable_file(fpath):
+        _scan_decoded_file(fpath, rel_path, has_test, ctx)
 
 
 def _load_rls_template() -> str:

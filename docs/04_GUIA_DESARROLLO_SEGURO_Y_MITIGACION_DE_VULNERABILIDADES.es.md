@@ -222,7 +222,8 @@ def resolve_safe_outgoing_target(url_str: str) -> tuple[str, str]:
         if pinned_ip is None:
             pinned_ip = str(ip)
 
-    assert pinned_ip is not None
+    if pinned_ip is None:
+        raise ValueError("El host destino resolvió sin una IP global válida")
     return url_str.strip(), pinned_ip
 
 
@@ -1013,6 +1014,7 @@ class OWASPSecureHeadersMiddleware(BaseHTTPMiddleware):
 
 ### Implementación Obligatoria (Python / FastAPI)
 ```python
+from urllib.parse import urlparse
 import httpx
 from fastapi import HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field

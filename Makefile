@@ -90,7 +90,7 @@ lint-workflows:
 	'    sys.exit(1)' \
 	'errors = []' \
 	'dol, sq, dq = chr(36), chr(39), chr(34)' \
-	'sec_re = re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----|(?:npm|ghp|gho|ghu|ghs)_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|glpat-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|(?:password|passwd|secret|api_key|token)\s*[=:]\s*[" + sq + r"]?[A-Za-z0-9_/-]{16,}[" + sq + r"]?", re.I)' \
+	'sec_re = re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----|(?:npm|ghp|gho|ghu|ghs)_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|glpat-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9_-]{12,}|AKIA[0-9A-Z]{16}|(?:password|passwd|secret|api_key|token)\s*[=:]\s*[" + sq + dq + r"]?[A-Za-z0-9_/-]{16,}[" + sq + dq + r"]?", re.I)' \
 	'ign_re = re.compile(re.escape(dol + "{{") + r"|" + re.escape(dol + "{") + r"|placeholder|example|dummy|TU_TOKEN|changeme", re.I)' \
 	'uses_re = re.compile(r"^\s*(?:-\s+)?uses\s*:\s*([^\s#]+)")' \
 	'sha40_re = re.compile(r"^[0-9a-f]{40}" + dol)' \
@@ -265,12 +265,12 @@ test-py:
 
 shellcheck:
 	@echo "🐚 [ShellCheck] Auditando scripts Bash (-x) en Docker efímero..."
-	@docker run --rm --network none -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/repo:ro" -w /repo $(BASH_IMG) bash -c 'shopt -s nullglob; mapfile -t files < <(printf "%s\n" scripts/*.sh .agents/scripts/*.sh instalar-hooks.sh */limpieza.sh bash-scripts/*.sh mcp-server/example/verify-v2.sh | sort -u); shellcheck -x "$${files[@]}"'
+	@docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/repo:ro" -w /repo $(BASH_IMG) bash -c 'shopt -s nullglob; raw=(scripts/*.sh .agents/scripts/*.sh instalar-hooks.sh */limpieza.sh bash-scripts/*.sh mcp-server/example/verify-v2.sh); if [ "$${#raw[@]}" -gt 0 ]; then mapfile -t files < <(printf "%s\n" "$${raw[@]}" | sort -u); shellcheck -x "$${files[@]}"; fi'
 	@echo "✔ [ShellCheck] 0 hallazgos en scripts Bash."
 
 shfmt:
 	@echo "📐 [shfmt] Verificando formato Bash (shfmt -i 2 -ci -d) en Docker efímero..."
-	@docker run --rm --network none -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/repo:ro" -w /repo $(BASH_IMG) bash -c 'shopt -s nullglob; mapfile -t files < <(printf "%s\n" scripts/*.sh .agents/scripts/*.sh instalar-hooks.sh */limpieza.sh bash-scripts/*.sh mcp-server/example/verify-v2.sh | sort -u); shfmt -i 2 -ci -d "$${files[@]}"'
+	@docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/repo:ro" -w /repo $(BASH_IMG) bash -c 'shopt -s nullglob; raw=(scripts/*.sh .agents/scripts/*.sh instalar-hooks.sh */limpieza.sh bash-scripts/*.sh mcp-server/example/verify-v2.sh); if [ "$${#raw[@]}" -gt 0 ]; then mapfile -t files < <(printf "%s\n" "$${raw[@]}" | sort -u); shfmt -i 2 -ci -d "$${files[@]}"; fi'
 	@echo "✔ [shfmt] Formato Bash conforme."
 
 test-bats:

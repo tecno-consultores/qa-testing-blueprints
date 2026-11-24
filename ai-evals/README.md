@@ -1,6 +1,6 @@
 > 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](README.es.md)
 
-> **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in English. You must generate code that perfectly aligns with these rules, using exclusively ephemeral Docker containers (`sinfallas/base-python-uv:3.15` and `sinfallas/base-node-ionic:26`), strict Dual-Mode separation, and blocking quantitative thresholds (`HallucinationMetric >= 0.95` where `1.0` = 0% hallucination and max hallucination rate `< 0.05`, `FaithfulnessMetric >= 0.90`, `>= 95%` offline unit coverage). Do not suggest local installations or hardcoded API keys. Process the technical logic at your highest reasoning capacity in English, and output your final response, explanations, and code comments in the user's prompt language (defaulting to English).
+> **[SYSTEM DIRECTIVE FOR AI AGENTS]:** Act as a Staff QA Automation Engineer and DevOps Expert. Read, parse, and strictly enforce the following architectural constraints written in English. You must generate code that perfectly aligns with these rules, using exclusively ephemeral Docker containers (`sinfallas/base-python-uv:3.15` and `sinfallas/base-node-ionic:26`), strict Dual-Mode separation, and blocking quantitative thresholds (`HallucinationMetric <= 0.05` where `0.0` = 0% hallucination and max hallucination rate `<= 5%`, `FaithfulnessMetric >= 0.90`, `>= 95%` offline unit coverage). Do not suggest local installations or hardcoded API keys. Process the technical logic at your highest reasoning capacity in English, and output your final response, explanations, and code comments in the user's prompt language (defaulting to English).
 
 # Dual Evaluation Guide for Generative AI, RAG, and Autonomous Agents (`ai-evals`)
 
@@ -22,7 +22,7 @@ This blueprint establishes the **QA 11X** corporate standard for auditing **RAG*
 ## 2. Complementarity Between DeepEval, Voice/OCR/Golden Modules, and Promptfoo
 
 1. **DeepEval RAG & Shared Judge (`ai-evals/rag/test_rag_faithfulness.py`, `ai-evals/_llm_judge.py`):**
-   - Ideal for diagnostic decomposition of RAG pipelines (`LLMTestCase`) and granular auditing of agent trajectories (`ToolCall`), backed by shared judge resolution (`OpenAI`, `Gemini`, `Anthropic`, `/v1`-normalized `Ollama`, or `LocalModel`).
+   - Ideal for diagnostic decomposition of RAG pipelines (`LLMTestCase`) and granular auditing of agent trajectories (`ToolCall`), backed by shared judge resolution precedence (`OPENAI_API_KEY` + `OPENAI_API_BASE` -> `LocalModel`, `OPENAI_API_KEY` -> `OpenAIModel`, `GEMINI_API_KEY` -> `GeminiModel`, `ANTHROPIC_API_KEY` -> `AnthropicModel`, `OLLAMA_BASE_URL` `/v1`-normalized -> `LocalModel`, `OPENAI_API_BASE` -> `LocalModel`).
    - In **Mode 1**, validates deterministic schema contracts, orphan citations, unsupported numeric claims, and mandatory tool ordering (`inspect_blast_radius` / `inspect_ast_blast_radius` before editing).
    - In **Mode 2** (`QA_LLM_AUDIT_LIVE=1`), executes `assert_test` against the resolved judge via `resolve_deepeval_judge_model`.
 
@@ -45,7 +45,7 @@ This blueprint establishes the **QA 11X** corporate standard for auditing **RAG*
 | :--- | :---: | :--- |
 | **Offline unit coverage (`ai-evals` & `tests/evals`)** | **`>= 95%`** | `pytest --cov` (Mode 1) |
 | **Python cyclomatic complexity & typing** | **`CC <= 5` · 0 errors** | `ruff C901` + `mypy --strict` (Mode 1) |
-| **Hallucination (`HallucinationMetric`)** | **`>= 0.95`** (`1.0` = 0% hallucination, rate `< 0.05`) | `DeepEval` (Mode 2) |
+| **Hallucination (`HallucinationMetric`)** | **`<= 0.05`** (`0.0` = 0% hallucination, max rate `<= 5%`) | `DeepEval` (Mode 2) |
 | **Context faithfulness (`FaithfulnessMetric`)** | **`>= 0.90`** | `DeepEval` / `Promptfoo` (Mode 2) |
 | **Contextual precision, recall & relevance** | **`>= 0.85`** | `DeepEval` / `Promptfoo` (Mode 2) |
 | **Trajectory completion (`TaskCompletionMetric`)** | **`>= 0.90`** | Offline contract + `DeepEval` |

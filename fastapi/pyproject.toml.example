@@ -108,11 +108,3 @@ plugins = ["pydantic.mypy"]
 source_paths = ["src/"]
 pytest_add_cli_args = ["-x", "--no-cov", "-m", "not integration", "--ignore=tests/contracts"]
 pytest_add_cli_args_test_selection = ["tests/"]
-
-[tool.pyrefly]
-search-path = ["src"]
-python-version = "3.15"
-
-[tool.pyrefly.errors]
-missing-import = false
-missing-module-attribute = false

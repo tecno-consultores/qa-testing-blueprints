@@ -13,7 +13,7 @@
 In FastAPI (and similar HTTP frameworks), route dependency decorators such as `Depends(require_roles("ADMIN"))` or `Depends(get_current_user)` are evaluated **exclusively by the HTTP router pipeline**. When an internal MCP server, JSON-RPC dispatcher, WebSocket handler, or background worker invokes a Python controller or service function directly (`await execute_router_command(...)`), FastAPI's dependency injection is completely bypassed—leaving `Depends(...)` unevaluated and allowing unprivileged roles (`VIEWER`, `OPERATOR`) to execute privileged mutations.
 
 ### Mandatory Defense Pattern
-1. **Explicit Service-Layer Role Guard:** Validate `claims["role"]` / `claims["rol"]` at the very beginning of every mutating service function before touching the database, cache, or external devices:
+1. **Explicit Service-Layer Role Guard:** Validate `claims["role"]` at the very beginning of every mutating service function before touching the database, cache, or external resources:
    ```python
    ALLOWED_MUTATION_ROLES = frozenset({"ADMIN", "SUPERADMIN", "NETOPS_LEAD"})
 

@@ -83,10 +83,10 @@ This architecture works natively across **28 supported AI coding agents** (`--ag
 
 | Tool / Agent | MCP Ingestion Mechanism | Skills, Scripts & Connector Integration | Entry / Config File |
 | :--- | :--- | :--- | :--- |
-| **Google Antigravity** | `~/.gemini/antigravity/mcp_config.json` (fallback `~/.gemini/config/mcp_config.json`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target antigravity --init-agents --include-scripts` | `.agents/` + `AGENTS.md` |
-| **Anthropic Claude Code / Desktop** | `claude_desktop_config.json` (`stdio`, multi-OS) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target claude --init-agents --include-scripts` | `AGENTS.md` + `.agents/skills/` |
+| **Google Antigravity / Gemini CLI** | `~/.gemini/antigravity/mcp_config.json` (fallback `~/.gemini/config/mcp_config.json`; Gemini CLI `~/.gemini/settings.json`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target antigravity --init-agents --include-scripts` | `.agents/` + `AGENTS.md` |
+| **Anthropic Claude Code / Desktop** | `~/.claude.json` / `.mcp.json` (Claude Code); `claude_desktop_config.json` (Desktop, multi-OS) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target claude --init-agents --include-scripts` | `AGENTS.md` + `.agents/skills/` |
 | **Hermes Agent (Nous Research)** | `config.yaml` (`mcp_servers`) / `mcp.json` | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target hermes --init-agents --include-scripts` | `AI_MASTER_PROMPT.md` + `Makefile` |
-| **Cursor / Windsurf** | `.cursor/mcp.json` (`mcpServers`) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target cursor --init-agents --include-scripts` | `AGENTS.md` and `.agents/rules/` |
+| **Cursor / Windsurf** | `.cursor/mcp.json` (Cursor); `~/.codeium/windsurf/mcp_config.json` (Windsurf) | `npx -y @sinfallas/mcp-qa-11x@latest install-skill --target cursor --init-agents --include-scripts` | `AGENTS.md` and `.agents/rules/` |
 
 ---
 

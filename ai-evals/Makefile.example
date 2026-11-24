@@ -1,4 +1,4 @@
-.PHONY: qa-lint qa-unit qa-offline qa-ci audit-llm qa-all clean-cache clean qa-clean
+.PHONY: qa-lint qa-unit qa-offline test-ai-offline qa-ci audit-llm qa-all clean-cache clean qa-clean
 
 # ==============================================================================
 # MAKEFILE QA AI-EVALS 11X (sinfallas/base-python-uv:3.15 + base-node-ionic:26)
@@ -33,6 +33,8 @@ qa-unit:
 
 qa-offline: qa-unit
 
+test-ai-offline: qa-ci
+
 qa-ci: qa-lint qa-unit
 	@echo "✅ [11X] Suite Offline AI-Evals (lint + contratos >= 95%) certificada."
 
@@ -54,16 +56,17 @@ audit-llm:
 	@echo "🛡️ [11X] Ejecutando matriz multi-modelo y Red Team OWASP LLM Top 10 (Promptfoo)..."
 	@bash -c 'set -euo pipefail; \
 		pf_patterns=(); judge="$${PROMPTFOO_JUDGE_PROVIDER:-}"; \
-		if [ -n "$${OPENAI_API_KEY:-}" ] || [ -n "$${OPENAI_API_BASE:-}" ]; then pf_patterns+=("^openai:"); judge="$${judge:-openai:gpt-4.1-mini}"; fi; \
-		if [ -n "$${ANTHROPIC_API_KEY:-}" ]; then pf_patterns+=("^anthropic:"); judge="$${judge:-anthropic:messages:claude-sonnet-4-5}"; fi; \
-		if [ -n "$${GEMINI_API_KEY:-}" ]; then pf_patterns+=("^google:"); judge="$${judge:-google:gemini-2.5-flash}"; fi; \
-		if [ -n "$${OLLAMA_BASE_URL:-}" ]; then pf_patterns+=("^ollama:"); judge="$${judge:-ollama:chat:qwen3:8b}"; fi; \
+		if [ -n "$${OPENAI_API_KEY:-}" ] || [ -n "$${OPENAI_API_BASE:-}" ]; then pf_patterns+=("^openai:"); judge="$${judge:-openai:$${QA_LLM_MODEL:-gpt-4.1-mini}}"; fi; \
+		if [ -n "$${ANTHROPIC_API_KEY:-}" ]; then pf_patterns+=("^anthropic:"); judge="$${judge:-anthropic:messages:$${QA_LLM_MODEL:-claude-sonnet-4-5}}"; fi; \
+		if [ -n "$${GEMINI_API_KEY:-}" ]; then pf_patterns+=("^google:"); judge="$${judge:-google:$${QA_LLM_MODEL:-gemini-2.5-flash}}"; fi; \
+		if [ -n "$${OLLAMA_BASE_URL:-}" ]; then pf_patterns+=("^ollama:"); judge="$${judge:-ollama:chat:$${QA_LLM_MODEL:-qwen3:8b}}"; fi; \
 		pf_regex="$$(IFS="|"; echo "$${pf_patterns[*]}")"; \
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile llm-live run --rm -T -u "$(QA_UID):$(QA_GID)" \
 			-e PROMPTFOO_DISABLE_REDTEAM_REMOTE_GENERATION=1 \
 			-e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -e QA_LLM_MODEL \
+			-e OPENAI_BASE_URL="$${OPENAI_API_BASE:-}" -e OPENAI_API_BASE_URL="$${OPENAI_API_BASE:-}" \
 			-e PROMPTFOO_JUDGE_PROVIDER="$${judge}" \
-			$(PROMPTFOO_SERVICE) sh -c "promptfoo eval -c promptfooconfig.yaml --filter-providers \"\$$1\" --no-cache --no-progress-bar -o /reports/promptfoo-results.json && promptfoo redteam run -c promptfooconfig.yaml --filter-providers \"\$$1\" --no-cache --no-progress-bar -o /tmp/promptfoo-redteam.yaml" _ "$${pf_regex}"'
+			$(PROMPTFOO_SERVICE) sh -c "promptfoo eval -c promptfooconfig.yaml --filter-providers \"\$$1\" --no-cache --no-progress-bar -o /reports/promptfoo-results.json && promptfoo redteam run -c promptfooconfig.yaml --filter-providers \"\$$1\" --no-cache --no-progress-bar -o /reports/promptfoo-redteam.yaml" _ "$${pf_regex}"'
 
 qa-all: qa-lint qa-unit
 	@echo "✅ [11X] Pipeline QA AI-Evals Offline completado."

@@ -1240,6 +1240,27 @@ def test_sync_governance_edge_branches(
     assert json.loads('{"ok": true}')["ok"] is True
 
 
+def test_sync_governance_atomic_write_cleanup_and_missing_skill_entry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    mod = _load_script_module("sync_governance_atomic_err", "sync_governance.py")
+    changed, err = mod._sync_single_skill_entry(
+        tmp_path,
+        {"path": ".agents/skills/ghost/SKILL.md"},
+        catalog_rel="catalogs/skillsllm-manifest.json",
+    )
+    assert changed is False
+    assert err is not None and "archivo inexistente" in err
+
+    def _boom_replace(_src: Any, _dst: Any) -> None:
+        raise OSError("disk full")
+
+    monkeypatch.setattr(mod.os, "replace", _boom_replace)
+    with pytest.raises(OSError, match="disk full"):
+        mod._atomic_write_text(tmp_path / "manifest.json", "{}")
+    assert list(tmp_path.glob("*.tmp")) == []
+
+
 def test_verify_json_no_duplicate_keys_pruning_symlinks_and_errors(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -103,7 +103,7 @@ const QA_MAKE_CURDIR_REMEDIATION =
   'Reemplazar $(PWD) / ${PWD} por $(CURDIR) en sub-Makefiles invocables con $(MAKE) -C <subdir> (ej. HOST_PWD ?= $(CURDIR)) para evitar montar el directorio padre.';
 const DOUBLE_DOLLAR_CI_RE = /\$\$[({][A-Za-z_]/;
 const MAKE_PWD_VAR_RE = /\$\(PWD\)|\$\{PWD\}/g;
-const MAKEFILE_NAMES = new Set(['Makefile', 'Makefile.example']);
+const MAKEFILE_NAMES = new Set(['Makefile', 'Makefile.example', 'GNUmakefile']);
 const QA_CONTRACT_SDK_01_RULE = 'QA-CONTRACT-SDK-01';
 const QA_CONTRACT_SDK_01_REF = 'Standard 11X UAT Rule #11 / Real-Runtime Protocol SDK Contract';
 const QA_CONTRACT_SDK_OK_PRAGMA = 'qa-contract-sdk-ok';
@@ -451,7 +451,7 @@ function checkGenericCommandAndDeserialization(line: string, relPath: string, li
       remediation: 'Reemplazar por yaml.safe_load(content) o especificar Loader=yaml.SafeLoader.',
     };
   }
-  if (/\beval\s*\(/.test(line)) {
+  if (/(?<![.\w])eval\s*\(/.test(line)) {
     return {
       rule_id: 'SEC-03',
       severity: 'CRITICAL',
@@ -462,6 +462,17 @@ function checkGenericCommandAndDeserialization(line: string, relPath: string, li
       remediation: 'Eliminar el uso de eval() en favor de análisis o mapeo de diccionarios deterministas.',
     };
   }
+  if (/\bnew\s+Function\s*\(/.test(line) || /\bchild_process\s*\.\s*exec\s*\(/.test(line)) {
+    return {
+      rule_id: 'SEC-03',
+      severity: 'CRITICAL',
+      stig_owasp_ref: APSC_DV_002510_REF,
+      file: relPath,
+      line: lineNum,
+      message: 'Uso de ejecución dinámica insegura (new Function / child_process.exec) detectado.',
+      remediation: 'Evitar new Function() y reemplazar child_process.exec() por execFile/spawn sin shell.',
+    };
+  }
   return null;
 }
 
@@ -469,7 +480,19 @@ function checkSec03CommandAndDeserialization(relPath: string, lines: string[]): 
   if (relPath.endsWith('.example') || isTestFilePath(relPath) || isAuditorSelfDefinition(relPath)) {
     return [];
   }
-  if (!relPath.endsWith('.py') && !relPath.endsWith('.ts') && !relPath.endsWith('.js') && !relPath.endsWith('.php')) return [];
+  if (
+    !relPath.endsWith('.py') &&
+    !relPath.endsWith('.ts') &&
+    !relPath.endsWith('.tsx') &&
+    !relPath.endsWith('.mts') &&
+    !relPath.endsWith('.cts') &&
+    !relPath.endsWith('.js') &&
+    !relPath.endsWith('.jsx') &&
+    !relPath.endsWith('.mjs') &&
+    !relPath.endsWith('.php')
+  ) {
+    return [];
+  }
   const isPhp = relPath.endsWith('.php');
   const findings: SecurityFinding[] = [];
 
@@ -621,7 +644,7 @@ function checkSec06XssPrototypePollution(relPath: string, lines: string[]): Secu
 
   for (const [i, line] of lines.entries()) {
     if (line.includes('v-html') || line.includes('innerHTML') || line.includes('dangerouslySetInnerHTML')) {
-      const hasSanitize = line.includes('escapeHtml') || line.includes('DOMPurify') || line.includes('sanitize');
+      const hasSanitize = /\b(?:escapeHtml|DOMPurify|sanitize\w*)\b/.test(line);
       if (!hasSanitize) {
         findings.push({
           rule_id: 'SEC-06',
@@ -712,7 +735,7 @@ const SEC10_PRIVATE_KEY_MARKERS = [
 ] as const;
 
 const SEC10_TOKEN_RES: readonly RegExp[] = [
-  /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}\b/,
+  /\b(?:ghp|gho|ghu|ghs|ghr|npm)_[A-Za-z0-9]{20,}\b/,
   /\bgithub_pat_\w{20,}\b/,
   /\bglpat-[A-Za-z0-9_-]{20,}\b/,
   /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/,
@@ -723,6 +746,24 @@ const SEC10_TOKEN_RES: readonly RegExp[] = [
 
 const SEC10_ASSIGNED_SECRET_RE =
   /(?:password|passwd|secret_key|api[-_]?key)\s*[:=]\s*["']([a-z0-9!@#$%^&*()_+-]{8,})["']/i;
+const SEC10_ENV_KEY_MARKERS = ['PASSWORD', 'PASSWD', 'SECRET', 'API_KEY', 'TOKEN'] as const;
+const SEC10_ENV_KEY_RE = /^[A-Z0-9_]{3,80}$/;
+
+function extractUnquotedEnvSecretValue(line: string): string | null {
+  const eqIdx = line.indexOf('=');
+  if (eqIdx === -1) return null;
+  let key = line.slice(0, eqIdx).trim();
+  if (key.startsWith('export ')) key = key.slice(7).trim();
+  const upperKey = key.toUpperCase();
+  if (!SEC10_ENV_KEY_RE.test(upperKey) || !SEC10_ENV_KEY_MARKERS.some((m) => upperKey.includes(m))) {
+    return null;
+  }
+  const rawVal = line.slice(eqIdx + 1).trim();
+  const hashIdx = rawVal.indexOf(' #');
+  const val = (hashIdx === -1 ? rawVal : rawVal.slice(0, hashIdx)).trim();
+  if (val.length < 8 || /[\s"'$#]/.test(val)) return null;
+  return val;
+}
 
 const PEM_HEADER_RE = /-----\s*BEGIN\b/i;
 const PROMPTFOO_KEY_TYPE = 'type' as const;
@@ -854,7 +895,9 @@ function checkSec10Secrets(relPath: string, lines: string[]): SecurityFinding[] 
     const trimmed = line.trim();
     if (trimmed.startsWith('#') || trimmed.startsWith('//')) continue;
 
-    let assignedMatch: RegExpExecArray | null = null;
+    const assignedSecret =
+      SEC10_ASSIGNED_SECRET_RE.exec(line)?.[1] ??
+      (path.basename(relPath).startsWith('.env') ? extractUnquotedEnvSecretValue(line) : null);
     if (
       SEC10_PRIVATE_KEY_MARKERS.some((marker) => line.includes(marker)) &&
       !isBenignPromptfooPrivateKeyAssertion(relPath, lines, i)
@@ -879,9 +922,10 @@ function checkSec10Secrets(relPath: string, lines: string[]): SecurityFinding[] 
         remediation: 'Revocar la credencial de inmediato e inyectarla vía variables de entorno seguras.',
       });
     } else if (
-      (assignedMatch = SEC10_ASSIGNED_SECRET_RE.exec(line)) !== null &&
-      !pickAt(assignedMatch, 1).includes('placeholder') &&
-      !pickAt(assignedMatch, 1).includes('example')
+      assignedSecret !== null &&
+      !assignedSecret.toLowerCase().includes('placeholder') &&
+      !assignedSecret.toLowerCase().includes('example') &&
+      !assignedSecret.toLowerCase().includes('changeme')
     ) {
       findings.push({
         rule_id: 'SEC-10',
@@ -1253,9 +1297,28 @@ function checkSec09Npmrc(projectPath: string): SecurityFinding[] {
   return findings;
 }
 
+export function isNonHttpNodeCliEntry(projectPath: string, relFile: string): boolean {
+  if (!relFile.endsWith('index.ts')) return false;
+  try {
+    const text = fs.readFileSync(path.join(projectPath, relFile), 'utf8');
+    const hasCliSignal = text.startsWith('#!/usr/bin/env node') || text.includes('StdioServerTransport');
+    const hasHttpSignal = /\b(?:express|fastify|Hono|createServer|NestFactory|Koa)\b/.test(text);
+    return hasCliSignal && !hasHttpSignal;
+  } catch {
+    return false;
+  }
+}
+
 function checkSec08Oshp(projectPath: string, allRelFiles: string[]): SecurityFinding[] {
   const prodFiles = allRelFiles.filter((f) => !isTestFilePath(f));
-  const hasBackendApp = prodFiles.some((f) => f.endsWith('main.py') || f.endsWith('app.py') || f.endsWith('server.ts') || f.endsWith('index.ts'));
+  const hasBackendApp = prodFiles.some(
+    (f) =>
+      (f.endsWith('main.py') ||
+        f.endsWith('app.py') ||
+        f.endsWith('server.ts') ||
+        f.endsWith('index.ts')) &&
+      !isNonHttpNodeCliEntry(projectPath, f)
+  );
   if (!hasBackendApp) return [];
 
   for (const relFile of prodFiles) {
@@ -3187,7 +3250,7 @@ function checkSec14WormDeterministicChain(relPath: string, lines: string[]): Sec
       message:
         'Cadena forense WORM (prev_record_hash) ordena únicamente por created_at DESC sin secuencia monotónica (seq_num) ni pg_advisory_xact_lock, quedando vulnerable a empates de reloj y condiciones de carrera.',
       remediation:
-        'Usar seq_num BIGINT DEFAULT nextval(...), SELECT pg_advisory_xact_lock(hashtext(tenant_key)), seguimiento en memoria de sesión (_rg_in_tx_audit_hash / _in_tx_audit_hash) y await session.flush() (ver blueprint://database/postgres-rls-worm).',
+        'Usar seq_num BIGINT DEFAULT nextval(...), SELECT pg_advisory_xact_lock(hashtext(tenant_key)), seguimiento en memoria de sesión (_in_tx_audit_hash) y await session.flush() (ver blueprint://database/postgres-rls-worm).',
     },
   ];
 }
@@ -3203,13 +3266,29 @@ function isQaRunnerFile(relPath: string): boolean {
   );
 }
 
+function joinLogicalCommandLines(lines: readonly string[]): Array<{ lineNum: number; text: string }> {
+  const joined: Array<{ lineNum: number; text: string }> = [];
+  let idx = 0;
+  while (idx < lines.length) {
+    const startLine = idx + 1;
+    let combined = pickAt(lines, idx);
+    while (combined.trimEnd().endsWith('\\') && idx + 1 < lines.length) {
+      combined = `${combined.trimEnd().slice(0, -1)} ${pickAt(lines, idx + 1).trimStart()}`;
+      idx += 1;
+    }
+    joined.push({ lineNum: startLine, text: combined });
+    idx += 1;
+  }
+  return joined;
+}
+
 function checkQaCov01AddoptsBypass(relPath: string, lines: string[]): SecurityFinding[] {
   if (!isQaRunnerFile(relPath)) return [];
 
   const findings: SecurityFinding[] = [];
   const bareAddoptsRegex = /\bpytest\b[^\n]*-o\s+addopts=(?:""|''|\\""|\\'')/;
 
-  for (const [i, line] of lines.entries()) {
+  for (const { lineNum, text: line } of joinLogicalCommandLines(lines)) {
     if (!bareAddoptsRegex.test(line)) continue;
 
     if (!line.includes('--cov')) {
@@ -3218,7 +3297,7 @@ function checkQaCov01AddoptsBypass(relPath: string, lines: string[]): SecurityFi
         severity: 'HIGH',
         stig_owasp_ref: 'Standard 11X Law 2 / Non-Root Ephemeral Coverage Enforcement',
         file: relPath,
-        line: i + 1,
+        line: lineNum,
         message:
           'Se detectó ejecución de pytest con -o addopts="" sin incluir explícitamente --cov=src --cov-fail-under=95 (lo que desactiva silenciosamente la compuerta de cobertura de pyproject.toml).',
         remediation:
@@ -3230,7 +3309,7 @@ function checkQaCov01AddoptsBypass(relPath: string, lines: string[]): SecurityFi
         severity: 'HIGH',
         stig_owasp_ref: 'Standard 11X Law 2 / Pytest Importlib Mode Parity',
         file: relPath,
-        line: i + 1,
+        line: lineNum,
         message:
           'Se detectó ejecución de pytest con -o addopts="" sobre suites de doble extensión (*.unit.py, *.int.py) sin --import-mode=importlib, provocando ModuleNotFoundError / ImportPathMismatchError en colección.',
         remediation:
@@ -3472,7 +3551,7 @@ function checkQaSmoke01SettingsSingletonSync(relPath: string, lines: string[]): 
       message:
         'Smoke test muta os.environ["..._ENV"] = "production" antes de create_app() sin sincronizar el singleton settings ya instanciado en memoria tras importar src/.',
       remediation:
-        'Actualizar explícitamente el atributo en el singleton (ej. settings.APP_ENV = "production" o settings.ROSGRID_ENV = "production") además de os.environ, restaurando ambos en un bloque finally.',
+        'Actualizar explícitamente el atributo en el singleton (ej. settings.APP_ENV = "production") además de os.environ, restaurando ambos en un bloque finally.',
     },
   ];
 }
@@ -4505,6 +4584,9 @@ export async function auditSecurityStigOwasp(
 
   return Promise.resolve().then(() => {
     const resolvedPath = resolveSafeProjectPath(projectPath);
+    if (!fs.existsSync(resolvedPath) || !fs.statSync(resolvedPath).isDirectory()) {
+      throw new Error(`La ruta del proyecto no existe o no es un directorio: ${resolvedPath}`);
+    }
     const auditOptions: AuditSecurityOptions = { includeExamples };
     const allAbsoluteFiles = collectFiles(resolvedPath, auditOptions);
     const allRelFiles = allAbsoluteFiles.map((abs) => path.relative(resolvedPath, abs));

@@ -51,8 +51,15 @@ export function assertNoSymlinkSegments(rootDir: string, relPath: string): strin
   const segments = relPath.split(/[/\\]+/).filter((seg) => seg.length > 0 && seg !== '.');
   let cursor = resolvedRoot;
   for (const seg of segments) {
+    if (seg === '..') {
+      throw new Error(`Segmento de traversal rechazado por seguridad (CWE-22): ${relPath}`);
+    }
     cursor = path.join(cursor, seg);
     assertNotSymlinkPath(cursor);
+  }
+  const relFromRoot = path.relative(resolvedRoot, resolvedTarget);
+  if (relFromRoot === '..' || relFromRoot.startsWith(`..${path.sep}`) || path.isAbsolute(relFromRoot)) {
+    throw new Error(`Ruta fuera de raíz rechazada por seguridad (CWE-22): ${relPath}`);
   }
   return resolvedTarget;
 }
@@ -91,7 +98,13 @@ export function resolveRealTargetWithSymlinks(
     }
     visited.add(cur);
     const parentDir = resolveCanonicalParentDir(path.dirname(cur));
-    const linkTarget = path.resolve(parentDir, fs.readlinkSync(cur));
+    let rawLink: string;
+    try {
+      rawLink = fs.readlinkSync(cur);
+    } catch {
+      return { ok: false, loopPath: cur, reason: 'unresolvable' };
+    }
+    const linkTarget = path.resolve(parentDir, rawLink);
     return resolveRealTargetWithSymlinks(path.join(linkTarget, ...tail), visited);
   }
 }

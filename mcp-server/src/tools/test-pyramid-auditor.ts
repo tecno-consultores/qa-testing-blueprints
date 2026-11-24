@@ -538,22 +538,38 @@ function parseFileEndpoints(
   return untested;
 }
 
+function isNonProductionCandidate(relPath: string): boolean {
+  const norm = relPath.replace(/\\/g, '/').toLowerCase();
+  if (norm.endsWith('.example') || norm.startsWith('docs/') || norm.includes('/docs/')) {
+    return true;
+  }
+  return (
+    /(?:^|\/)(?:tests?|__tests__|e2e|fixtures)\//.test(norm) ||
+    /\.(?:unit|spec|test|e2e)\.[a-z0-9]+$/i.test(norm) ||
+    /(?:^|\/)test_[^/]+\.py$/i.test(norm) ||
+    /_test\.py$/i.test(norm)
+  );
+}
+
 export function findUntestedApiEndpoints(
   projectPath: string,
   files: string[]
 ): UntestedApiEndpoint[] {
   const routeFiles = files.filter(
     (f) =>
-      /(?:routers?|api|routes|controllers)/i.test(f) ||
-      f === 'main.py' ||
-      f === 'fastapi/src/main.py' ||
-      f === 'src/main.py' ||
-      f === 'app.ts' ||
-      f === 'src/app.ts'
+      !isNonProductionCandidate(f) &&
+      (/(?:routers?|api|routes|controllers)/i.test(f) ||
+        f === 'main.py' ||
+        f === 'fastapi/src/main.py' ||
+        f === 'src/main.py' ||
+        f === 'app.ts' ||
+        f === 'src/app.ts')
   );
 
   const bddFeatures = files.filter(
-    (f) => f.endsWith('.feature') && (f.includes('api_test') || f.includes('test/'))
+    (f) =>
+      f.endsWith('.feature') &&
+      (f.includes('api_test') || f.includes('test/') || f.includes('tests/') || f.includes('features/'))
   );
   let featureText = '';
   for (const bddFile of bddFeatures) {
@@ -579,8 +595,8 @@ export function findUntestedUiViews(
   projectPath: string,
   files: string[]
 ): UntestedUiView[] {
-  const viewFiles = files.filter((f) =>
-    /(?:views|pages)\/.*?\.(?:vue|tsx|jsx)$/.test(f)
+  const viewFiles = files.filter(
+    (f) => !isNonProductionCandidate(f) && /(?:views|pages)\/.*?\.(?:vue|tsx|jsx)$/.test(f)
   );
 
   const bddFeatures = files.filter(
@@ -982,6 +998,46 @@ function isUnitTestCandidateFile(file: string, stacks: StackName[]): boolean {
   );
 }
 
+interface CoverageConfigBundle {
+  readonly pyproject: string;
+  readonly makefile: string;
+  readonly vitestConfig: string;
+  readonly pkgJson: string;
+  readonly composer: string;
+  readonly phpunitXml: string;
+}
+
+const COV_FAIL_UNDER_RE = /--cov-fail-under[= ]+(\d+)/gi;
+const PY_FAIL_UNDER_RE = /\bfail_under[ \t]*=[ \t]*(\d+)/gi;
+const MIN_COVERAGE_CLI_RE = /--min(?:-coverage)?[= ]+(\d+)/gi;
+const VITEST_THRESHOLD_RE = /\b(?:lines|statements|functions|thresholds)[ \t]*:[ \t]*(\d+)/gi;
+const PKG_THRESHOLD_RE = /"(?:lines|statements|functions)"[ \t]*:[ \t]*(\d+)/gi;
+const PHPUNIT_THRESHOLD_RE = /\b(?:minCoverage|highLowerBound)="(\d+)"/gi;
+
+function hasNumericThresholdAtLeast(content: string, patterns: readonly RegExp[], minVal: number): boolean {
+  for (const re of patterns) {
+    for (const match of content.matchAll(re)) {
+      const parsed = Number(match[1]);
+      if (Number.isFinite(parsed) && parsed >= minVal) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function hasCoverageThreshold95(cfg: CoverageConfigBundle): boolean {
+  const checks: ReadonlyArray<readonly [string, readonly RegExp[]]> = [
+    [cfg.pyproject, [COV_FAIL_UNDER_RE, PY_FAIL_UNDER_RE]],
+    [cfg.makefile, [COV_FAIL_UNDER_RE, MIN_COVERAGE_CLI_RE]],
+    [cfg.vitestConfig, [VITEST_THRESHOLD_RE]],
+    [cfg.pkgJson, [PKG_THRESHOLD_RE, VITEST_THRESHOLD_RE, COV_FAIL_UNDER_RE]],
+    [cfg.composer, [MIN_COVERAGE_CLI_RE]],
+    [cfg.phpunitXml, [PHPUNIT_THRESHOLD_RE]],
+  ];
+  return checks.some(([text, patterns]) => text.length > 0 && hasNumericThresholdAtLeast(text, patterns, 95));
+}
+
 export function evaluateLayer03UnitIsolated(
   projectPath: string,
   files: string[],
@@ -1018,14 +1074,14 @@ export function evaluateLayer03UnitIsolated(
 
   const unitFiles = files.filter((f) => isUnitTestCandidateFile(f, stacks));
 
-  const threshold95 =
-    pyproject.includes('fail_under = 95') ||
-    pyproject.includes('fail-under = 95') ||
-    makefile.includes('--cov-fail-under=95') ||
-    /(?:lines|branches|functions|statements)\s*:\s*95\b/.test(vitestConfig) ||
-    pkgJson.includes('thresholds: 95') ||
-    composer.includes('--min=95') ||
-    phpunitXml.includes('highLowerBound="95"');
+  const threshold95 = hasCoverageThreshold95({
+    pyproject,
+    makefile,
+    vitestConfig,
+    pkgJson,
+    composer,
+    phpunitXml,
+  });
 
   const detected: string[] = [];
   if (unitFiles.length > 0) detected.push(`${unitFiles.length} archivos de pruebas unitarias`);
@@ -1998,6 +2054,20 @@ function addHighActions(
   layers: PyramidLayerAudit[],
   inventory: MissingTestInventory
 ): void {
+  const l02 = layers.find((l) => l.layer_id === 'L02_STRICT_TYPING_COMPLEXITY');
+  if (l02 && (l02.status === STATUS_MISSING || l02.status === STATUS_PARTIAL)) {
+    plan.push({
+      step: plan.length + 1,
+      priority: PRIORITY_HIGH,
+      layer_number: 2,
+      title: 'Configurar tipado estricto y complejidad ciclomática Grado A (CC <= 5)',
+      action:
+        'Activar mypy --strict / tsc --strict / PHPStan Max junto con compuerta de complejidad (radon/C901/sonarjs) sin bypasses.',
+      target_files_to_create: [PYPROJECT_TOML, 'tsconfig.json'],
+      verification_command: 'make qa-lint',
+    });
+  }
+
   const l01 = layers.find((l) => l.layer_id === 'L01_STATIC_SAST_IAC');
   if (l01 && (l01.status === STATUS_MISSING || l01.status === STATUS_PARTIAL)) {
     plan.push({

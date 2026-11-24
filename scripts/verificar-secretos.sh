@@ -11,8 +11,14 @@ QA_DOCKERENV_FILE="${QA11X_DOCKERENV_PATH:-/.dockerenv}"
 WORK_ROOT="$(pwd -P)"
 
 EXPLICIT_TARGETS=0
+STOP_OPTS=0
 CLI_TARGETS=()
 for arg in "$@"; do
+  if [ "${STOP_OPTS}" -eq 1 ]; then
+    EXPLICIT_TARGETS=1
+    CLI_TARGETS+=("${arg}")
+    continue
+  fi
   case "${arg}" in
     -h | --help)
       echo "Uso: ./scripts/verificar-secretos.sh [archivo_o_ruta ...]"
@@ -20,7 +26,7 @@ for arg in "$@"; do
       exit 0
       ;;
     --)
-      continue
+      STOP_OPTS=1
       ;;
     -*)
       echo "❌ ERROR: Opción no reconocida en verificar-secretos.sh: ${arg}" >&2
@@ -82,7 +88,7 @@ if [ ! -f "${QA_DOCKERENV_FILE}" ] && [ "${QA11X_INSIDE_DOCKER:-0}" != "1" ]; th
     exit 1
   fi
   SCRIPT_ABS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
-  exec docker run --rm --network none --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e QA11X_INSIDE_DOCKER=1 -e QA11X_EXPLICIT_TARGETS="${EXPLICIT_TARGETS}" -v "${WORK_ROOT}:/repo:ro" -v "${SCRIPT_ABS}:/qa-bin/verificar-secretos.sh:ro" -w /repo "${BASH_QA_IMAGE}" bash /qa-bin/verificar-secretos.sh "${REL_TARGETS[@]+"${REL_TARGETS[@]}"}"
+  exec docker run --rm --network none --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e QA11X_INSIDE_DOCKER=1 -e QA11X_EXPLICIT_TARGETS="${EXPLICIT_TARGETS}" -v "${WORK_ROOT}:/repo:ro" -v "${SCRIPT_ABS}:/qa-bin/verificar-secretos.sh:ro" -w /repo "${BASH_QA_IMAGE}" bash /qa-bin/verificar-secretos.sh -- "${REL_TARGETS[@]+"${REL_TARGETS[@]}"}"
 fi
 
 if [ "${QA11X_EXPLICIT_TARGETS:-0}" -eq 1 ]; then

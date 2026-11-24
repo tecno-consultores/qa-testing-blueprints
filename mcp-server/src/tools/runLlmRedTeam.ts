@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
+import { resolveRealTargetWithSymlinks } from '../security/pathRealResolver.js';
 import {
   guardToolCallInput,
   inspectPromptSafety,
@@ -75,7 +76,7 @@ const HARDCODED_SECRET_PATTERNS: readonly RegExp[] = [
 const LITERAL_CREDENTIAL_RE =
   /\b(?:apiKey|api_key|token|secret|password)\s*:\s*['"]?([a-z0-9_/-]{12,})['"]?/i;
 const TOP_LEVEL_KEY_RE = /^([A-Za-z_]\w*)\s*:/;
-const SLUG_ID_RE = /^[a-z0-9-]+$/i;
+const SLUG_ID_RE = /^[a-z0-9][a-z0-9:_-]*$/i;
 const ASSERT_TYPE_RE = /^\s*-\s*type\s*:\s*["']?([a-z0-9_-]+)["']?/i;
 const SUBSECTION_KEY_RE = /^\s{2}(plugins|strategies)\s*:/;
 
@@ -208,10 +209,16 @@ function hasNullByte(first: string, second: string): boolean {
 }
 
 function hasSymlinkEscape(rootResolved: string, candidate: string): boolean {
-  if (!fs.existsSync(rootResolved) || !fs.existsSync(candidate)) {
+  if (!fs.existsSync(rootResolved)) {
     return false;
   }
-  return !isContainedPath(fs.realpathSync(rootResolved), fs.realpathSync(candidate));
+  const stat = fs.lstatSync(candidate, { throwIfNoEntry: false });
+  if (!stat) {
+    return false;
+  }
+  const realRoot = fs.realpathSync(rootResolved);
+  const resolution = resolveRealTargetWithSymlinks(candidate);
+  return !resolution.ok || !isContainedPath(realRoot, resolution.resolved);
 }
 
 function isRegularFile(filePath: string): boolean {
@@ -424,13 +431,26 @@ function auditRequiredSections(
   }
 }
 
+function hasOwaspCategoryMatch(redteamIds: ReadonlySet<string>, category: string): boolean {
+  if (redteamIds.has(category)) {
+    return true;
+  }
+  const prefix = `${category}:`;
+  for (const id of redteamIds) {
+    if (id.startsWith(prefix)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function collectOwaspCoverage(
   redteamIds: ReadonlySet<string>,
   violations: RedTeamViolation[]
 ): string[] {
   const covered: string[] = [];
   for (const category of REQUIRED_OWASP_CATEGORIES) {
-    if (redteamIds.has(category)) {
+    if (hasOwaspCategoryMatch(redteamIds, category)) {
       covered.push(category);
     } else {
       violations.push({
@@ -735,6 +755,8 @@ function buildDockerPromptfooArgs(
   return [
     'run',
     '--rm',
+    '--security-opt=no-new-privileges:true',
+    '--cap-drop=ALL',
     '-u',
     `${uid}:${gid}`,
     '-e',

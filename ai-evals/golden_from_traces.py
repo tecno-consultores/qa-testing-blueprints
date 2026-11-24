@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 """Conversor programático y CLI de trazas fallidas a golden tests DeepEval/Promptfoo."""
@@ -211,15 +212,25 @@ def _extract_envelope_records(parsed: Mapping[str, Any]) -> list[dict[str, Any]]
     return [dict(parsed)]
 
 
+def _parse_jsonl_records(raw_text: str, input_path: Path) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for line_no, line in enumerate(raw_text.splitlines(), start=1):
+        if not line.strip():
+            continue
+        item = json.loads(line)
+        if not isinstance(item, Mapping):
+            raise ValueError(
+                f"Línea {line_no} de {input_path} debe ser un objeto JSON"
+            )
+        records.append(dict(item))
+    return records
+
+
 def load_raw_traces(input_path: Path) -> list[dict[str, Any]]:
     """Carga trazas desde archivo JSON o JSONL validando estructura."""
     raw_text = input_path.read_text(encoding="utf-8")
     if input_path.suffix.lower() == ".jsonl":
-        return [
-            dict(json.loads(line))
-            for line in raw_text.splitlines()
-            if line.strip()
-        ]
+        return _parse_jsonl_records(raw_text, input_path)
     parsed = json.loads(raw_text)
     if isinstance(parsed, list):
         return [dict(item) for item in parsed if isinstance(item, Mapping)]

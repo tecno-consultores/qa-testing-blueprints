@@ -1,10 +1,10 @@
-#!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 """Reglas estaticas, patrones y escaneres por archivo para Vibe-to-Enterprise."""
 
 from __future__ import annotations
 
+import fnmatch
 import re
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass, field
@@ -25,7 +25,7 @@ DEFAULT_ENV_KEYS = ("DATABASE_URL", "APP_ENCRYPTION_KEY", "AUDIT_HMAC_KEY")
 
 CLIENT_SECRET_VAR_RE = re.compile(
     r"\b((?:VITE|NEXT_PUBLIC|EXPO_PUBLIC|REACT_APP)_[A-Z0-9_]*"
-    r"(?:SERVICE_ROLE|SECRET|PRIVATE|OPENAI_API_KEY|ANTHROPIC_API_KEY|DATABASE_URL)"
+    r"(?:SERVICE_ROLE|SECRET|PRIVATE|API_KEY|DATABASE_URL)"
     r"[A-Z0-9_]*)\b"
 )
 LITERAL_KEY_RE = re.compile(
@@ -75,14 +75,6 @@ SQL_ALTER_TABLE_RE = re.compile(
     r"\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?"
     r'("?[A-Za-z_][A-Za-z0-9_$]*"?(?:\s*\.\s*"?[A-Za-z_][A-Za-z0-9_$]*"?)?)'
     r"([^;]*)",
-    re.IGNORECASE,
-)
-SQL_ENABLE_RLS_RE = re.compile(
-    r"\bENABLE\s+ROW\s+LEVEL\s+SECURITY\b",
-    re.IGNORECASE,
-)
-SQL_FORCE_RLS_RE = re.compile(
-    r"(?<!\bNO\s)\bFORCE\s+ROW\s+LEVEL\s+SECURITY\b",
     re.IGNORECASE,
 )
 SQL_RLS_ACTION_RE = re.compile(
@@ -209,12 +201,8 @@ def add_finding(
 
 
 def _match_wildcard_env(name: str, pat: str) -> bool:
-    if pat == ".env*":
-        return name.startswith(".env")
-    if pat == ".env.*":
-        return name.startswith(".env.")
-    if pat == "*.env":
-        return name.endswith(".env")
+    if "*" in pat or "?" in pat:
+        return fnmatch.fnmatchcase(name, pat)
     return False
 
 

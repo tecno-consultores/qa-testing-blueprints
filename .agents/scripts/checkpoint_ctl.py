@@ -383,7 +383,7 @@ def _extract_task_id_from_lines(lines: list[str]) -> str:
 def _extract_intent_from_lines(lines: list[str]) -> str:
     for line in lines:
         match = re.search(
-            r"\*\*(?:Objetivo(?:\s+Activo)?[^:]*):\*\*\s*(.+)$", line
+            r"\*\*(?:Objetivo(?:\s+Activo)?[^*]*):\*\*\s*(.+)$", line
         )
         if match:
             cleaned = sanitize_text(match.group(1))
@@ -435,11 +435,19 @@ def _is_non_template_active_task(workspace: Path) -> bool:
     )
 
 
+def _extract_status_field(content: str) -> str:
+    for line in content.splitlines():
+        match = re.search(r"\*{0,2}(?:Estado|Status)\*{0,2}\s*:\s*(.+)$", line, re.I)
+        if match:
+            return match.group(1).strip().lower()
+    return ""
+
+
 def _resolve_hydrated_status(
     content: str, done: list[str], pending: list[str]
 ) -> tuple[str, str]:
-    low = content.lower()
-    is_closed = "certified_clean" in low or "completed" in low
+    status_field = _extract_status_field(content)
+    is_closed = "certified_clean" in status_field or "completed" in status_field
     completed = is_closed and not pending
     status = STATUS_CERTIFIED_CLEAN if completed else STATUS_IN_PROGRESS
     fallback = done[-1] if done else "F1"

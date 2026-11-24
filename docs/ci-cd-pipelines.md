@@ -101,17 +101,15 @@ jobs:
         run: ./.agents/scripts/certify_task_completion.sh
 
       - name: 8️⃣ Dynamic Security DAST (OWASP ZAP Baseline)
-        # Starts persistence services and the API, then runs ZAP.
+        # Starts persistence services and the API, then runs ZAP writing reports to /reports (avoid /zap/wrk:ro writes).
         # (Note: Skip this step if it is a pure Bash or standalone Python script)
         run: |
-          docker compose -f docker-compose.qa.yml up -d postgres keydb api || docker compose -f docker-compose.qa.yml up -d api
-          docker compose -f docker-compose.qa.yml run --rm -T zap zap-baseline.py -t http://api:8000 -r reports/zap-report.html -J reports/zap-report.json || \
-          docker compose -f docker-compose.qa.yml run --rm -T zap zap-baseline.py -t http://api:3000 -r reports/zap-report.html -J reports/zap-report.json
+          make qa-dast
 
       - name: 9️⃣ Chaos Engineering & Observability (Prometheus + Pumba)
-        # Activates the hidden profile to inject latency and automatically start Prometheus.
-        # (Note: If your project is a Bash or pure Python script, change '--profile chaos' to '--profile observability')
-        run: docker compose -f docker-compose.qa.yml --profile chaos up --abort-on-container-exit stress_test
+        # Activates the chaos profile cleanly without aborting on sidecar exit codes.
+        # (Note: If your project is a Bash or pure Python script, change 'qa-chaos' to 'qa-observability')
+        run: make qa-chaos
 
       - name: 🔟 Archive Quality Reports (Artifacts)
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

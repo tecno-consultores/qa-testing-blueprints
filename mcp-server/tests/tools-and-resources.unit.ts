@@ -1921,7 +1921,8 @@ describe('Tools and Resources Integration Suite', () => {
       expect(philEsFallback.text).toBe('# Master Prompt');
 
       const secEsFallback = await resources.getSecurityResource('es');
-      expect(secEsFallback.text).toBe('# 22 Security Patterns');
+      expect(secEsFallback.text).toContain('# 22 Security Patterns');
+      expect(secEsFallback.text).toContain('02-security-disa-owasp-22.md');
 
       // Fallback EN cuando python/README.es.md no existe aún
       const pyFallbackEn = await resources.getStackReadmeResource('python', 'es');
@@ -1975,7 +1976,8 @@ describe('Tools and Resources Integration Suite', () => {
       const esResources = new BlueprintResources(esFetcher);
       expect((await esResources.getPhilosophyResource('en')).text).toBe('# Master Prompt');
       expect((await esResources.getPhilosophyResource('es')).text).toBe(philEsContent);
-      expect((await esResources.getSecurityResource('es')).text).toBe(secEsContent);
+      expect((await esResources.getSecurityResource('es')).text).toContain('# 22 Security Patterns');
+      expect((await esResources.getSecurityResource('es')).text).not.toBe(secEsContent);
       expect((await esResources.getStackReadmeResource('python', 'es')).text).toBe(pyEsContent);
 
       const pyEsManifestFile: Manifest = {

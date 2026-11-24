@@ -1403,7 +1403,8 @@ function resolvePythonDirectCommands(
 
 function resolveProfileDirectCommands(
   stage: string,
-  services: readonly string[]
+  services: readonly string[],
+  uidGid: string
 ): string[][] | null {
   if (stage !== 'profile' || !services.includes('profiler')) {
     return null;
@@ -1413,7 +1414,21 @@ function resolveProfileDirectCommands(
   if (targetApp) {
     cmds.push(['compose', '-f', COMPOSE_QA_FILE, '--profile', 'profile', 'up', '-d', targetApp]);
   }
-  cmds.push(['compose', '-f', COMPOSE_QA_FILE, '--profile', 'profile', 'run', '--rm', '-T', 'profiler']);
+  cmds.push([
+    'compose',
+    '-f',
+    COMPOSE_QA_FILE,
+    '--profile',
+    'profile',
+    'run',
+    '--rm',
+    '-T',
+    '-u',
+    uidGid,
+    '-e',
+    'HOME=/tmp',
+    'profiler',
+  ]);
   return cmds;
 }
 
@@ -1429,13 +1444,30 @@ export function resolveComposeDirectFallback(
     return null;
   }
   const services = extractComposeServices(fs.readFileSync(composePath, 'utf8'));
-  const profileCmds = resolveProfileDirectCommands(stage, services);
+  const uidGid = resolveHostUidGid();
+  const profileCmds = resolveProfileDirectCommands(stage, services, uidGid);
   if (profileCmds) {
     return profileCmds;
   }
   if (stage === 'bdd' && services.includes('karatelabs')) {
     return [
-      ['compose', '-f', COMPOSE_QA_FILE, 'run', '--rm', '-T', 'karatelabs', 'mvn', '-B', 'clean', 'test'],
+      [
+        'compose',
+        '-f',
+        COMPOSE_QA_FILE,
+        'run',
+        '--rm',
+        '-T',
+        '-u',
+        uidGid,
+        '-e',
+        'HOME=/tmp',
+        'karatelabs',
+        'mvn',
+        '-B',
+        'clean',
+        'test',
+      ],
     ];
   }
   const hasComposer = fs.existsSync(path.join(resolvedPath, 'composer.json'));
@@ -1443,7 +1475,6 @@ export function resolveComposeDirectFallback(
   const hasPyManifest =
     fs.existsSync(path.join(resolvedPath, 'pyproject.toml')) ||
     fs.existsSync(path.join(resolvedPath, 'requirements.txt'));
-  const uidGid = resolveHostUidGid();
 
   const e2eCmds = resolveUiE2eDirectCommands(stage, services, hasPkgJson, uidGid);
   if (e2eCmds) {
@@ -1465,6 +1496,10 @@ export function resolveComposeDirectFallback(
         'run',
         '--rm',
         '-T',
+        '-u',
+        uidGid,
+        '-e',
+        'HOME=/tmp',
         primaryService,
         'composer',
         'run-script',

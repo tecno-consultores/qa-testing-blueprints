@@ -16,6 +16,13 @@ const PYTHON_SHEBANG = '#!/usr/bin/env python3';
 const POSTGRES_ES_DOC_PATH = 'docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md';
 const POSTGRES_EN_REF_SUFFIX = '08-postgres-rls-zero-downtime-migrations.md';
 
+const SECURITY_DISA_ES_BANNER = [
+  '# 22 Patrones de Seguridad DISA ASD STIG V6R5 & OWASP v4.2 — Guía Operativa ES',
+  '',
+  `> **Nota Bilingüe:** Las reglas normativas de \`02-security-disa-owasp-22.md\` se mantienen en inglés de alta densidad por eficiencia de tokens; consulta \`${POSTGRES_ES_DOC_PATH}\` para la guía detallada en español.`,
+  '',
+].join('\n');
+
 const POSTGRES_RLS_ES_BANNER = [
   '# PostgreSQL 17 RLS Multi-Transacción (`after_begin`) y Auditoría WORM Determinista — Guía Operativa ES',
   '',
@@ -102,23 +109,26 @@ export class BlueprintResources {
   public async getSecurityResource(lang?: ResourceLanguage): Promise<ResourceResponse> {
     const resolvedLang = getActiveResourceLang(undefined, lang);
     const manifest = await this.fetcher.fetchManifest();
-    const secRef =
-      (resolvedLang === 'es'
+    const esSecRef =
+      resolvedLang === 'es'
         ? manifest.agent_governance_files.find((f) =>
             f.path.endsWith('02-security-disa-owasp-22.es.md')
-          ) ?? manifest.agent_governance_files.find((f) => f.path === 'SECURITY.es.md')
-        : undefined) ??
-      manifest.agent_governance_files.find((f) =>
-        f.path.endsWith('02-security-disa-owasp-22.md')
-      );
+          )
+        : undefined;
+    const enSecRef = manifest.agent_governance_files.find((f) =>
+      f.path.endsWith('02-security-disa-owasp-22.md')
+    );
     let content = '';
-    if (secRef) {
-      content = await this.fetcher.fetchFileContent(secRef.path, secRef.sha256);
+    if (esSecRef) {
+      content = await this.fetcher.fetchFileContent(esSecRef.path, esSecRef.sha256);
+    } else if (enSecRef) {
+      const enContent = await this.fetcher.fetchFileContent(enSecRef.path, enSecRef.sha256);
+      content = resolvedLang === 'es' ? `${SECURITY_DISA_ES_BANNER}${enContent}` : enContent;
     } else {
       content =
         resolvedLang === 'es'
           ? `# 22 Patrones de Seguridad DISA ASD STIG V6R5 & OWASP v4.2\n\nConsulte ${POSTGRES_ES_DOC_PATH}`
-          : '# 22 Security Patterns DISA ASD STIG V6R5 & OWASP v4.2\n\nSee docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md';
+          : '# 22 Security Patterns DISA ASD STIG V6R5 & OWASP v4.2\n\nSee docs/04_PATRONES_DE_TESTING_Y_SEGURIDAD.md';
     }
     return {
       uri: 'blueprint://security/disa-owasp-22',

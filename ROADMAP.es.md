@@ -375,7 +375,7 @@
 ---
 
 ## ✅ Hito 28: `v3.5.0` (`QA-11X v3.5`) — Fronteras AST Declarativas/Inestabilidad, Señales Git Longitudinales, SDD/EARS y `.claude-plugin/`
-**Referencia Obligatoria:** [`CHANGELOG.es.md`](CHANGELOG.es.md), [`TESTING.es.md`](TESTING.es.md) y [`AGENTS.md`](AGENTS.md)
+**Referencia Obligatoria:** [`CHANGELOG.es.md`](CHANGELOG.es.md), [`TESTING.es.md`](TESTING.es.md) y [`AGENTS.md`](AGENTS.md) *(incorpora `v3.3.0`: conectores Thin-Client `<= 1.5 KB`, `reconcile-agents` v2 y `kcov` rootless)*
 
 ### Tareas de Implementación:
 - [x] **28.1.** Implementar `.agents/boundaries.json` declarativo (`layers`, `independence`, `forbidden` con guardia fail-closed de `0` nodos) e Inestabilidad de Martin (`--metrics`, `compute_module_instability`) en [`.agents/scripts/verify_topological_health.py`](.agents/scripts/verify_topological_health.py), más minería longitudinal `--git-signals` en [`.agents/scripts/inspect_blast_radius.py`](.agents/scripts/inspect_blast_radius.py) y `mcp-server` (`src/utils/git-signals.ts`, `include_git_signals`, CLI `--git-signals`).

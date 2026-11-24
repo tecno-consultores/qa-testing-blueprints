@@ -95,7 +95,7 @@
   });
   ```
 * **Receta Reproducible Bash `kcov` + `BATS` Rootless (`kernel.yama.ptrace_scope = 2`, Cero `SYS_PTRACE`):**
-  - Dentro de `sinfallas/base-bash-qa` (`no-new-privileges:true`, `cap_drop: [ALL]`), envuelve `bats` en `/tmp/run-bats.sh` (`export -n BASH_XTRACEFD` + `export BASH_ENV=/tmp/kcov-env.sh` protegido por `[ -p "/proc/${BASHPID}/fd/${KCOV_BASH_XTRACEFD}" ]` sin filtros `${0} == /app/*`) e invoca `--bash-dont-parse-binary-dir --bash-parse-files-in-dir` excluyendo utilerías vendoreadas QA-11X (`/limpieza.sh`, `/instalar-hooks.sh`, `/.agents/`, `/scripts/{verificar-secretos,auditar-infra,auditar-pagespeed,actualizar-grafos-graphify,generar-sbom-cyclonedx,install-skill}.sh`).
+  - Dentro de `sinfallas/base-bash-qa` (`no-new-privileges:true`, `cap_drop: [ALL]`), envuelve `bats` en `/tmp/run-bats.sh` (`export -n BASH_XTRACEFD` + `export BASH_ENV=/tmp/kcov-env.sh` protegido por `[ -p "/proc/${BASHPID}/fd/${KCOV_BASH_XTRACEFD}" ]` sin filtros `${0} == /app/*`) e invoca `--bash-dont-parse-binary-dir --bash-parse-files-in-dir` con `--exclude-pattern` excluyendo utilerías vendoreadas QA-11X (`/limpieza.sh`, `/instalar-hooks.sh`, `/.agents/`, `/scripts/{verificar-secretos,auditar-infra,auditar-pagespeed,actualizar-grafos-graphify,generar-sbom-cyclonedx,install-skill}.sh`).
   - Emite los artefactos crudos en `/tmp/kcov-out` y purga declaraciones `<!DOCTYPE` al volcar `.agents/.cache/coverage/bash.xml` (`0600`) para que [`.agents/scripts/verify_diff_coverage.py`](../.agents/scripts/verify_diff_coverage.py) valide el reporte Cobertura sin rechazos Anti-XXE DTD ni residuos `coverage_report/` en la raíz.
 * **Umbral Innegociable:** **`>= 95.0%` de cobertura de líneas y ramas**. Si baja a 94.9%, el comando falla.
 * **Ejecución:**
@@ -165,7 +165,7 @@
       Given path '/api/v1/users/me'
       When method get
       Then status 401
-      And match response.detail contains 'No autenticado'
+      And match response.detail contains 'Not authenticated'
   ```
 * **Ejecución:**
   ```bash
@@ -176,14 +176,14 @@
 
 ## 7. Contratos BDD HTTP/OSHP/SSG Frontend con Karate Labs (sin navegador Headless)
 
-* **Propósito:** La imagen oficial `sinfallas/karatelabs:1.5.1` (al igual que `:latest`) **no incluye binario Chrome ni Chromium**. Por ello, Karate 1.5.1 certifica en caja negra la entrega HTTP/Nginx sobre `http://ui-prod:80`: códigos `200`, rutas SPA/SSG, cabeceras OWASP OSHP (`Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`) e integridad XML/SEO como cadena (`* string xmlText = response` en `/sitemap.xml`). Toda interacción DOM real, validación del botón `[ 🔄 Refrescar ]`, geometría Anti-JSDOM y accesibilidad WCAG 2.1 AA se delega a Playwright (`ui-e2e`).
+* **Propósito:** La imagen oficial `sinfallas/karatelabs:1.5.1` (al igual que `:latest`) **no incluye binario Chrome ni Chromium**. Por ello, Karate 1.5.1 certifica en caja negra la entrega HTTP/Nginx sobre `http://ui-prod:8080`: códigos `200`, rutas SPA/SSG, cabeceras OWASP OSHP (`Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`) e integridad XML/SEO como cadena (`* string xmlText = response` en `/sitemap.xml`). Toda interacción DOM real, validación del botón `[ 🔄 Refrescar ]`, geometría Anti-JSDOM y accesibilidad WCAG 2.1 AA se delega a Playwright (`ui-e2e`).
 * **Estructura:** Ubicado en `vue3/test/ui_business_flow.feature` y `react-frontend/test/ui_business_flow.feature`.
 * **Ejemplo Real de Escenario Karate Labs HTTP/OSHP/SSG:**
   ```gherkin
   Feature: Contratos BDD HTTP, Cabeceras OWASP OSHP, Rutas SPA/SSG y SEO (Karate 1.5.1)
 
     Background:
-      * def baseUrl = karate.properties['UI_BASE_URL'] || 'http://ui-prod:80'
+      * def baseUrl = karate.properties['UI_BASE_URL'] || 'http://ui-prod:8080'
       * url baseUrl
 
     Scenario: Entrega HTML y cabeceras OWASP OSHP alineadas con Nginx

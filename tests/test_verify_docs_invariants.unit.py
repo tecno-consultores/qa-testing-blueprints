@@ -1683,6 +1683,27 @@ class TestVerifyDocsInvariants(unittest.TestCase):
             )
             self.assertEqual(verify_docs._check_claude_plugin_manifests(root), [])
 
+    def test_markdown_fence_balance_detects_unclosed_fences(self) -> None:
+        """Verifica detección de bloques cercados Markdown desbalanceados (anti-H29)."""
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skill_doc = root / ".agents" / "skills" / "demo" / "SKILL.md"
+            skill_doc.parent.mkdir(parents=True, exist_ok=True)
+            skill_doc.write_text("# OK\n```bash\necho ok\n```\n", encoding="utf-8")
+            self.assertEqual(verify_docs._check_markdown_fence_balance(root), [])
+
+            broken_doc = root / "docs" / "broken.md"
+            broken_doc.parent.mkdir(parents=True, exist_ok=True)
+            broken_doc.write_text(
+                "# Bad\n```makefile\nqa:\n\techo hi\n```\nextra\n```\n",
+                encoding="utf-8",
+            )
+            errs = verify_docs._check_markdown_fence_balance(root)
+            self.assertEqual(len(errs), 1)
+            self.assertIn("docs/broken.md:7:", errs[0])
+
 
 if __name__ == "__main__":
     unittest.main()

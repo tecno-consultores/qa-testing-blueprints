@@ -60,7 +60,10 @@ function parsePositiveInt(raw: string, flagName: string): number {
   return parsed;
 }
 
-const VALUE_FLAG_HANDLERS: Readonly<Record<string, BlastValueHandler>> = {
+const VALUE_FLAG_HANDLERS: Readonly<Record<string, BlastValueHandler>> = Object.assign<
+  Record<string, BlastValueHandler>,
+  Record<string, BlastValueHandler>
+>(Object.create(null) as Record<string, BlastValueHandler>, {
   '--symbol': (val, state) => {
     state.symbol = val;
   },
@@ -85,7 +88,7 @@ const VALUE_FLAG_HANDLERS: Readonly<Record<string, BlastValueHandler>> = {
   '--max-items': (val, state, flag) => {
     state.maxItems = parsePositiveInt(val, flag);
   },
-};
+});
 
 const BOOL_FLAG_HANDLERS: Readonly<Record<string, (state: BlastCliParseState) => void>> = {
   '--auto-build': (state) => {
@@ -121,7 +124,9 @@ function applyBlastToken(
   state: BlastCliParseState
 ): number {
   const token = pickAt(args, index);
-  const boolHandler = BOOL_FLAG_HANDLERS[token];
+  const boolHandler = Object.hasOwn(BOOL_FLAG_HANDLERS, token)
+    ? BOOL_FLAG_HANDLERS[token]
+    : undefined;
   if (boolHandler) {
     boolHandler(state);
     return 0;

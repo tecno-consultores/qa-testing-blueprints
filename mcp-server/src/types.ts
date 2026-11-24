@@ -810,7 +810,7 @@ export const ReconcileAgentsInputSchema = z.object({
   project_path: z
     .string()
     .min(1)
-    .describe('Absolute or relative path to consumer project to reconcile (e.g. rosgrid).'),
+    .describe('Absolute or relative path to consumer project to reconcile (e.g. my-service).'),
   dry_run: z
     .boolean()
     .default(true)

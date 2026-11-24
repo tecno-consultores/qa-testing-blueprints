@@ -126,7 +126,7 @@ npx -y @sinfallas/mcp-qa-11x@latest [--stdio]
 > [!TIP]
 > Para la guía exhaustiva con instrucciones paso a paso y matriz declarativa de los **28 agentes de IA soportados** (`quickstart --agents` / `init-agents --agents` incluyendo Antigravity, Claude Code/Desktop, Cursor, Windsurf, VS Code Copilot, Codex CLI, Gemini CLI, Hermes, Cline, Roo Code, Aider, JetBrains AI, Bolt, Lovable, v0 y Replit), consulta **[`docs/agent-setup.es.md`](agent-setup.es.md)** (Español; versión canónica en inglés en `docs/agent-setup.md`).
 
-#### A. Claude Desktop / Claude Code (`claude_desktop_config.json`)
+#### A. Claude Desktop (`claude_desktop_config.json`) y Claude Code (`~/.claude.json` / `.mcp.json`)
 ```json
 {
   "mcpServers": {
@@ -138,7 +138,7 @@ npx -y @sinfallas/mcp-qa-11x@latest [--stdio]
 }
 ```
 
-#### B. Cursor IDE (`.cursor/mcp.json`)
+#### B. Cursor IDE (`.cursor/mcp.json`) y Windsurf (`~/.codeium/windsurf/mcp_config.json`)
 ```json
 {
   "mcpServers": {
@@ -150,7 +150,7 @@ npx -y @sinfallas/mcp-qa-11x@latest [--stdio]
 }
 ```
 
-#### C. Google Antigravity / Gemini CLI (`mcp_config.json`)
+#### C. Google Antigravity (`~/.gemini/antigravity/mcp_config.json`) y Gemini CLI (`~/.gemini/settings.json`)
 ```json
 {
   "mcpServers": {

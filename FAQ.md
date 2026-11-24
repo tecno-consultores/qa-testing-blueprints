@@ -17,7 +17,7 @@ Once you exceed 95% coverage, the pipeline evaluates **Technical Debt and Securi
 1. Tools such as `SonarJS` (Node) or `Radon` (Python) detected high **Cyclomatic Complexity** (spaghetti code). You will need to refactor long functions.
 2. You failed code formatting standards (`Prettier`, `Ruff`).
 3. You introduced vulnerabilities detected by `ESLint Security` or `bandit` (SAST), or failed the `OWASP ZAP` dynamic scan (DAST).
-4. Lighthouse performance (Vue 3) dropped below 90.
+4. Lighthouse performance (Vue 3 / React) dropped below 90.
 
 ### What does "ephemeral container" mean, and how do I keep reports if the container is deleted?
 An ephemeral container is created dynamically with the `--rm` flag. It starts, runs a single command, and exits. Reports (such as HTML coverage or profiling Flamegraphs) are not lost because `docker-compose.qa.yml` uses **bind volumes** (`- .:/app`), writing results directly to your host disk.

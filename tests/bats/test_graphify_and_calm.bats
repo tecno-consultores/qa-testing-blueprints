@@ -568,3 +568,9 @@ EOF
   assert_failure 1
   assert_output --partial "simulated graphify error"
 }
+
+@test "validate_calm_architecture.sh: rechaza --arch= vacío con exit 1" {
+  run bash "${CALM_SCRIPT}" --arch=
+  assert_failure 1
+  assert_output --partial "Falta argumento para --arch="
+}

@@ -295,8 +295,8 @@ function parseGlobLine(line: string, prefix: 'allowed_globs' | 'forbidden_globs'
   const keyPrefix = `${prefix}:`;
   if (!trimmed.startsWith(keyPrefix)) return [];
   const rest = trimmed.slice(keyPrefix.length).trim();
-  return rest
-    .slice(1, -1)
+  const inner = rest.startsWith('[') && rest.endsWith(']') ? rest.slice(1, -1) : rest;
+  return inner
     .split(',')
     .map((part) => part.trim().replace(/^['"`]|['"`]$/g, ''))
     .filter(Boolean);
@@ -421,8 +421,17 @@ function buildPythonCliArgs(
     return [scriptArg, ACTION_RECOVER, `${WORKSPACE_FLAG}=${workspaceArg}`, '--json'];
   }
   if (action === ACTION_CLEAR) {
-    return [scriptArg, ACTION_CLEAR, `${WORKSPACE_FLAG}=${workspaceArg}`];
+    const clearCli = [scriptArg, ACTION_CLEAR, `${WORKSPACE_FLAG}=${workspaceArg}`];
+    if (args.reason) {
+      clearCli.push(`--reason=${sanitizeSingleLineSec06(args.reason)}`);
+    }
+    return clearCli;
   }
+  const sanitizeCsvList = (items: readonly string[]): string =>
+    items
+      .map((item) => sanitizeSingleLineSec06(item).replace(/,/g, ';'))
+      .filter(Boolean)
+      .join(',');
   const cli = [
     scriptArg,
     'set',
@@ -432,16 +441,16 @@ function buildPythonCliArgs(
     `--intent=${sanitizeSingleLineSec06(args.intent_140chars as string)}`,
   ];
   if (args.completed_steps && args.completed_steps.length > 0) {
-    cli.push(`--done=${args.completed_steps.join(',')}`);
+    cli.push(`--done=${sanitizeCsvList(args.completed_steps)}`);
   }
   if (args.planned_steps && args.planned_steps.length > 0) {
-    cli.push(`--planned=${args.planned_steps.join(',')}`);
+    cli.push(`--planned=${sanitizeCsvList(args.planned_steps)}`);
   }
   if (args.allowed_globs && args.allowed_globs.length > 0) {
-    cli.push(`--allowed-globs=${args.allowed_globs.join(',')}`);
+    cli.push(`--allowed-globs=${sanitizeCsvList(args.allowed_globs)}`);
   }
   if (args.forbidden_globs && args.forbidden_globs.length > 0) {
-    cli.push(`--forbidden-globs=${args.forbidden_globs.join(',')}`);
+    cli.push(`--forbidden-globs=${sanitizeCsvList(args.forbidden_globs)}`);
   }
   return cli;
 }

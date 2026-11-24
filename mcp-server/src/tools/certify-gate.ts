@@ -193,11 +193,77 @@ function findDuplicateKeysInText(jsonText: string): string[] {
   return duplicates;
 }
 
+const JSONC_BASENAMES = new Set(['tsconfig.json', 'jsconfig.json', 'settings.json', 'tasks.json', 'launch.json']);
+
+function consumeJsonString(raw: string, start: number): { chunk: string; nextIdx: number } {
+  let i = start + 1;
+  let escaped = false;
+  while (i < raw.length) {
+    const ch = raw.charAt(i);
+    i += 1;
+    if (escaped) {
+      escaped = false;
+    } else if (ch === '\\') {
+      escaped = true;
+    } else if (ch === '"') {
+      break;
+    }
+  }
+  return { chunk: raw.slice(start, i), nextIdx: i };
+}
+
+function skipJsoncComment(raw: string, start: number): number {
+  const next = raw.charAt(start + 1);
+  if (next === '/') {
+    const nl = raw.indexOf('\n', start + 2);
+    return nl === -1 ? raw.length : nl;
+  }
+  if (next === '*') {
+    const end = raw.indexOf('*/', start + 2);
+    return end === -1 ? raw.length : end + 2;
+  }
+  return -1;
+}
+
+function stripJsoncCommentsAndTrailingCommas(raw: string): string {
+  let out = '';
+  let i = 0;
+  while (i < raw.length) {
+    const ch = raw.charAt(i);
+    if (ch === '"') {
+      const token = consumeJsonString(raw, i);
+      out += token.chunk;
+      i = token.nextIdx;
+      continue;
+    }
+    const commentEnd = ch === '/' ? skipJsoncComment(raw, i) : -1;
+    if (commentEnd !== -1) {
+      i = commentEnd;
+      continue;
+    }
+    out += ch;
+    i += 1;
+  }
+  return out.replace(/,\s*([}\]])/g, '$1');
+}
+
+function isJsoncFile(rel: string): boolean {
+  const base = path.basename(rel);
+  const norm = rel.replace(/\\/g, '/');
+  return (
+    JSONC_BASENAMES.has(base) ||
+    base.startsWith('tsconfig.') ||
+    norm.startsWith('.vscode/') ||
+    norm.includes('/.vscode/')
+  );
+}
+
 function inspectSingleJsonFile(projectPath: string, file: string): string[] {
   const rel = path.relative(projectPath, file);
   const blockers: string[] = [];
   try {
-    const text = fs.readFileSync(file, 'utf8');
+    const rawText = fs.readFileSync(file, 'utf8');
+    const text = isJsoncFile(rel) ? stripJsoncCommentsAndTrailingCommas(rawText) : rawText;
     const dups = findDuplicateKeysInText(text);
     if (dups.length > 0) {
       blockers.push(`Claves duplicadas detectadas en ${rel}: ${dups.join(', ')}`);
@@ -373,7 +439,6 @@ const ARCHITECTURAL_API_WHITELIST: Array<{ verb: string; path: string }> = [
   { verb: 'GET', path: '/health' },
   { verb: 'GET', path: '/api/v1/health' },
   { verb: 'GET', path: '/metrics' },
-  { verb: 'GET', path: '/api/v1/metrics/fleet' },
   { verb: 'POST', path: '/api/v1/mcp' },
   { verb: 'GET', path: '/users/me' },
   { verb: 'GET', path: '/api/v1/auth/me' },
@@ -779,7 +844,7 @@ function resolveWithParentFallback(projectPath: string, ...segments: string[]): 
 }
 
 const ACTIVE_TASK_CLOSED_STATE_RE =
-  /Estado:\*{0,2}\s*(?:COMPLETED|CERTIFIED_CLEAN)/i;
+  /(?:Estado|Status):\*{0,2}\s*`?(?:COMPLETED|CERTIFIED_CLEAN)`?/i;
 
 const VALID_CHECKPOINT_STATUSES = new Set<string>([
   'IN_PROGRESS',
@@ -834,7 +899,8 @@ function checkSessionCheckpointGovernance(projectPath: string, activeTaskPath: s
     blockers.push('.agents/.cache/session_checkpoint.json tiene un status inválido o no textual.');
   }
   const intent = parsed.intent_140chars;
-  if (typeof intent !== 'string' || intent.length === 0 || intent.length > 140) {
+  const intentCodepoints = typeof intent === 'string' ? [...intent].length : 0;
+  if (typeof intent !== 'string' || intentCodepoints === 0 || intentCodepoints > 140) {
     blockers.push('.agents/.cache/session_checkpoint.json excede 140 caracteres en intent_140chars.');
   }
   if (!isClosedCheckpointStatus(parsed.status)) {
@@ -1352,7 +1418,7 @@ export async function certify11xGate(
       skipped_checks: [...ALL_GATE_CHECK_KEYS],
       blockers: [`La ruta del proyecto no existe o no es un directorio: ${resolvedPath}`],
       upstream_evolution_reminder:
-        'MANDATORY POST-MORTEM CHECK: If this fixed a UAT/prod bug that bypassed tests, present "💡 Oportunidad de Mejora Detectada para el Estándar QA 11X" in Spanish and invoke propose_skill_evolution_pr.',
+        'MANDATORY POST-MORTEM CHECK: If this fixed a UAT/prod bug that bypassed tests, present "💡 Oportunidad de Mejora Detectada para el Estándar QA 11X" in the user prompt language and invoke propose_skill_evolution_pr.',
       update_available: updateAvailable,
     };
   }

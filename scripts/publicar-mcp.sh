@@ -18,7 +18,11 @@ SKIP_TESTS=false
 CLI_OTP=""
 IMAGE_NAME="sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60"
 PY_IMAGE_NAME="sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4"
-NPM_REGISTRY="https://registry.npmjs.org/"
+HAS_ENV_NPM_REGISTRY=0
+if [ -n "${NPM_REGISTRY:-}" ]; then
+  HAS_ENV_NPM_REGISTRY=1
+fi
+NPM_REGISTRY="${NPM_REGISTRY:-https://registry.npmjs.org/}"
 
 # Procesar argumentos CLI
 while [[ $# -gt 0 ]]; do
@@ -130,15 +134,15 @@ if [ -f "${ENV_FILE}" ]; then
   fi
   echo -e "\n📄 Cargando variables de autenticación desde .env..."
   TOKEN_VAL="$(read_dotenv_value 'NPM_TOKEN' "${ENV_FILE}")"
-  if [ -n "${TOKEN_VAL}" ]; then
+  if [ -z "${NPM_TOKEN:-}" ] && [ -n "${TOKEN_VAL}" ]; then
     NPM_TOKEN="${TOKEN_VAL}"
   fi
   REG_VAL="$(read_dotenv_value 'NPM_REGISTRY' "${ENV_FILE}")"
-  if [ -n "${REG_VAL}" ]; then
+  if [ "${HAS_ENV_NPM_REGISTRY}" -eq 0 ] && [ -n "${REG_VAL}" ]; then
     NPM_REGISTRY="${REG_VAL}"
   fi
   OTP_VAL="$(read_dotenv_value 'NPM_OTP' "${ENV_FILE}")"
-  if [ -n "${OTP_VAL}" ]; then
+  if [ -z "${NPM_OTP:-}" ] && [ -n "${OTP_VAL}" ]; then
     NPM_OTP="${OTP_VAL}"
   fi
 fi
@@ -344,7 +348,7 @@ if ! docker run --rm --security-opt=no-new-privileges:true ${DOCKER_TTY_ARGS[@]+
   -e NPM_REGISTRY \
   ${DOCKER_PROVENANCE_ENV_ARGS[@]+"${DOCKER_PROVENANCE_ENV_ARGS[@]}"} \
   "${IMAGE_NAME}" \
-  sh -c 'reg_norm="${NPM_REGISTRY%/}/"; reg_host="${reg_norm#http://}"; reg_host="${reg_host#https://}"; reg_host="${reg_host#//}"; printf "//%s:_authToken=%s\nregistry=%s\n" "${reg_host}" "${NPM_TOKEN}" "${NPM_REGISTRY}" > /tmp/.npmrc && chmod 600 /tmp/.npmrc && trap "rm -f /tmp/.npmrc" EXIT && export NPM_CONFIG_USERCONFIG=/tmp/.npmrc && if [ -n "${NPM_OTP:-}" ]; then export NPM_CONFIG_OTP="${NPM_OTP}"; fi && npm publish --access public --no-browser'"${PROVENANCE_ARG}"' --registry="${NPM_REGISTRY}"'; then
+  sh -c 'umask 077; reg_norm="${NPM_REGISTRY%/}/"; reg_host="${reg_norm#http://}"; reg_host="${reg_host#https://}"; reg_host="${reg_host#//}"; trap "rm -f /tmp/.npmrc" EXIT; printf "//%s:_authToken=%s\nregistry=%s\n" "${reg_host}" "${NPM_TOKEN}" "${NPM_REGISTRY}" > /tmp/.npmrc && chmod 600 /tmp/.npmrc && export NPM_CONFIG_USERCONFIG=/tmp/.npmrc && if [ -n "${NPM_OTP:-}" ]; then export NPM_CONFIG_OTP="${NPM_OTP}"; fi && npm publish --access public --no-browser'"${PROVENANCE_ARG}"' --registry="${NPM_REGISTRY}"'; then
   echo -e "\n\e[31m❌ ERROR: No se completó la publicación en npmjs.org (posible requerimiento 2FA / EOTP).\e[0m" >&2
   echo "💡 Soluciones:" >&2
   echo "   1. Ejecute desde su terminal interactiva y abra en el navegador el enlace https://www.npmjs.com/auth/cli/... cuando aparezca." >&2

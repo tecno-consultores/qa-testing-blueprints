@@ -27,7 +27,7 @@ This directory implements the portable, open agent-governance layout across Goog
 ├── schemas/                                          # JSON Schema Draft 2020-12 state & telemetry schemas
 │   └── session_checkpoint.schema.json                # Strict 0600 schema for session_checkpoint.json (Flight Recorder)
 ├── skills/                                           # Domain playbooks & progressive-disclosure skills (11 modular skills)
-│   ├── qa-11x-architect/                             # Master orchestrator: 13 layers, 10 laws, 11 UAT Anti-Blindness rules & 9 references/
+│   ├── qa-11x-architect/                             # Master orchestrator: 13 layers, 10 laws, 11 UAT Anti-Blindness rules & 10 references/
 │   ├── qa-11x-docker-certifier/                      # Ephemeral Docker Rule Zero certification (>=95% coverage)
 │   ├── qa-11x-devsecops-hardener/                    # DISA ASD STIG V6R5 & OWASP v4.2 hardening (22 ref controls / 36 scanner rules)
 │   ├── qa-11x-systematic-debugging/                  # 4-phase deterministic root-cause debugging (Rule Zero + AST Blast Radius)

@@ -339,11 +339,42 @@ describe('ephemeral-runner', () => {
 
     const unitDirect = await runEphemeralQa(tempDir, 'unit', 60, { execFileFn: mockDockerOk });
     expect(unitDirect.status).toBe('PASSED');
-    expect(capturedArgs[0]).toEqual(['compose', '-f', 'docker-compose.qa.yml', 'run', '--rm', '-T', 'qa-php', 'composer', 'run-script', 'qa:unit']);
+    expect(capturedArgs[0]).toEqual([
+      'compose',
+      '-f',
+      'docker-compose.qa.yml',
+      'run',
+      '--rm',
+      '-T',
+      '-u',
+      expect.stringMatching(/^\d+:\d+$/),
+      '-e',
+      'HOME=/tmp',
+      'qa-php',
+      'composer',
+      'run-script',
+      'qa:unit',
+    ]);
 
     const bddDirect = await runEphemeralQa(tempDir, 'bdd', 60, { execFileFn: mockDockerOk });
     expect(bddDirect.status).toBe('PASSED');
-    expect(capturedArgs[1]).toEqual(['compose', '-f', 'docker-compose.qa.yml', 'run', '--rm', '-T', 'karatelabs', 'mvn', '-B', 'clean', 'test']);
+    expect(capturedArgs[1]).toEqual([
+      'compose',
+      '-f',
+      'docker-compose.qa.yml',
+      'run',
+      '--rm',
+      '-T',
+      '-u',
+      expect.stringMatching(/^\d+:\d+$/),
+      '-e',
+      'HOME=/tmp',
+      'karatelabs',
+      'mvn',
+      '-B',
+      'clean',
+      'test',
+    ]);
 
     const unsupportedNoMakefile = await runEphemeralQa(tempDir, 'chaos', 60, { execFileFn: mockDockerOk });
     expect(unsupportedNoMakefile.status).toBe('FAILED');
@@ -353,7 +384,22 @@ describe('ephemeral-runner', () => {
     fs.writeFileSync(path.join(tempDir, 'Makefile'), 'other-target:\n\t@docker run alpine true\n');
     const fallbackFromEnoent = await runEphemeralQa(tempDir, 'lint', 60, { execFileFn: mockDockerOk });
     expect(fallbackFromEnoent.status).toBe('PASSED');
-    expect(capturedArgs[2]).toEqual(['compose', '-f', 'docker-compose.qa.yml', 'run', '--rm', '-T', 'qa-php', 'composer', 'run-script', 'qa:lint']);
+    expect(capturedArgs[2]).toEqual([
+      'compose',
+      '-f',
+      'docker-compose.qa.yml',
+      'run',
+      '--rm',
+      '-T',
+      '-u',
+      expect.stringMatching(/^\d+:\d+$/),
+      '-e',
+      'HOME=/tmp',
+      'qa-php',
+      'composer',
+      'run-script',
+      'qa:lint',
+    ]);
 
     // Sin docker-compose.qa.yml ni receta Docker válida -> rechaza por Regla Cero en ENOENT
     fs.rmSync(path.join(tempDir, 'docker-compose.qa.yml'));
@@ -952,7 +998,21 @@ describe('ephemeral-runner', () => {
     const directProf = resolveComposeDirectFallback(profDir, 'profile');
     expect(directProf).toEqual([
       ['compose', '-f', 'docker-compose.qa.yml', '--profile', 'profile', 'up', '-d', 'api'],
-      ['compose', '-f', 'docker-compose.qa.yml', '--profile', 'profile', 'run', '--rm', '-T', 'profiler'],
+      [
+        'compose',
+        '-f',
+        'docker-compose.qa.yml',
+        '--profile',
+        'profile',
+        'run',
+        '--rm',
+        '-T',
+        '-u',
+        expect.stringMatching(/^\d+:\d+$/),
+        '-e',
+        'HOME=/tmp',
+        'profiler',
+      ],
     ]);
 
     const ranDocker: string[][] = [];

@@ -578,12 +578,23 @@ export function validateTmsBaseUrl(rawUrl: string): URL {
   return parsed;
 }
 
+const TRACEABLE_TEST_SUFFIXES = [
+  '.feature',
+  '.test.ts',
+  '.unit.ts',
+  '.spec.ts',
+  '.e2e.ts',
+  '.bats',
+  '_test.py',
+  'Test.php',
+  'Test.pest.php',
+] as const;
+
 function isTraceableTestFileName(fileName: string): boolean {
-  return (
-    fileName.endsWith('.feature') ||
-    fileName.endsWith('.test.ts') ||
-    (fileName.startsWith('test_') && fileName.endsWith('.py'))
-  );
+  if (fileName.startsWith('test_') && fileName.endsWith('.py')) {
+    return true;
+  }
+  return TRACEABLE_TEST_SUFFIXES.some((suffix) => fileName.endsWith(suffix));
 }
 
 function scanDirectoryForTests(dirReal: string, rootReal: string, out: string[]): void {
@@ -770,6 +781,16 @@ function stripDelimitedSection(xml: string, openMarker: string, closeMarker: str
   return output;
 }
 
+function decodeXmlText(raw: string): string {
+  const unwrapped = raw.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1');
+  return unwrapped
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&');
+}
+
 function parseXmlAttributes(attrSlice: string): Record<string, string> {
   const attrs: Record<string, string> = {};
   let pos = 0;
@@ -789,7 +810,7 @@ function parseXmlAttributes(attrSlice: string): Record<string, string> {
       break;
     }
     if (key.length > 0) {
-      attrs[key] = afterEq.slice(1, valEnd);
+      attrs[key] = decodeXmlText(afterEq.slice(1, valEnd));
     }
     pos = attrSlice.length - afterEq.length + valEnd + 1;
   }
@@ -939,7 +960,7 @@ function applyOutcomeToken(
     return;
   }
   if (token.isClosing && (token.name === 'failure' || token.name === 'error')) {
-    const inner = cleanedXml.slice(state.currentBodyStart, token.openPos);
+    const inner = decodeXmlText(cleanedXml.slice(state.currentBodyStart, token.openPos));
     state.currentCase.detail =
       formatTruncatedDetail(state.currentFailureMessage, inner, env) || 'Failed';
     return;

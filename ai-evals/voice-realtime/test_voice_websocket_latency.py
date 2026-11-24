@@ -277,6 +277,16 @@ async def _consume_voice_events(
         collected.append(item)
 
 
+def _compute_packet_loss_rate(
+    collected: Sequence[VoiceStreamEvent],
+    expected_packets: int,
+) -> float:
+    seqs = {ev.seq for ev in collected if ev.seq > 0}
+    total_expected = max(expected_packets, max(seqs, default=0))
+    received = len(seqs) if seqs else len(collected)
+    return round(max(0, total_expected - received) / max(1, total_expected), 4)
+
+
 async def replay_voice_session_async(
     provider: ConnectorName,
     events: Sequence[VoiceStreamEvent],
@@ -291,12 +301,12 @@ async def replay_voice_session_async(
     )
     ttfb_samples, turn_samples = _extract_turn_latencies(collected)
     barge_in_ms, stale_chunks = _extract_barge_in_stats(collected)
-    loss = max(0, expected_packets - len(collected)) / max(1, expected_packets)
+    loss = _compute_packet_loss_rate(collected, expected_packets)
     return VoiceSessionMetrics(
         provider=provider,
         ttfb_p95_ms=_percentile_95(ttfb_samples),
         turn_latency_p95_ms=_percentile_95(turn_samples),
-        packet_loss_rate=round(loss, 4),
+        packet_loss_rate=loss,
         barge_in_cancel_ms=barge_in_ms,
         stale_chunks_after_interrupt=stale_chunks,
         transcripts=tuple(
@@ -571,6 +581,18 @@ def test_offline_voice_invalid_wire_event_and_judge_resolution() -> None:
     max_cancel, _ = _extract_barge_in_stats(consecutive_barge)
     assert max_cancel == 9999.0
 
+    seq_gap_events = [
+        VoiceStreamEvent(kind="vad_speech_start", timestamp_ms=10.0, seq=1),
+        VoiceStreamEvent(kind="agent_first_audio_byte", timestamp_ms=100.0, seq=2),
+        VoiceStreamEvent(
+            kind="transcript_final", timestamp_ms=200.0, payload="OK", seq=4
+        ),
+    ]
+    gap_metrics = asyncio.run(
+        replay_voice_session_async("vapi", seq_gap_events, expected_packets=3)
+    )
+    assert gap_metrics.packet_loss_rate == 0.25
+
 
 @pytest.mark.skipif(
     not is_live_llm_audit_enabled(),
@@ -591,6 +613,6 @@ def test_live_voice_multiturn_deepeval() -> None:
     judge = resolve_deepeval_judge_model()
     live_metrics: list[BaseMetric] = [
         FaithfulnessMetric(threshold=0.90, model=judge),
-        HallucinationMetric(threshold=0.95, model=judge),
+        HallucinationMetric(threshold=0.05, model=judge),
     ]
     assert_test(case, live_metrics)

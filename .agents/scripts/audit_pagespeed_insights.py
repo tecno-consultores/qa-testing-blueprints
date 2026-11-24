@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
-"""Auditoría Post-Deploy Google PageSpeed Insights v5 (Lab, CrUX y Anti-SSRF SEC-03)."""
+"""Auditoría Post-Deploy PageSpeed Insights v5 (Lab, CrUX y Anti-SSRF Patrón 4)."""
 
 from __future__ import annotations
 
@@ -129,7 +129,9 @@ def _check_resolved_ips(host: str, resolver: DNSResolver) -> str | None:
         return f"BLOCKED_SSRF: no se pudo resolver el host público '{host}'."
     for ip_str in ips:
         parsed_ip = _parse_ip(ip_str)
-        if parsed_ip is not None and _is_unsafe_ip(parsed_ip):
+        if parsed_ip is None:
+            return f"BLOCKED_SSRF: dirección IP inválida resuelta ({ip_str})."
+        if _is_unsafe_ip(parsed_ip):
             return (
                 f"BLOCKED_SSRF: el host '{host}' resolvió a IP interna o "
                 f"reservada ({ip_str})."
@@ -149,7 +151,7 @@ def validate_public_https_url(
     raw_url: str,
     resolver: DNSResolver | None = None,
 ) -> tuple[bool, str]:
-    """Valida que la URL sea HTTPS pública y libre de vectores SSRF (SEC-03)."""
+    """Valida que la URL sea HTTPS pública y libre de vectores SSRF (Patrón 4)."""
     trimmed = raw_url.strip()
     parsed = urllib.parse.urlsplit(trimmed)
     scheme_err = _validate_url_scheme_and_auth(parsed)
@@ -343,7 +345,7 @@ def _parse_psi_http_response(
             strategy, "QUOTA_EXCEEDED_NO_API_KEY", status="SKIPPED"
         )
     if http_status < 200 or http_status >= 300:
-        safe_body = redact_secrets(raw_body[:240], api_key)
+        safe_body = redact_secrets(raw_body, api_key)[:240]
         return _build_strategy_error(
             strategy, f"HTTP {http_status} desde PSI: {safe_body}"
         )
@@ -529,6 +531,20 @@ def format_human_summary(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _parse_score_threshold(raw: str) -> float:
+    val = float(raw)
+    if not (0.0 <= val <= 1.0):
+        raise argparse.ArgumentTypeError("El umbral debe estar entre 0.0 y 1.0.")
+    return val
+
+
+def _parse_positive_timeout(raw: str) -> int:
+    val = int(raw)
+    if val <= 0:
+        raise argparse.ArgumentTypeError("--timeout debe ser mayor que 0.")
+    return val
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
     """Construye el parser CLI de PageSpeed Insights."""
     parser = argparse.ArgumentParser(
@@ -550,11 +566,17 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--api-key", default=os.environ.get("PAGESPEED_API_KEY", "")
     )
-    parser.add_argument("--min-performance", type=float, default=None)
-    parser.add_argument("--min-accessibility", type=float, default=0.95)
-    parser.add_argument("--min-best-practices", type=float, default=0.90)
-    parser.add_argument("--min-seo", type=float, default=0.90)
-    parser.add_argument("--timeout", type=int, default=60)
+    parser.add_argument(
+        "--min-performance", type=_parse_score_threshold, default=None
+    )
+    parser.add_argument(
+        "--min-accessibility", type=_parse_score_threshold, default=0.95
+    )
+    parser.add_argument(
+        "--min-best-practices", type=_parse_score_threshold, default=0.90
+    )
+    parser.add_argument("--min-seo", type=_parse_score_threshold, default=0.90)
+    parser.add_argument("--timeout", type=_parse_positive_timeout, default=60)
     parser.add_argument("--require-url", action="store_true")
     parser.add_argument("--output", default="")
     parser.add_argument(

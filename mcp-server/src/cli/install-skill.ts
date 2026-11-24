@@ -536,22 +536,23 @@ interface DryRunPlanContext {
   readonly destDirs: string[];
   readonly skillCount: number;
   readonly manifest: Manifest;
+  readonly log: (message: string) => void;
 }
 
 async function executeDryRunPlan(ctx: DryRunPlanContext): Promise<void> {
-  const { opts, cwd, homeDir, inHomeDir, destDirs, skillCount, manifest } = ctx;
-  console.log(`🔍 [DRY-RUN] Plan install-skill (v${manifest.blueprint_version}):`);
-  console.log(`  - Destinos de skills (${destDirs.length}): ${destDirs.join(', ')}`);
-  console.log(`  - Archivos de skills planificados: ${skillCount}`);
+  const { opts, cwd, homeDir, inHomeDir, destDirs, skillCount, manifest, log } = ctx;
+  log(`🔍 [DRY-RUN] Plan install-skill (v${manifest.blueprint_version}):`);
+  log(`  - Destinos de skills (${destDirs.length}): ${destDirs.join(', ')}`);
+  log(`  - Archivos de skills planificados: ${skillCount}`);
   const connectorPlans = syncGlobalAgentConnectors(homeDir, true, opts.explicitLang, opts.targetArg);
   for (const entry of connectorPlans) {
     if (entry.updated) {
-      console.log(`  - Actualizaría conector global (${entry.agent}) en ${entry.path}`);
+      log(`  - Actualizaría conector global (${entry.agent}) en ${entry.path}`);
     }
   }
   if (!inHomeDir && opts.includeScripts) {
     const plannedScripts = selectScriptEntries(manifest);
-    console.log(`  - Scripts/archivos comunes planificados: ${plannedScripts.length}`);
+    log(`  - Scripts/archivos comunes planificados: ${plannedScripts.length}`);
   }
   if (!inHomeDir && opts.initAgents) {
     const initPlan = await initOrAppendAgentsMd({
@@ -560,7 +561,7 @@ async function executeDryRunPlan(ctx: DryRunPlanContext): Promise<void> {
       ...(opts.explicitLang !== undefined ? { lang: opts.explicitLang } : {}),
       ...(opts.agents !== undefined ? { agents: opts.agents } : {}),
     });
-    console.log(`  - AGENTS.md planificado (${initPlan.action}) en ${initPlan.agents_md_path}`);
+    log(`  - AGENTS.md planificado (${initPlan.action}) en ${initPlan.agents_md_path}`);
   }
 }
 
@@ -715,6 +716,7 @@ export async function runInstallSkillCli(
       destDirs,
       skillCount: skillEntries.length,
       manifest,
+      log,
     });
     return;
   }

@@ -137,7 +137,7 @@ function applyMcpConfigBoolFlag(
       state.json = true;
     },
   };
-  const action = boolFlags[token];
+  const action = Object.hasOwn(boolFlags, token) ? boolFlags[token] : undefined;
   if (!action) {
     return false;
   }

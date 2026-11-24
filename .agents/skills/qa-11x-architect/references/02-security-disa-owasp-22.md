@@ -48,14 +48,18 @@ class UserCreateDTO(BaseModel):
     password: str
 ```
 
-### Pattern 02: Anti-CSWSH Origin Check (FastAPI)
+### Pattern 02: Anti-CSWSH Origin & Sec-Fetch-Site Check (FastAPI)
 ```python
-from fastapi import WebSocket, status
+from fastapi import WebSocket
 
 @app.websocket("/ws/telemetry")
 async def secure_ws(websocket: WebSocket):
     origin = websocket.headers.get("origin")
-    if not origin or origin not in settings.ALLOWED_ORIGINS:
+    sec_fetch_site = websocket.headers.get("sec-fetch-site")
+    allowed_sites = {"same-origin", "same-site", "none"}
+    if not origin or origin not in settings.ALLOWED_ORIGINS or (
+        sec_fetch_site is not None and sec_fetch_site not in allowed_sites
+    ):
         await websocket.close(code=4403, reason="Unauthorized origin")
         return
     await websocket.accept()
@@ -132,8 +136,9 @@ export async function executeSecureLogoff(apiLogoutUrl: string): Promise<void> {
 }
 ```
 
-### Pattern 15: Constant-Time Anti-Enumeration & Lockout
+### Pattern 15: Constant-Time Anti-Enumeration & Lockout (Non-Blocking Argon2id)
 ```python
+import anyio
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 
@@ -146,7 +151,7 @@ async def verify_auth_constant_time(redis, user_record: dict | None, password: s
         raise PermissionError("Account temporarily locked (15m window).")
     target_hash = user_record["password_hash"] if user_record else DUMMY_ARGON2_HASH
     try:
-        ph.verify(target_hash, password)
+        await anyio.to_thread.run_sync(ph.verify, target_hash, password)
         valid = user_record is not None
     except VerifyMismatchError:
         valid = False

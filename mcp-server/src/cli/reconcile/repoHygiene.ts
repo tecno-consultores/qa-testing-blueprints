@@ -16,6 +16,7 @@ import {
   AIDER_BRIDGE_START,
   BRIDGE_END_MARKER,
   BRIDGE_START_MARKER,
+  hasYamlReadKeyOutsideBridge,
   SUPPORTED_AI_AGENTS,
 } from '../../tools/initOrAppendAgentsMd.js';
 import type { ReconciledRuleItem } from '../../types.js';
@@ -226,11 +227,13 @@ function buildCompactBridgeBlock(target: BridgeTargetInfo, existing: string): {
 } {
   const lang = detectConnectorLang(existing) ?? 'auto';
   if (target.format === 'aider-yaml') {
+    const includeReadKey = !hasYamlReadKeyOutsideBridge(existing);
     const block = [
       AIDER_BRIDGE_START,
       `# QA 11X Thin-Repo Bridge (lang: ${lang}, QA-GIT-GATE-01: no auto git push)`,
-      'read:',
-      '  - AGENTS.md',
+      ...(includeReadKey
+        ? ['read:', '  - AGENTS.md']
+        : ['# Existing read: key detected — keep AGENTS.md referenced in read:']),
       AIDER_BRIDGE_END,
     ].join('\n');
     return { startMarker: AIDER_BRIDGE_START, endMarker: AIDER_BRIDGE_END, block };

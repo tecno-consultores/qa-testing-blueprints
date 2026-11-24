@@ -57,7 +57,7 @@ Depending on the script's nature, you must instrument it in one of these two way
         registry = CollectorRegistry()
         # ... script logic ...
         try:
-            push_to_gateway('python_pushgateway:9091', job='batch_script', registry=registry)
+            push_to_gateway('pushgateway:9091', job='batch_script', registry=registry)
         except (OSError, URLError) as exc:
             logging.warning("Pushgateway unavailable; metrics skipped: %s", exc)
     ```

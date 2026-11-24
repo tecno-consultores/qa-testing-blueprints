@@ -176,14 +176,14 @@
 
 ## 7. Frontend HTTP/OSHP/SSG BDD Contracts with Karate Labs (Without Headless Browser)
 
-* **Purpose:** The official `sinfallas/karatelabs:1.5.1` image (like `:latest`) **does not include Chrome or Chromium binaries**. Therefore, Karate 1.5.1 black-box certifies HTTP/Nginx delivery on `http://ui-prod:80`: `200` status codes, SPA/SSG routes, OWASP OSHP headers (`Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`), and XML/SEO integrity as strings (`* string xmlText = response` on `/sitemap.xml`). All real DOM interaction, `[ 🔄 Refrescar ]` button checks, Anti-JSDOM geometry, and WCAG 2.1 AA accessibility are delegated to Playwright (`ui-e2e`).
+* **Purpose:** The official `sinfallas/karatelabs:1.5.1` image (like `:latest`) **does not include Chrome or Chromium binaries**. Therefore, Karate 1.5.1 black-box certifies HTTP/Nginx delivery on `http://ui-prod:8080`: `200` status codes, SPA/SSG routes, OWASP OSHP headers (`Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`), and XML/SEO integrity as strings (`* string xmlText = response` on `/sitemap.xml`). All real DOM interaction, `[ 🔄 Refrescar ]` button checks, Anti-JSDOM geometry, and WCAG 2.1 AA accessibility are delegated to Playwright (`ui-e2e`).
 * **Structure:** Located at `vue3/test/ui_business_flow.feature` and `react-frontend/test/ui_business_flow.feature`.
 * **Real Karate Labs HTTP/OSHP/SSG Scenario Example:**
   ```gherkin
   Feature: HTTP BDD Contracts, OWASP OSHP Headers, SPA/SSG Routes & SEO (Karate 1.5.1)
 
     Background:
-      * def baseUrl = karate.properties['UI_BASE_URL'] || 'http://ui-prod:80'
+      * def baseUrl = karate.properties['UI_BASE_URL'] || 'http://ui-prod:8080'
       * url baseUrl
 
     Scenario: HTML delivery and OWASP OSHP headers aligned with Nginx

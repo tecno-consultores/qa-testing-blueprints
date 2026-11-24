@@ -485,8 +485,6 @@ function extractSqlTableToken(tail: string, skipKeywords: readonly string[]): st
   for (const kw of skipKeywords) {
     if (words[idx]?.toUpperCase() === kw) {
       idx += 1;
-    } else {
-      break;
     }
   }
   const rawToken = (words[idx] ?? '').split('(')[0]?.split(';')[0] ?? '';

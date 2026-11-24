@@ -76,9 +76,12 @@ export interface CalmViolation {
   remediation: string;
 }
 
+export type CalmValidationProfile = 'auto' | 'generic' | 'qa-11x-self';
+
 export interface ValidateCalmArchitectureArgs {
   workspaceRoot?: string;
   architecturePath?: string;
+  profile?: CalmValidationProfile;
 }
 
 export interface CalmValidationResult {
@@ -523,15 +526,30 @@ function validateControlEntry(
   return true;
 }
 
-function validateRequiredGovernance(
-  doc: JsonRecord,
-  nodeIds: Set<string>,
-  relState: ParsedRelationshipsResult,
-  violations: CalmViolation[]
-): number {
+function isQa11xSelfProfile(
+  profile: CalmValidationProfile | undefined,
+  workspaceRoot: string,
+  displayPath: string
+): boolean {
+  if (profile === 'qa-11x-self') return true;
+  if (profile === 'generic') return false;
+  return (
+    path.basename(displayPath) === 'qa-11x.calm.json' ||
+    fs.existsSync(path.join(workspaceRoot, 'scripts', 'generar-manifiesto.py'))
+  );
+}
+
+interface GovernanceValidationContext {
+  readonly nodeIds: Set<string>;
+  readonly relState: ParsedRelationshipsResult;
+  readonly violations: CalmViolation[];
+  readonly enforceQa11xSelf: boolean;
+}
+
+function validateSelfNodesAndEdges(ctx: GovernanceValidationContext): void {
   for (const requiredNode of REQUIRED_CALM_NODE_IDS) {
-    if (!nodeIds.has(requiredNode)) {
-      violations.push({
+    if (!ctx.nodeIds.has(requiredNode)) {
+      ctx.violations.push({
         code: 'MISSING_REQUIRED_NODE',
         subject: requiredNode,
         message: `Falta el nodo canónico obligatorio '${requiredNode}'.`,
@@ -539,22 +557,10 @@ function validateRequiredGovernance(
       });
     }
   }
-
-  for (const nodeId of nodeIds) {
-    if (!relState.connectedNodes.has(nodeId)) {
-      violations.push({
-        code: 'ORPHAN_CRITICAL_NODE',
-        subject: nodeId,
-        message: `El nodo '${nodeId}' está desconectado (sin relaciones válidas).`,
-        remediation: REMEDIATION_REL,
-      });
-    }
-  }
-
   for (const [src, dst] of REQUIRED_CALM_RELATIONSHIP_EDGES) {
     const edgeKey = `${src}->${dst}`;
-    if (!relState.edgeKeys.has(edgeKey)) {
-      violations.push({
+    if (!ctx.relState.edgeKeys.has(edgeKey)) {
+      ctx.violations.push({
         code: 'MISSING_REQUIRED_RELATIONSHIP',
         subject: edgeKey,
         message: `Falta la arista arquitectónica obligatoria '${edgeKey}'.`,
@@ -562,18 +568,48 @@ function validateRequiredGovernance(
       });
     }
   }
+}
 
-  const rawControls = doc.controls;
-  if (!isPlainRecord(rawControls)) {
-    violations.push({
-      code: 'MISSING_REQUIRED_CONTROL',
-      subject: 'controls',
-      message: 'El documento CALM debe declarar el objeto controls con los 7 controles QA-11X.',
-      remediation: REMEDIATION_CONTROL,
+function validateGenericMinimumStructure(ctx: GovernanceValidationContext): void {
+  if (ctx.nodeIds.size === 0) {
+    ctx.violations.push({
+      code: 'MISSING_REQUIRED_NODE',
+      subject: 'nodes',
+      message: 'El documento CALM debe declarar al menos un nodo válido.',
+      remediation: REMEDIATION_CALM_MODEL,
     });
-    return 0;
   }
+  if (ctx.relState.edgeKeys.size === 0) {
+    ctx.violations.push({
+      code: 'MISSING_REQUIRED_RELATIONSHIP',
+      subject: 'relationships',
+      message: 'El documento CALM debe declarar al menos una relación válida.',
+      remediation: REMEDIATION_REL,
+    });
+  }
+}
 
+function validateControlsMap(
+  rawControls: JsonRecord,
+  violations: CalmViolation[],
+  enforceQa11xSelf: boolean
+): void {
+  if (!enforceQa11xSelf) {
+    const entries = Object.entries(rawControls);
+    if (entries.length === 0) {
+      violations.push({
+        code: 'MISSING_REQUIRED_CONTROL',
+        subject: 'controls',
+        message: 'El documento CALM debe declarar al menos un control de gobernanza.',
+        remediation: REMEDIATION_CONTROL,
+      });
+      return;
+    }
+    for (const [controlId, entry] of entries) {
+      validateControlEntry(controlId, entry, violations);
+    }
+    return;
+  }
   for (const controlId of REQUIRED_CALM_CONTROL_IDS) {
     if (!(controlId in rawControls)) {
       violations.push({
@@ -586,7 +622,37 @@ function validateRequiredGovernance(
       validateControlEntry(controlId, rawControls[controlId], violations);
     }
   }
+}
 
+function validateRequiredGovernance(doc: JsonRecord, ctx: GovernanceValidationContext): number {
+  if (ctx.enforceQa11xSelf) {
+    validateSelfNodesAndEdges(ctx);
+  } else {
+    validateGenericMinimumStructure(ctx);
+  }
+  for (const nodeId of ctx.nodeIds) {
+    if (!ctx.relState.connectedNodes.has(nodeId)) {
+      ctx.violations.push({
+        code: 'ORPHAN_CRITICAL_NODE',
+        subject: nodeId,
+        message: `El nodo '${nodeId}' está desconectado (sin relaciones válidas).`,
+        remediation: REMEDIATION_REL,
+      });
+    }
+  }
+  const rawControls = doc.controls;
+  if (!isPlainRecord(rawControls)) {
+    if (ctx.enforceQa11xSelf) {
+      ctx.violations.push({
+        code: 'MISSING_REQUIRED_CONTROL',
+        subject: 'controls',
+        message: 'El documento CALM debe declarar el objeto controls con los 7 controles QA-11X.',
+        remediation: REMEDIATION_CONTROL,
+      });
+    }
+    return 0;
+  }
+  validateControlsMap(rawControls, ctx.violations, ctx.enforceQa11xSelf);
   return Object.keys(rawControls).length;
 }
 
@@ -637,12 +703,13 @@ export function validateCalmArchitecture(
 
   const nodesResult = parseAndValidateNodes(doc, violations);
   const relResult = parseAndValidateRelationships(doc, nodesResult.nodeIds, violations);
-  const controlCount = validateRequiredGovernance(
-    doc,
-    nodesResult.nodeIds,
-    relResult,
-    violations
-  );
+  const enforceQa11xSelf = isQa11xSelfProfile(args.profile, workspaceRoot, fileTarget.displayPath);
+  const controlCount = validateRequiredGovernance(doc, {
+    nodeIds: nodesResult.nodeIds,
+    relState: relResult,
+    violations,
+    enforceQa11xSelf,
+  });
 
   if (violations.length === 0) {
     return {

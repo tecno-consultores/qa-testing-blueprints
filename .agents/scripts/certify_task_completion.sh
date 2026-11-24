@@ -246,6 +246,7 @@ import json
 import os
 import re
 import tempfile
+import uuid
 from pathlib import Path
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
@@ -255,6 +256,7 @@ SECRET_RES = (
     (re.compile(r"\b(token|access_token|api_key|apikey|secret|password|passwd)=[^\s\"'&]+", re.I), r"\1=[REDACTED]"),
     (re.compile(r"(--(?:token|api-key|apikey|secret|password|passwd))(?:\s+|=)[^\s\"']+", re.I), r"\1=[REDACTED]"),
     (re.compile(r"\b(?:ghp|gho|ghs|github_pat|npm)_[A-Za-z0-9_]{12,}\b"), "[REDACTED]"),
+    (re.compile(r"\b(?:glpat|xox[baprs])-[A-Za-z0-9_-]{12,}\b"), "[REDACTED]"),
     (re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b"), "[REDACTED]"),
     (re.compile(r"\bAIza[A-Za-z0-9_-]{16,}\b"), "[REDACTED]"),
     (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "[REDACTED]"),
@@ -342,7 +344,7 @@ expected_parent = anchor.resolve().joinpath(*raw_abs.parent.relative_to(anchor).
 if dest.parent.resolve() != expected_parent:
     raise ValueError(f"Symlink no permitido en QA_DIAG_PATH: {dest}")
 _assert_no_symlink_segments(dest, raw_diag)
-tmp_path = dest.parent / f".{dest.name}.{os.getpid()}.tmp"
+tmp_path = dest.parent / f".{dest.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
 flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
 fd = os.open(tmp_path, flags, 0o600)
 try:
@@ -407,8 +409,12 @@ run_gate() {
   rc=0
   "$@" >"${gate_log}" 2>&1 || rc=$?
 
-  if [ "${rc}" -eq 0 ] && grep -qE '^(⚠️[[:space:]]*)?\[?SKIPPED\b' "${gate_log}" 2>/dev/null; then
-    rc=20
+  if [ "${rc}" -eq 0 ]; then
+    local last_non_empty
+    last_non_empty="$(grep -v '^[[:space:]]*$' "${gate_log}" 2>/dev/null | tail -n 1 || true)"
+    if printf '%s\n' "${last_non_empty}" | grep -qE '^(⚠️[[:space:]]*)?\[?SKIPPED\b'; then
+      rc=20
+    fi
   fi
 
   if [ "${rc}" -eq 20 ]; then
@@ -620,7 +626,7 @@ gate_10_doc_and_test_sync() {
   fi
 
   local test_file_re='(\.(unit|spec|test|e2e)\.(py|ts|tsx|js|jsx)|(^|/)test_[^/]+\.py|[^/]+_test\.py|[^/]+Test\.php|\.feature(\.example)?|\.bats)$'
-  raw_code_candidates=$(printf '%s\n' "${all_changed}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|bash-scripts|php|mcp-server|mobile-appium|ai-evals|vibe-rescue|catalogs|architecture|backend|frontend|scripts)/|\.agents/(scripts|schemas|skills|rules)/|((.*/)?Makefile(\.example)?)$|\.github/(workflows|actions)/|(manifest\.json|llms\.txt|\.trivy\.yaml|lefthook\.yml|instalar-hooks\.sh)$)' | grep -vE '(^|/)graphify-out/' || true)
+  raw_code_candidates=$(printf '%s\n' "${all_changed}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|bash-scripts|php|mcp-server|mobile-appium|ai-evals|vibe-rescue|catalogs|architecture|backend|frontend|scripts|src)/|\.agents/(scripts|schemas|skills|rules)/|((.*/)?Makefile(\.example)?)$|\.github/(workflows|actions)/|(manifest\.json|llms\.txt|\.trivy\.yaml|lefthook\.yml|instalar-hooks\.sh)$)' | grep -vE '(^|/)graphify-out/' || true)
   code_changes=$(printf '%s\n' "${raw_code_candidates}" | grep -vE "${test_file_re}" | awk '/^$/ {next} /^\.agents\/(skills|rules)\// {print; next} /\.md$/ {next} {print}' || true)
   exec_src_changes=$(printf '%s\n' "${code_changes}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|php|mcp-server|mobile-appium|backend|frontend)/src/|src/|bash-scripts/|vibe-rescue/|ai-evals/|scripts/|\.agents/scripts/|instalar-hooks\.sh$)' || true)
   test_sync_changes=$(printf '%s\n' "${code_changes}" | grep -E '^(\.agents/(schemas|skills|rules)/|(catalogs|architecture)/|(manifest\.json|llms\.txt)$)' || true)

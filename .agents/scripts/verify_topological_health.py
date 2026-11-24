@@ -234,13 +234,15 @@ class _DfsState:
     found: set[tuple[str, ...]]
 
 
-def _is_same_file_call(
-    rel: str, link: dict[str, Any], nodes: dict[str, dict[str, Any]]
+def _is_same_or_test_file_edge(
+    link: dict[str, Any], nodes: dict[str, dict[str, Any]]
 ) -> bool:
-    if rel != "calls":
-        return False
     files = _resolve_link_files(link, nodes)
-    return files is not None and files[0] == files[1]
+    if files is None:
+        return False
+    if files[0] == files[1]:
+        return True
+    return bool(_TEST_PATH_RE.search(files[0]) or _TEST_PATH_RE.search(files[1]))
 
 
 def _is_dependency_edge(
@@ -253,7 +255,7 @@ def _is_dependency_edge(
     rel = str(link.get("relation") or "")
     if not src or not tgt or src == tgt or rel in _STRUCTURAL_RELATIONS:
         return None
-    if _is_same_file_call(rel, link, nodes):
+    if _is_same_or_test_file_edge(link, nodes):
         return None
     return src, tgt
 
@@ -399,13 +401,16 @@ def _check_layers_rule(
     links: list[dict[str, Any]],
     nodes: dict[str, dict[str, Any]],
     graph_label: str,
+    prefix_files: list[str] | None = None,
 ) -> list[str]:
     root = str(rule.get("root") or "")
     layers = [str(x) for x in rule.get("layers", []) if str(x)]
     if not layers:
         return [f"[{graph_label}] Regla declarativa 'layers' sin capas definidas."]
     prefixes = [_join_root_prefix(root, layer) for layer in layers]
-    node_files = _collect_node_files(nodes)
+    node_files = (
+        prefix_files if prefix_files is not None else _collect_node_files(nodes)
+    )
     violations = _verify_prefixes_non_empty(prefixes, node_files, graph_label)
     violations.extend(_eval_layers_links(prefixes, links, nodes, graph_label))
     return violations
@@ -450,6 +455,7 @@ def _check_independence_rule(
     links: list[dict[str, Any]],
     nodes: dict[str, dict[str, Any]],
     graph_label: str,
+    prefix_files: list[str] | None = None,
 ) -> list[str]:
     root = str(rule.get("root") or "")
     modules = [str(x) for x in rule.get("modules", []) if str(x)]
@@ -460,7 +466,9 @@ def _check_independence_rule(
     mod_pairs = tuple((m, _join_root_prefix(root, m)) for m in modules)
     shared = tuple(_norm_rel_path(str(x)) for x in rule.get("shared", []) if str(x))
     ctx = _IndependenceCtx(mod_prefixes=mod_pairs, shared_prefixes=shared)
-    node_files = _collect_node_files(nodes)
+    node_files = (
+        prefix_files if prefix_files is not None else _collect_node_files(nodes)
+    )
     violations = _verify_prefixes_non_empty(
         [p for _, p in mod_pairs], node_files, graph_label
     )
@@ -473,7 +481,7 @@ def _matches_forbidden_token(tgt_tokens: tuple[str, str, str], forb: str) -> boo
     if not forb_norm:
         return False
     tgt_file, tgt_id, tgt_label = tgt_tokens
-    if tgt_file and _matches_prefix(tgt_file, forb_norm):
+    if tgt_file and _matches_prefix(tgt_file.lower(), forb_norm):
         return True
     if "/" not in forb_norm:
         if tgt_file and f"/{forb_norm}/" in f"/{tgt_file.lower()}/":
@@ -540,7 +548,9 @@ def _check_forbidden_rule(
     links: list[dict[str, Any]],
     nodes: dict[str, dict[str, Any]],
     graph_label: str,
+    prefix_files: list[str] | None = None,
 ) -> list[str]:
+    _ = prefix_files
     violations: list[str] = []
     for entry in rule.get("rules", []):
         if isinstance(entry, dict):
@@ -553,6 +563,7 @@ def _check_boundary_rules(
     links: list[dict[str, Any]],
     nodes: dict[str, dict[str, Any]],
     graph_label: str,
+    prefix_files: list[str] | None = None,
 ) -> list[str]:
     handlers = {
         "layers": _check_layers_rule,
@@ -563,7 +574,7 @@ def _check_boundary_rules(
     for rule in rules:
         handler = handlers.get(str(rule.get("kind") or ""))
         if handler is not None:
-            violations.extend(handler(rule, links, nodes, graph_label))
+            violations.extend(handler(rule, links, nodes, graph_label, prefix_files))
     return violations
 
 
@@ -590,7 +601,7 @@ def _collect_module_counts(
     node_counts: dict[str, int] = {}
     for node in nodes.values():
         sf = _norm_rel_path(str(node.get("source_file") or ""))
-        if sf and sf != "unknown":
+        if sf and sf != "unknown" and not _TEST_PATH_RE.search(sf):
             mod = _module_key_from_source(sf)
             node_counts[mod] = node_counts.get(mod, 0) + 1
     fan_in, fan_out = _count_cross_module_edges(graph.get("links", []), nodes)
@@ -689,6 +700,7 @@ def audit_layers(
     graph_path: Path,
     base_root: Path | None = None,
     boundary_rules: list[dict[str, Any]] | None = None,
+    prefix_files: list[str] | None = None,
 ) -> tuple[list[str], dict[str, Any]]:
     graph_label = _display_graph_path(graph_path, base_root=base_root)
     nodes = {str(n["id"]): n for n in graph.get("nodes", [])}
@@ -699,7 +711,9 @@ def audit_layers(
             violations.append(f"[{graph_label}] {msg}")
     if boundary_rules:
         violations.extend(
-            _check_boundary_rules(boundary_rules, links, nodes, graph_label)
+            _check_boundary_rules(
+                boundary_rules, links, nodes, graph_label, prefix_files
+            )
         )
     violations.extend(_detect_directed_cycles(links, nodes, graph_label))
 
@@ -719,6 +733,27 @@ class _AuditRunConfig:
     show_metrics: bool
 
 
+def _load_graphs_batch(
+    graph_files: list[Path], resolved_root: Path
+) -> tuple[list[tuple[Path, dict[str, Any]]], list[str], list[str]]:
+    loaded: list[tuple[Path, dict[str, Any]]] = []
+    errors: list[str] = []
+    all_node_files: list[str] = []
+    for g_path in graph_files:
+        try:
+            graph = load_graph(g_path)
+            loaded.append((g_path, graph))
+            nodes = {str(n["id"]): n for n in graph.get("nodes", [])}
+            all_node_files.extend(_collect_node_files(nodes))
+        except Exception as exc:
+            print(f"❌ Error procesando grafo {g_path}: {exc}")
+            label = _display_graph_path(g_path, base_root=resolved_root)
+            errors.append(
+                f"[{label}] Grafo AST corrupto o ilegible (Fail-Secure): {exc}"
+            )
+    return loaded, errors, all_node_files
+
+
 def _audit_graphs(
     graph_files: list[Path],
     base_root: Path | None = None,
@@ -727,27 +762,24 @@ def _audit_graphs(
     resolved_root = config.base_root if config is not None else (base_root or REPO_ROOT)
     rules = config.boundary_rules if config is not None else []
     show_metrics = config.show_metrics if config is not None else False
-    all_violations: list[str] = []
+    loaded, all_violations, union_files = _load_graphs_batch(graph_files, resolved_root)
+    shared_files = union_files if len(loaded) > 1 else None
     total_nodes = 0
     total_links = 0
-    for g_path in graph_files:
-        try:
-            graph = load_graph(g_path)
-            violations, stats = audit_layers(
-                graph, g_path, base_root=resolved_root, boundary_rules=rules
-            )
-            total_nodes += int(stats["nodes"])
-            total_links += int(stats["links"])
-            all_violations.extend(violations)
-            if show_metrics:
-                _print_instability_table(
-                    str(stats["graph_file"]), compute_module_instability(graph)
-                )
-        except Exception as exc:
-            print(f"❌ Error procesando grafo {g_path}: {exc}")
-            label = _display_graph_path(g_path, base_root=resolved_root)
-            all_violations.append(
-                f"[{label}] Grafo AST corrupto o ilegible (Fail-Secure): {exc}"
+    for g_path, graph in loaded:
+        violations, stats = audit_layers(
+            graph,
+            g_path,
+            base_root=resolved_root,
+            boundary_rules=rules,
+            prefix_files=shared_files,
+        )
+        total_nodes += int(stats["nodes"])
+        total_links += int(stats["links"])
+        all_violations.extend(violations)
+        if show_metrics:
+            _print_instability_table(
+                str(stats["graph_file"]), compute_module_instability(graph)
             )
     return all_violations, total_nodes, total_links
 

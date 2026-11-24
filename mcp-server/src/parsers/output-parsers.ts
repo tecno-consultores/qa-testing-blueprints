@@ -684,6 +684,9 @@ const TEST_STAGE_NAMES = new Set([
   'migration',
 ]);
 
+const MIGRATION_EVIDENCE_RE =
+  /\b(?:alembic|running upgrade|no new upgrade operations detected|doctrine:migrations|artisan migrate|verify_alembic_orm_parity|paridad orm)\b/i;
+
 const EXPLICIT_TEST_COUNT_RULES: ReadonlyArray<{ readonly pattern: RegExp; readonly sumTwoGroups?: true }> = [
   { pattern: /\bTests:?\s+(\d+)\s+failed\s*\|\s*(\d+)\s+passed\b/i, sumTwoGroups: true },
   { pattern: /\b(\d+)\s+failed,\s+(\d+)\s+passed\b/i, sumTwoGroups: true },
@@ -757,6 +760,8 @@ export interface EvaluateQaStatusInput {
   readonly coverage: QaCoverageSummary;
   readonly linterIssuesCount: number;
   readonly testsDetected: QaTestsDetected;
+  readonly blockingSecurityAlertsCount?: number;
+  readonly hasStageEvidence?: boolean;
 }
 
 function evaluateUnitStageStatus(
@@ -787,8 +792,17 @@ function evaluateAllStageStatus(
 }
 
 function evaluateQaStatus(input: EvaluateQaStatusInput): QaStageStatus {
-  const { exitCode, stage, failedTestsCount, coverage, linterIssuesCount, testsDetected } = input;
-  if (exitCode !== 0 || failedTestsCount > 0) {
+  const {
+    exitCode,
+    stage,
+    failedTestsCount,
+    coverage,
+    linterIssuesCount,
+    testsDetected,
+    blockingSecurityAlertsCount = 0,
+    hasStageEvidence = false,
+  } = input;
+  if (exitCode !== 0 || failedTestsCount > 0 || blockingSecurityAlertsCount > 0) {
     return STATUS_FAILED;
   }
 
@@ -801,7 +815,11 @@ function evaluateQaStatus(input: EvaluateQaStatusInput): QaStageStatus {
   if (stage === 'lint') {
     return linterIssuesCount > 0 ? STATUS_FAILED : STATUS_PASSED;
   }
-  if (TEST_STAGE_NAMES.has(stage) && (!testsDetected.detected || testsDetected.count === 0)) {
+  if (
+    TEST_STAGE_NAMES.has(stage) &&
+    !hasStageEvidence &&
+    (!testsDetected.detected || testsDetected.count === 0)
+  ) {
     return STATUS_SKIPPED;
   }
 
@@ -834,6 +852,11 @@ export function parseQaOutput(
   const testsDetected = parseTestsDetected(combinedLog);
   const tailLog = parseTailLog(combinedLog, 15);
 
+  const blockingSecurityAlertsCount = securityAlerts.critical + securityAlerts.high;
+  const hasStageEvidence =
+    (stage === 'mutation' && mutationSummary !== null) ||
+    (stage === 'migration' && MIGRATION_EVIDENCE_RE.test(combinedLog));
+
   const status = evaluateQaStatus({
     exitCode,
     stage,
@@ -841,6 +864,8 @@ export function parseQaOutput(
     coverage,
     linterIssuesCount: linterIssues.length,
     testsDetected,
+    blockingSecurityAlertsCount,
+    hasStageEvidence,
   });
 
   return {

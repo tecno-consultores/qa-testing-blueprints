@@ -43,7 +43,7 @@ AI-generated prototypes frequently deliver strong visual layouts alongside sever
 2. **Versioned Migrations & Schema Parity (`Rule Zero`):**
    - Capture ad-hoc prototype SQL changes into versioned Alembic migrations (`revision <= 32` chars) and certify against real `postgres:17-alpine` inside Docker (`sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_alembic_orm_parity.py`).
 3. **Service-Layer RBAC & Immutable Audit Trail:**
-   - Enforce `claims["role"]` / `claims["rol"]` inside service functions (anti-`Depends()` bypass), wrap sensitive/MCP mutations behind `ApprovalRequest` (`AWAITING_APPROVAL`), and wire WORM `audit_logs` (`seq_num BIGINT` + `pg_advisory_xact_lock`, human-readable `actor_username`, zero raw UUID v4 strings).
+   - Enforce `claims["role"]` inside service functions (anti-`Depends()` bypass), wrap sensitive/MCP mutations behind `ApprovalRequest` (`AWAITING_APPROVAL`), and wire WORM `audit_logs` (`seq_num BIGINT` + `pg_advisory_xact_lock`, human-readable `actor_username`, zero raw UUID v4 strings).
 
 ---
 

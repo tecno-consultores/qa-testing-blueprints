@@ -20,8 +20,12 @@ for arg in "$@"; do
 done
 
 if command -v docker >/dev/null 2>&1; then
-  docker compose --profile "*" -f docker-compose.qa.yml down --remove-orphans -v >/dev/null 2>&1 ||
-    docker compose -f docker-compose.qa.yml down --remove-orphans -v >/dev/null 2>&1 || true
+  down_flags=(--remove-orphans)
+  if [ "${DEEP_PRUNE}" = true ]; then
+    down_flags+=(-v)
+  fi
+  docker compose --profile "*" -f docker-compose.qa.yml down "${down_flags[@]}" >/dev/null 2>&1 ||
+    docker compose -f docker-compose.qa.yml down "${down_flags[@]}" >/dev/null 2>&1 || true
 fi
 
 CURRENT_UID="$(id -u)"

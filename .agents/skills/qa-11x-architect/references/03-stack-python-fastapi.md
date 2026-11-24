@@ -56,10 +56,10 @@ Instrumentator().instrument(app).expose(app)
   - Always pass `-e COVERAGE_FILE=/tmp/.coverage` in `docker compose run` / `docker run` commands so hardened non-root container users (`UID 1001`) can write SQLite coverage files without host bind-mount permission errors (`sqlite3.DataError: Couldn't use data file '/app/.coverage'`).
 - **PostgreSQL RLS Multi-Transaction Persistence (`after_begin`) & Deterministic WORM Audit (`seq_num`):**
   - Connect using a `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS` role; store `(tenant_id, is_superadmin)` in `session.sync_session.info` and register `@event.listens_for(AsyncSession.sync_session_class, "after_begin")` to re-apply `SET LOCAL app.current_tenant_id` across post-commit transactions; use `SECURITY DEFINER` (`SET search_path = public`) SQL functions for pre-auth slug/bootstrap queries.
-  - Order hash-chained `audit_logs` by a monotonic `seq_num BIGINT` with `SELECT pg_advisory_xact_lock(hashtext(tenant_key))`, track `_in_tx_audit_hash` / `_rg_in_tx_audit_hash` on the session, and `await session.flush()` after each `write_audit_log()` call.
+  - Order hash-chained `audit_logs` by a monotonic `seq_num BIGINT` with `SELECT pg_advisory_xact_lock(hashtext(tenant_key))`, track `_in_tx_audit_hashes` on the session (clearing via `after_transaction_end`), and `await session.flush()` after each `write_audit_log()` call.
 
 - **In-Process Smoke Tests & Local Production Pipelines (`build.sh` / `probar-prod-local.sh`):**
-  - **Post-Import `Settings` Singleton Synchronization (`QA-SMOKE-01`):** When a `--no-dev` smoke test (`test_production_boot_smoke.py`) recursively imports all submodules of `src/` before calling `create_app()`, `src.core.config.settings` is already instantiated in memory with the initial environment (`local`/`development`). Mutating `os.environ["APP_ENV"] = "production"` (or `ROSGRID_ENV`) alone will NOT disable `/docs`, `/redoc`, or `/openapi.json`. Always mutate both `os.environ` AND the singleton attribute (`settings.APP_ENV = "production"` / `settings.ROSGRID_ENV = "production"`), restoring the original values in a `finally` block:
+  - **Post-Import `Settings` Singleton Synchronization (`QA-SMOKE-01`):** When a `--no-dev` smoke test (`test_production_boot_smoke.py`) recursively imports all submodules of `src/` before calling `create_app()`, `src.core.config.settings` is already instantiated in memory with the initial environment (`local`/`development`). Mutating `os.environ["APP_ENV"] = "production"` alone will NOT disable `/docs`, `/redoc`, or `/openapi.json`. Always mutate both `os.environ` AND the singleton attribute (`settings.APP_ENV = "production"`), restoring the original values in a `finally` block:
     ```python
     prev_env = os.environ.get("APP_ENV")
     prev_attr = getattr(settings, "APP_ENV", None)
@@ -88,15 +88,15 @@ Instrumentator().instrument(app).expose(app)
     sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_alembic_orm_parity.py
   ```
 - Alembic revision IDs must be `<= 32` characters to avoid DB column truncation.
-- **Anti-Silo Read-After-Write Propagation:** Never test a state-mutating endpoint (`POST /api/v1/maintenance/windows`, device state change, Safe Mode activation) in isolation while mocking the consumer endpoint. Immediately query the consumer `GET` endpoints (`GET /api/v1/inventory/routers`, dashboard KPIs) against the live database without intermediate mocks to verify end-to-end state propagation.
+- **Anti-Silo Read-After-Write Propagation:** Never test a state-mutating endpoint (`POST /api/v1/maintenance/windows`, resource state change, Safe Mode activation) in isolation while mocking the consumer endpoint. Immediately query the consumer `GET` endpoints (`GET /api/v1/resources`, dashboard KPIs) against the live database without intermediate mocks to verify end-to-end state propagation.
 - **3-Phase Temporal Lifecycle, Heavy-Transfer Timeouts & Audit Payload Assertions:**
   - Entities with `starts_at`/`ends_at` or TTLs must be tested across all 3 clock phases (`t < starts_at` Scheduled, `starts_at <= t <= ends_at` Active/In-Progress, and `t > ends_at` Expired/Reverted).
   - Never replace `write_audit_log` with an uninspected `AsyncMock()`. Assert the passed arguments and verify that `actor_username` and `resource_display_name` resolve to human-readable strings (never raw JWT `sub` UUID v4 strings).
   - **`MockDbSession` `JSONB` Validation & `Numeric(p, s)` `Decimal` Fixtures:** In unit tests using mock sessions (`MockDbSession`), validate all SQLAlchemy `JSON`/`JSONB` columns (such as `AuditLog.before_state` and `AuditLog.after_state`) by executing `json.dumps()` **without `default=str`**, and populate ORM `Numeric(p, s)` attributes in fixtures with `decimal.Decimal` instances (identical to PostgreSQL `asyncpg` hydration) to prevent `TypeError: Object of type Decimal is not JSON serializable` from escaping to production.
-  - **Telemetry vs. Heavy-Transfer Timeout Override (`>= 180s`):** HTTP clients performing synchronous binary/firmware/backup downloads (e.g. `.npk` images) MUST allow and pass a per-request timeout override (`timeout >= 180s`), purge truncated `0-byte` files before/after failed transfers, and assert `call_args` in unit tests so `AsyncMock` does not hide `10s` timeout truncations.
+  - **Telemetry vs. Heavy-Transfer Timeout Override (`>= 180s`):** HTTP clients performing synchronous binary/artifact/backup downloads (e.g. `.tar.gz`/firmware bundles) MUST allow and pass a per-request timeout override (`timeout >= 180s`), purge truncated `0-byte` files before/after failed transfers, and assert `call_args` in unit tests so `AsyncMock` does not hide `10s` timeout truncations.
   - **Batch `HTTP 200 OK` Per-Item Inspection:** Batch execution endpoints (`POST .../execute`) and their tests MUST evaluate `results[].status` per resource rather than treating `HTTP 200 OK` as blanket success.
   - **Dynamic `Idempotency-Key` in Karate Labs BDD (`api_test.feature`):** All mutable requests (`POST`, `PUT`, `PATCH`, `DELETE`) in `api_test.feature` against endpoints enforcing `IdempotencyMiddleware` MUST include `And header Idempotency-Key = java.util.UUID.randomUUID() + ''` (unless explicitly testing `400` on missing header or storing `* def idemKey = java.util.UUID.randomUUID() + ''` within a scenario to test replay/`409`), preventing `400 Bad Request` or `409`/`422` collisions across repeated runs against live KeyDB/Redis.
-  - **Service-Layer RBAC Defense (Anti-`Depends()` Bypass) & MCP Approval Gate:** In FastAPI, `Depends(require_roles(...))` only runs when invoked through the HTTP router. When service or controller functions can be called directly by internal JSON-RPC/MCP dispatchers, background workers, or WebSocket handlers, `Depends()` is bypassed. Always validate `claims["role"]` / `claims["rol"]` explicitly at the start of the service function, route mutating MCP tools through `ApprovalRequest` (`AWAITING_APPROVAL`), and include unit tests invoking the service/MCP dispatcher directly with an unprivileged role asserting `403` / `PermissionError`.
+  - **Service-Layer RBAC Defense (Anti-`Depends()` Bypass) & MCP Approval Gate:** In FastAPI, `Depends(require_roles(...))` only runs when invoked through the HTTP router. When service or controller functions can be called directly by internal JSON-RPC/MCP dispatchers, background workers, or WebSocket handlers, `Depends()` is bypassed. Always validate `claims["role"]` explicitly at the start of the service function, route mutating MCP tools through `ApprovalRequest` (`AWAITING_APPROVAL`), and include unit tests invoking the service/MCP dispatcher directly with an unprivileged role asserting `403` / `PermissionError`.
 
 ### D. Unmocked Orchestrator Boot, Supervisor Task-Exit Semantics & Container Healthcheck Contract (`QA-HEALTH-01`)
 - **Root Cause Prevented:** Background worker containers (`python -m src.workers.runner`) pass `>= 95%` siloed unit coverage yet crash into Docker `unhealthy` when: (a) an opt-in feature-flagged worker (`SIEM_EXPORT_ENABLED=false`) cleanly returns `None` (`task.done() == True`, `task.exception() is None`), (b) the supervisor loop treats every `task.done() and not task.cancelled()` as a fatal crash, and (c) the orchestrator unit test mocks all sub-workers (`AsyncMock` + `sleep(0.01)` + `cancel()`) without asserting the physical `HEALTHCHECK` artifact (`/tmp/worker_heartbeat`).
@@ -158,6 +158,7 @@ addopts = "--import-mode=importlib --cov=src --cov-report=term-missing --cov-rep
 .PHONY: qa-lint qa-unit qa-migration qa-integration qa-contracts qa-load qa-ci qa-mutation qa-bdd qa-dast qa-chaos qa-all clean-cache clean qa-clean
 
 PROJECT_DIR ?= $(CURDIR)
+COMPOSE_FILE ?= docker-compose.qa.yml
 QA_UID ?= $(shell id -u)
 QA_GID ?= $(shell id -g)
 export QA_UID QA_GID
@@ -202,8 +203,6 @@ qa-load:
 		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml --profile load run --rm -T -u "$(QA_UID):$(QA_GID)" k6-smoke'
 
 qa-ci: qa-lint qa-unit qa-migration qa-integration qa-contracts
-```
-- **Additional Hardened Blueprints (`mutmut_gates.py`, `profiler`, `zap.yaml`):** Run `mutmut_gates.py` in `qa-mutation` (`importlib.import_module("tests")`, `src/` mutation target, `MSI >= 80%`), `qa-profile` via dedicated `profiler` `py-spy` sidecar (`pid: "service:api"` / `service:python-api`), and non-root `zap.yaml` (`/zap/wrk:ro`, output `/tmp/zap-report.html`). Python dev tooling includes `hypothesis`, `respx`, and Linux `memray`.
 
 qa-bdd:
 	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down -v >/dev/null 2>&1 || true" EXIT; \
@@ -235,6 +234,8 @@ clean: clean-cache
 
 qa-clean: clean
 ```
+
+- **Additional Hardened Blueprints (`mutmut_gates.py`, `profiler`, `zap.yaml`):** Run `mutmut_gates.py` in `qa-mutation` (`importlib.import_module("tests")`, `src/` mutation target, `MSI >= 80%`), `qa-profile` via dedicated `profiler` `py-spy` sidecar (`pid: "service:api"` / `service:python-api`), and non-root `zap.yaml` (`/zap/wrk:ro`, output `/tmp/zap-report.html`). Python dev tooling includes `hypothesis`, `respx`, and Linux `memray`.
 
 ---
 

@@ -109,7 +109,7 @@ function applyUpgradeToken(
   state: ParsedUpgradeArgs
 ): number {
   const arg = pickAt(args, index);
-  const boolAction = UPGRADE_BOOL_FLAGS[arg];
+  const boolAction = Object.hasOwn(UPGRADE_BOOL_FLAGS, arg) ? UPGRADE_BOOL_FLAGS[arg] : undefined;
   if (boolAction) {
     boolAction(state);
     return 0;

@@ -17,6 +17,7 @@ Because this repository acts as the corporate architectural blueprint and knowle
 | Version | Support Status | Infrastructure Requirements |
 | :--- | :--- | :--- |
 | **`3.5.x` (`main` / Active)** | ✅ Active Support | Docker 26+, PostgreSQL 17, Multi-Threaded KeyDB |
+| **`3.3.x`** | ⚠️ Security Fixes Only | Superseded by `3.5.x` (`upgrade recommended`) |
 | **`3.2.x`** | ⚠️ Security Fixes Only | Superseded by `3.5.x` (`upgrade recommended`) |
 | **`3.1.x`** | ⚠️ Security Fixes Only | Superseded by `3.5.x` (`upgrade recommended`) |
 | **`3.0.x`** | ⚠️ Security Fixes Only | Superseded by `3.5.x` (`upgrade recommended`) |
@@ -236,11 +237,11 @@ Integrating SPAs (Vue 3, React) with REST/WebSocket APIs (FastAPI, Node.js) crea
   - Include at least one in-process test wired through the real SDK client/transport (`InMemoryTransport` + `Client` in Node/TS or `ClientSession` / `create_connected_server_and_client_session` in Python) exercising `list_tools` and `call_tool` (`QA-CONTRACT-SDK-01`, exemptable with `# qa-contract-sdk-ok` when covered by an external harness).
   - Install dependencies in `Dockerfile` strictly from the lockfile (`uv sync --frozen --no-dev`, `uv export --frozen --no-dev | uv pip install --system -r -`, `pnpm install --frozen-lockfile`, `npm ci`) and execute a smoke test on the built image (`import <app>`, `id -u != 0`, and `401` probe on protected routes; audited via `QA-DOCKER-LOCK-01` in `audit_security_stig_owasp`, exemptable with `# qa-docker-lock-ok`).
 
-### 4.29. Exact Playwright NPM ↔ Docker Image Parity (`QA-PLAYWRIGHT-PIN-01`) & Anti-SSRF Protection in PageSpeed Insights (`SEC-03` — `DISA APSC-DV-001430` / `APSC-DV-002520`)
+### 4.29. Exact Playwright NPM ↔ Docker Image Parity (`QA-PLAYWRIGHT-PIN-01`) & Anti-SSRF Protection in PageSpeed Insights (Pattern 4 / `SEC-10` — `DISA APSC-DV-001430` / `APSC-DV-002520`)
 - **Risk:** Using SemVer ranges (`^1.52.0`) or floating `:latest` tags between `@playwright/test`/`playwright` in `package.json` and `mcr.microsoft.com/playwright:vX.Y.Z-*` in `docker-compose.qa.yml` triggers `Executable doesn't exist` failures when the preinstalled browser mismatches; additionally, passing unvalidated URLs to external audit tools (`PageSpeed Insights`) without pre-DNS resolution exposes intranet SSRF vectors and risks leaking `?key=...` parameters in error traces.
 - **Mitigation:**
   - Pin exact unprefixed versions (`"1.52.0"`) in `@playwright/test` / `playwright` matched 1:1 with `mcr.microsoft.com/playwright:v1.52.0-*` (`QA-PLAYWRIGHT-PIN-01` in `audit_security_stig_owasp`, auto-aligned in `SurgicalMerger.mergePackageJson`, executed non-root as `QA_UID:QA_GID` prioritizing `./node_modules/.bin/{playwright,lhci}`).
-  - Validate all target URLs in `.agents/scripts/audit_pagespeed_insights.py` (`make audit-psi` / `make qa-psi`) enforcing exclusive `https://` scheme, pre-DNS blocking of private/loopback/link-local/`.internal` ranges (`SEC-03`), and mandatory redaction of `key=`/`PAGESPEED_API_KEY` parameters (`SEC-06`).
+  - Validate all target URLs in `.agents/scripts/audit_pagespeed_insights.py` (`make audit-psi` / `make qa-psi`) enforcing exclusive `https://` scheme, pre-DNS blocking of private/loopback/link-local/`.internal` ranges (Pattern 4 Anti-SSRF), and mandatory redaction of `key=`/`PAGESPEED_API_KEY` parameters (`SEC-10`).
 
 ### 4.30. SSR/SSG Hydration Parity under Dual Color Schemes in Playwright (`QA-SSR-HYDRATION-01` — `Standard 11X Layer 9 (L09 Playwright/SSR)` & `APSC-DV-002310`)
 - **Risk:** In SSR/SSG apps with light/dark theme switching, an inline `<head>` script mutating `dataset.theme` or `.dark` before hydration causes silent DOM mismatches (*Hydration completed but contains mismatches*) when components use client-dependent `v-if` or when `playwright.config.ts` hardcodes only one `colorScheme` (e.g., `'dark'`), hiding production regressions under `prefers-color-scheme: light`.

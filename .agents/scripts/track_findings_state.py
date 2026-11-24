@@ -37,7 +37,8 @@ ISO_TS_RE = re.compile(
 DURATION_RE = re.compile(r"\b\d+(?:\.\d+)?\s*(?:ms|s|sec|seconds)\b", re.IGNORECASE)
 TMP_PATH_RE = re.compile(r"/tmp/[^\s\"':)]+")
 MSG_LINE_REF_RE = re.compile(
-    r"(?::\d+(?::\d+)?|\(\d+,\s*\d+\)|\b(?:line|línea|linea|col|column)\s+\d+\b|\bL\d+\b)",
+    r"(?::\d+(?::\d+)?|\(\d+,\s*\d+\)|\b(?:line|línea|linea|col|column)\s+\d+\b|"
+    r"\bL(?!0[1-9]\b|1[0-3]\b)\d+\b)",
     re.IGNORECASE,
 )
 WHITESPACE_RE = re.compile(r"\s+")
@@ -54,12 +55,22 @@ SECRET_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     ),
     (
         re.compile(
-            r"(--(?:token|api-key|apikey|secret|password|passwd))\s+[^\s\"']+",
+            r"(--(?:token|api-key|apikey|secret|password|passwd))(?:\s+|=)[^\s\"']+",
             re.IGNORECASE,
         ),
-        r"\1 [REDACTED]",
+        r"\1=[REDACTED]",
     ),
-    (re.compile(r"\b(?:ghp|gho|ghs|npm)_[A-Za-z0-9]{16,}\b"), "[REDACTED]"),
+    (
+        re.compile(r"\b(?:ghp|gho|ghs|github_pat|npm)_[A-Za-z0-9_]{12,}\b"),
+        "[REDACTED]",
+    ),
+    (
+        re.compile(r"\b(?:glpat|xox[baprs])-[A-Za-z0-9_-]{12,}\b"),
+        "[REDACTED]",
+    ),
+    (re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b"), "[REDACTED]"),
+    (re.compile(r"\bAIza[A-Za-z0-9_-]{16,}\b"), "[REDACTED]"),
+    (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "[REDACTED]"),
 )
 
 
@@ -265,9 +276,11 @@ def _load_state_doc(
 
 
 def _ensure_private_parent(parent: Path) -> None:
+    existed = parent.exists()
     parent.mkdir(parents=True, exist_ok=True)
     if (
-        parent.stat().st_uid == os.geteuid()
+        (not existed or parent.name == ".cache")
+        and parent.stat().st_uid == os.geteuid()
         and parent.resolve() != Path.cwd().resolve()
     ):
         os.chmod(parent, 0o700)

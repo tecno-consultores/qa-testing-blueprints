@@ -129,7 +129,10 @@ function parsePositiveInt(raw: string): number {
 
 type AuditValueSetter = (value: string, flag: string, state: ParsedAuditArgs) => void;
 
-const AUDIT_VALUE_HANDLERS: Readonly<Record<string, AuditValueSetter>> = {
+const AUDIT_VALUE_HANDLERS: Readonly<Record<string, AuditValueSetter>> = Object.assign<
+  Record<string, AuditValueSetter>,
+  Record<string, AuditValueSetter>
+>(Object.create(null) as Record<string, AuditValueSetter>, {
   [FLAG_PROJECT_PATH]: (val, _flag, state) => {
     state.rawDir = val;
   },
@@ -160,7 +163,7 @@ const AUDIT_VALUE_HANDLERS: Readonly<Record<string, AuditValueSetter>> = {
   [FLAG_ARCH_PATH]: (val, _flag, state) => {
     state.architecturePath = val;
   },
-};
+});
 
 const AUDIT_VALUE_FLAG_KEYS = Object.keys(AUDIT_VALUE_HANDLERS);
 const AUDIT_BOOL_FLAGS: Readonly<Record<string, (state: ParsedAuditArgs) => void>> = {
@@ -192,7 +195,7 @@ function applyAuditToken(
   state: ParsedAuditArgs
 ): number {
   const arg = pickAt(args, index);
-  const boolAction = AUDIT_BOOL_FLAGS[arg];
+  const boolAction = Object.hasOwn(AUDIT_BOOL_FLAGS, arg) ? AUDIT_BOOL_FLAGS[arg] : undefined;
   if (boolAction) {
     boolAction(state);
     return 0;

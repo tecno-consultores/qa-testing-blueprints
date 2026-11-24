@@ -16,12 +16,13 @@ def upgrade() -> None:
     op.execute(
         """
         CREATE TABLE telemetry_devices (
-            id VARCHAR(64) PRIMARY KEY,
+            id VARCHAR(64) NOT NULL,
             tenant_id VARCHAR(64) NOT NULL,
             hostname VARCHAR(128) NOT NULL,
             cpu_load_pct NUMERIC(5, 2) NOT NULL,
             maintenance_starts_at TIMESTAMPTZ NULL,
-            maintenance_ends_at TIMESTAMPTZ NULL
+            maintenance_ends_at TIMESTAMPTZ NULL,
+            PRIMARY KEY (tenant_id, id)
         );
         """
     )

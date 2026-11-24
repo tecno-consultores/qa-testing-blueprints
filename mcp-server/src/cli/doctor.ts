@@ -145,7 +145,7 @@ function applyDoctorToken(
   state: ParsedDoctorArgs
 ): number {
   const arg = pickAt(args, index);
-  const boolAction = DOCTOR_BOOL_FLAGS[arg];
+  const boolAction = Object.hasOwn(DOCTOR_BOOL_FLAGS, arg) ? DOCTOR_BOOL_FLAGS[arg] : undefined;
   if (boolAction) {
     boolAction(state);
     return 0;

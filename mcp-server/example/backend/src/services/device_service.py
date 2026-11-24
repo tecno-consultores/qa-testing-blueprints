@@ -40,15 +40,20 @@ def list_tenant_devices(
     return [dev for dev in store if dev.tenant_id == normalized_tenant]
 
 
+def ensure_mutation_role(claims: dict[str, Any]) -> None:
+    """Valida que el rol de los claims autorice mutaciones de dispositivos."""
+    role = unicodedata.normalize("NFKC", str(claims.get("role", ""))).strip()
+    if role not in ALLOWED_MUTATION_ROLES:
+        raise PermissionError("Insufficient role for device mutation")
+
+
 def register_tenant_device(
     store: list[TelemetryDevice],
     claims: dict[str, Any],
     device_input: RegisterDeviceInput,
 ) -> tuple[TelemetryDevice, dict[str, Any]]:
     """Registra un dispositivo aplicando RBAC, NFKC y unicidad por inquilino."""
-    role = unicodedata.normalize("NFKC", str(claims.get("role", ""))).strip()
-    if role not in ALLOWED_MUTATION_ROLES:
-        raise PermissionError("Insufficient role for device mutation")
+    ensure_mutation_role(claims)
 
     tenant_id = unicodedata.normalize("NFKC", str(claims["tenant_id"])).strip()
     clean_id = unicodedata.normalize("NFKC", device_input.device_id).strip()

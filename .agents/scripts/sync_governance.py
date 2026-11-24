@@ -9,9 +9,11 @@ import argparse
 import datetime
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +29,9 @@ from _budgets import (  # noqa: E402
 )
 from _budgets import (  # noqa: E402
     ARCHITECT_SKILL_MAX_BYTES as ARCHITECT_SKILL_MAX_BYTES,
+)
+from _budgets import (  # noqa: E402
+    CANONICAL_IGNORED_DIRS as CANONICAL_IGNORED_DIRS,
 )
 from _budgets import (  # noqa: E402
     GLOBAL_CONNECTOR_MAX_BYTES as GLOBAL_CONNECTOR_MAX_BYTES,
@@ -141,22 +146,7 @@ EXCLUDED_LEGACY_COMMON_PATHS: frozenset[str] = frozenset(
 )
 
 IGNORED_STACK_NAMES = frozenset({"README.md", "README.es.md", "changelog", ".DS_Store"})
-IGNORED_STACK_DIRS = frozenset(
-    {
-        ".git",
-        ".pytest_cache",
-        "__pycache__",
-        ".venv",
-        "venv",
-        ".tox",
-        ".nox",
-        "mutants",
-        ".mutmut-cache",
-        "node_modules",
-        "dist",
-        "graphify-out",
-    }
-)
+IGNORED_STACK_DIRS = CANONICAL_IGNORED_DIRS
 
 _EXACT_STACK_EXAMPLES: dict[str, tuple[str, str]] = {
     "gitignore.example": (".gitignore", "append_missing_lines"),
@@ -1013,6 +1003,17 @@ def _build_skill_catalog_updates(
     return updates
 
 
+def _atomic_write_text(target: Path, content: str) -> None:
+    tmp_name = f".{target.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
+    tmp_path = target.parent / tmp_name
+    try:
+        tmp_path.write_text(content, encoding="utf-8")
+        os.replace(tmp_path, target)
+    except OSError:
+        tmp_path.unlink(missing_ok=True)
+        raise
+
+
 def _sync_single_skill_entry(
     repo_root: Path,
     entry: dict[str, Any],
@@ -1026,7 +1027,7 @@ def _sync_single_skill_entry(
         repo_root / rel_skill if isinstance(rel_skill, str) and rel_skill else None
     )
     if skill_file is None or not skill_file.is_file():
-        return False, None
+        return False, f"{catalog_rel} referencia archivo inexistente '{rel_skill}'."
     updates = _build_skill_catalog_updates(skill_file, sync_hashes=sync_hashes)
     if not any(entry.get(key) != val for key, val in updates.items()):
         return False, None
@@ -1085,9 +1086,9 @@ def _sync_skill_catalog(
         check_only=check_only,
     )
     if dirty and not check_only:
-        catalog_path.write_text(
+        _atomic_write_text(
+            catalog_path,
             json.dumps(data, indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8",
         )
     return errors
 
@@ -1160,7 +1161,7 @@ def _apply_manifest_write(
         else candidate
     )
     updated_raw = json.dumps(updated, indent=2, ensure_ascii=False) + "\n"
-    manifest_path.write_text(updated_raw, encoding="utf-8")
+    _atomic_write_text(manifest_path, updated_raw)
     return updated, True
 
 

@@ -44,7 +44,7 @@ const MESSAGE_NORMALIZATION_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/:\d{1,10}\b/g, ''],
   [/\(\d{1,10},\s*\d{1,10}\)/g, ''],
   [/\b(?:line|línea|linea|col|column)\s+\d{1,10}\b/gi, ''],
-  [/\bL\d{1,10}\b/gi, ''],
+  [/\bL(?!0?[1-9]\b|1[0-3]\b)\d{1,10}\b/gi, ''],
   [/\s+/g, ' '],
 ];
 
@@ -611,16 +611,31 @@ function readCertifyStateDocument(root: string, relPath: string): { statePath: s
   }
 }
 
+export function safeChmodSync(
+  targetPath: string,
+  mode: number,
+  chmodFn: (p: string, m: number) => void = fs.chmodSync
+): void {
+  try {
+    chmodFn(targetPath, mode);
+  } catch (err: unknown) {
+    const code = (err as NodeJS.ErrnoException)?.code;
+    if (code !== 'EPERM' && code !== 'EROFS' && code !== 'ENOSYS') {
+      throw err;
+    }
+  }
+}
+
 function writeCertifyStateDocument(root: string, relPath: string, doc: CertifyStateDocument): void {
   const statePath = resolveSafeEvidenceTarget(root, relPath);
   const parent = path.dirname(statePath);
   fs.mkdirSync(parent, { recursive: true, mode: 0o700 });
-  fs.chmodSync(parent, 0o700);
+  safeChmodSync(parent, 0o700);
   fs.writeFileSync(statePath, `${JSON.stringify(doc, null, 2)}\n`, {
     encoding: 'utf8',
     mode: 0o600,
   });
-  fs.chmodSync(statePath, 0o600);
+  safeChmodSync(statePath, 0o600);
 }
 
 function countOscillations(historySets: ReadonlyArray<Set<string>>, fingerprint: string): number {
@@ -750,7 +765,7 @@ export function recordQaStageFindingsState(
     writeCertifyStateDocument(root, CERTIFY_STATE_REL_PATH, doc);
   } catch (err: unknown) {
     const code = (err as NodeJS.ErrnoException)?.code;
-    if (code !== 'EROFS' && code !== 'EACCES') {
+    if (code !== 'EROFS' && code !== 'EACCES' && code !== 'EPERM') {
       throw err;
     }
     reportDebugCatchError('qaEvidence.recordQaStageFindingsState', err);

@@ -444,8 +444,10 @@ runs:
               mkdir -p .agents/artifacts
               AUDIT_RC=0
               docker run --rm --network none \
+                --security-opt=no-new-privileges:true \
                 -u "$(id -u):$(id -g)" \
                 -e HOME=/tmp \
+                -e QA_OUTPUT_LANG="${INPUT_LANG}" \
                 -v "$(pwd):/app:ro" \
                 -w /app \
                 "${INPUT_NODE_IMAGE}" \
@@ -459,13 +461,16 @@ runs:
             elif command -v docker >/dev/null 2>&1 && docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.5.0 audit --help >/dev/null 2>&1; then
               mkdir -p .agents/artifacts
               AUDIT_RC=0
-              docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.5.0 audit --mode security --sarif > .agents/artifacts/qa-11x-audit.sarif || AUDIT_RC=$?
+              docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -e QA_OUTPUT_LANG="${INPUT_LANG}" -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.5.0 audit --mode security --sarif > .agents/artifacts/qa-11x-audit.sarif || AUDIT_RC=$?
               if [ -s ".agents/artifacts/qa-11x-audit.sarif" ]; then
                 SARIF_PATH=".agents/artifacts/qa-11x-audit.sarif"
               fi
               if [ "${AUDIT_RC}" -ne 0 ]; then
                 exit "${AUDIT_RC}"
               fi
+            else
+              echo "⚠️ [SKIPPED] Security SARIF audit omitted (no local mcp-server/dist/index.js and npx probe unavailable)."
+              SKIPPED_GATES=$((SKIPPED_GATES + 1))
             fi
             if command -v make >/dev/null 2>&1 && [ -f "Makefile" ] && grep -q '^qa-lint:' Makefile; then
               make qa-lint

@@ -15,7 +15,7 @@ Para evitar sobreingeniería en tareas pequeñas sin relajar los controles en si
 | **Perfil** | **`starter`** | Inicio rápido en 30s (`quickstart`) | Secretos = 0, contenedores no-root (`Rule Zero`), `.qa-11x.json`, conector `AGENTS.md` (28 agentes) |
 | **Perfil** | **`standard`** | PRs diarios de equipos productivos | `starter` + cobertura `>= 95%`, tipado estricto (`mypy --strict`, `tsc`, `PHPStan max`), partición AST CI (`40%–60%` ahorro) y linter de antipatrones UI |
 | **Perfil** | **`enterprise`** | Sistemas regulados o multi-tenant | Pirámide completa de 13 capas + FINOS CALM, PostgreSQL 17 RLS + WORM, DISA STIG V6R5, Pact + k6, AI Evals y Release Readiness Gate |
-| **Vía** | **`DOCS_ONLY`** | Cambios exclusivos en `*.md` o `docs/` | `0` contenedores QA, `0` reconstrucciones AST; sincroniza manifiesto/docs y certifica `make lint-docs && make certify` |
+| **Vía** | **`DOCS_ONLY`** | Cambios exclusivos en documentación humana `*.md` o `docs/` (excluye `.agents/{skills,rules,schemas}/`) | `0` contenedores QA, `0` reconstrucciones AST; sincroniza manifiesto/docs y certifica `make lint-docs && make certify` |
 | **Vía** | **`MICRO_CHANGE`** | `<= 3` archivos, `0` rutas/ORM nuevos, Blast Radius `LOW` (`< 5` llamadores) | Suite unitaria/contrato focalizada del stack + co-evolución `QA-TEST-SYNC-01` + actualización incremental AST |
 | **Vía** | **`FULL_11X`** | `> 3` archivos, nuevas APIs/Vistas, ORM, seguridad o Blast Radius `MEDIUM/HIGH` | Flujo integral de 11 pasos y 13 capas con cierre obligatorio en compuerta 10/10 |
 

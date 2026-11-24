@@ -8,6 +8,14 @@ Todos los cambios notables en el paquete npm y servidor MCP `@sinfallas/mcp-qa-1
 
 ## [Unreleased]
 
+## [3.5.0] - 2026-11-23
+
+### Añadido
+- **Señales Arquitectónicas Longitudinales Git (`blast-radius --git-signals` / `inspect_ast_blast_radius`) y Perfiles CALM:** Incorporado `include_git_signals` (`src/utils/git-signals.ts`) con normalización de renombrados (`-M`), hotspots ponderados por `fix`, acoplamiento temporal y alertas de *bus factor*; añadido `profile` (`auto` | `generic` | `qa-11x-self`) en `validate_calm_architecture` para validar modelos CALM de consumidores sin acoplamiento a los 6 nodos/5 relaciones del repositorio upstream.
+
+### Corregido
+- **Endurecimiento Integral de CLI, Escáneres de Seguridad, Parsers y Contención de Symlinks:** Protegidas todas las tablas de flags CLI con `Object.hasOwn`, endurecido `security-auditor.ts` (`SEC-03`/`06`/`08`/`10`, continuaciones de línea `QA-COV-01`, validación fail-closed de directorio), reforzados `promptGuard` (`xox[baprs]-`, presupuesto base64 `64`, saneamiento estructural incluso desactivado, exenciones `steps`/`actualOutput`/`retrievalContext`) y `diagnosticFormatter` (`glpat-`/`xox[baprs]-`), corregidos `evaluateQaStatus` ante alertas críticas/altas, duplicación de tokens en `diff-bundle`, detección `realpathSync` de entrada directa, limpieza de symlinks rotos en `version-manager`, `ALTER TABLE ONLY` en `auditVibePrototype`, umbrales numéricos `>= 95%` y acciones L02 en `test-pyramid-auditor`, globs/reason/CSV en `sessionFlightRecorder`, Anti-XXE consciente de CDATA y deduplicación de `<testsuite>` anidados en `evaluateReleaseGate`, límites/comandos en `evaluateAgentTrajectory`, plugins con `:` y symlinks rotos en `runLlmRedTeam`, sufijos de tests y entidades XML en `tmsSyncCli`, pipes/CRLF/asignaciones Makefile y symlinks en `SurgicalMerger`, preservación `L01`–`L13` y tolerancia `EPERM` en `qa-evidence`, paridad de `blueprint://security/disa-owasp-22?lang=es` y enrutamiento de timeout pesado en `sync_enterprise_tms` live.
+
 ## [3.3.0] - 2026-11-22
 
 ### Añadido

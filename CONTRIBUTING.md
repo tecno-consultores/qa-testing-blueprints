@@ -74,7 +74,7 @@ All files inside the 10 stack directories follow a strict 3-category convention 
 
 ### Commit Message Convention (Single Source of Truth)
 * [`lefthook.yml`](lefthook.yml) (`commit-msg` hook, mirrored in POSIX by [`instalar-hooks.sh`](instalar-hooks.sh) without Node.js dependencies) is the **single source of truth** for commit header validation.
-* Every commit subject line must follow Conventional Commits with a **`<= 100` characters** description limit matching:
+* Every commit subject line must follow Conventional Commits with a **`<= 100` characters** total header length matching:
   `^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security)(\([a-z0-9._/-]+\))?!?: .{1,100}$`
 * Scopes must use lowercase alphanumeric characters (`[a-z0-9._/-]+`); standard Git `Merge ` and `Revert "..."` headers are accepted automatically.
 

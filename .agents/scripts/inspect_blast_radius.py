@@ -378,7 +378,7 @@ def _print_node_radius(
     callers_count = int(radius["direct_callers_count"])
     files_count = int(radius["unique_files_count"])
     node_id = str(node.get("id") or "")
-    risk = assess_risk_level(node_id, callers_count, files_count)
+    risk = assess_risk_level(f"{node_id} {node_where}", callers_count, files_count)
     disp = _rel_display_path(g_path, workspace_root)
     print(
         f"🔹 [{disp}] '{node.get('label')}' ({node_where}) "
@@ -682,7 +682,15 @@ def analyze_git_arch_signals(
     min_confidence: float = 0.5,
 ) -> dict[str, Any]:
     root_proc = subprocess.run(
-        ["git", "-C", str(workspace), "rev-parse", "--show-toplevel"],
+        [
+            "git",
+            "-c",
+            "safe.directory=*",
+            "-C",
+            str(workspace),
+            "rev-parse",
+            "--show-toplevel",
+        ],
         check=False,
         capture_output=True,
         text=True,
@@ -693,6 +701,8 @@ def analyze_git_arch_signals(
     log_proc = subprocess.run(
         [
             "git",
+            "-c",
+            "safe.directory=*",
             "-C",
             toplevel,
             "-c",

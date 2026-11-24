@@ -94,6 +94,9 @@ RE_PROMISE_SETTIMEOUT = re.compile(r"\bnew\s+Promise\b[\s\S]{0,240}?\bsetTimeout
 RE_PY_TIME_SLEEP = re.compile(
     r"\btime\.sleep\(\s*(?:[1-9]\d*(?:\.\d+)?|\d*\.\d*[1-9]\d*)\s*\)"
 )
+RE_REAL_BROWSER_TEST = re.compile(
+    r"""(?:from\s+['"]@playwright/test['"]|require\(\s*['"]@playwright/test['"]\s*\))"""
+)
 
 RE_JS_STR_LITERAL = re.compile(
     r'"(?:\\.|[^"\\\n])*"|\'(?:\\.|[^\'\\\n])*\'|`(?:\\.|[^`\\])*`'
@@ -1073,6 +1076,15 @@ def _relative_display(file_path: Path, base_dir: Path) -> str:
         return file_path.as_posix()
 
 
+def _is_real_browser_e2e_file(rel_file: str, raw_text: str) -> bool:
+    parts = {p.lower() for p in Path(rel_file).parts}
+    if "e2e" in parts or "playwright" in parts:
+        return True
+    if rel_file.lower().endswith((".e2e.ts", ".e2e.tsx", ".e2e.js", ".e2e.jsx")):
+        return True
+    return bool(RE_REAL_BROWSER_TEST.search(raw_text))
+
+
 def _audit_single_file(
     file_path: Path, root: Path, page_records: list[PageClassRecord]
 ) -> list[Violation]:
@@ -1090,12 +1102,15 @@ def _audit_single_file(
         )
         violations.extend(_check_hidden_assertions(rel_file, clean_text))
         if not is_python:
+            force_jsdom = not _is_real_browser_e2e_file(
+                rel_file, raw_text
+            ) and _has_ancestor_jsdom_config(file_path, root)
             violations.extend(
                 _check_jsdom_geometry(
                     rel_file,
                     raw_text,
                     clean_text,
-                    force_jsdom=_has_ancestor_jsdom_config(file_path, root),
+                    force_jsdom=force_jsdom,
                 )
             )
         extractor = _extract_py_page_classes if is_python else _extract_ts_page_classes

@@ -36,10 +36,21 @@ const CRITICAL_SYSTEM_ROOTS = [
   '/lib64',
   '/System',
   '/Library',
+  'C:/Windows',
+  'C:/Program Files',
+  'C:/Program Files (x86)',
+  'C:/ProgramData',
 ] as const;
 
-function normalizeForMatch(targetPath: string): string {
-  return targetPath.replace(/\\/g, '/');
+const IS_CASE_INSENSITIVE_FS = process.platform === 'win32' || process.platform === 'darwin';
+const WIN_DRIVE_ROOT_RE = /^[a-z]:\/$/i;
+
+export function normalizeForMatch(
+  targetPath: string,
+  caseInsensitive: boolean = IS_CASE_INSENSITIVE_FS
+): string {
+  const slashed = targetPath.replace(/\\/g, '/');
+  return caseInsensitive ? slashed.toLowerCase() : slashed;
 }
 
 function isStrictlyInside(target: string, root: string): boolean {
@@ -115,7 +126,8 @@ function collectSystemRoots(): string[] {
 }
 
 function isCriticalSystemPath(realTarget: string, realTmpDir: string): boolean {
-  if (normalizeForMatch(realTarget) === '/') {
+  const normalized = normalizeForMatch(realTarget);
+  if (normalized === '/' || WIN_DRIVE_ROOT_RE.test(normalized)) {
     return true;
   }
   if (isStrictlyInside(realTarget, realTmpDir)) {

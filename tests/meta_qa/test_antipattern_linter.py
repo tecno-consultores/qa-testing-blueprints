@@ -727,3 +727,24 @@ def test_wave3_py_and_ui_antipattern_precision(tmp_path: Path) -> None:
     assert any(
         v.rule_id == "QA-UI-ANTI-005" for v in viols
     )
+
+
+def test_e2e_suffix_outside_e2e_dir_exempt_from_ancestor_jsdom(
+    tmp_path: Path,
+) -> None:
+    """Archivos *.e2e.ts fuera de e2e/ no activan QA-UI-ANTI-005 por jsdom ancestro."""
+    _write_file(
+        tmp_path,
+        "ui_pkg/vitest.config.ts",
+        "export default { test: { environment: 'jsdom' } };\n",
+    )
+    _write_file(
+        tmp_path,
+        "ui_pkg/tests/layout.e2e.ts",
+        (
+            "const box = el.getBoundingClientRect();\n"
+            "expect(box.width).toBeGreaterThan(0);\n"
+        ),
+    )
+    viols, _, _ = linter.audit_paths(["ui_pkg/tests"], base_dir=tmp_path)
+    assert all(v.rule_id != "QA-UI-ANTI-005" for v in viols)

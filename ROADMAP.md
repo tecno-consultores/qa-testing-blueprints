@@ -375,7 +375,7 @@
 ---
 
 ## ✅ Milestone 28: `v3.5.0` (`QA-11X v3.5`) — Declarative AST Boundaries/Instability, Longitudinal Git Signals, SDD/EARS & `.claude-plugin/`
-**Mandatory Reference:** [`CHANGELOG.md`](CHANGELOG.md), [`TESTING.md`](TESTING.md), and [`AGENTS.md`](AGENTS.md)
+**Mandatory Reference:** [`CHANGELOG.md`](CHANGELOG.md), [`TESTING.md`](TESTING.md), and [`AGENTS.md`](AGENTS.md) *(incorporates `v3.3.0` Thin-Client connectors `<= 1.5 KB`, `reconcile-agents` v2, and rootless `kcov`)*
 
 ### Implementation Tasks:
 - [x] **28.1.** Implement declarative `.agents/boundaries.json` (`layers`, `independence`, `forbidden` with fail-closed `0`-node guard) and Martin Instability (`--metrics`, `compute_module_instability`) in [`.agents/scripts/verify_topological_health.py`](.agents/scripts/verify_topological_health.py) plus `--git-signals` longitudinal mining in [`.agents/scripts/inspect_blast_radius.py`](.agents/scripts/inspect_blast_radius.py) and `mcp-server` (`src/utils/git-signals.ts`, `include_git_signals`, CLI `--git-signals`).

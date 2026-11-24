@@ -74,7 +74,7 @@ Todos los archivos dentro de los 10 directorios de stack siguen una convención 
 
 ### Convención de Mensajes de Commit (Fuente Única de Verdad)
 * [`lefthook.yml`](lefthook.yml) (hook `commit-msg`, replicado en POSIX por [`instalar-hooks.sh`](instalar-hooks.sh) sin dependencias de Node.js) es la **fuente única de verdad** para validar mensajes de commit.
-* Todo encabezado de commit debe seguir Conventional Commits con un límite **`<= 100` caracteres** en la descripción conforme a la expresión regular:
+* Todo encabezado de commit debe seguir Conventional Commits con un límite total de **`<= 100` caracteres** en la primera línea conforme a la expresión regular:
   `^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|security)(\([a-z0-9._/-]+\))?!?: .{1,100}$`
 * Los alcances deben usar caracteres alfanuméricos en minúsculas (`[a-z0-9._/-]+`); las cabeceras estándar de Git `Merge ` y `Revert "..."` se aceptan automáticamente.
 

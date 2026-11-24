@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 IMAGE_NAME="sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0"
 FORCE_ALL=false
 TARGET_STACK=""
@@ -99,7 +99,7 @@ stack_needs_update() {
   fi
 
   # 2. Revisar git status para cambios de código (excluyendo *.md y graphify-out)
-  if command -v git &>/dev/null && [ -d "${REPO_ROOT}/.git" ]; then
+  if command -v git &>/dev/null && [ -e "${REPO_ROOT}/.git" ]; then
     local git_code_changes
     git_code_changes=$(git -c core.quotePath=false -C "${REPO_ROOT}" status --porcelain --untracked-files=all "${rel_name}" 2>/dev/null |
       grep -vE '(\.md$|graphify-out/)' || true)

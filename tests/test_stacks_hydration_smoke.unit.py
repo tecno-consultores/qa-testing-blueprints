@@ -935,7 +935,10 @@ class TestStacksHydrationSmoke(unittest.TestCase):
         self.assertEqual(node_build_cfg["extends"], "./tsconfig.json")
         self.assertIs(node_build_cfg["compilerOptions"]["noEmit"], False)
         self.assertIs(
-            node_build_cfg["compilerOptions"]["allowImportingTsExtensions"], False
+            node_build_cfg["compilerOptions"]["rewriteRelativeImportExtensions"], True
+        )
+        self.assertNotIn(
+            "allowImportingTsExtensions", node_build_cfg["compilerOptions"]
         )
         self.assertEqual(node_build_cfg["compilerOptions"]["outDir"], "./dist")
 

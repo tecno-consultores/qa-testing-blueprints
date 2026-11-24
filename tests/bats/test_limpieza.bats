@@ -346,3 +346,21 @@ EOF
   assert_success
   [ ! -f "${d4_ws}/.hook_ran" ]
 }
+
+@test "limpieza.sh: soporta --help no destructivo y rechaza banderas desconocidas" {
+  local ws="${BATS_TEST_TMPDIR}/limp_help_ws"
+  mkdir -p "${ws}/scripts"
+  cp "${CLEAN_SCRIPT}" "${ws}/scripts/limpieza.sh"
+  chmod +x "${ws}/scripts/limpieza.sh"
+  printf 'keep\n' >"${ws}/junit.xml"
+
+  run bash "${ws}/scripts/limpieza.sh" --help
+  assert_success
+  assert_output --partial "Uso: ./scripts/limpieza.sh"
+  [ -f "${ws}/junit.xml" ]
+
+  run bash "${ws}/scripts/limpieza.sh" --bandera-invalida
+  assert_failure 1
+  assert_output --partial "Opción no reconocida"
+  [ -f "${ws}/junit.xml" ]
+}

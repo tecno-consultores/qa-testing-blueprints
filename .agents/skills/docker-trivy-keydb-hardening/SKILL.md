@@ -49,6 +49,7 @@ When deploying cache, rate-limiting, idempotency locks (`idemp:{tenant_id}:{user
   ```yaml
   redis:
     image: eqalpha/keydb@sha256:6537505c42355ca1f571276bddf83f5b750f760f07b2a185a676481791e388ac
+    user: "999:999"
     mem_limit: 384m
     read_only: true
     tmpfs:
@@ -59,21 +60,40 @@ When deploying cache, rate-limiting, idempotency locks (`idemp:{tenant_id}:{user
       - ALL
     environment:
       REDISCLI_AUTH: "${KEYDB_PASSWORD}"
-    # Prefer mounting a 0400 keydb.conf secret or passing requirepass via secret/env cleanly (maxmemory 256mb <= 75% of 384m)
-    command: >
-      keydb-server
-      --server-threads 2
-      --appendonly no
-      --save ""
-      --protected-mode yes
-      --requirepass "${KEYDB_PASSWORD}"
-      --maxmemory 256mb
-      --maxmemory-policy volatile-lru
-      --tcp-keepalive 300
-      --rename-command FLUSHALL ""
-      --rename-command FLUSHDB ""
-      --rename-command CONFIG ""
-      --rename-command DEBUG ""
+    # Mount a 0400 keydb.conf (containing requirepass / ACLs) rather than passing secrets in argv (maxmemory 256mb <= 75% of 384m)
+    volumes:
+      - ./deploy/keydb.conf:/etc/keydb/keydb.conf:ro
+    command:
+      - keydb-server
+      - /etc/keydb/keydb.conf
+      - --dir
+      - /tmp
+      - --server-threads
+      - "2"
+      - --appendonly
+      - "no"
+      - --save
+      - ""
+      - --protected-mode
+      - "yes"
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - volatile-lru
+      - --tcp-keepalive
+      - "300"
+      - --rename-command
+      - FLUSHALL
+      - ""
+      - --rename-command
+      - FLUSHDB
+      - ""
+      - --rename-command
+      - CONFIG
+      - ""
+      - --rename-command
+      - DEBUG
+      - ""
     healthcheck:
       test: ["CMD-SHELL", "keydb-cli ping | grep -q PONG"]
       interval: 5s

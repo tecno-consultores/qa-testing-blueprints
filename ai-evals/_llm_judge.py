@@ -58,12 +58,21 @@ def is_live_llm_audit_enabled(env: Mapping[str, str] | None = None) -> bool:
     )
 
 
+def _resolve_openai_judge(active_env: Mapping[str, str]) -> DeepEvalBaseLLM | None:
+    api_key = active_env.get("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        return None
+    openai_base = active_env.get("OPENAI_API_BASE", "").strip()
+    model_name = _pick_model_name(active_env, "gpt-4.1-mini")
+    if openai_base:
+        return LocalModel(model=model_name, base_url=openai_base, api_key=api_key)
+    return OpenAIModel(model=model_name, api_key=api_key)
+
+
 def _resolve_cloud_judge(active_env: Mapping[str, str]) -> DeepEvalBaseLLM | None:
-    if active_env.get("OPENAI_API_KEY"):
-        return OpenAIModel(
-            model=_pick_model_name(active_env, "gpt-4.1-mini"),
-            api_key=active_env["OPENAI_API_KEY"],
-        )
+    openai_judge = _resolve_openai_judge(active_env)
+    if openai_judge is not None:
+        return openai_judge
     if active_env.get("GEMINI_API_KEY"):
         return _build_provider_or_local(
             GeminiModel,

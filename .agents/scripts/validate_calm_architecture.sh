@@ -29,6 +29,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --arch=*)
       ARCH_ARG="${1#--arch=}"
+      if [ -z "${ARCH_ARG}" ]; then
+        printf '❌ [CALM] Falta argumento para --arch=\n' >&2
+        exit 1
+      fi
       shift
       ;;
     -h | --help)
@@ -103,6 +107,7 @@ function findDuplicateJsonKeys(source) {
   };
 
   const readString = () => {
+    const startIdx = i;
     i += 1;
     let out = "";
     while (i < source.length) {
@@ -114,7 +119,12 @@ function findDuplicateJsonKeys(source) {
       }
       if (ch === "\"") {
         i += 1;
-        return out;
+        const rawLiteral = source.slice(startIdx, i);
+        try {
+          return JSON.parse(rawLiteral);
+        } catch {
+          return out;
+        }
       }
       out += ch;
       i += 1;
@@ -242,19 +252,36 @@ for (const rel of rels) {
   relIds.add(id);
 
   const rtype = rel["relationship-type"];
-  const connects = rtype && typeof rtype === "object" ? rtype.connects : null;
-  const src = connects && connects.source ? connects.source.node : null;
-  const dst = connects && connects.destination ? connects.destination.node : null;
-  if (typeof src !== "string" || typeof dst !== "string" || !src.trim() || !dst.trim()) {
+  const endpoints = [];
+  if (rtype && typeof rtype === "object") {
+    if (rtype.connects && rtype.connects.source && rtype.connects.destination) {
+      endpoints.push([rtype.connects.source.node, rtype.connects.destination.node]);
+    }
+    if (rtype.interacts && rtype.interacts.actor && Array.isArray(rtype.interacts.nodes)) {
+      for (const n of rtype.interacts.nodes) endpoints.push([rtype.interacts.actor, n]);
+    }
+    if (rtype["deployed-in"] && rtype["deployed-in"].container && Array.isArray(rtype["deployed-in"].nodes)) {
+      for (const n of rtype["deployed-in"].nodes) endpoints.push([rtype["deployed-in"].container, n]);
+    }
+    if (rtype["composed-of"] && rtype["composed-of"].container && Array.isArray(rtype["composed-of"].nodes)) {
+      for (const n of rtype["composed-of"].nodes) endpoints.push([rtype["composed-of"].container, n]);
+    }
+  }
+  const validEndpoints = endpoints.filter(
+    ([src, dst]) => typeof src === "string" && typeof dst === "string" && src.trim() && dst.trim(),
+  );
+  if (validEndpoints.length === 0) {
     errors.push(`[MISSING_RELATIONSHIP_FIELD] Relación ${id} sin source/destination.`);
     continue;
   }
-  if (!nodeIds.has(src)) errors.push(`[DANGLING_RELATIONSHIP_NODE] ${id} -> nodo inexistente ${src}`);
-  if (!nodeIds.has(dst)) errors.push(`[DANGLING_RELATIONSHIP_NODE] ${id} -> nodo inexistente ${dst}`);
-  if (nodeIds.has(src) && nodeIds.has(dst)) {
-    edgeKeys.add(`${src}->${dst}`);
-    connectedNodes.add(src);
-    connectedNodes.add(dst);
+  for (const [src, dst] of validEndpoints) {
+    if (!nodeIds.has(src)) errors.push(`[DANGLING_RELATIONSHIP_NODE] ${id} -> nodo inexistente ${src}`);
+    if (!nodeIds.has(dst)) errors.push(`[DANGLING_RELATIONSHIP_NODE] ${id} -> nodo inexistente ${dst}`);
+    if (nodeIds.has(src) && nodeIds.has(dst)) {
+      edgeKeys.add(`${src}->${dst}`);
+      connectedNodes.add(src);
+      connectedNodes.add(dst);
+    }
   }
 }
 
@@ -307,17 +334,26 @@ const collectControlTargetRefs = (entry) => {
 
 const controls = doc.controls && typeof doc.controls === "object" && !Array.isArray(doc.controls) ? doc.controls : null;
 if (!controls) {
-  errors.push("[MISSING_REQUIRED_CONTROL] Falta bloque controls.");
+  if (isUpstream) {
+    errors.push("[MISSING_REQUIRED_CONTROL] Falta bloque controls.");
+  }
 } else {
-  for (const ctrl of REQUIRED_CONTROLS) {
-    const entry = controls[ctrl];
-    if (!entry) {
-      errors.push(`[MISSING_REQUIRED_CONTROL] Falta control obligatorio ${ctrl}`);
-    } else if (entry.enabled === false || !entry.description || !Array.isArray(entry.requirements) || entry.requirements.length === 0) {
-      errors.push(`[INACTIVE_CONTROL] Control inactivo o incompleto: ${ctrl}`);
+  if (isUpstream) {
+    for (const ctrl of REQUIRED_CONTROLS) {
+      const entry = controls[ctrl];
+      if (!entry) {
+        errors.push(`[MISSING_REQUIRED_CONTROL] Falta control obligatorio ${ctrl}`);
+      } else if (entry.enabled === false || !entry.description || !Array.isArray(entry.requirements) || entry.requirements.length === 0) {
+        errors.push(`[INACTIVE_CONTROL] Control inactivo o incompleto: ${ctrl}`);
+      }
     }
   }
   for (const [ctrlId, entry] of Object.entries(controls)) {
+    if (entry && (entry.enabled === false || !entry.description || !Array.isArray(entry.requirements) || entry.requirements.length === 0)) {
+      if (!isUpstream || !REQUIRED_CONTROLS.includes(ctrlId)) {
+        errors.push(`[INACTIVE_CONTROL] Control inactivo o incompleto: ${ctrlId}`);
+      }
+    }
     const targetRefs = collectControlTargetRefs(entry);
     for (const targetId of targetRefs) {
       if (!nodeIds.has(targetId) && !relIds.has(targetId)) {
@@ -334,7 +370,7 @@ if (!controls) {
 if (errors.length > 0) failVerbose(realRel.split(path.sep).join("/"), errors);
 
 const displayPath = realRel.split(path.sep).join("/");
-process.stdout.write(`${displayPath}|${nodes.length}|${rels.length}|${Object.keys(controls).length}`);
+process.stdout.write(`${displayPath}|${nodes.length}|${rels.length}|${controls ? Object.keys(controls).length : 0}`);
 JSEOF
 }
 

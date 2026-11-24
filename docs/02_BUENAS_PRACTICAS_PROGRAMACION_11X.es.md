@@ -325,7 +325,7 @@ Preservar el estado previo garantiza continuidad operativa en centros de monitor
 
 ## 7. Alineación de Toolchain Node 26, pnpm 12, ESLint 9 y Karate 1.5.1 (Vue 3 / React / SSG)
 
-Al certificar proyectos frontend y Node.js dentro de las imágenes oficiales `sinfallas/base-node-ionic:26` (`Node v26.13+`, `pnpm 12.18+`) y `sinfallas/karatelabs:1.5.1`, deben respetarse siete contratos de entorno para evitar falsos fallos de pipeline y preservar la seguridad Zero-Trust (`SEC-09`):
+Al certificar proyectos frontend y Node.js dentro de las imágenes oficiales `sinfallas/base-node-ionic:26` (`Node v26.13+`, `pnpm 12.18+`) y `sinfallas/karatelabs:1.5.1`, deben respetarse nueve contratos de entorno para evitar falsos fallos de pipeline y preservar la seguridad Zero-Trust (`SEC-09`):
 
 1. **`pnpm-workspace.yaml` con mapa booleano `allowBuilds` (`SEC-09`):**
    - En `pnpm@12+`, la clave heredada `package.json#pnpm.onlyBuiltDependencies` es ignorada con advertencia y los binarios nativos (`esbuild`, `playwright`, `@playwright/test`) abortan con `ERR_PNPM_IGNORED_BUILDS`.
@@ -344,7 +344,7 @@ Al certificar proyectos frontend y Node.js dentro de las imágenes oficiales `si
 4. **Polyfill en memoria de `localStorage` para Vitest + `jsdom` sobre Node v26:**
    - Node v26 expone un descriptor experimental `globalThis.localStorage` que sin `--localstorage-file` carece del método `.clear()` en sesiones `jsdom`. Registra un `Storage` en memoria dentro de `vitest.setup.ts` (enlazado mediante `test.setupFiles` en `vitest.config.ts`) cuando `typeof globalThis.localStorage?.clear !== 'function'`.
 5. **Frontera real de `sinfallas/karatelabs:1.5.1` (HTTP/OSHP/SSG/XML) vs Playwright (`ui-e2e`):**
-   - Las imágenes `sinfallas/karatelabs:1.5.1` / `:latest` no incluyen binario Chrome/Chromium. Delega toda interacción DOM real, verificación de botones `[ 🔄 Refrescar ]`, geometría Anti-JSDOM y WCAG 2.1 AA a Playwright (`ui-e2e`), y enfoca `test/ui_business_flow.feature` en contratos HTTP sobre `http://ui-prod:80`: códigos `200`, rutas SPA/SSG, cabeceras OWASP OSHP alineadas con `nginx/default.conf` (`Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`) y lectura segura de XML/SEO como cadena (`* string xmlText = response` en `/sitemap.xml` para evitar fallos de parser por namespaces).
+   - Las imágenes `sinfallas/karatelabs:1.5.1` / `:latest` no incluyen binario Chrome/Chromium. Delega toda interacción DOM real, verificación de botones `[ 🔄 Refrescar ]`, geometría Anti-JSDOM y WCAG 2.1 AA a Playwright (`ui-e2e`), y enfoca `test/ui_business_flow.feature` en contratos HTTP sobre `http://ui-prod:8080`: códigos `200`, rutas SPA/SSG, cabeceras OWASP OSHP alineadas con `nginx/default.conf` (`Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`) y lectura segura de XML/SEO como cadena (`* string xmlText = response` en `/sitemap.xml` para evitar fallos de parser por namespaces).
 6. **Endurecimiento no-root de `ui-e2e` y paridad exacta Playwright (`QA-PLAYWRIGHT-PIN-01`):**
    - Ejecuta el servicio `ui-e2e` (`mcr.microsoft.com/playwright:v1.52.0-noble`) bajo el UID/GID del usuario (`-u "$(QA_UID):$(QA_GID)" -e HOME=/tmp`), habilita Corepack sin privilegios de escritura global en `/tmp/.corepack-bin` (`COREPACK_HOME=/tmp/.corepack`), prioriza los binarios locales `./node_modules/.bin/playwright` y `./node_modules/.bin/lhci` antes de recurrir a `pnpm`/`corepack`, y fija versión exacta (`"1.52.0"`, sin `^` ni `~`) sincronizada entre `package.json` y el tag Docker (`QA-PLAYWRIGHT-PIN-01`).
 7. **Paridad de hidratación SSR/SSG bajo doble esquema de color (`QA-SSR-HYDRATION-01`):**
@@ -354,7 +354,7 @@ Al certificar proyectos frontend y Node.js dentro de las imágenes oficiales `si
    - Configura Stryker en blueprints JS/TS con `"ignoreStatic": true`, `"concurrency" <= 4` y exclusiones `!src/**/*.{unit,spec,test}.*` en `mutate`, acoplando el shim no-root `/tmp/qa-bin/ps` dentro de `qa-mutation` para evitar fallos al listar procesos (`QA-STRYKER-CFG-01`).
    - Refuerza la mutación en Python con `mutmut_gates.py` (`>= 80%` mutantes eliminados), plantillas DAST (`zap.yaml` / `/tmp/zap-report.html` bajo montajes `:ro`) y el objetivo `qa-profile` (`py-spy` sidecar bajo demanda).
 9. **Aislamiento Multi-Inquilino y Cierre de Pool en WebSockets y PubSub (`SEC-WS-PUBSUB-01`):**
-   - Segmenta las suscripciones Redis/KeyDB de pasarelas WebSocket por inquilino autenticado (`ws:{tenant_id}:events`), desacopla la escucha mediante un vigilante `ws.receive()` y garantiza `await pubsub.aclose()` dentro de `try/finally:` (`SEC-WS-PUBSUB-01`).
+   - Segmenta las suscripciones Redis/KeyDB de pasarelas WebSocket por inquilino autenticado (`ws:{tenant_id}:events`), rechaza canales globales o comodín sin validar, desacopla la escucha mediante un vigilante `ws.receive()` y garantiza `await pubsub.aclose()` dentro de `try/finally:` (`SEC-WS-PUBSUB-01`).
 
 ---
 

@@ -11,6 +11,7 @@ import importlib
 import json
 import math
 import os
+import re
 import sys
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
@@ -355,9 +356,12 @@ def _collect_testcases(root: Any) -> tuple[int, int, int, int, list[str]]:
     return len(cases), obs_failures, obs_errors, obs_skipped, failed_names
 
 
+_CDATA_RE = re.compile(r"<!\[CDATA\[[\s\S]*?\]\]>")
+
+
 def _parse_junit_xml_text(raw_xml: str, reasons: list[BlockingReason]) -> JunitSummary:
-    upper = raw_xml.upper()
-    if "<!DOCTYPE" in upper or "<!ENTITY" in upper:
+    outside_cdata = _CDATA_RE.sub("", raw_xml).upper()
+    if "<!DOCTYPE" in outside_cdata or "<!ENTITY" in outside_cdata:
         reasons.append(
             _security_reason(
                 "XXE_DETECTED",
@@ -522,7 +526,8 @@ def _normalize_telemetry(
             active_incidents=0,
         )
     nested = raw.get("metrics")
-    merged = {**nested, **raw} if isinstance(nested, dict) else raw
+    non_null_raw = {k: v for k, v in raw.items() if v is not None}
+    merged = {**nested, **non_null_raw} if isinstance(nested, dict) else non_null_raw
     return TelemetrySummary(
         provided=True,
         error_rate_pct=_extract_non_neg_number(

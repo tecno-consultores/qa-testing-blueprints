@@ -188,6 +188,21 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Cache Graphify AST graphs
+        id: cache-graph-nightly
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            graphify-out
+            */graphify-out
+          key: ${{ runner.os }}-graphify-${{ hashFiles('**/*.py', '**/*.ts', '**/*.tsx', '**/*.js', '**/*.vue', '**/*.php', '**/*.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-graphify-
+
+      - name: Refresh Graphify AST graphs for Gate 6 (Rule Zero)
+        if: steps.cache-graph-nightly.outputs.cache-hit != 'true'
+        run: ./scripts/actualizar-grafos-graphify.sh --all
+
       - name: Run full 11X QA regression and certification
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -202,6 +217,7 @@ jobs:
             DIFF_ARGS+=(--base-ref "HEAD~1")
           fi
           docker run --rm --network none \
+            --security-opt=no-new-privileges:true \
             -u "$(id -u):$(id -g)" \
             -e HOME=/tmp \
             -e PYTHONDONTWRITEBYTECODE=1 \

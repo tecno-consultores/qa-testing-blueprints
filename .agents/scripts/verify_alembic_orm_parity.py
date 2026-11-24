@@ -34,9 +34,10 @@ _SQL_DDL_RE = re.compile(
     re.IGNORECASE,
 )
 _SQL_RENAME_RE = re.compile(
-    rf"\bALTER\s+TABLE\s+{_QUALIFIED_TABLE}\s+RENAME\s+TO\s+{_QUALIFIED_TABLE}",
+    rf"\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?{_QUALIFIED_TABLE}\s+RENAME\s+TO\s+{_QUALIFIED_TABLE}",
     re.IGNORECASE,
 )
+_SQL_BLOCK_COMMENT_RE = re.compile(r"/\*[\s\S]*?\*/")
 _SQL_LINE_COMMENT_RE = re.compile(r"--[^\n]*")
 
 
@@ -226,19 +227,21 @@ def _unquote_ident(raw: str) -> str:
 
 
 def _extract_sql_ops(sql: str) -> list[tuple[str, ...]]:
-    cleaned = _SQL_LINE_COMMENT_RE.sub("", sql)
-    ops: list[tuple[str, ...]] = []
+    without_block = _SQL_BLOCK_COMMENT_RE.sub(" ", sql)
+    cleaned = _SQL_LINE_COMMENT_RE.sub("", without_block)
+    positioned: list[tuple[int, tuple[str, ...]]] = []
     for match in _SQL_DDL_RE.finditer(cleaned):
         action = match.group(1).lower()
         table_name = _unquote_ident(match.group(2))
         if table_name:
-            ops.append((action, table_name))
+            positioned.append((match.start(), (action, table_name)))
     for match in _SQL_RENAME_RE.finditer(cleaned):
         old_name = _unquote_ident(match.group(1))
         new_name = _unquote_ident(match.group(2))
         if old_name and new_name:
-            ops.append(("rename", old_name, new_name))
-    return ops
+            positioned.append((match.start(), ("rename", old_name, new_name)))
+    positioned.sort(key=lambda item: item[0])
+    return [op for _, op in positioned]
 
 
 def _extract_execute_ops(call: ast.Call) -> list[tuple[str, ...]]:

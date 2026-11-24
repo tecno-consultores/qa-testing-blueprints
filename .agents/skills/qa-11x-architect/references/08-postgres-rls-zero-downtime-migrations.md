@@ -95,7 +95,7 @@ def _reapply_rls_on_after_begin(session: Session, transaction, connection) -> No
 Never order hash-chained immutable audit logs (`audit_logs`) solely by `created_at DESC`—PostgreSQL `now()` is constant within a transaction and `clock_timestamp()` can tie at microsecond resolution or race across concurrent requests. Always combine:
 1. A monotonic sequence column (`seq_num BIGINT NOT NULL DEFAULT nextval('audit_logs_seq_num_seq')`).
 2. A per-tenant transactional advisory lock (`SELECT pg_advisory_xact_lock(hashtext(:lock_key))`).
-3. In-memory session tracking (`session.sync_session.info["_in_tx_audit_hash"]` / `session.__dict__["_rg_in_tx_audit_hash"]`) + `await session.flush()` after each `write_audit_log()` call:
+3. In-memory session tracking (`session.sync_session.info["_in_tx_audit_hashes"]`, cleared on `after_transaction_end`) + `await session.flush()` after each `write_audit_log()` call:
 
 ```python
 import hashlib

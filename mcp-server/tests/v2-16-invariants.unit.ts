@@ -234,7 +234,15 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
       try {
+        // Non-matching path with /index.js suffix must NOT trigger direct CLI auto-execution (H8)
         process.argv = ['node', '/tmp/fake-bin/index.js', '--version'];
+        vi.resetModules();
+        await import('../src/index.js');
+        expect(exitSpy).not.toHaveBeenCalled();
+
+        // Real entrypoint path (realpathSync match) triggers direct execution cleanly
+        const realEntry = path.resolve(process.cwd(), 'src', 'index.ts');
+        process.argv = ['node', realEntry, '--version'];
         vi.resetModules();
         await import('../src/index.js');
         await vi.waitFor(() => expect(exitSpy).toHaveBeenCalledWith(0));

@@ -34,7 +34,7 @@ Naive text-based exploration (`grep` + reading multiple full files to trace call
 ### A. Mandatory Lifecycle Moments
 1. **Code Q&A & Pre-Modification Creation Invariant:** Whenever answering a question about a project's code/architecture OR before modifying any code, verify whether `graphify-out/graph.json` exists in the repository root or target stack directory. **If missing, you MUST generate it first** (`./scripts/actualizar-grafos-graphify.sh` or `auto_build_if_missing: true`) before running `grep` or editing code.
 2. **Post-Modification Refresh Invariant:** **ALWAYS** refresh the AST graph after completing code and test changes (prior to running `certify_task_completion.sh` and local `git commit`; never run automatic `git push` per `QA-GIT-GATE-01`).
-3. **`DOCS_ONLY` Fast-Path Exemption:** Never rebuild the AST graph when a task modifies only documentation (`*.md`, `docs/**`).
+3. **`DOCS_ONLY` Fast-Path Exemption:** Never rebuild the AST graph when a task modifies only human documentation (`*.md`, `docs/**`, excluding `.agents/{skills,rules,schemas}/`).
 
 ### B. Canonical Incremental Script (Recommended)
 Execute the repository's Pass-Quiet wrapper script, which automatically detects stacks (`fastapi`, `python`, `node-backend`, `vue3`, `react-frontend`, `php`, `mcp-server`, `ai-evals`, `mobile-appium`, `vibe-rescue`, `bash-scripts`, `backend`, `frontend`, or root) and only rebuilds stacks with code newer than `graph.json`:
@@ -50,10 +50,12 @@ Execute the repository's Pass-Quiet wrapper script, which automatically detects 
 ```
 
 ### C. Direct Ephemeral Docker Command (Fallback if Script is Not Installed)
-If working in a consumer repository where `./scripts/actualizar-grafos-graphify.sh` has not yet been installed via `npx -y @sinfallas/mcp-qa-11x@latest install-skill --include-scripts`, create and sanitize the graph directly in an ephemeral `sinfallas/remote-graphify:latest` container (strictly honoring **Rule Zero**—never install `graphify` on the host OS):
+If working in a consumer repository where `./scripts/actualizar-grafos-graphify.sh` has not yet been installed via `npx -y @sinfallas/mcp-qa-11x@latest install-skill --include-scripts`, create and sanitize the graph directly in an ephemeral non-root `sinfallas/remote-graphify` container pinned by digest (strictly honoring **Rule Zero**—never install `graphify` on the host OS):
 ```bash
-docker run --rm --network none -e OLLAMA_BASE_URL="" -v "$(pwd):/app" -w /app sinfallas/remote-graphify:latest \
-  sh -c "graphify extract . --code-only && graphify cluster-only . && rm -rf graphify-out/cache graphify-out/20* graphify-out/.graphify_* graphify-out/.cloud-cta-shown && chown -R $(id -u):$(id -g) graphify-out"
+docker run --rm --network none --security-opt=no-new-privileges:true \
+  -u "$(id -u):$(id -g)" -e HOME=/tmp -e OLLAMA_BASE_URL="" -v "$(pwd):/app" -w /app \
+  sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0 \
+  sh -c "graphify extract . --code-only --allow-dedup-shrink && graphify cluster-only . && rm -rf graphify-out/cache graphify-out/20* graphify-out/.graphify_* graphify-out/.cloud-cta-shown"
 ```
 
 ### D. Generated Artifacts & Git Hygiene

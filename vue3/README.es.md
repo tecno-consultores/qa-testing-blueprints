@@ -1,4 +1,4 @@
-> **[DIRECTIVA DE SISTEMA PARA AGENTES DE IA]:** Actúa como un Ingeniero Staff de Automatización QA y Experto DevOps. Lee, analiza y aplica estrictamente las siguientes restricciones arquitectónicas redactadas en español. Debes generar código que se alinee perfectamente con estas reglas, utilizando exclusivamente los contenedores Docker efímeros, frameworks de pruebas y umbrales estrictos de calidad (p. ej. 95% de cobertura, SAST, Profiling) especificados a continuación. No sugieras instalaciones locales. Procesa la lógica técnica con tu máxima capacidad de razonamiento en inglés, pero emite tu respuesta final, explicaciones y comentarios de código en español.
+> **[DIRECTIVA DE SISTEMA PARA AGENTES DE IA]:** Actúa como un Ingeniero Staff de Automatización QA y Experto DevOps. Lee, analiza y aplica estrictamente las siguientes restricciones arquitectónicas redactadas en español. Debes generar código que se alinee perfectamente con estas reglas, utilizando exclusivamente los contenedores Docker efímeros, frameworks de pruebas y umbrales estrictos de calidad (p. ej. 95% de cobertura, SAST, Profiling) especificados a continuación. No sugieras instalaciones locales. Emite tu respuesta final, explicaciones y comentarios de código en el idioma del prompt del usuario (por defecto español).
 
 > 🌐 **Idioma:** [🇺🇸 English (Canonical)](README.md) · **Español (Espejo 1:1)**
 
@@ -23,7 +23,7 @@
 *   **Cuándo usarlo:** Para probar *composables*, stores de Pinia, y renderizado de componentes Vue aislados.
 *   **Frontera Estricta (Tool Boundary):** Todas estas pruebas unitarias de aislamiento rápido DEBEN nombrarse respetando el patrón `.unit.ts` o `.spec.ts`.
 *   **Regla:** Mockea todas las llamadas a la red. Vitest debe ejecutarse en milisegundos. Cobertura innegociable del 95%.
-*   **Advertencia Anti-JSDOM (Geometría Visual):** `jsdom` NO calcula modelos de caja ni colisiones visuales (`0x0` bounding box). Tienes estrictamente prohibido usar elementos `position: fixed` flotantes para pies de página que tapen botones de acción o tablas. Todo footer debe ser in-flow (`margin-top: auto`) dentro de `<main>`. Valida siempre el comportamiento visual en navegador real mediante Playwright (`ui-e2e`).
+*   **Advertencia Anti-JSDOM (Geometría Visual):** `jsdom` NO calcula modelos de caja ni colisiones visuales (`0x0` bounding box). Tienes estrictamente prohibido usar elementos `position: fixed` flotantes para pies de página que tapen botones de acción o tablas. Todo `<footer>` debe ser in-flow (`margin-top: auto` dentro de un contenedor flex-column, fuera de `<main>` según landmarks WCAG). Valida siempre el comportamiento visual en navegador real mediante Playwright (`ui-e2e`).
 
 ### B. Calidad de Código, Complejidad y SAST -> `ESLint` + `Prettier` + `SonarJS`
 *   **Regla:** `Prettier` formatea estéticamente el código (`.vue`, `.ts`).
@@ -35,7 +35,7 @@
 ### D. Regresión Visual, Accesibilidad, Diseño (`refactoring-ui`) y Rendimiento -> `Playwright` + `@axe-core` + `Lighthouse CI`
 *   **Frontera Estricta (Tool Boundary):** Todas las pruebas que requieran levantar navegadores y atacar la UI en vivo DEBEN nombrarse usando `.e2e.ts`.
 *   **Sistema de Diseño Determinista (`.agents/skills/refactoring-ui/`):** Al diseñar o estilizar componentes `.vue`, aplica las reglas de `.agents/skills/refactoring-ui/SKILL.md` y sus 9 referencias (`hierarchy.md`, `layout.md`, `type.md`, `color.md`, `depth.md`, `dark-mode.md`, etc.): 1 solo botón primario sólido por vista, tonos OKLCH sin texto translúcido (`text-white/70` prohibido), `tabular-nums` en columnas numéricas para evitar *Cumulative Layout Shift* (`CLS = 0`), `outline-hidden` en vez de `outline-none`, y cero scroll horizontal en `375x667`, `768x1024` y `1440x900`.
-*   **Playwright / Axe:** Navega la aplicación, valida el DOM profundo, accesibilidad WCAG 2.1 AA (0 violaciones) y compara capturas de pantalla de la interfaz.
+*   **Playwright / Axe y Screenplay:** Navega la aplicación, valida el DOM profundo, accesibilidad WCAG 2.1 AA (0 violaciones) y compara capturas de pantalla de la interfaz. Compón flujos E2E multi-rol RBAC/multi-tenant con `tests/screenplay/Actor.ts` y localizadores semánticos ARIA auto-reparables (`tests/utils/semanticLocator.ts`).
 *   **Lighthouse CI:** Ataca el build de producción para auditar rendimiento estricto (Core Web Vitals), Accesibilidad, Mejores Prácticas y SEO. Si el *Performance Score* baja de 90, el pipeline falla.
 
 ### E. Flujos de Negocio BDD -> `Karate Labs` + `Playwright`
@@ -51,7 +51,7 @@
 *   Al construir o probar componentes en Vue 3 y tiendas Pinia, DEBES aplicar y verificar con pruebas unitarias/BDD los controles de **[`docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md`](../docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.es.md)**:
     *   **Purga Total en Logout y Confirmación Explícita (`DISA V-222388, V-222392, V-222578` & `OWASP 4.3.7`):** Al cerrar sesión o expirar por inactividad (**10 min** rol privilegiado / **15 min** rol estándar, `V-222389/000080`), limpiar por completo `sessionStorage.clear()`, `localStorage.clear()`, `CacheStorage` y stores en memoria, mostrando un mensaje explícito de cierre de sesión exitoso.
     *   **Notificación de Último Acceso y Cero Secretos en Campos Ocultos (`DISA V-222437, V-222601` & `OWASP 4.3.6 FV-2`):** Mostrar al usuario tras autenticar la fecha/hora de su último inicio de sesión y NUNCA almacenar datos sensibles o privilegios en campos `<input type="hidden">` ni en `localStorage`.
-    *   **Defensa Anti-XSS, Anti-Prototype Pollution y Cabeceras OSHP (`DISA V-222602, V-222609` & `OWASP 4.3.5, 5.4.4`):** Escapar dinámicamente entradas con `escapeHtml` antes de usar `v-html`/`innerHTML`, sanitizar objetos JSON contra `__proto__`/`constructor`/`prototype` (`Object.create(null)`), enviar `X-CSRF-Token` e `Idempotency-Key` en mutaciones y preservar el último estado válido en tiendas Pinia ante fallos de red (manejo de errores no destructivo).
+    *   **Defensa Anti-XSS, Anti-Prototype Pollution y Cabeceras OSHP (`DISA V-222602, V-222609` & `OWASP 4.3.5, 5.4.4`):** Sanitiza dinámicamente HTML con `DOMPurify.sanitize` o `escapeHtml` antes de usar `v-html`/`innerHTML`, sanitiza objetos JSON contra `__proto__`/`constructor`/`prototype` (`Object.create(null)`), envía `X-CSRF-Token` e `Idempotency-Key` en mutaciones y preserva el último estado válido en tiendas Pinia ante fallos de red (manejo de errores no destructivo).
 
 ## 3. Comandos de Ejecución Local para el Desarrollador (y para la IA)
 

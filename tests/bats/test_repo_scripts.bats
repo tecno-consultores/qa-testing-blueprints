@@ -730,12 +730,12 @@ if printf '%s\n' "\$*" | grep -q "sh -c"; then
   if printf '%s\n' "\$*" | grep -q "${uv_cache_dir}:/tmp/uv-cache"; then
     has_cache=1
   fi
+  trap 'rm -rf /tmp/uv-cache /tmp/qa-venv' EXIT
   rm -rf /tmp/uv-cache /tmp/qa-venv
   mkdir -p /tmp/uv-cache
   [ "\${has_cache}" -eq 1 ] && touch /tmp/uv-cache/fastapi.whl
   PATH="${py_stub_bin}:\${PATH}" QA_UV_OFFLINE="--offline" bash -c "\${cmd}"
   rc=\$?
-  rm -rf /tmp/uv-cache /tmp/qa-venv
   exit \$rc
 fi
 exit 0
@@ -2098,4 +2098,18 @@ PY
   run env QA11X_DOCKERENV_PATH="/.dockerenv" PATH="${cons_bin}:/usr/bin:/bin" LC_ALL=C bash "${cons_ws}/.agents/scripts/certify_task_completion.sh"
   assert_success
   assert_output --partial "Governance Maintenance Fast-Path"
+}
+
+@test "generar-sbom-cyclonedx.sh y publicar-mcp.sh: rechazan flags inválidas y preservan NPM_REGISTRY exportado" {
+  run bash "${REPO_ROOT}/scripts/generar-sbom-cyclonedx.sh" --output out.json
+  assert_failure 1
+  assert_output --partial "Demasiados argumentos"
+
+  run bash "${REPO_ROOT}/scripts/generar-sbom-cyclonedx.sh" --unknown-flag
+  assert_failure 1
+  assert_output --partial "Opción no reconocida"
+
+  run env NPM_REGISTRY="https://registry.corp.example/" bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --help
+  assert_success
+  assert_output --partial "publicar-mcp.sh"
 }

@@ -3,6 +3,8 @@
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 import { randomUUID } from 'node:crypto';
+import * as fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
@@ -345,7 +347,8 @@ export function resolveToolExecutionOptions(
         timeoutMs: Math.min(Math.max(explicitTimeoutMs, EPHEMERAL_QA_MIN_TIMEOUT_MS), 600_000),
       };
     }
-    if (args.mode === 'live') {
+    const isLiveTms = toolName === 'sync_enterprise_tms' && args.dryRun === false;
+    if (args.mode === 'live' || isLiveTms) {
       return { taskId, timeoutMs: V2_HEAVY_TRANSFER_TIMEOUT_MS };
     }
     return { taskId };
@@ -549,11 +552,18 @@ export async function main(
   }
 }
 
-const isDirectExecution =
-  process.argv[1] !== undefined &&
-  (process.argv[1].endsWith('/index.js') ||
-    process.argv[1].endsWith('\\index.js') ||
-    process.argv[1].endsWith('mcp-qa-11x'));
+export function detectDirectExecution(entry: string | undefined = process.argv[1]): boolean {
+  if (!entry) {
+    return false;
+  }
+  try {
+    return fs.realpathSync(entry) === fs.realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return entry.endsWith('mcp-qa-11x');
+  }
+}
+
+const isDirectExecution = detectDirectExecution();
 
 if (isDirectExecution) {
   main().catch((err: unknown) => {

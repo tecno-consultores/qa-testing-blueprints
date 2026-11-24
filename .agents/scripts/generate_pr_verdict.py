@@ -616,7 +616,10 @@ def _normalize_timestamp(raw_ts: str | None) -> str:
     try:
         dt = datetime.datetime.fromisoformat(iso_str)
     except ValueError:
-        return cleaned
+        safe = re.sub(r"[^A-Za-z0-9:._T+-]", "", cleaned)[:64]
+        return safe or datetime.datetime.now(datetime.UTC).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=datetime.UTC)
     return dt.astimezone(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -912,7 +915,16 @@ def generate_pr_verdict(
     md_text = _render_pr_verdict_markdown(attestation, diff_cov)
     try:
         safe_md.parent.mkdir(parents=True, exist_ok=True)
-        safe_md.write_text(md_text, encoding="utf-8")
+        tmp_md = (
+            safe_md.parent
+            / f".{safe_md.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
+        )
+        try:
+            tmp_md.write_text(md_text, encoding="utf-8")
+            os.replace(tmp_md, safe_md)
+        except OSError:
+            tmp_md.unlink(missing_ok=True)
+            raise
         _write_private_json(safe_json, attestation)
     except OSError as exc:
         raise VerdictDivergenceError(

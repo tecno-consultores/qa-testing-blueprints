@@ -14,7 +14,17 @@ if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
 fi
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-if [ $# -ge 1 ]; then
+if [ $# -gt 1 ]; then
+  echo "ERROR: Demasiados argumentos (uso: ./scripts/generar-sbom-cyclonedx.sh [archivo_salida_relativo])." >&2
+  exit 1
+fi
+if [ $# -eq 1 ]; then
+  case "$1" in
+    -*)
+      echo "ERROR: Opción no reconocida en generar-sbom-cyclonedx.sh: $1" >&2
+      exit 1
+      ;;
+  esac
   OUTPUT_FILE="$1"
 else
   OUTPUT_FILE="sbom.cyclonedx.json"

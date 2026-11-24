@@ -143,12 +143,17 @@ const EXTRA_VALUE_FLAGS: readonly SimpleFlagSpec[] = [
   { long: '--repo', desc: 'GitHub owner/repo slug' },
   { long: '--required-keys', desc: 'Required TMS traceability keys' },
   { long: '--timeout-ms', desc: 'TMS request timeout in ms' },
+  { long: '--scan-workspaces', desc: 'Root directory to scan multiple repositories (reconcile-agents)' },
 ];
 
 const BOOLEAN_FLAGS: readonly SimpleFlagSpec[] = [
   { long: '--init-agents', desc: 'Inject or update AGENTS.md connector' },
   { long: '--include-scripts', desc: 'Install operational 11X scripts' },
   { long: '--reconcile', desc: 'Deduplicate canonical rules in .agents/' },
+  { long: '--apply', desc: 'Apply reconciliation changes to disk (reconcile-agents)' },
+  { long: '--prune-bridges', desc: 'Prune redundant standalone bridge files (reconcile-agents)' },
+  { long: '--allow-dirty', desc: 'Allow reconciliation on a dirty git working tree' },
+  { long: '--git-signals', desc: 'Include git history coupling signals (blast-radius)' },
   { long: '--auto-build', desc: 'Build missing Graphify AST graph' },
   { long: '--refresh', desc: 'Rebuild Graphify AST graph' },
   { long: '--print', desc: 'Print MCP config snippet' },

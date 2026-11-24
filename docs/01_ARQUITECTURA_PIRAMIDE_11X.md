@@ -15,7 +15,7 @@ To prevent over-engineering on small tasks without relaxing controls on critical
 | **Profile** | **`starter`** | 30s quickstart (`quickstart`) | Secrets = 0, non-root containers (`Rule Zero`), `.qa-11x.json`, `AGENTS.md` connector (28 agents) |
 | **Profile** | **`standard`** | Daily PRs by product teams | `starter` + coverage `>= 95%`, strict typing (`mypy --strict`, `tsc`, `PHPStan max`), AST CI sharding (`40%–60%` savings), and UI anti-pattern linter |
 | **Profile** | **`enterprise`** | Regulated or multi-tenant systems | Full 13-layer pyramid + FINOS CALM, PostgreSQL 17 RLS + WORM, DISA STIG V6R5, Pact + k6, AI Evals, and Release Readiness Gate |
-| **Path** | **`DOCS_ONLY`** | Changes strictly limited to `*.md` or `docs/` | `0` QA containers, `0` AST rebuilds; syncs manifest/docs and certifies `make lint-docs && make certify` |
+| **Path** | **`DOCS_ONLY`** | Changes strictly limited to human `*.md` or `docs/` (excludes `.agents/{skills,rules,schemas}/`) | `0` QA containers, `0` AST rebuilds; syncs manifest/docs and certifies `make lint-docs && make certify` |
 | **Path** | **`MICRO_CHANGE`** | `<= 3` files, `0` new routes/ORM, Blast Radius `LOW` (`< 5` callers) | Focused stack unit/contract suite + `QA-TEST-SYNC-01` co-evolution + incremental AST refresh |
 | **Path** | **`FULL_11X`** | `> 3` files, new APIs/Views, ORM, security, or `MEDIUM/HIGH` Blast Radius | Full 11-step, 13-layer workflow with mandatory 10/10 gate closure |
 

@@ -30,7 +30,8 @@ const FLAG_EQ_SECRET_RE = /(--(?:token|api-key|apikey|secret|password|passwd))=[
 const ENV_SECRET_RE =
   /(^|[ \t;|&"'])([A-Z0-9_]*(?:PASSWORD|PASSWD|SECRET|TOKEN|API_KEY|APIKEY|AUTH_KEY))=([^\s"']+)/gi;
 const PREFIX_TOKEN_PATTERNS: readonly RegExp[] = [
-  /\b(?:ghp|gho|ghu|ghs|ghr|github_pat|glpat|npm|xox[baprs])_[A-Za-z0-9_-]{12,}\b/g,
+  /\b(?:ghp|gho|ghu|ghs|ghr|github_pat|npm)_[A-Za-z0-9_-]{12,}\b/g,
+  /\b(?:glpat|xox[baprs])-[A-Za-z0-9_-]{12,}\b/g,
   /\b(?:AIza[0-9A-Za-z_-]{20,}|AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16})\b/g,
   /\bsk-(?:proj-|ant-|live-|test-)?[A-Za-z0-9_-]{12,}\b/g,
   /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{8,}\b/g,

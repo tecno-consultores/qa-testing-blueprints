@@ -260,3 +260,10 @@ def test_load_raw_traces_empty_envelopes(tmp_path: Path) -> None:
     empty_results = tmp_path / "empty_results.json"
     empty_results.write_text('{"results": []}', encoding="utf-8")
     assert golden_from_traces.load_raw_traces(empty_results) == []
+    spaced_jsonl = tmp_path / "spaced.jsonl"
+    spaced_jsonl.write_text('\n  \n{"input": "ok"}\n\n', encoding="utf-8")
+    assert golden_from_traces.load_raw_traces(spaced_jsonl) == [{"input": "ok"}]
+    bad_jsonl = tmp_path / "bad.jsonl"
+    bad_jsonl.write_text('{"input": "ok"}\n["not-a-mapping"]\n', encoding="utf-8")
+    with pytest.raises(ValueError, match="objeto JSON"):
+        golden_from_traces.load_raw_traces(bad_jsonl)

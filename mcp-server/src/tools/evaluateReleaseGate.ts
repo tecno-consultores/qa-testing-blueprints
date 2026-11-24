@@ -179,6 +179,7 @@ interface XmlTagToken {
 
 interface JunitAccumulator {
   hasSuiteElement: boolean;
+  suiteDepth: number;
   suiteTests: number;
   suiteFailures: number;
   suiteErrors: number;
@@ -407,15 +408,15 @@ function stripDelimitedSection(xml: string, openMarker: string, closeMarker: str
 }
 
 function stripXmlNoise(rawXml: string): string | null {
-  const withoutComments = stripDelimitedSection(rawXml, '<!--', '-->');
+  const withoutCdata = stripDelimitedSection(rawXml, '<![CDATA[', ']]>');
+  if (withoutCdata === null) {
+    return null;
+  }
+  const withoutComments = stripDelimitedSection(withoutCdata, '<!--', '-->');
   if (withoutComments === null) {
     return null;
   }
-  const withoutPi = stripDelimitedSection(withoutComments, '<?', '?>');
-  if (withoutPi === null) {
-    return null;
-  }
-  return stripDelimitedSection(withoutPi, '<![CDATA[', ']]>');
+  return stripDelimitedSection(withoutComments, '<?', '?>');
 }
 
 function findTagClose(xml: string, openIdx: number): number {
@@ -589,6 +590,7 @@ function formatTestCaseLabel(attrs: Record<string, string>): string {
 function createJunitAccumulator(): JunitAccumulator {
   return {
     hasSuiteElement: false,
+    suiteDepth: 0,
     suiteTests: 0,
     suiteFailures: 0,
     suiteErrors: 0,
@@ -622,10 +624,15 @@ function recordFailedTestName(acc: JunitAccumulator, label: string): void {
 function applySuiteToken(acc: JunitAccumulator, token: XmlTagToken): void {
   acc.hasSuiteElement = true;
   if (token.name === 'testsuite') {
-    acc.suiteTests += parseNonNegIntAttr(token.attrs, 'tests');
-    acc.suiteFailures += parseNonNegIntAttr(token.attrs, 'failures');
-    acc.suiteErrors += parseNonNegIntAttr(token.attrs, 'errors');
-    acc.suiteSkipped += parseNonNegIntAttr(token.attrs, 'skipped');
+    if (acc.suiteDepth === 0) {
+      acc.suiteTests += parseNonNegIntAttr(token.attrs, 'tests');
+      acc.suiteFailures += parseNonNegIntAttr(token.attrs, 'failures');
+      acc.suiteErrors += parseNonNegIntAttr(token.attrs, 'errors');
+      acc.suiteSkipped += parseNonNegIntAttr(token.attrs, 'skipped');
+    }
+    if (!token.isSelfClosing) {
+      acc.suiteDepth += 1;
+    }
     return;
   }
   acc.rootTests = Math.max(acc.rootTests, parseNonNegIntAttr(token.attrs, 'tests'));
@@ -665,6 +672,8 @@ function processJunitToken(acc: JunitAccumulator, token: XmlTagToken): void {
   if (token.isClosing) {
     if (token.name === 'testcase') {
       acc.inTestCase = false;
+    } else if (token.name === 'testsuite') {
+      acc.suiteDepth = Math.max(0, acc.suiteDepth - 1);
     }
     return;
   }
@@ -706,7 +715,9 @@ function finalizeJunitAccumulator(acc: JunitAccumulator): JunitSignalSummary {
 }
 
 function hasXxeDeclaration(rawXml: string): boolean {
-  const upper = rawXml.toUpperCase();
+  const withoutCdata = stripDelimitedSection(rawXml, '<![CDATA[', ']]>');
+  const inspectable = withoutCdata ?? rawXml;
+  const upper = inspectable.toUpperCase();
   return upper.includes('<!DOCTYPE') || upper.includes('<!ENTITY');
 }
 

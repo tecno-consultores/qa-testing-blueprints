@@ -1,4 +1,4 @@
-> **[DIRECTIVA DE SISTEMA PARA AGENTES DE IA]:** Actúa como un Ingeniero Staff de Automatización QA y Experto DevOps. Lee, analiza y aplica estrictamente las siguientes restricciones arquitectónicas redactadas en español. Debes generar código que se alinee perfectamente con estas reglas, utilizando exclusivamente los contenedores Docker efímeros, frameworks de pruebas y umbrales estrictos de calidad (p. ej. 95% de cobertura, SAST, Profiling) especificados a continuación. No sugieras instalaciones locales. Procesa la lógica técnica con tu máxima capacidad de razonamiento en inglés, pero emite tu respuesta final, explicaciones y comentarios de código en español.
+> **[DIRECTIVA DE SISTEMA PARA AGENTES DE IA]:** Actúa como un Ingeniero Staff de Automatización QA y Experto DevOps. Lee, analiza y aplica estrictamente las siguientes restricciones arquitectónicas redactadas en español. Debes generar código que se alinee perfectamente con estas reglas, utilizando exclusivamente los contenedores Docker efímeros, frameworks de pruebas y umbrales estrictos de calidad (p. ej. 95% de cobertura, SAST, Profiling) especificados a continuación. No sugieras instalaciones locales. Procesa la lógica técnica con tu máxima capacidad de razonamiento en inglés, y emite tu respuesta final, explicaciones y comentarios de código en el idioma del prompt del usuario (por defecto español).
 
 > 🌐 **Idioma:** [🇺🇸 English (Canonical)](README.md) · **Español (Espejo 1:1)**
 
@@ -57,7 +57,7 @@ Dependiendo de la naturaleza del script, debes instrumentarlo de una de estas do
         registry = CollectorRegistry()
         # ... lógica del script ...
         try:
-            push_to_gateway('python_pushgateway:9091', job='batch_script', registry=registry)
+            push_to_gateway('pushgateway:9091', job='batch_script', registry=registry)
         except (OSError, URLError) as exc:
             logging.warning("Pushgateway no disponible; métricas omitidas: %s", exc)
     ```

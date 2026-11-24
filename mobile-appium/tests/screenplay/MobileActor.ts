@@ -430,16 +430,23 @@ function copyNonIdentityHeaders(
   return merged;
 }
 
+function deleteHeaderIgnoreCase(headers: Record<string, string>, targetLower: string): void {
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() === targetLower) {
+      delete headers[key];
+    }
+  }
+}
+
 function applyIdempotencyHeader(merged: Record<string, string>, spec: MobileApiRequestSpec): void {
   const existingIdem = findHeaderIgnoreCase(merged, 'idempotency-key');
   if (spec.idempotencyKey !== undefined) {
-    if (existingIdem !== undefined && existingIdem.key !== 'Idempotency-Key') {
-      delete merged[existingIdem.key];
-    }
+    deleteHeaderIgnoreCase(merged, 'idempotency-key');
     merged['Idempotency-Key'] = spec.idempotencyKey;
     return;
   }
   if (existingIdem === undefined) {
+    deleteHeaderIgnoreCase(merged, 'idempotency-key');
     merged['Idempotency-Key'] = globalThis.crypto.randomUUID();
   }
 }

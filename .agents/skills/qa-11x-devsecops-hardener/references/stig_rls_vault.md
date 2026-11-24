@@ -99,8 +99,13 @@ async def apply_rls_session_settings(
 
 
 @event.listens_for(AsyncSession.sync_session_class, "after_begin")
-def _reapply_rls_on_after_begin(session: Session, transaction, connection) -> None:
+def _reapply_rls_on_after_begin(
+    session: Session,
+    transaction: SessionTransaction,
+    connection: Connection,
+) -> None:
     """Re-inject SET LOCAL whenever a new transaction opens after await db.commit()."""
+    _ = transaction
     tid = session.info.get("tenant_id")
     sa = session.info.get("is_superadmin", "false")
     if tid is not None:
@@ -132,9 +137,9 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 
 @contextmanager
-def ephemeral_secret_buffer(raw_bytes: bytes) -> Iterator[bytearray]:
-    """Expose mutable bytearray and zero all bytes on context exit."""
-    buf = bytearray(raw_bytes)
+def ephemeral_secret_buffer(raw_bytes: bytes | bytearray) -> Iterator[bytearray]:
+    """Expose mutable bytearray and zero all bytes in place on context exit."""
+    buf = raw_bytes if isinstance(raw_bytes, bytearray) else bytearray(raw_bytes)
     try:
         yield buf
     finally:
@@ -223,10 +228,18 @@ import os
 import re
 import uuid
 from typing import Any
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session, SessionTransaction
 
 UUID_V4_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
+
+
+@event.listens_for(AsyncSession.sync_session_class, "after_transaction_end")
+def _clear_tx_audit_hashes(session: Session, transaction: SessionTransaction) -> None:
+    """Purge cached in-transaction WORM hashes on commit or rollback."""
+    if transaction.parent is None:
+        session.info.pop("_in_tx_audit_hashes", None)
 
 
 def _sanitize_log_text(value: str) -> str:

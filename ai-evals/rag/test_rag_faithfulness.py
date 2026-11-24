@@ -45,15 +45,15 @@ from _llm_judge import (  # noqa: E402
 )
 
 DOC_ID_RE = re.compile(r"\[([a-zA-Z0-9_:-]+)\]")
-NUMERIC_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9_-])\d+(?:[.,]\d+)?%?")
+NUMERIC_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9_-])-?\d+(?:[.,]\d+)?%?")
 TECH_ID_RE = re.compile(r"\b[A-Z]{2,}(?:-[A-Z0-9]+)+\b")
 HARDCODED_SECRET_RE = re.compile(
     r"(?:sk-[A-Za-z0-9_-]{12,}|AIza[0-9A-Za-z_-]{20,}|"
-    r"ghp_[A-Za-z0-9]{20,}|glpat-[A-Za-z0-9_-]{16,})"
+    r"ghp_[A-Za-z0-9]{20,}|glpat-[A-Za-z0-9_-]{16,}|xox[baprs]-[A-Za-z0-9-]{10,})"
 )
 LITERAL_CREDENTIAL_RE = re.compile(
     r"(?i)(?:apiKey|api_key|token|secret|password)\s*[:=]\s*"
-    r"['\"]?([A-Za-z0-9_/-]{12,})['\"]?"
+    r"['\"]?([A-Za-z0-9_/+@=-]{12,})['\"]?"
 )
 FORBIDDEN_REMOTE_MUTATION_RE = re.compile(
     r"(?:\b(?:git\s+push|npm\s+publish|docker\s+push)\b|--no-verify)",
@@ -366,7 +366,7 @@ def build_corporate_deepeval_metrics(
 ) -> list[BaseMetric]:
     """Instancia las 6 métricas bloqueantes del estándar QA-11X."""
     return [
-        HallucinationMetric(threshold=0.95, model=judge_model),
+        HallucinationMetric(threshold=0.05, model=judge_model),
         FaithfulnessMetric(threshold=0.90, model=judge_model),
         ContextualPrecisionMetric(threshold=0.85, model=judge_model),
         ContextualRecallMetric(threshold=0.85, model=judge_model),
@@ -542,7 +542,7 @@ def test_offline_deepeval_case_metrics_and_promptfoo_contract(tmp_path: Path) ->
     assert stub.generate("ping") == "offline:4"
     assert asyncio.run(stub.a_generate("ping")) == "offline:4"
     metrics = build_corporate_deepeval_metrics(stub)
-    assert [m.threshold for m in metrics] == [0.95, 0.90, 0.85, 0.85, 0.85, 0.90]
+    assert [m.threshold for m in metrics] == [0.05, 0.90, 0.85, 0.85, 0.85, 0.90]
 
     summary = validate_promptfoo_config(PROMPTFOO_CONFIG_PATH)
     assert summary.prompts_count >= 1
@@ -580,15 +580,45 @@ def test_offline_deepeval_case_metrics_and_promptfoo_contract(tmp_path: Path) ->
         validate_promptfoo_config(non_mapping)
 
 
+def test_offline_negative_numbers_and_special_char_credentials(tmp_path: Path) -> None:
+    context = [
+        "[doc_qa_01] El estándar QA-11X exige cobertura >= 95% en factura INV-101."
+    ]
+    neg_payload = {
+        "answer": "La caída fue -99% sobre INV-101 según [doc_qa_01].",
+        "citations": ["doc_qa_01"],
+        "confidence": 0.5,
+    }
+    bad_neg = evaluate_deterministic_rag_contract(neg_payload, context)
+    assert not bad_neg.passed
+    assert any("-99%" in item for item in bad_neg.violations)
+
+    special_cred = tmp_path / "special_cred.yaml"
+    special_cred.write_text(
+        f"password: {'abc+def=ghi@jkl123'}\nprompts: [p]\nproviders: [m]\n"
+        "tests: [t]\nredteam:\n  plugins: [pii]\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="credencial literal"):
+        validate_promptfoo_config(special_cred)
+
+
 def test_offline_judge_resolution_handles_missing_and_local_endpoints() -> None:
     with pytest.raises(RuntimeError, match="MISSING_LLM_CREDENTIALS"):
         resolve_deepeval_judge_model({})
     openai_j = resolve_deepeval_judge_model({"OPENAI_API_KEY": "placeholder-key"})
+    vllm_j = resolve_deepeval_judge_model(
+        {
+            "OPENAI_API_KEY": "EMPTY",
+            "OPENAI_API_BASE": "http://127.0.0.1:8000/v1",
+        }
+    )
     gemini_j = resolve_deepeval_judge_model({"GEMINI_API_KEY": "placeholder-key"})
     claude_j = resolve_deepeval_judge_model({"ANTHROPIC_API_KEY": "placeholder-key"})
     local = resolve_deepeval_judge_model({"OPENAI_API_BASE": "http://127.0.0.1:8000/v1"})
     ollama = resolve_deepeval_judge_model({"OLLAMA_BASE_URL": "http://127.0.0.1:11434"})
     assert isinstance(openai_j, OpenAIModel)
+    assert isinstance(vllm_j, LocalModel)
     assert isinstance(gemini_j, (GeminiModel, LocalModel))
     assert isinstance(claude_j, (AnthropicModel, LocalModel))
     assert isinstance(local, LocalModel)

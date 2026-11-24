@@ -785,37 +785,43 @@ void describe('Node Inventory Provider — Pact V4 Contract Verification (Zero-I
     }
   });
 
-  void it('rechaza ruptura deliberada cuando el proveedor serializa unitPrice como float', async () => {
-    const pactPath = resolvePactArtifactPath();
-    const provider = await startEphemeralProvider('float_unit_price');
-    try {
-      await assert.rejects(
-        () => verifyProviderAgainstPactFile(pactPath, provider.baseUrl),
-        /\$\.unitPrice: se esperaba string para regex/,
-      );
-    } finally {
-      await provider.close();
-    }
-  });
+  void it(
+    'rechaza ruptura deliberada cuando el proveedor serializa unitPrice como float',
+    async () => {
+      const pactPath = resolvePactArtifactPath();
+      const provider = await startEphemeralProvider('float_unit_price');
+      try {
+        await assert.rejects(
+          () => verifyProviderAgainstPactFile(pactPath, provider.baseUrl),
+          /\$\.unitPrice: se esperaba string para regex/,
+        );
+      } finally {
+        await provider.close();
+      }
+    },
+  );
 
-  void it('rechaza ruptura por campo obligatorio ausente y pérdida de eco Idempotency-Key', async () => {
-    const pactPath = resolvePactArtifactPath();
-    const missingFieldProvider = await startEphemeralProvider('missing_reservation_id');
-    const missingHeaderProvider = await startEphemeralProvider('missing_idempotency_echo');
-    try {
-      await assert.rejects(
-        () => verifyProviderAgainstPactFile(pactPath, missingFieldProvider.baseUrl),
-        /reservationId: falta campo obligatorio/,
-      );
-      await assert.rejects(
-        () => verifyProviderAgainstPactFile(pactPath, missingHeaderProvider.baseUrl),
-        /Falta cabecera de respuesta obligatoria: Idempotency-Key/,
-      );
-    } finally {
-      await missingFieldProvider.close();
-      await missingHeaderProvider.close();
-    }
-  });
+  void it(
+    'rechaza ruptura por campo obligatorio ausente y pérdida de eco Idempotency-Key',
+    async () => {
+      const pactPath = resolvePactArtifactPath();
+      const missingFieldProvider = await startEphemeralProvider('missing_reservation_id');
+      const missingHeaderProvider = await startEphemeralProvider('missing_idempotency_echo');
+      try {
+        await assert.rejects(
+          () => verifyProviderAgainstPactFile(pactPath, missingFieldProvider.baseUrl),
+          /reservationId: falta campo obligatorio/,
+        );
+        await assert.rejects(
+          () => verifyProviderAgainstPactFile(pactPath, missingHeaderProvider.baseUrl),
+          /Falta cabecera de respuesta obligatoria: Idempotency-Key/,
+        );
+      } finally {
+        await missingFieldProvider.close();
+        await missingHeaderProvider.close();
+      }
+    },
+  );
 
   void it('falla Fail-Closed ante Pact ausente, batch 400 y conflicto 409', async () => {
     const provider = await startEphemeralProvider('none');

@@ -36,7 +36,7 @@ Available CLI commands & flags (**12 CLI subcommands**):
 - `quickstart [dir] [-T|--tier starter|standard|enterprise] [--lang|-l auto|en|es] [--agents|-a auto|all|<csv>] [--ci github|none] [--force|-f] [--dry-run] [--json] [--help|-h]` — Auto-detects stack (FastAPI, Python, Node, Vue 3, React, PHP, Bash, Mobile, AI Evals, Vibe) and scaffolds QA-11X configs.
 - `install-skill` (alias: `install`) `[--target|-t auto|workspace|antigravity|claude|cursor|windsurf|codex|hermes|all] [--lang|-l auto|en|es] [--agents|-a auto|all|<csv>] [--project-path|--dir|-p <dir>] [--init-agents] [--include-scripts] [--reconcile] [--dry-run] [--help|-h]` — Defaults to `--target auto` and `--lang auto` when `--init-agents` is set; runs in safe global `$HOME` mode when invoked from `$HOME` without explicit `--project-path`/`--dir`/`-p` (installing global skills only and skipping project writes, while explicit `-p ~`/`--dir ~` stays blocked by `SEC-PATH-01`).
 - `init-agents` (alias: `init-agents-md`) `[dir] [--project-path|--dir|-p <dir>] [--lang|-l auto|en|es] [--agents|-a auto|all|<csv>] [--dry-run] [--help|-h]` — Defaults to `--lang auto` (*Dynamic Language Mirroring*).
-- `reconcile-agents [dir] [--project-path|--dir|-p <dir>] [--dry-run] [--help|-h]` — Deduplicates global rules/skills out of `.agents/` and isolates domain rules with backups.
+- `reconcile-agents [dir] [--project-path|--dir|-p <dir>] [--scan-workspaces <dir>] [--apply] [--prune-bridges] [--allow-dirty] [--dry-run] [--json] [--help|-h]` — Deduplicates global rules/skills out of `.agents/` and isolates domain rules with backups.
 - `tms-sync --mode <inventory|push-results|pull-stories> --provider <jira|zephyr|xray|github-issues> [--target-dir <dir>] [--junit-xml <path>] [--base-url <https://...>] [--project-key <key>] [--issue-key <key>] [--test-execution-key <key>] [--repo <owner/repo>] [--required-keys <k1,k2>] [--timeout-ms <ms>] [--dry-run|--live] [--json] [--help|-h]` — Normalizes JUnit XML results into enterprise TMS payloads or pull/inventory traceability reports.
 - `doctor` (alias: `status`) `[dir] [--project-path|--dir|-p <dir>] [--offline] [--json] [--help|-h]` — Inspects active binary origin, `~/.npm/_npx` caches, global skills stamps, IDE MCP configs (canonical `~/.gemini/antigravity/mcp_config.json` + `~/.gemini/config/mcp_config.json` fallback, multi-OS Claude Desktop `claude_desktop_config.json`, Claude Code `~/.claude.json`, Cursor, Windsurf, Codex, and Hermes `~/.hermes/mcp.json` / `~/.hermes/config.yaml`), project readiness (or global `$HOME` scope when `cwd == $HOME` without explicit dir, while keeping `-p ~`/`--dir ~` blocked), and Docker daemon.
 - `upgrade` (alias: `cache-clean`) `[--cache-only] [--reconcile] [--target|-t <env>] [--offline] [--dry-run] [--json] [--help|-h]` — Surgically removes only `@sinfallas/mcp-qa-11x` entries in `~/.npm/_npx` plus `~/.cache/qa-11x-blueprints`, reconciles `.agents/` governance (`--reconcile`), and re-syncs global skills (`cache-clean` runs with `--cache-only`).
@@ -101,7 +101,7 @@ Led by `qa-11x-architect` (`< 12 KB`), loading 10 specialized sub-skills on dema
 
 ---
 
-## 🛠️ MCP Tools (19 Tools — v3.2)
+## 🛠️ MCP Tools (19 Tools — v3.5)
 
 1. **`inspect_project_config`:** Inspects stack markers (`pyproject.toml`, `package.json`, `composer.json`), `docker-compose.qa.yml`, test pyramid status, and Graphify AST graph health.
 2. **`fetch_blueprint_bundle`:** Streams requested blueprint files from GitHub/local mirror verifying SHA-256 checksums against `manifest.json`.
@@ -115,8 +115,8 @@ Led by `qa-11x-architect` (`< 12 KB`), loading 10 specialized sub-skills on dema
 10. **`init_or_append_agents_md`:** Injects or updates idempotently bounded `AGENTS.md` / IDE connector blocks using `start/end` HTML markers (`dry_run` defaults to `true`; pass `dry_run: false` to apply writes).
 11. **`propose_skill_evolution_pr`:** Generates Dual-Consumer QA-escape evolution proposals (AI rules + MCP + EN/ES docs in `docs/01..05_*.md`), adhering to `QA-GIT-GATE-01` (`dry_run` and `prefer_offline_fallback` default to `true`).
 12. **`reconcile_agents_governance`:** Deduplicates promoted global skills/rules out of consumer `.agents/` and isolates domain rules into `.agents/rules/domain_<project>_rules.md` (`dry_run` defaults to `true`; pass `dry_run: false` to apply changes).
-13. **`validate_calm_architecture` *(v2.0)*:** Validates **FINOS CALM** JSON architecture-as-code schemas, 6 core nodes, 5 typed relationships, and mandatory 11X controls.
-14. **`evaluate_release_gate` *(v2.0)*:** Computes quantitative Release Readiness `GO` / `NO_GO` verdicts from coverage (`>= 95%`), Trivy `HIGH/CRITICAL = 0`, Stryker/Mutmut MSI, CALM, and STIG metrics (returning fail-closed `SKIPPED` in `smoke` mode).
+13. **`validate_calm_architecture` *(v2.0)*:** Validates **FINOS CALM** JSON architecture-as-code schemas (`profile`: `auto` | `generic` | `qa-11x-self`), typed relationships, and upstream 6-node / 5-edge / 7-control 11X governance when targeting the QA-11X model.
+14. **`evaluate_release_gate` *(v2.0)*:** Computes quantitative Release Readiness `GO` / `NO_GO` verdicts from 3 operational signals — JUnit XML test pass rate, observability telemetry (error rate %, p95/p99 latency, active incidents), and open defects / QA escapes (`open_blockers`, `open_criticals`, `qa_escapes`) — returning fail-closed `SKIPPED` in `smoke` mode.
 15. **`evaluate_agent_trajectory` *(v2.0)*:** Evaluates multi-step AI agent tool trajectories offline (`AST-First` precedence, compilation/regeneration/hallucination rates, `QA-GIT-GATE-01` compliance) or via DeepEval in ephemeral Docker.
 16. **`run_llm_red_team` *(v2.0)*:** Audits **OWASP LLM Top 10** promptfoo suites, `promptGuard` adversarial probes, and executes live Promptfoo red-teaming when provider credentials are present (`SKIPPED_MISSING_CREDENTIALS` fail-closed otherwise).
 17. **`audit_vibe_prototype` *(v2.0)*:** Audits AI-generated prototypes (Bolt.new, Lovable, v0, Replit) for `VIBE-SEC-001..QA-005` risks, hardcoding, missing RLS/WORM, and `dryRun` remediation plans.
@@ -125,7 +125,7 @@ Led by `qa-11x-architect` (`< 12 KB`), loading 10 specialized sub-skills on dema
 
 ---
 
-## 📚 MCP Resources (13 Resources: 11 Static URIs + 2 URI Templates — v3.2)
+## 📚 MCP Resources (13 Resources: 11 Static URIs + 2 URI Templates — v3.5)
 
 > **Surface Breakdown:** **11 static URIs** returned by `resources/list` + **2 URI templates** (`blueprint://{stack}/readme`, `blueprint://ui/refactoring-ui/{topic}`) returned by `resources/templates/list`.
 

@@ -177,6 +177,7 @@ export const CLI_USAGE_TEXT = [
   '  --init-agents                            Run init-agents after install-skill',
   '  --include-scripts                        Install operational 11X scripts',
   '  --reconcile                              Reconcile .agents/ before syncing skills',
+  '  --scan-workspaces <dir> / --apply / --prune-bridges / --allow-dirty  Reconciliation controls',
   '  --dry-run                                Simulate without writing files to disk',
   '  --force                                  Overwrite customized quickstart CI/task files',
   '  --offline                                Skip remote version/skills checks (doctor / upgrade / certify)',

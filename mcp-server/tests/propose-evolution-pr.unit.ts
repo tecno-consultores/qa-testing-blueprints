@@ -391,25 +391,37 @@ describe('propose_skill_evolution_pr Tool Suite (Zero-Trust Skill Evolution)', (
     });
 
     it('enforces Zero-Trust: zero tokens or secrets are expected or manipulated in the process', async () => {
-      const envCopy = { ...process.env };
+      const prevGithubToken = process.env.GITHUB_TOKEN;
+      const prevGhToken = process.env.GH_TOKEN;
       delete process.env.GITHUB_TOKEN;
       delete process.env.GH_TOKEN;
 
-      const result = await proposeSkillEvolutionPr({
-        project_path: tmpDir,
-        target_blueprint_file: TARGET_FILE,
-        improvement_title: IMPROVEMENT_TITLE,
-        empirical_rationale: RATIONALE,
-        proposed_content_or_snippet: SNIPPET,
-        prefer_offline_fallback: true,
-      });
+      try {
+        const result = await proposeSkillEvolutionPr({
+          project_path: tmpDir,
+          target_blueprint_file: TARGET_FILE,
+          improvement_title: IMPROVEMENT_TITLE,
+          empirical_rationale: RATIONALE,
+          proposed_content_or_snippet: SNIPPET,
+          prefer_offline_fallback: true,
+        });
 
-      expect(result.local_proposal_file).toBeDefined();
-      expect(result.prefilled_github_url).toBeDefined();
-      expect(JSON.stringify(result)).not.toMatch(/ghp_[a-zA-Z0-9]{36}/);
-      expect(JSON.stringify(result)).not.toMatch(/github_pat_\w+/);
-
-      process.env = envCopy;
+        expect(result.local_proposal_file).toBeDefined();
+        expect(result.prefilled_github_url).toBeDefined();
+        expect(JSON.stringify(result)).not.toMatch(/ghp_[a-zA-Z0-9]{36}/);
+        expect(JSON.stringify(result)).not.toMatch(/github_pat_\w+/);
+      } finally {
+        if (prevGithubToken === undefined) {
+          delete process.env.GITHUB_TOKEN;
+        } else {
+          process.env.GITHUB_TOKEN = prevGithubToken;
+        }
+        if (prevGhToken === undefined) {
+          delete process.env.GH_TOKEN;
+        } else {
+          process.env.GH_TOKEN = prevGhToken;
+        }
+      }
     });
 
     it('defaultExecRunner handles commands and rejections cleanly with shell: false', async () => {

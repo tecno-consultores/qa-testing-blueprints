@@ -54,6 +54,10 @@ interface WdioBrowserLike {
   url?(targetUrl: string): Promise<void>;
 }
 
+function escapeCssAttr(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
 function toWdioSelector(locator: MobileLocator): string {
   if (locator.strategy === 'accessibilityId') {
     return `~${locator.value}`;
@@ -64,13 +68,16 @@ function toWdioSelector(locator: MobileLocator): string {
   if (locator.strategy === 'androidUiAutomator') {
     return `-android uiautomator:${locator.value}`;
   }
-  return formatMobileLocator(locator);
+  if (locator.name !== undefined && locator.name.length > 0) {
+    return `aria/${locator.name}`;
+  }
+  return `[role="${escapeCssAttr(locator.role)}"]`;
 }
 
 async function readLegacyWdioBounds(el: WdioElementLike): Promise<MobileElementBounds> {
   const [loc, size] = await Promise.all([
     el.getLocation ? el.getLocation() : Promise.resolve({ x: 0, y: 0 }),
-    el.getSize ? el.getSize() : Promise.resolve({ width: 120, height: 40 }),
+    el.getSize ? el.getSize() : Promise.resolve({ width: 0, height: 0 }),
   ]);
   return { x: loc.x, y: loc.y, width: size.width, height: size.height };
 }

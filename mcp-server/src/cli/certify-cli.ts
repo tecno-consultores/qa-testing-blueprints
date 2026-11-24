@@ -38,8 +38,8 @@ export const CERTIFY_HELP_TEXT = [
   '  --strict                  Falla con exitCode=20 si alguna verificación queda en SKIPPED',
   '  --require-lint-evidence   Exige evidencia reciente de lint si hay código sucio',
   '  --allow-unmerged-examples Omite verificación de archivos .example sin fusionar',
-  '  --release-gate            Evalúa además compuerta Release Readiness (exitCode=30 en NO_GO)',
-  '  --junit-xml <path>        Ruta relativa de reporte JUnit XML para --release-gate',
+  '  --release-gate            Evalúa además compuerta Release Readiness (exitCode=30 en NO_GO; requiere --junit-xml)',
+  '  --junit-xml <path>        Ruta relativa de reporte JUnit XML requerida por --release-gate',
   '  --offline                 Omite consulta remota de actualizaciones',
   '  --json                    Emite resultado estructurado en JSON',
   '  --help, -h                Muestra esta ayuda y sale con código 0',
@@ -116,7 +116,7 @@ function applyCertifyArg(
   state: ParsedCertifyArgs
 ): number {
   const arg = pickAt(args, index);
-  const boolAction = CERTIFY_BOOL_FLAGS[arg];
+  const boolAction = Object.hasOwn(CERTIFY_BOOL_FLAGS, arg) ? CERTIFY_BOOL_FLAGS[arg] : undefined;
   if (boolAction) {
     boolAction(state);
     return 0;

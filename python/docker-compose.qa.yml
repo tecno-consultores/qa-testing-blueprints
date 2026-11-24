@@ -63,7 +63,7 @@ services:
           - job_name: 'python_scripts_pushgateway'
             honor_labels: true
             static_configs:
-              - targets: ['python_pushgateway:9091']
+              - targets: ['pushgateway:9091']
         " > /tmp/prometheus.yml
         exec /bin/prometheus --config.file=/tmp/prometheus.yml
     ports:

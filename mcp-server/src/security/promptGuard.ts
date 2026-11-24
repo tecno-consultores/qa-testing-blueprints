@@ -63,7 +63,7 @@ const RULE_MAX_DEPTH_EXCEEDED = 'max_recursion_depth_exceeded';
 const RULE_PROTOTYPE_POLLUTION = 'prototype_pollution_key';
 const RULE_ENCODED_EVASION = 'encoded_payload_evasion';
 
-const MAX_BASE64_CANDIDATES = 16;
+const MAX_BASE64_CANDIDATES = 64;
 const MIN_DECODED_BYTES = 8;
 
 const INVISIBLE_CODEPOINT_RANGES: ReadonlyArray<readonly [number, number]> = [
@@ -155,6 +155,8 @@ const AWS_ACCESS_KEY_RE = /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g;
 const PROVIDER_TOKEN_RE =
   /\b(?:(?:ghp|gho|ghu|ghs|ghr|npm)_[A-Za-z0-9]{20,255}|github_pat_\w{20,255}|glpat-[A-Za-z0-9_-]{20,255})\b/g;
 
+const SLACK_TOKEN_RE = /\bxox[baprs]-[A-Za-z0-9_-]{12,255}\b/g;
+
 const SK_API_KEY_RE =
   /\bsk-(?:proj-|ant-|live-|test-)?[A-Za-z0-9_-]{16,255}\b/g;
 
@@ -186,6 +188,7 @@ const SECRET_AND_PII_RULES: ReadonlyArray<RedactionRule> = [
   { pattern: JWT_TOKEN_RE, replacement: REDACTED_SECRET },
   { pattern: AWS_ACCESS_KEY_RE, replacement: REDACTED_SECRET },
   { pattern: PROVIDER_TOKEN_RE, replacement: REDACTED_SECRET },
+  { pattern: SLACK_TOKEN_RE, replacement: REDACTED_SECRET },
   { pattern: SK_API_KEY_RE, replacement: REDACTED_SECRET },
   { pattern: EMAIL_RE, replacement: REDACTED_EMAIL },
   { pattern: SSN_RE, replacement: REDACTED_SSN },
@@ -670,7 +673,7 @@ function sanitizeArrayNode(
   return items.map((item) => sanitizeValue(item, keyName, depth + 1, state));
 }
 
-const TRAJECTORY_EVAL_EXEMPT_KEYS = new Set<string>(['steps', 'rag']);
+const TRAJECTORY_EVAL_EXEMPT_KEYS = new Set<string>(['steps', 'rag', 'actualOutput', 'retrievalContext']);
 
 function sanitizeStructuralRecord(
   record: Record<string, unknown>,
@@ -765,7 +768,7 @@ export function guardToolCallInput<T = Record<string, unknown> | null | undefine
   options?: PromptGuardOptions
 ): ToolCallGuardResult<T> {
   const rawArgs: unknown = args;
-  if (!isPromptGuardEnabled(options) || rawArgs === undefined || rawArgs === null) {
+  if (rawArgs === undefined || rawArgs === null) {
     return {
       toolName,
       blocked: false,
@@ -784,6 +787,17 @@ export function guardToolCallInput<T = Record<string, unknown> | null | undefine
     score: 0,
     matchedRules: new Set<string>(),
   };
+
+  if (!isPromptGuardEnabled(options)) {
+    const structuralArgs = sanitizeStructuralOnly(args, 0, state) as T;
+    return {
+      toolName,
+      blocked: state.blocked,
+      score: state.score,
+      matchedRules: [...state.matchedRules],
+      sanitizedArgs: structuralArgs,
+    };
+  }
 
   const sanitizedArgs = sanitizeValue(args, '', 0, state) as T;
   return {

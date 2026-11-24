@@ -118,17 +118,17 @@
       "name": "qa-11x-architect",
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-architect/SKILL.md",
-      "size_bytes": 11995,
-      "sha256": "d521b1dee4f5e801ba02ed4ab4c580d1816c84e4c9ed51051b89389e5537c9fa",
-      "description": "Master QA 11X & DevSecOps Architect (qa-testing-blueprints v3.2+). Use whenever the user asks to initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md."
+      "size_bytes": 12024,
+      "sha256": "4b1a21ad0a8ab4312d300aa448d317dd06686bef6422ff0be2608da14a717698",
+      "description": "Master QA 11X & DevSecOps Architect (qa-testing-blueprints v3.5+). Use whenever the user asks to initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md."
     },
     {
       "id": "qa-11x-devsecops-hardener",
       "name": "qa-11x-devsecops-hardener",
       "path": ".agents/skills/qa-11x-devsecops-hardener/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-devsecops-hardener/SKILL.md",
-      "size_bytes": 14357,
-      "sha256": "00f5fd961232a01125546f7753a72da34fcc1a494d51338a432b7cadac246b72",
+      "size_bytes": 14341,
+      "sha256": "ede172df75f16becf465e8a640df2d36b37d66a0dbb4669038be208cc79c5394",
       "description": "DISA ASD STIG V6R5 and OWASP Developer Guide v4.2 hardening sub-skill for Standard 11X. Use whenever designing, auditing, or modifying multi-tenant PostgreSQL 15–17+ RLS schemas, authentication and session flows, cryptographic secret vaults, WORM audit hash-chains, mutating MCP/JSON-RPC tools, or non-root Docker containers."
     },
     {
@@ -163,8 +163,8 @@
       "name": "qa-11x-vibe-rescue",
       "path": ".agents/skills/qa-11x-vibe-rescue/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-vibe-rescue/SKILL.md",
-      "size_bytes": 9513,
-      "sha256": "0c5e9227cec20ab142fb34ba296e38acc509881bd64e6106f1f938d0d236f2a3",
+      "size_bytes": 9495,
+      "sha256": "f1fc12850413cfcda4472e6ba5a43144807a6f0ca3ef97bc7ef7f67920c55aa9",
       "description": "5-stage Vibe-to-Enterprise rescue and hardening sub-skill for Standard 11X. Audits and hardens AI-generated prototypes (Bolt.new, Lovable, v0, Replit Agent, rapid vibe-coding scaffolds) without destroying their UX, enforcing secret quarantine, PostgreSQL 17 RLS, strict typing (CC <= 5), non-root Docker Rule Zero (>= 95% coverage), and 10/10 gate closure."
     },
     {
@@ -181,8 +181,8 @@
       "name": "docker-trivy-keydb-hardening",
       "path": ".agents/skills/docker-trivy-keydb-hardening/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/docker-trivy-keydb-hardening/SKILL.md",
-      "size_bytes": 5854,
-      "sha256": "881c4d203090ed646e47448d9f33c1c44bf53cc2ad50003f1948998c6f9432ee",
+      "size_bytes": 6112,
+      "sha256": "f47ce03690c78377002f4d78a85a7aa150e1dd35e04966f7ff30d7e1348354fc",
       "description": "Container hardening guidelines (Trivy HIGH/CRITICAL = 0), KeyDB multi-threaded in-memory engine, non-root runtime users, multi-stage Docker builds, and backend performance optimization."
     },
     {
@@ -190,8 +190,8 @@
       "name": "graphify-ast-navigator",
       "path": ".agents/skills/graphify-ast-navigator/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/graphify-ast-navigator/SKILL.md",
-      "size_bytes": 9624,
-      "sha256": "ae3589506ee7bf18d2fb636774cd5f30d54e5b14a4a068a807c64d0ef48eabc3",
+      "size_bytes": 9819,
+      "sha256": "807ec721429555b498489a6462303ce3fa15547ac1421acb7461f37264cdb04a",
       "description": "AST Knowledge Graph lifecycle and bidirectional code navigation (why and how to create, incrementally refresh, and query graph.json & GRAPH_REPORT.md). MANDATORY FIRST STEP whenever answering questions about project code or architecture (Code Q&A), tracing callers/callees, auditing pre-refactoring blast radius, or checking layer boundaries."
     },
     {

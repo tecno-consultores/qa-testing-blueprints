@@ -58,8 +58,23 @@ const AST_TOOL_NAMES = new Set<string>([
 
 const FORBIDDEN_REMOTE_CMD_RE =
   /\b(?:git\s+push|npm\s+publish|pnpm\s+publish|docker\s+push)\b/i;
+const FORBIDDEN_GIT_OPT_PUSH_RE = /\bgit\s+-[a-z]\s+\S+\s+push\b/i;
 const NO_VERIFY_FLAG_RE = /(?:^|\s)--no-verify(?=\s|$)/i;
-const DESTRUCTIVE_RM_RE = /(?:^|[\s;|&])rm\s+(-[a-z]{1,8})\s+(\/|~|\.\.\/)/i;
+const RM_COMMAND_SEG_RE = /(?:^|[\s;|&"'])rm\s+([^\r\n;|&"']+)/i;
+const PROTECTED_RM_PREFIXES = [
+  '/etc',
+  '/usr',
+  '/var',
+  '/bin',
+  '/sbin',
+  '/boot',
+  '/root',
+  '/home',
+  '/lib',
+  '/sys',
+  '/proc',
+  '/dev',
+] as const;
 const DOC_ID_RE = /\[([a-zA-Z0-9_:-]+)\]/g;
 const TECH_ID_RE = /\b[A-Z]{2,}-[A-Z0-9-]+\b/g;
 const DIGIT_RUN_RE = /\d+/g;
@@ -276,17 +291,35 @@ function serializeValue(value: unknown): string {
   return JSON.stringify(value);
 }
 
+function isDangerousRmTarget(rawTarget: string): boolean {
+  const target = rawTarget.replace(/^['"]|['"]$/g, '');
+  if (target === '/' || target === '/*' || target === '~' || target.startsWith('~/') || target.startsWith('../')) {
+    return true;
+  }
+  return PROTECTED_RM_PREFIXES.some((prefix) => target === prefix || target.startsWith(`${prefix}/`));
+}
+
 function isDestructiveRmCommand(text: string): boolean {
-  const match = DESTRUCTIVE_RM_RE.exec(text);
+  const match = RM_COMMAND_SEG_RE.exec(text);
   if (!match) {
     return false;
   }
-  return pickAt(match, 1).toLowerCase().includes('r');
+  const tokens = pickAt(match, 1).trim().split(/\s+/);
+  let hasRecursive = false;
+  for (const tok of tokens) {
+    if (tok === '--recursive' || (tok.startsWith('-') && !tok.startsWith('--') && tok.toLowerCase().includes('r'))) {
+      hasRecursive = true;
+    } else if (!tok.startsWith('-') && hasRecursive && isDangerousRmTarget(tok)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function hasForbiddenCommand(payload: string): boolean {
   return (
     FORBIDDEN_REMOTE_CMD_RE.test(payload) ||
+    FORBIDDEN_GIT_OPT_PUSH_RE.test(payload) ||
     NO_VERIFY_FLAG_RE.test(payload) ||
     isDestructiveRmCommand(payload)
   );
@@ -563,16 +596,16 @@ function appendThresholdViolations(
   metrics: TrajectoryMetrics,
   violations: TrajectoryViolation[]
 ): void {
-  if (metrics.compilationRate <= MIN_COMPILATION_RATE) {
+  if (metrics.compilationRate < MIN_COMPILATION_RATE) {
     violations.push({
       code: 'LOW_COMPILATION_RATE',
-      message: `Tasa de compilación insuficiente: ${metrics.compilationRate} <= ${MIN_COMPILATION_RATE}.`,
+      message: `Tasa de compilación insuficiente: ${metrics.compilationRate} < ${MIN_COMPILATION_RATE}.`,
     });
   }
-  if (metrics.regenerationRate >= MAX_REGENERATION_RATE) {
+  if (metrics.regenerationRate > MAX_REGENERATION_RATE) {
     violations.push({
       code: 'EXCESSIVE_REGENERATION',
-      message: `Tasa de regeneración excesiva: ${metrics.regenerationRate} >= ${MAX_REGENERATION_RATE}.`,
+      message: `Tasa de regeneración excesiva: ${metrics.regenerationRate} > ${MAX_REGENERATION_RATE}.`,
     });
   }
   if (metrics.trajectoryScore < MIN_TRAJECTORY_SCORE) {
@@ -793,6 +826,8 @@ function buildDockerPytestArgs(
   return [
     'run',
     '--rm',
+    '--security-opt=no-new-privileges:true',
+    '--cap-drop=ALL',
     '-u',
     `${uid}:${gid}`,
     '-e',

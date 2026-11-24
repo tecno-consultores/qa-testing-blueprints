@@ -26,7 +26,8 @@ SAFE_GIT_REF_RE = re.compile(r"^[a-zA-Z0-9._/~^-]+$")
 HUNK_HEADER_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 CONDITION_COV_RE = re.compile(r"\((\d+)/(\d+)\)")
 APPROVED_EXCLUSION_RE = re.compile(r"QA11X-APPROVED-EXCLUSION\(\s*[^)\s][^)]*\)")
-CONTAINER_PREFIX_RE = re.compile(r"^(?:/app/|/workspace/|/repo/)")
+CONTAINER_PREFIX_RE = re.compile(r"^(?:/app|/workspace|/repo)(?:/|$)")
+_CDATA_RE = re.compile(r"<!\[CDATA\[[\s\S]*?\]\]>")
 QUOTED_HEREDOC_RE = re.compile(
     r"""<<(-?)\s*(?:'([A-Za-z_][A-Za-z0-9_]*)'|"([A-Za-z_][A-Za-z0-9_]*)")"""
 )
@@ -291,8 +292,8 @@ def _resolve_safe_xml_fromstring() -> Callable[[str], ET.Element]:
 
 
 def _parse_xml_strict(raw_xml: str) -> ET.Element:
-    upper = raw_xml.upper()
-    if "<!DOCTYPE" in upper or "<!ENTITY" in upper:
+    outside_cdata = _CDATA_RE.sub("", raw_xml).upper()
+    if "<!DOCTYPE" in outside_cdata or "<!ENTITY" in outside_cdata:
         raise SecurityValidationError(
             "Violación Anti-XXE (APSC-DV-002390/002550): "
             "<!DOCTYPE/<!ENTITY prohibido en XML."
@@ -541,6 +542,32 @@ def parse_unified_diff(diff_text: str) -> dict[str, DiffFileChange]:
     return state.changes
 
 
+_BINARY_UNTRACKED_EXTS = frozenset(
+    {
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".webp",
+        ".ico",
+        ".pdf",
+        ".zip",
+        ".gz",
+        ".tar",
+        ".woff",
+        ".woff2",
+        ".ttf",
+        ".eot",
+        ".pyc",
+        ".so",
+        ".dll",
+        ".exe",
+        ".bin",
+        ".wasm",
+    }
+)
+
+
 def _collect_untracked_files(
     workspace_root: Path, changes: dict[str, DiffFileChange]
 ) -> None:
@@ -559,7 +586,10 @@ def _collect_untracked_files(
         candidate = _ensure_contained_path(
             workspace_root, workspace_root / clean, clean
         )
-        if not candidate.is_file():
+        if (
+            not candidate.is_file()
+            or candidate.suffix.lower() in _BINARY_UNTRACKED_EXTS
+        ):
             continue
         lines = candidate.read_text(encoding="utf-8", errors="replace").splitlines()
         if lines:

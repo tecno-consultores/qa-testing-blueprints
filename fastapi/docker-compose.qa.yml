@@ -222,8 +222,13 @@ services:
     pull_policy: if_not_present
     mem_limit: 512m
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    read_only: true
+    cap_drop:
+      - ALL
     security_opt:
       - no-new-privileges:true
+    tmpfs:
+      - /tmp:noexec,nosuid,nodev
     profiles:
       - load
     environment:

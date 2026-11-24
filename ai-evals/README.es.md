@@ -1,6 +1,6 @@
 > 🌐 **Idioma:** [🇺🇸 English (Canonical)](README.md) · **Español (Espejo 1:1)**
 
-> **[DIRECTIVA DE SISTEMA PARA AGENTES DE IA]:** Actúa como un Ingeniero Staff de Automatización QA y Experto DevOps. Lee, analiza y aplica estrictamente las siguientes restricciones arquitectónicas redactadas en español. Debes generar código que se alinee perfectamente con estas reglas, utilizando exclusivamente contenedores Docker efímeros (`sinfallas/base-python-uv:3.15` y `sinfallas/base-node-ionic:26`), separación estricta Dual-Mode y umbrales cuantitativos bloqueantes (`HallucinationMetric >= 0.95` donde `1.0` = 0% alucinación y tasa máxima `< 0.05`, `FaithfulnessMetric >= 0.90`, cobertura unitaria offline `>= 95%`). No sugieras instalaciones locales ni API keys hardcodeadas. Procesa la lógica técnica con tu máxima capacidad de razonamiento en inglés, pero emite tu respuesta final, explicaciones y comentarios de código en español.
+> **[DIRECTIVA DE SISTEMA PARA AGENTES DE IA]:** Actúa como un Ingeniero Staff de Automatización QA y Experto DevOps. Lee, analiza y aplica estrictamente las siguientes restricciones arquitectónicas redactadas en español. Debes generar código que se alinee perfectamente con estas reglas, utilizando exclusivamente contenedores Docker efímeros (`sinfallas/base-python-uv:3.15` y `sinfallas/base-node-ionic:26`), separación estricta Dual-Mode y umbrales cuantitativos bloqueantes (`HallucinationMetric <= 0.05` donde `0.0` = 0% alucinación y tasa máxima `<= 5%`, `FaithfulnessMetric >= 0.90`, cobertura unitaria offline `>= 95%`). No sugieras instalaciones locales ni API keys hardcodeadas. Procesa la lógica técnica con tu máxima capacidad de razonamiento en inglés, y emite tu respuesta final, explicaciones y comentarios de código en el idioma del prompt del usuario (por defecto español).
 
 # Guía de Evaluación Dual de IA Generativa, RAG y Agentes Autónomos (`ai-evals`)
 
@@ -22,7 +22,7 @@ Este blueprint establece el estándar corporativo **QA 11X** para auditar pipeli
 ## 2. Complementariedad entre DeepEval, Módulos Voz/OCR/Golden y Promptfoo
 
 1. **DeepEval RAG y Juez Compartido (`ai-evals/rag/test_rag_faithfulness.py`, `ai-evals/_llm_judge.py`):**
-   - Ideal para descomposición diagnóstica de pipelines RAG (`LLMTestCase`) y auditoría de trayectorias (`ToolCall`), respaldado por resolución compartida de jueces (`OpenAI`, `Gemini`, `Anthropic`, `Ollama` normalizado `/v1` o `LocalModel`).
+   - Ideal para descomposición diagnóstica de pipelines RAG (`LLMTestCase`) y auditoría de trayectorias (`ToolCall`), respaldado por precedencia compartida de resolución de jueces (`OPENAI_API_KEY` + `OPENAI_API_BASE` -> `LocalModel`, `OPENAI_API_KEY` -> `OpenAIModel`, `GEMINI_API_KEY` -> `GeminiModel`, `ANTHROPIC_API_KEY` -> `AnthropicModel`, `OLLAMA_BASE_URL` normalizado `/v1` -> `LocalModel`, `OPENAI_API_BASE` -> `LocalModel`).
    - En **Modo 1**, valida contratos deterministas de esquema, citas huérfanas, cifras no sustentadas y orden obligatorio de herramientas (`inspect_blast_radius` / `inspect_ast_blast_radius` previo a edición).
    - En **Modo 2** (`QA_LLM_AUDIT_LIVE=1`), ejecuta `assert_test` contra el juez resuelto mediante `resolve_deepeval_judge_model`.
 
@@ -45,7 +45,7 @@ Este blueprint establece el estándar corporativo **QA 11X** para auditar pipeli
 | :--- | :---: | :--- |
 | **Cobertura unitaria offline (`ai-evals` y `tests/evals`)** | **`>= 95%`** | `pytest --cov` (Modo 1) |
 | **Complejidad ciclomática y tipado Python** | **`CC <= 5` · 0 errores** | `ruff C901` + `mypy --strict` (Modo 1) |
-| **Alucinación (`HallucinationMetric`)** | **`>= 0.95`** (`1.0` = 0% alucinación, tasa `< 0.05`) | `DeepEval` (Modo 2) |
+| **Alucinación (`HallucinationMetric`)** | **`<= 0.05`** (`0.0` = 0% alucinación, tasa máxima `<= 5%`) | `DeepEval` (Modo 2) |
 | **Fidelidad al contexto (`FaithfulnessMetric`)** | **`>= 0.90`** | `DeepEval` / `Promptfoo` (Modo 2) |
 | **Precisión, Exhaustividad y Relevancia Contextual** | **`>= 0.85`** | `DeepEval` / `Promptfoo` (Modo 2) |
 | **Completitud de trayectoria (`TaskCompletionMetric`)** | **`>= 0.90`** | Contrato offline + `DeepEval` |
