@@ -13,10 +13,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
+import subprocess
 import sys
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
+from itertools import combinations
 from pathlib import Path
 from typing import Any
 
@@ -44,6 +48,28 @@ CONTRACT_EXTENSIONS: frozenset[str] = frozenset({".feature", ".bats"})
 SELF_STRUCTURAL_RELATIONS: frozenset[str] = STRUCTURAL_AST_RELATIONS
 _CAMEL_BOUNDARY_RE = re.compile(r"([a-z0-9])([A-Z])")
 _NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
+_FIX_COMMIT_RE = re.compile(
+    r"^(?:fix|hotfix)(?:\([^)]*\))?!?:|"
+    r"\b(?:fix|fixes|fixed|bug|bugs|hotfix|hotfixes|"
+    r"corrig\w*|arregl\w*|solucion\w*|repar\w*)\b",
+    re.IGNORECASE,
+)
+_BRACE_RENAME_RE = re.compile(r"\{[^{}]*?\s=>\s([^{}]*?)\}")
+_NOISE_BASENAMES: frozenset[str] = frozenset(
+    {
+        "package-lock.json",
+        "yarn.lock",
+        "pnpm-lock.yaml",
+        "poetry.lock",
+        "uv.lock",
+        "composer.lock",
+        "Cargo.lock",
+        "go.sum",
+    }
+)
+_SRC_ROOT_NAMES: frozenset[str] = frozenset(
+    {"src", "app", "lib", "packages", "apps", "services"}
+)
 
 
 def _norm_rel_path(raw: str) -> str:
@@ -432,14 +458,331 @@ def _resolve_graph_targets(
     return find_graph_files(workspace)
 
 
+def _is_ignored_git_path(rel_path: str) -> bool:
+    if not rel_path or rel_path.endswith((".snap", ".min.js")):
+        return True
+    parts = [p for p in rel_path.split("/") if p]
+    if not parts or any(p in CANONICAL_IGNORED_DIRS for p in parts):
+        return True
+    return parts[-1] in _NOISE_BASENAMES
+
+
+def _normalize_numstat_path(raw_path: str) -> str:
+    cleaned = raw_path.strip().replace("\\", "/")
+    if "{" in cleaned and " => " in cleaned:
+        cleaned = _BRACE_RENAME_RE.sub(r"\1", cleaned)
+    elif " => " in cleaned:
+        cleaned = cleaned.split(" => ", 1)[1]
+    while "//" in cleaned:
+        cleaned = cleaned.replace("//", "/")
+    return _norm_rel_path(cleaned.lstrip("/"))
+
+
+def _module_key_from_path(rel_path: str) -> str:
+    parts = [p for p in _norm_rel_path(rel_path).split("/") if p]
+    if len(parts) <= 1:
+        return "(root)"
+    if parts[0] in _SRC_ROOT_NAMES and len(parts) > 2:
+        return "/".join(parts[: min(3, len(parts) - 1)])
+    if len(parts) > 3 and parts[1] in _SRC_ROOT_NAMES:
+        return "/".join(parts[:3])
+    return "/".join(parts[: min(2, len(parts) - 1)])
+
+
+def _parse_numstat_lines(lines: list[str]) -> tuple[list[str], dict[str, int]]:
+    files: list[str] = []
+    churn: dict[str, int] = {}
+    for line in lines:
+        parts = line.split("\t")
+        if len(parts) != 3:
+            continue
+        norm_path = _normalize_numstat_path(parts[2])
+        if _is_ignored_git_path(norm_path):
+            continue
+        added = int(parts[0]) if parts[0].isdigit() else 0
+        deleted = int(parts[1]) if parts[1].isdigit() else 0
+        if norm_path not in churn:
+            files.append(norm_path)
+        churn[norm_path] = churn.get(norm_path, 0) + added + deleted
+    return files, churn
+
+
+def _parse_git_log_records(raw_log: str) -> list[dict[str, Any]]:
+    commits: list[dict[str, Any]] = []
+    for record in raw_log.split("\x1e"):
+        stripped = record.strip("\n")
+        if not stripped.strip():
+            continue
+        lines = stripped.split("\n")
+        header = lines[0].split("\x1f")
+        if len(header) != 5:
+            continue
+        files, churn = _parse_numstat_lines(lines[1:])
+        commits.append(
+            {
+                "hash": header[1],
+                "date": header[2],
+                "author": header[3],
+                "is_fix": bool(_FIX_COMMIT_RE.search(header[4])),
+                "files": files,
+                "churn": churn,
+            }
+        )
+    return commits
+
+
+def _empty_git_signals(detected: bool, repo_root: str = "") -> dict[str, Any]:
+    return {
+        "detected": detected,
+        "repo_root": repo_root,
+        "commits_analyzed": 0,
+        "hotspots": [],
+        "temporal_coupling_pairs": [],
+        "bus_factor_alerts": [],
+    }
+
+
+def _collect_hotspot_rows(
+    commits: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], Counter[str]]:
+    touches: Counter[str] = Counter()
+    fixes: Counter[str] = Counter()
+    churn_total: Counter[str] = Counter()
+    for commit in commits:
+        for fpath in commit["files"]:
+            touches[fpath] += 1
+            churn_total[fpath] += int(commit["churn"].get(fpath, 0))
+            if commit["is_fix"]:
+                fixes[fpath] += 1
+    hotspots: list[dict[str, Any]] = [
+        {
+            "file": fpath,
+            "touches": count,
+            "fixes": fixes[fpath],
+            "churn_lines": churn_total[fpath],
+            "score": (
+                count * (1 + fixes[fpath])
+                + int(math.log10(1 + churn_total[fpath]))
+            ),
+        }
+        for fpath, count in touches.items()
+    ]
+    hotspots.sort(
+        key=lambda row: (-int(row["score"]), -int(row["fixes"]), str(row["file"]))
+    )
+    return hotspots[:15], touches
+
+
+@dataclass(frozen=True)
+class _CouplingCriteria:
+    touches: Counter[str]
+    min_cochanges: int
+    min_confidence: float
+
+
+def _count_commit_pairs(
+    commits: list[dict[str, Any]], touches: Counter[str]
+) -> Counter[tuple[str, str]]:
+    pair_counts: Counter[tuple[str, str]] = Counter()
+    for commit in commits:
+        eligible = sorted({f for f in commit["files"] if touches[f] >= 2})
+        if 2 <= len(eligible) <= 20:
+            for file_a, file_b in combinations(eligible, 2):
+                pair_counts[(file_a, file_b)] += 1
+    return pair_counts
+
+
+def _build_coupling_pair(
+    pair: tuple[str, str], cochanges: int, criteria: _CouplingCriteria
+) -> dict[str, Any] | None:
+    file_a, file_b = pair
+    if cochanges < criteria.min_cochanges:
+        return None
+    denom = min(criteria.touches[file_a], criteria.touches[file_b])
+    conf = cochanges / denom if denom > 0 else 0.0
+    if conf < criteria.min_confidence:
+        return None
+    mod_a, mod_b = _module_key_from_path(file_a), _module_key_from_path(file_b)
+    return {
+        "file_a": file_a,
+        "file_b": file_b,
+        "cochanges": cochanges,
+        "confidence": round(conf, 2),
+        "cross_module": mod_a != mod_b,
+        "module_a": mod_a,
+        "module_b": mod_b,
+    }
+
+
+def _collect_temporal_coupling(
+    commits: list[dict[str, Any]],
+    criteria: _CouplingCriteria,
+) -> list[dict[str, Any]]:
+    pair_counts = _count_commit_pairs(commits, criteria.touches)
+    pairs: list[dict[str, Any]] = []
+    for pair, cochanges in pair_counts.items():
+        built = _build_coupling_pair(pair, cochanges, criteria)
+        if built is not None:
+            pairs.append(built)
+    pairs.sort(
+        key=lambda p: (
+            -int(bool(p["cross_module"])),
+            -int(p["cochanges"]),
+            -float(p["confidence"]),
+            str(p["file_a"]),
+        )
+    )
+    return pairs[:15]
+
+
+def _build_bus_factor_alert(
+    mod: str, authors: Counter[str]
+) -> dict[str, Any] | None:
+    total = sum(authors.values())
+    if total < 10:
+        return None
+    top_author, top_n = authors.most_common(1)[0]
+    pct = round(100.0 * top_n / total, 1)
+    if pct < 90.0:
+        return None
+    return {
+        "module": mod,
+        "commits": total,
+        "authors": len(authors),
+        "top_author": top_author,
+        "top_author_pct": pct,
+    }
+
+
+def _collect_bus_factor_alerts(commits: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    mod_authors: dict[str, Counter[str]] = defaultdict(Counter)
+    for commit in commits:
+        for mod in {_module_key_from_path(f) for f in commit["files"]}:
+            mod_authors[mod][str(commit["author"])] += 1
+    alerts = [
+        alert
+        for mod, authors in mod_authors.items()
+        if (alert := _build_bus_factor_alert(mod, authors)) is not None
+    ]
+    alerts.sort(
+        key=lambda row: (
+            -float(row["top_author_pct"]),
+            -int(row["commits"]),
+            str(row["module"]),
+        )
+    )
+    return alerts
+
+
+def analyze_git_arch_signals(
+    workspace: Path,
+    *,
+    max_commits: int = 500,
+    min_cochanges: int = 3,
+    min_confidence: float = 0.5,
+) -> dict[str, Any]:
+    root_proc = subprocess.run(
+        ["git", "-C", str(workspace), "rev-parse", "--show-toplevel"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    toplevel = root_proc.stdout.strip()
+    if root_proc.returncode != 0 or not toplevel:
+        return _empty_git_signals(False)
+    log_proc = subprocess.run(
+        [
+            "git",
+            "-C",
+            toplevel,
+            "-c",
+            "core.quotePath=false",
+            "log",
+            "--no-merges",
+            "-M",
+            "--numstat",
+            "--date=short",
+            f"--max-count={max_commits}",
+            "--pretty=format:\x1e%H\x1f%h\x1f%ad\x1f%an\x1f%s",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if log_proc.returncode != 0 or not log_proc.stdout.strip():
+        return _empty_git_signals(True, toplevel)
+    commits = _parse_git_log_records(log_proc.stdout)
+    hotspots, touches = _collect_hotspot_rows(commits)
+    pairs = _collect_temporal_coupling(
+        commits, _CouplingCriteria(touches, min_cochanges, min_confidence)
+    )
+    return {
+        "detected": True,
+        "repo_root": toplevel,
+        "commits_analyzed": len(commits),
+        "hotspots": hotspots,
+        "temporal_coupling_pairs": pairs,
+        "bus_factor_alerts": _collect_bus_factor_alerts(commits),
+    }
+
+
+def _print_git_signals_summary(signals: dict[str, Any]) -> None:
+    if not signals.get("detected"):
+        print("⚠️ [Git Signals] Workspace fuera de repositorio Git; análisis omitido.")
+        return
+    print(
+        f"🧭 [Git Signals] Commits analizados: {signals['commits_analyzed']} | "
+        f"Hotspots: {len(signals['hotspots'])} | "
+        f"Pares co-cambio: {len(signals['temporal_coupling_pairs'])} | "
+        f"Alertas bus-factor: {len(signals['bus_factor_alerts'])}"
+    )
+    for hs in signals["hotspots"][:5]:
+        print(
+            f"   🔥 [Hotspot] {hs['file']} (score={hs['score']}, "
+            f"touches={hs['touches']}, fixes={hs['fixes']}, churn={hs['churn_lines']})"
+        )
+    for pair in signals["temporal_coupling_pairs"][:5]:
+        tag = "cross-module" if pair["cross_module"] else "intra-module"
+        print(
+            f"   🔗 [Co-cambio {tag}] {pair['file_a']} <-> {pair['file_b']} "
+            f"(cochanges={pair['cochanges']}, conf={pair['confidence']})"
+        )
+    for alert in signals["bus_factor_alerts"][:5]:
+        print(
+            f"   👤 [Bus Factor] {alert['module']}: {alert['top_author_pct']}% "
+            f"({alert['commits']} commits, top={alert['top_author']})"
+        )
+
+
+def _print_symbol_cochange_hints(
+    declaring_files: set[str], signals: dict[str, Any]
+) -> None:
+    if not declaring_files or not signals.get("detected"):
+        return
+    hints: list[str] = []
+    for pair in signals.get("temporal_coupling_pairs", []):
+        fa, fb = str(pair["file_a"]), str(pair["file_b"])
+        partner = fb if fa in declaring_files else (fa if fb in declaring_files else "")
+        if partner and partner not in declaring_files:
+            hints.append(
+                f"{partner} (cochanges={pair['cochanges']}, conf={pair['confidence']})"
+            )
+    for hint in hints[:5]:
+        print(f"   🕰️ [Co-dependiente histórico QA-TEST-SYNC-01] {hint}")
+
+
 def inspect_symbol(
     query: str,
     *,
     allow_missing: bool = False,
     graph_file: Path | None = None,
     workspace: Path | None = None,
+    git_signals: bool = False,
 ) -> int:
     root = workspace.resolve() if workspace is not None else REPO_ROOT
+    if not query and git_signals:
+        _print_git_signals_summary(analyze_git_arch_signals(root))
+        return 0
     graph_files = _resolve_graph_targets(graph_file, workspace)
     if not graph_files:
         print(
@@ -454,6 +797,13 @@ def inspect_symbol(
         _process_graph_file(g_path, query, accum)
 
     total_callers = _print_contract_and_fallback(graph_files, query, accum)
+    if git_signals:
+        signals = analyze_git_arch_signals(root)
+        _print_git_signals_summary(signals)
+        declaring_files = {
+            nk[0] for nk in accum.seen_nodes if nk[0] and nk[0] != "unknown"
+        }
+        _print_symbol_cochange_hints(declaring_files, signals)
     final_risk = assess_risk_level(query, total_callers, len(accum.total_files))
     print(
         f"📊 [Blast Radius '{query}'] Llamadores: {total_callers} | "
@@ -473,6 +823,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "query",
+        nargs="?",
+        default="",
         help="Nombre del símbolo, función, modelo o archivo a inspeccionar.",
     )
     parser.add_argument(
@@ -492,12 +844,23 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Raíz del workspace donde buscar grafos y fuentes (default: REPO_ROOT).",
     )
+    parser.add_argument(
+        "--git-signals",
+        action="store_true",
+        help=(
+            "Analiza historia Git longitudinal (-M --numstat) para "
+            "hotspots, co-cambio y bus-factor."
+        ),
+    )
     args = parser.parse_args(argv)
+    if not args.query and not args.git_signals:
+        parser.error("Se requiere 'query' o '--git-signals'.")
     return inspect_symbol(
         args.query,
         allow_missing=args.allow_missing,
         graph_file=args.graph,
         workspace=args.workspace,
+        git_signals=args.git_signals,
     )
 
 

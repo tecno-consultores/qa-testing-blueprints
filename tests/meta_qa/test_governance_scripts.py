@@ -2486,3 +2486,134 @@ def test_wave3_inspect_blast_and_selector_coevolution(tmp_path: Path) -> None:
     assert lint_plan["run_backend"] is True
     assert lint_plan["run_mcp"] is True
 
+
+def test_inspect_blast_radius_git_signals_renames_fixes_and_coupling(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Valida señales Git (-M --numstat), renames, regex fix y co-cambio."""
+    insp = _load_script("inspect_blast_radius.py", "inspect_blast_git_v35")
+
+    # 1. Path normalization & noise filter & strict fix regex
+    assert insp._normalize_numstat_path("src/{old.py => new.py}") == "src/new.py"
+    assert insp._normalize_numstat_path("old.py => new.py") == "new.py"
+    assert insp._normalize_numstat_path("a/{ => sub}/f.py") == "a/sub/f.py"
+    assert insp._is_ignored_git_path("pnpm-lock.yaml") is True
+    assert insp._is_ignored_git_path("node_modules/pkg/a.js") is True
+    assert insp._is_ignored_git_path("src/app.py") is False
+    assert insp._FIX_COMMIT_RE.search("test: add fixture helpers") is None
+    assert insp._FIX_COMMIT_RE.search("chore: update fixtures") is None
+    assert insp._FIX_COMMIT_RE.search("fix(auth): token validation") is not None
+    assert insp._FIX_COMMIT_RE.search("hotfix: corrige calculo") is not None
+
+    # 2. Non-git workspace -> detected=False, CLI returns 0 with --git-signals
+    non_git = tmp_path / "non_git"
+    non_git.mkdir()
+    res_nogit = insp.analyze_git_arch_signals(non_git)
+    assert res_nogit["detected"] is False
+    assert insp.main(["--workspace", str(non_git), "--git-signals"]) == 0
+    assert "fuera de repositorio Git" in capsys.readouterr().out
+
+    # Missing both query and --git-signals -> SystemExit(2)
+    with pytest.raises(SystemExit) as exc_info:
+        insp.main(["--workspace", str(non_git)])
+    assert exc_info.value.code == 2
+
+    # 3. Real git repo: empty -> 0 commits, then 10 commits across two modules + rename
+    repo = tmp_path / "git_repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "qa@example.com"], cwd=repo, check=True
+    )
+    subprocess.run(["git", "config", "user.name", "SoloDev"], cwd=repo, check=True)
+    assert insp.analyze_git_arch_signals(repo)["commits_analyzed"] == 0
+
+    (repo / "src" / "billing").mkdir(parents=True)
+    (repo / "src" / "orders").mkdir(parents=True)
+    for idx in range(10):
+        (repo / "src" / "billing" / "invoice.py").write_text(
+            f"def bill(): return {idx}\n", encoding="utf-8"
+        )
+        (repo / "src" / "orders" / "cart.py").write_text(
+            f"def cart(): return {idx}\n", encoding="utf-8"
+        )
+        (repo / "pnpm-lock.yaml").write_text(f"v={idx}\n", encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=repo, check=True)
+        msg = "fix(billing): handle edge case" if idx % 2 == 0 else f"feat: step {idx}"
+        subprocess.run(["git", "commit", "-q", "-m", msg], cwd=repo, check=True)
+
+    # Rename file via git mv to verify -M handling
+    subprocess.run(
+        ["git", "mv", "src/billing/invoice.py", "src/billing/invoice_v2.py"],
+        cwd=repo,
+        check=True,
+    )
+    (repo / "src" / "billing" / "invoice_v2.py").write_text(
+        "def bill(): return 99\n", encoding="utf-8"
+    )
+    subprocess.run(["git", "add", "."], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "refactor: rename invoice"], cwd=repo, check=True
+    )
+
+    signals = insp.analyze_git_arch_signals(repo)
+    assert signals["detected"] is True
+    assert signals["commits_analyzed"] == 11
+    assert any(h["file"] == "src/orders/cart.py" for h in signals["hotspots"])
+    assert all(h["file"] != "pnpm-lock.yaml" for h in signals["hotspots"])
+    assert any(
+        p["cross_module"] and p["cochanges"] >= 3
+        for p in signals["temporal_coupling_pairs"]
+    )
+    assert any(
+        a["module"] == "src/orders" and a["top_author_pct"] == 100.0
+        for a in signals["bus_factor_alerts"]
+    )
+
+    # Graph + query + --git-signals cross-references declaring_files
+    gdir = repo / "graphify-out"
+    gdir.mkdir()
+    (gdir / "graph.json").write_text(
+        json.dumps(
+            {
+                "nodes": [
+                    {
+                        "id": "n_cart",
+                        "label": "cart",
+                        "source_file": "src/orders/cart.py",
+                    }
+                ],
+                "links": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert insp.main(["cart", "--workspace", str(repo), "--git-signals"]) == 0
+    out_cli = capsys.readouterr().out
+    assert "Git Signals" in out_cli
+    assert "Co-dependiente histórico QA-TEST-SYNC-01" in out_cli
+    assert "src/billing/invoice.py" in out_cli
+
+    # Edge cases for 100% diff coverage on inspect_blast_radius
+    assert insp._is_ignored_git_path("") is True
+    assert insp._normalize_numstat_path("a//b.py") == "a/b.py"
+    assert insp._module_key_from_path("top.py") == "(root)"
+    assert insp._module_key_from_path("fastapi/src/api/r.py") == "fastapi/src/api"
+    assert insp._module_key_from_path("scripts/run.sh") == "scripts"
+    assert insp._parse_git_log_records("\x1ebad_hdr\n")[0:] == []
+    assert insp._parse_numstat_lines(["malformed_line"]) == ([], {})
+    assert insp._build_coupling_pair(
+        ("a.py", "b.py"),
+        1,
+        insp._CouplingCriteria(insp.Counter({"a.py": 5, "b.py": 5}), 3, 0.5),
+    ) is None
+    assert insp._build_coupling_pair(
+        ("a.py", "b.py"),
+        3,
+        insp._CouplingCriteria(insp.Counter({"a.py": 10, "b.py": 10}), 3, 0.5),
+    ) is None
+    assert insp._build_bus_factor_alert("m", insp.Counter({"a": 3})) is None
+    assert insp._build_bus_factor_alert("m", insp.Counter({"a": 5, "b": 5})) is None
+    insp._print_symbol_cochange_hints(set(), {"detected": True})
+

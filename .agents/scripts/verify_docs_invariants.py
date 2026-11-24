@@ -2286,6 +2286,86 @@ def _check_specs_and_stack_contracts(root: Path) -> list[str]:
     ]
 
 
+_SKILL_BACKTICK_REF_RE = re.compile(r"`(references/[A-Za-z0-9._/-]+\.md)`")
+_SIBLING_SKILL_REF_RE = re.compile(r"`qa-11x-[a-z0-9-]+`")
+
+
+def _scan_single_skill_backticks(skill_md: Path) -> list[str]:
+    skill_dir = skill_md.parent
+    text = skill_md.read_text(encoding="utf-8", errors="ignore")
+    errors: list[str] = []
+    for ln, line in enumerate(text.splitlines(), 1):
+        if _SIBLING_SKILL_REF_RE.search(line):
+            continue
+        for match in _SKILL_BACKTICK_REF_RE.finditer(line):
+            rel_ref = match.group(1)
+            if ".." not in rel_ref and not (skill_dir / rel_ref).is_file():
+                errors.append(
+                    f".agents/skills/{skill_dir.name}/SKILL.md:{ln}: "
+                    f"referencia '{rel_ref}' no existe en disco."
+                )
+    return errors
+
+
+def _check_skill_backtick_references(root: Path) -> list[str]:
+    skills_dir = root / ".agents" / "skills"
+    if not skills_dir.is_dir():
+        return []
+    errors: list[str] = []
+    for skill_md in sorted(skills_dir.glob("*/SKILL.md")):
+        errors.extend(_scan_single_skill_backticks(skill_md))
+    return errors
+
+
+def _validate_claude_plugin_json(
+    root: Path, expected_ver: str | None
+) -> list[str]:
+    rel = ".claude-plugin/plugin.json"
+    path = root / rel
+    if not path.is_file():
+        return [f"{rel}: archivo obligatorio ausente."]
+    data, err = _load_json_strict(path)
+    if err or data is None:
+        return [f"{rel}: JSON inválido ({err})."]
+    errors: list[str] = []
+    if expected_ver and data.get("version") != expected_ver:
+        errors.append(f"{rel}: version '{data.get('version')}' != '{expected_ver}'.")
+    skills_rel = str(data.get("skills") or "")
+    if skills_rel != "./.agents/skills" or not (root / ".agents" / "skills").is_dir():
+        errors.append(
+            f"{rel}: 'skills' debe apuntar a './.agents/skills' existente en disco."
+        )
+    return errors
+
+
+def _validate_claude_marketplace_json(
+    root: Path, expected_ver: str | None
+) -> list[str]:
+    rel = ".claude-plugin/marketplace.json"
+    path = root / rel
+    if not path.is_file():
+        return [f"{rel}: archivo obligatorio ausente."]
+    data, err = _load_json_strict(path)
+    if err or data is None:
+        return [f"{rel}: JSON inválido ({err})."]
+    plugins = data.get("plugins")
+    if not isinstance(plugins, list) or not plugins or not isinstance(plugins[0], dict):
+        return [f"{rel}: 'plugins' debe contener una entrada válida."]
+    if expected_ver and plugins[0].get("version") != expected_ver:
+        return [f"{rel}: version '{plugins[0].get('version')}' != '{expected_ver}'."]
+    return []
+
+
+def _check_claude_plugin_manifests(root: Path) -> list[str]:
+    if not (root / ".claude-plugin").is_dir():
+        return []
+    expected_ver = _expected_pkg_version(root)
+    return [
+        *_validate_claude_plugin_json(root, expected_ver),
+        *_validate_claude_marketplace_json(root, expected_ver),
+    ]
+
+
 def validate_repository_docs(root: Path) -> list[str]:
     """Ejecuta validaciones upstream o universales en consumidores (D5)."""
     upstream = is_upstream_blueprints_repo(root)
@@ -2307,6 +2387,8 @@ def validate_repository_docs(root: Path) -> list[str]:
         *check_internal_markdown_links(root, upstream=True),
         *check_historical_spec_links(root),
         *_check_refactoring_ui_topics(root),
+        *_check_skill_backtick_references(root),
+        *_check_claude_plugin_manifests(root),
         *_check_specs_and_stack_contracts(root),
         *check_global_catalogs_and_geo(root),
         *check_testing_scoreboard_consistency(root),

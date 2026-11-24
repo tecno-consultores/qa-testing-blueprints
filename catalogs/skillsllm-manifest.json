@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0.0",
-  "name": "QA Testing Blueprints (QA-11X v3.3)",
+  "name": "QA Testing Blueprints (QA-11X v3.5)",
   "slug": "qa-testing-blueprints-11x",
-  "version": "3.3.0",
-  "standard_edition": "QA-11X v3.3",
+  "version": "3.5.0",
+  "standard_edition": "QA-11X v3.5",
   "license": "MIT",
   "author": "Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)",
   "homepage": "https://github.com/tecno-consultores/qa-testing-blueprints",
@@ -118,8 +118,8 @@
       "name": "qa-11x-architect",
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-architect/SKILL.md",
-      "size_bytes": 11851,
-      "sha256": "016a9e9d9a0e77bf66fab3185a1b6300cec3b51b8e5085c7acb2358b25a34039",
+      "size_bytes": 11995,
+      "sha256": "d521b1dee4f5e801ba02ed4ab4c580d1816c84e4c9ed51051b89389e5537c9fa",
       "description": "Master QA 11X & DevSecOps Architect (qa-testing-blueprints v3.2+). Use whenever the user asks to initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md."
     },
     {
@@ -163,8 +163,8 @@
       "name": "qa-11x-vibe-rescue",
       "path": ".agents/skills/qa-11x-vibe-rescue/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-vibe-rescue/SKILL.md",
-      "size_bytes": 8891,
-      "sha256": "4ef09f1b16ad07f4a350b3560429a99def1260b8742f7cfcf109f77a1c2ca1bf",
+      "size_bytes": 9513,
+      "sha256": "0c5e9227cec20ab142fb34ba296e38acc509881bd64e6106f1f938d0d236f2a3",
       "description": "5-stage Vibe-to-Enterprise rescue and hardening sub-skill for Standard 11X. Audits and hardens AI-generated prototypes (Bolt.new, Lovable, v0, Replit Agent, rapid vibe-coding scaffolds) without destroying their UX, enforcing secret quarantine, PostgreSQL 17 RLS, strict typing (CC <= 5), non-root Docker Rule Zero (>= 95% coverage), and 10/10 gate closure."
     },
     {
@@ -190,8 +190,8 @@
       "name": "graphify-ast-navigator",
       "path": ".agents/skills/graphify-ast-navigator/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/graphify-ast-navigator/SKILL.md",
-      "size_bytes": 9183,
-      "sha256": "834c610eee90eccafe673fa9e72ac196eb34989e89bfeec4af9a8ff63fcefdf8",
+      "size_bytes": 9624,
+      "sha256": "ae3589506ee7bf18d2fb636774cd5f30d54e5b14a4a068a807c64d0ef48eabc3",
       "description": "AST Knowledge Graph lifecycle and bidirectional code navigation (why and how to create, incrementally refresh, and query graph.json & GRAPH_REPORT.md). MANDATORY FIRST STEP whenever answering questions about project code or architecture (Code Q&A), tracing callers/callees, auditing pre-refactoring blast radius, or checking layer boundaries."
     },
     {

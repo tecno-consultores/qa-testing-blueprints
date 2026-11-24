@@ -44,6 +44,7 @@
 | **Hito 25** | Matriz 15×12, `base-mobile-appium:26` y Arquitectura Documental Bilingüe | [`19_SPEC`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.es.md) + [`20_SPEC`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.es.md) | ✅ Completado | `100%` |
 | **Hito 26** | `QA-11X v3.1` (`3.1.0`) — Flight Recorder Atómico, `tactical-patterns-11x`, Hidratación 10 Stacks y Endurecimiento Fail-Closed | [`AGENTS.md`](AGENTS.md) + [`TESTING.es.md`](TESTING.es.md) | ✅ Completado | `100%` |
 | **Hito 27** | `v3.2.0` (`QA-11X v3.2`) — Remediación Integral 99/99 Hallazgos, 12 Subcomandos CLI, Anotaciones MCP 2026, A2A v1.0 y 100% Diff Coverage | [`CHANGELOG.es.md`](CHANGELOG.es.md) + [`TESTING.es.md`](TESTING.es.md) | ✅ Completado | `100%` |
+| **Hito 28** | `v3.5.0` (`QA-11X v3.5`) — Fronteras AST Declarativas/Inestabilidad, Señales Git Longitudinales, SDD/EARS (`10` Refs) y `.claude-plugin/` | [`CHANGELOG.es.md`](CHANGELOG.es.md) + [`TESTING.es.md`](TESTING.es.md) | ✅ Completado | `100%` |
 
 ---
 
@@ -370,3 +371,13 @@
 - [x] **27.1.** Cerrar hallazgos de seguridad y runtime en el Servidor MCP (`src/utils/ideConfigPaths.ts`, `src/security/pathRealResolver.ts`, Zod `.strict()`, `annotations` MCP 2026, `A2A v1.0`, propagación `AbortSignal`) y certificar E2E Clean-Room `.tgz` + Karate BDD (`51/51`).
 - [x] **27.2.** Endurecer los 10 stacks blueprints (digest OCI multi-arch `sinfallas/base-mobile-appium:26`, contratos portal/refresco dual React, `mutmut >= 3.7.0`, Promptfoo Nunjucks, SQL WORM fail-closed) y corregir scripts CI/Bash/Python (`make sbom` + `.sha256`, `make compact-context`, fallback `install-skill.sh` sin `jq`).
 - [x] **27.3.** Sincronizar documentación 1:1 EN/ES (`docs/`, `README`, `TESTING`, `CHANGELOG`, `ROADMAP`), alcanzar `100.00%` de cobertura diferencial en líneas sobre Python/TS/Bash (`verify_diff_coverage.py`) y sellar localmente la versión `3.2.0` bajo `QA-GIT-GATE-01`.
+
+---
+
+## ✅ Hito 28: `v3.5.0` (`QA-11X v3.5`) — Fronteras AST Declarativas/Inestabilidad, Señales Git Longitudinales, SDD/EARS y `.claude-plugin/`
+**Referencia Obligatoria:** [`CHANGELOG.es.md`](CHANGELOG.es.md), [`TESTING.es.md`](TESTING.es.md) y [`AGENTS.md`](AGENTS.md)
+
+### Tareas de Implementación:
+- [x] **28.1.** Implementar `.agents/boundaries.json` declarativo (`layers`, `independence`, `forbidden` con guardia fail-closed de `0` nodos) e Inestabilidad de Martin (`--metrics`, `compute_module_instability`) en [`.agents/scripts/verify_topological_health.py`](.agents/scripts/verify_topological_health.py), más minería longitudinal `--git-signals` en [`.agents/scripts/inspect_blast_radius.py`](.agents/scripts/inspect_blast_radius.py) y `mcp-server` (`src/utils/git-signals.ts`, `include_git_signals`, CLI `--git-signals`).
+- [x] **28.2.** Añadir [`10-sdd-ears-traceability.md`](.agents/skills/qa-11x-architect/references/10-sdd-ears-traceability.md) (`10` referencias de `qa-11x-architect` dentro de `<= 12,288 B`), actualizar `qa-11x-vibe-rescue`, `graphify-ast-navigator` y `active_task_and_planning_resilience.md`, endurecer esquema estricto de frontmatter Agent Skills + validador de rutas `references/`, y publicar [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) + [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json).
+- [x] **28.3.** Rotar la versión del monorepo atómicamente a `3.5.0` (`QA-11X v3.5`) vía `bump_version_11x.py` + `sync_governance.py`, sincronizar documentación bilingüe 1:1, certificar `10/10` (`certify_task_completion.sh --strict`) con `100%` de cobertura diferencial y cerrar en `git commit` local (`QA-GIT-GATE-01`).

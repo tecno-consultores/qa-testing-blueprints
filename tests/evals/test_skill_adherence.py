@@ -50,6 +50,7 @@ MIN_COMPILATION_RATE = 0.94
 MAX_REGENERATION_RATE = 1.2
 
 FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
+SKILL_NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 FORBIDDEN_AUTO_PUSH_RE = re.compile(
     r"commit and push to `?git`?|"
     r"git commit`?\s*(?:&&|,|\+|y)\s*`?git push|"
@@ -211,18 +212,39 @@ class SkillsMatrixAuditSummary(BaseModel):
     redteam_controls: tuple[str, ...]
 
 
+def _validate_skill_name(name_val: str, skill_dir: str) -> list[str]:
+    if (
+        not SKILL_NAME_RE.match(name_val)
+        or name_val != skill_dir
+        or len(name_val) > 64
+    ):
+        return [f"{skill_dir}: campo 'name' inválido ({name_val!r})"]
+    return []
+
+
+def _validate_skill_desc(desc_val: str, skill_dir: str) -> list[str]:
+    if not desc_val or len(desc_val) > 1024:
+        return [
+            f"{skill_dir}: campo 'description' vacío o > 1024 chars ({len(desc_val)})"
+        ]
+    return []
+
+
 def _validate_frontmatter_fields(
     loaded: Any, skill_dir: str
 ) -> list[str]:
     if not isinstance(loaded, Mapping):
         return [f"{skill_dir}: frontmatter debe ser mapeo YAML"]
+    errors: list[str] = []
+    extra_keys = sorted(set(loaded.keys()) - {"name", "description"})
+    if extra_keys:
+        errors.append(
+            f"{skill_dir}: claves frontmatter no permitidas ({extra_keys})"
+        )
     name_val = str(loaded.get("name", "")).strip()
     desc_val = str(loaded.get("description", "")).strip()
-    errors: list[str] = []
-    if not name_val or name_val != skill_dir:
-        errors.append(f"{skill_dir}: campo 'name' inválido ({name_val!r})")
-    if not desc_val:
-        errors.append(f"{skill_dir}: campo 'description' vacío")
+    errors.extend(_validate_skill_name(name_val, skill_dir))
+    errors.extend(_validate_skill_desc(desc_val, skill_dir))
     return errors
 
 
@@ -985,3 +1007,39 @@ def test_live_skill_adherence_and_trajectory_audit() -> None:
     case = build_live_skill_adherence_case(judge)
     metrics = build_live_skill_adherence_metrics(judge)
     assert_test(case, metrics)
+
+
+def test_strict_agent_skills_frontmatter_schema_validation() -> None:
+    """Valida esquema estricto Agent Skills (sin claves extra, kebab-case, <=1024)."""
+    assert (
+        _validate_frontmatter_fields(
+            {"name": "qa-11x-demo", "description": "Valid skill description."},
+            "qa-11x-demo",
+        )
+        == []
+    )
+    extra_errs = _validate_frontmatter_fields(
+        {"name": "qa-11x-demo", "description": "Valid", "license": "MIT"},
+        "qa-11x-demo",
+    )
+    assert any("no permitidas" in e for e in extra_errs)
+
+    bad_name_errs = _validate_frontmatter_fields(
+        {"name": "Invalid_Name", "description": "Valid"},
+        "Invalid_Name",
+    )
+    assert any("inválido" in e for e in bad_name_errs)
+
+    long_name = "a" * 65
+    assert any(
+        "inválido" in e
+        for e in _validate_frontmatter_fields(
+            {"name": long_name, "description": "Valid"}, long_name
+        )
+    )
+
+    long_desc_errs = _validate_frontmatter_fields(
+        {"name": "qa-11x-demo", "description": "x" * 1025},
+        "qa-11x-demo",
+    )
+    assert any("> 1024 chars" in e for e in long_desc_errs)

@@ -32,7 +32,7 @@ All AI coding assistants and developers in this monorepo MUST enforce Level-11X 
 
 ## 3. Skills Catalog in `.agents/skills/` (11 Modular Skills)
 
-1. `qa-11x-architect` (`<= 12 KB` + 9 references): Master pyramid (13 layers), 10 laws, 11 UAT rules, 22 STIG/OWASP controls, 36 static scanner rules, Token Economy + Objective Critique.
+1. `qa-11x-architect` (`<= 12 KB` + 10 references): Master pyramid (13 layers), 10 laws, 11 UAT rules, 22 STIG/OWASP controls, 36 static scanner rules, Token Economy + Objective Critique.
 2. `qa-11x-docker-certifier`: Ephemeral Docker QA (`>= 95%` coverage, SonarJS, Karate, Stryker/Mutmut).
 3. `docker-trivy-keydb-hardening`: Container hardening (Trivy HIGH/CRITICAL = 0), KeyDB, non-root runtime.
 4. `graphify-ast-navigator`: Bidirectional AST Knowledge Graph navigation & layer boundary enforcement.
@@ -50,7 +50,7 @@ All AI coding assistants and developers in this monorepo MUST enforce Level-11X 
 
 > **Surface Inventory:** `10` scripts in `scripts/`, `22` files in `.agents/scripts/` (`21` Python total incl. `scripts/generar-manifiesto.py`), `26` files in `tests/`.
 
-`_budgets.py` (single-source budgets incl. `8 KB` root `AGENTS.md` / `1.5 KB` connectors), `checkpoint_ctl.py`, `certify_task_completion.sh` (10-stage gate + Consumer Governance Fast-Path), `bump_version_11x.py`, `sync_governance.py`, `verify_roadmap_consistency.py`, `verify_docs_invariants.py` (upstream vs consumer universal scoping), `verify_alembic_orm_parity.py`, `verify_zero_orphan_vue_components.py`, `verify_no_orphan_api_endpoints.py`, `verify_json_no_duplicate_keys.py`, `inspect_blast_radius.py`, `select_tests_by_blast_radius.py`, `verify_topological_health.py`, `verify_diff_coverage.py` (`100%` lines / `>= 90%` branches), `track_findings_state.py` (`BREAKER-42`), `generate_pr_verdict.py`, `lint_test_antipatterns.py`, `compact_context_11x.py`, `release_readiness_gate.py`, `audit_pagespeed_insights.py`, `validate_calm_architecture.sh`.
+`_budgets.py` (single-source budgets incl. `8 KB` root `AGENTS.md` / `1.5 KB` connectors), `checkpoint_ctl.py`, `certify_task_completion.sh` (10-stage gate + Consumer Governance Fast-Path), `bump_version_11x.py`, `sync_governance.py`, `verify_roadmap_consistency.py`, `verify_docs_invariants.py` (upstream vs consumer universal scoping), `verify_alembic_orm_parity.py`, `verify_zero_orphan_vue_components.py`, `verify_no_orphan_api_endpoints.py`, `verify_json_no_duplicate_keys.py`, `inspect_blast_radius.py` (`--git-signals`), `select_tests_by_blast_radius.py`, `verify_topological_health.py` (`.agents/boundaries.json`, `--metrics`), `verify_diff_coverage.py` (`100%` lines / `>= 90%` branches), `track_findings_state.py` (`BREAKER-42`), `generate_pr_verdict.py`, `lint_test_antipatterns.py`, `compact_context_11x.py`, `release_readiness_gate.py`, `audit_pagespeed_insights.py`, `validate_calm_architecture.sh`.
 
 ---
 

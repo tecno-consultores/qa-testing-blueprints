@@ -186,7 +186,7 @@ export const CLI_USAGE_TEXT = [
   '  --mode, -m <mode>                        Audit (security|pyramid|vibe|calm|all) or TMS sync mode',
   '  --format, -f <fmt> / --sarif / --fail-on <lvl> / --max-findings <n>  Audit output controls',
   '  --include-examples / --architecture-path <rel>  Include .example or set CALM model (audit)',
-  '  --symbol, -s <sym> / --changed-since <ref> / --auto-build / --refresh  AST blast-radius controls',
+  '  --symbol, -s <sym> / --changed-since <ref> / --git-signals / --auto-build / --refresh  AST blast-radius controls',
   '  --max-tokens <n> / --max-items <n>       Blast-radius diff budget and dependent truncation',
   '  --client, -c <id|all> / --print / --install / --pin-version  IDE MCP config generator',
   '  --shell <fish|bash|zsh>                  Shell target for completion script',

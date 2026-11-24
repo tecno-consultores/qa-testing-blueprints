@@ -6,9 +6,15 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
-import { BlastRadiusResult, BlastRiskLevel, DiffBundleReport } from '../types.js';
+import {
+  BlastRadiusResult,
+  BlastRiskLevel,
+  DiffBundleReport,
+  GitArchSignalsReport,
+} from '../types.js';
 import { buildSemanticDiffBundle } from '../utils/diff-bundle.js';
 import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
+import { collectGitArchSignals } from '../utils/git-signals.js';
 import { CANONICAL_IGNORED_DIRS } from '../utils/ignoredDirs.js';
 
 export const GRAPHIFY_DOCKER_IMAGE =
@@ -25,6 +31,7 @@ export interface BlastRadiusOptions {
   graphBuilder?: (projectPath: string, signal?: AbortSignal) => boolean | Promise<boolean>;
   changedSinceRef?: string;
   maxTokensBudget?: number;
+  includeGitSignals?: boolean;
   signal?: AbortSignal;
 }
 
@@ -451,16 +458,53 @@ function runGraphAndConditionalRegexScan(resolvedPath: string, ctx: GraphScanCon
   }
 }
 
+function resolveCouplingPartner(
+  pair: GitArchSignalsReport['temporal_coupling_pairs'][number],
+  declaringFiles: ReadonlySet<string>
+): string {
+  if (declaringFiles.has(pair.file_a)) {
+    return pair.file_b;
+  }
+  if (declaringFiles.has(pair.file_b)) {
+    return pair.file_a;
+  }
+  return '';
+}
+
+function mergeGitSignalCouplingDependents(
+  gitSignals: GitArchSignalsReport,
+  ctx: GraphScanContext
+): void {
+  if (!ctx.cleanSymbol || !gitSignals.detected || ctx.declaringFiles.size === 0) {
+    return;
+  }
+  for (const pair of gitSignals.temporal_coupling_pairs) {
+    if (pair.confidence < 0.6) {
+      continue;
+    }
+    const partner = resolveCouplingPartner(pair, ctx.declaringFiles);
+    if (!partner || ctx.declaringFiles.has(partner)) {
+      continue;
+    }
+    const norm = normalizeRelativePath(partner);
+    ctx.dependentFiles.add(norm);
+    if (EXISTING_TEST_FILE_RE.test(norm)) {
+      ctx.suggestedTests.add(norm);
+    }
+  }
+}
+
 interface BuildBlastResultInput {
   readonly resolvedPath: string;
   readonly ctx: GraphScanContext;
   readonly diffBundle: DiffBundleReport | undefined;
+  readonly gitSignals: GitArchSignalsReport | undefined;
   readonly astGraphRebuilt: boolean;
   readonly maxItems?: number;
 }
 
 function buildBlastRadiusResult(input: BuildBlastResultInput): BlastRadiusResult {
-  const { resolvedPath, ctx, diffBundle, astGraphRebuilt, maxItems } = input;
+  const { resolvedPath, ctx, diffBundle, gitSignals, astGraphRebuilt, maxItems } = input;
   for (const declFile of ctx.declaringFiles) {
     ctx.dependentFiles.delete(declFile);
   }
@@ -500,6 +544,7 @@ function buildBlastRadiusResult(input: BuildBlastResultInput): BlastRadiusResult
     ast_graph_files: [...ctx.graphFiles].sort((a, b) => a.localeCompare(b)),
     ast_graph_action_required: astGraphActionRequired,
     ...(diffBundle ? { diff_bundle: diffBundle } : {}),
+    ...(gitSignals ? { git_signals: gitSignals } : {}),
   };
 }
 
@@ -516,8 +561,11 @@ export async function inspectAstBlastRadius(
   }
 
   const cleanSymbol = targetSymbol.trim();
-  if (!cleanSymbol && options?.changedSinceRef === undefined) {
-    throw new Error('Se requiere target_symbol (o changed_since_ref para análisis diferencial).');
+  const hasScopeRef = options?.changedSinceRef !== undefined || options?.includeGitSignals === true;
+  if (!cleanSymbol && !hasScopeRef) {
+    throw new Error(
+      'Se requiere target_symbol (o changed_since_ref / include_git_signals).'
+    );
   }
 
   const builder = options?.graphBuilder ?? defaultGraphifyBuilder;
@@ -553,10 +601,17 @@ export async function inspectAstBlastRadius(
     mergeDiffBundleDependents(diffBundle, ctx);
   }
 
+  let gitSignals: GitArchSignalsReport | undefined;
+  if (options?.includeGitSignals) {
+    gitSignals = await collectGitArchSignals(resolvedPath, { signal: options.signal });
+    mergeGitSignalCouplingDependents(gitSignals, ctx);
+  }
+
   return buildBlastRadiusResult({
     resolvedPath,
     ctx,
     diffBundle,
+    gitSignals,
     astGraphRebuilt,
     maxItems,
   });

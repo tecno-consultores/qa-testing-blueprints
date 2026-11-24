@@ -456,10 +456,10 @@ runs:
               if [ "${AUDIT_RC}" -ne 0 ]; then
                 exit "${AUDIT_RC}"
               fi
-            elif command -v docker >/dev/null 2>&1 && docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.3.0 audit --help >/dev/null 2>&1; then
+            elif command -v docker >/dev/null 2>&1 && docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.5.0 audit --help >/dev/null 2>&1; then
               mkdir -p .agents/artifacts
               AUDIT_RC=0
-              docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.3.0 audit --mode security --sarif > .agents/artifacts/qa-11x-audit.sarif || AUDIT_RC=$?
+              docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.5.0 audit --mode security --sarif > .agents/artifacts/qa-11x-audit.sarif || AUDIT_RC=$?
               if [ -s ".agents/artifacts/qa-11x-audit.sarif" ]; then
                 SARIF_PATH=".agents/artifacts/qa-11x-audit.sarif"
               fi
@@ -535,8 +535,8 @@ runs:
               -w /app \
               "${INPUT_NODE_IMAGE}" \
               node mcp-server/dist/index.js certify --offline 2>&1 | tee "${CERTIFY_LOG}"
-          elif command -v docker >/dev/null 2>&1 && docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.3.0 certify --help >/dev/null 2>&1; then
-            docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.3.0 certify --offline 2>&1 | tee "${CERTIFY_LOG}"
+          elif command -v docker >/dev/null 2>&1 && docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.5.0 certify --help >/dev/null 2>&1; then
+            docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.5.0 certify --offline 2>&1 | tee "${CERTIFY_LOG}"
           else
             echo "⚠️ [SKIPPED] certify_11x_gate unavailable in workspace" | tee "${CERTIFY_LOG}"
             SKIPPED_GATES=$((SKIPPED_GATES + 1))

@@ -1017,8 +1017,12 @@ function registerCoreAnalysisTools(
     },
     async (args, extra) => {
       const targetSymbol = args.target_symbol ?? '';
-      if (!targetSymbol.trim() && args.changed_since_ref === undefined) {
-        throw new Error('Se requiere target_symbol (o changed_since_ref para análisis diferencial).');
+      const hasScope =
+        args.changed_since_ref !== undefined || args.include_git_signals === true;
+      if (!targetSymbol.trim() && !hasScope) {
+        throw new Error(
+          'Se requiere target_symbol (o changed_since_ref / include_git_signals).'
+        );
       }
       const safePath = resolveSafeProjectPath(args.project_path);
       return toJsonToolResult(
@@ -1027,6 +1031,7 @@ function registerCoreAnalysisTools(
           refreshGraph: args.refresh_graph,
           changedSinceRef: args.changed_since_ref,
           maxTokensBudget: args.max_tokens_budget,
+          includeGitSignals: args.include_git_signals,
           signal: extra.signal,
         })
       );

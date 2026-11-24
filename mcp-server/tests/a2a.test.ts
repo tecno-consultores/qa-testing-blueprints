@@ -68,7 +68,7 @@ describe('Agent2Agent Card Generator (buildAgentCard)', () => {
       },
     ]);
     expect(DEFAULT_STANDARD_VERSION).toBe(MCP_STANDARD_EDITION);
-    expect(card.standardVersion).toBe('QA-11X v3.3');
+    expect(card.standardVersion).toBe('QA-11X v3.5');
     expect(card.standardVersion).toBe(DEFAULT_STANDARD_VERSION);
     expect(card.standardVersion).toBe(expectedStandardVersion);
     expect(deriveStandardVersion()).toBe(DEFAULT_STANDARD_VERSION);

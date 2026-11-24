@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
-"""Compactador determinista de contexto Zero-LLM en 2 niveles para QA-11X v3.3."""
+"""Compactador determinista de contexto Zero-LLM en 2 niveles para QA-11X v3.5."""
 
 from __future__ import annotations
 
@@ -421,7 +421,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Compactador determinista de contexto Zero-LLM en 2 niveles "
-            "(QA-11X v3.3)."
+            "(QA-11X v3.5)."
         )
     )
     parser.add_argument(

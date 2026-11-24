@@ -23,8 +23,9 @@ Naive text-based exploration (`grep` + reading multiple full files to trace call
    - The exact count of incoming dependency edges determines whether a modification qualifies for the fast **Surgical-Path (`MICRO_CHANGE`: `< 5` callers, `<= 3` files)** or requires the **Architectural-Path (`FULL_11X`: `>= 5` callers or security-critical symbols)**.
 3. **Multi-Hop Transitive Blast Radius (GraphRAG for Code):**
    - Unlike flat string matching or vector embeddings, AST graph traversal exposes multi-hop ripple effects across API routes, service layers, ORM models, and UI stores before a single line of code is changed.
-4. **Automated Topological Layer Governance (Certification Gate 6/10):**
+4. **Automated Topological Layer Governance & Quantitative Instability Metrics (Certification Gate 6/10):**
    - Powers `verify_topological_health.py` inside `certify_task_completion.sh` to statically block directed circular dependencies (3-color DFS) and forbidden cross-layer coupling (`models/`/`schemas/`/`core/`/`domain/`/`services/` depending on `api/`/`controllers/`/`routes/`/`views/`, or `components/common/` depending on `views/`/`pages/`).
+   - Supports optional declarative `.agents/boundaries.json` contracts (`layers`, `independence`, `forbidden` with fail-closed `0`-node guard) and `--metrics` ($C_a$, $C_e$, Martin Instability $I = C_e / (C_a + C_e)$, and god-module detection).
 
 ---
 
@@ -68,19 +69,19 @@ docker run --rm --network none -e OLLAMA_BASE_URL="" -v "$(pwd):/app" -w /app si
 
 - **Mandatory Order of Operations (`Graphify AST -> GRAPH_REPORT.md -> Windowed Read -> Grep Fallback`):**
   1. For high-level architectural questions, read `graphify-out/GRAPH_REPORT.md` first to identify functional communities and central nodes.
-  2. For symbol, function, class, route, or file questions (or pre-refactoring blast radius), query the bidirectional AST graph via ephemeral Docker CLI (`sinfallas/base-python-uv:3.15` under `Rule Zero`) or MCP (`inspect_ast_blast_radius(project_path, target_symbol, changed_since_ref, max_items: 20, auto_build_if_missing: true)`), which returns the exact declaring `file:line`, incoming callers (`⬅️ Llamado por`), and outgoing callees (`➡️ Invoca a`):
+  2. For symbol, function, class, route, or file questions (or pre-refactoring blast radius), query the bidirectional AST graph via ephemeral Docker CLI (`sinfallas/base-python-uv:3.15` under `Rule Zero`) or MCP (`inspect_ast_blast_radius(project_path, target_symbol, changed_since_ref, max_items: 20, auto_build_if_missing: true, include_git_signals: true)`), which returns the exact declaring `file:line`, incoming callers (`⬅️ Llamado por`), outgoing callees (`➡️ Invoca a`), and optional longitudinal Git co-change/hotspot signals (`--git-signals`):
      ```bash
-     # 1. Bidirectional symbol navigation (declaring file:line, incoming callers & outgoing callees)
+     # 1. Bidirectional symbol navigation + longitudinal Git signals (hotspots, co-change, bus-factor)
      docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app \
-       sinfallas/base-python-uv:3.15 python3 .agents/scripts/inspect_blast_radius.py "<symbol_or_filename>"
+       sinfallas/base-python-uv:3.15 python3 .agents/scripts/inspect_blast_radius.py "<symbol_or_filename>" --git-signals
 
      # 2. Differential blast-radius test selector (Affected suites only; also accepts --base)
      docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app \
        sinfallas/base-python-uv:3.15 python3 .agents/scripts/select_tests_by_blast_radius.py --base-ref origin/main
 
-     # 3. Architectural layer boundary & circular dependency audit
+     # 3. Architectural layer boundary, declarative .agents/boundaries.json & Instability metrics audit
      docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app \
-       sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_topological_health.py
+       sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_topological_health.py --metrics
      ```
      - Under **`QA-TEST-SYNC-01`**, trace and update all impacted consumer test suites (`tests/`, `*.feature`, `*.bats`) surfaced by the blast radius before finalizing changes.
   3. Read only the 40–80 lines around the reported `file:L<line>` (`StartLine`/`EndLine`). Use `grep -n` **only as a fallback** for string literals not indexed as AST nodes.

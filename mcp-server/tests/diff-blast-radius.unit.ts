@@ -19,6 +19,11 @@ import {
   type GraphScanContext,
 } from '../src/tools/blast-radius.js';
 import {
+  collectGitArchSignals,
+  isFixCommitSubject,
+  resolveGitNumstatRenamePath,
+} from '../src/utils/git-signals.js';
+import {
   buildSemanticDiffBundle,
   classifyDiffTier,
   collapseLargeHunk,
@@ -600,5 +605,184 @@ describe('Modo Diferencial en inspect_ast_blast_radius y diff-bundle (Hito 23)',
     const docEntry = bundle.files.find((f) => f.file === 'docs/guía.md');
     expect(apiEntry?.tier).toBe('CRITICAL_FULL');
     expect(docEntry?.tier).toBe('CORE_LOGIC');
+  });
+
+  it('mina señales longitudinales Git (renames -M, regex fix, co-cambio y bus factor) e integra include_git_signals en MCP', async () => {
+    expect(resolveGitNumstatRenamePath('src/{old.ts => new.ts}')).toBe('src/new.ts');
+    expect(resolveGitNumstatRenamePath('old.ts => new.ts')).toBe('new.ts');
+    expect(resolveGitNumstatRenamePath('a//{ => sub}/f.ts')).toBe('a/sub/f.ts');
+    expect(resolveGitNumstatRenamePath('/a/{broken/f.ts')).toBe('a/{broken/f.ts');
+    expect(resolveGitNumstatRenamePath('a/{b => c}/d/')).toBe('a/c/d');
+    expect(resolveGitNumstatRenamePath('src/{unclosed => new')).toBe('src/{unclosed => new');
+    expect(resolveGitNumstatRenamePath('src/{foo}/a => b')).toBe('src/{foo}/a => b');
+    expect(isFixCommitSubject('test: add fixture helpers')).toBe(false);
+    expect(isFixCommitSubject('chore: update fixtures')).toBe(false);
+    expect(isFixCommitSubject('fix(auth): validate jwt')).toBe(true);
+    expect(isFixCommitSubject('hotfix: corrige calculo')).toBe(true);
+
+    // 1. Non-git dir -> detected=false
+    const nonGit = fs.mkdtempSync(path.join(os.tmpdir(), 'qa11x-nogit-'));
+    try {
+      const noGitSignals = await collectGitArchSignals(nonGit);
+      expect(noGitSignals.detected).toBe(false);
+      expect(noGitSignals.commits_analyzed).toBe(0);
+    } finally {
+      fs.rmSync(nonGit, { recursive: true, force: true });
+    }
+
+    // 2. Empty git repo -> detected=true, commits_analyzed=0
+    const emptyGit = fs.mkdtempSync(path.join(os.tmpdir(), 'qa11x-emptygit-'));
+    try {
+      git(emptyGit, ['init', '-q']);
+      const emptySignals = await collectGitArchSignals(emptyGit);
+      expect(emptySignals.detected).toBe(true);
+      expect(emptySignals.commits_analyzed).toBe(0);
+    } finally {
+      fs.rmSync(emptyGit, { recursive: true, force: true });
+    }
+
+    // 3. Real git repo with 11+ commits, lockfile/snap ignored, rename -M, cross-module coupling, bus factor & low-confidence pair
+    initGitRepo(tmpDir, {
+      'README.md': '# Root\n',
+      'fastapi/src/api/page.ts': 'export const p = 0;\n',
+      'src/orders/cart.ts': 'export function calcCart() { return 1; }\n',
+      'src/billing/invoice.ts': 'export function bill() { return 1; }\n',
+      'src/weak/low.ts': 'export const w = 0;\n',
+      'tests/billing.unit.ts': 'export const ok = true;\n',
+    });
+    for (let i = 2; i <= 10; i += 1) {
+      writeRepoFile(tmpDir, 'README.md', `# Root ${i}\n`);
+      writeRepoFile(tmpDir, 'fastapi/src/api/page.ts', `export const p = ${i};\n`);
+      writeRepoFile(tmpDir, 'src/orders/cart.ts', `export function calcCart() { return ${i}; }\n`);
+      writeRepoFile(tmpDir, 'src/billing/invoice.ts', `export function bill() { return ${i}; }\n`);
+      writeRepoFile(tmpDir, 'tests/billing.unit.ts', `export const ok = ${i};\n`);
+      if (i <= 4) {
+        writeRepoFile(tmpDir, 'src/weak/low.ts', `export const w = ${i};\n`);
+      }
+      writeRepoFile(tmpDir, 'pnpm-lock.yaml', `lock: ${i}\n`);
+      writeRepoFile(tmpDir, 'snapshots/ui.snap', `snap: ${i}\n`);
+      git(tmpDir, ['add', '.']);
+      const msg = i % 2 === 0 ? `fix(billing): patch ${i}` : `feat: step ${i}`;
+      git(tmpDir, ['commit', '-q', '-m', msg]);
+    }
+    // 5 commits by a second author on src/weak/low.ts & src/shared/split.ts -> bus factor < 90% and low confidence
+    for (let j = 1; j <= 6; j += 1) {
+      writeRepoFile(tmpDir, 'src/weak/low.ts', `export const w = ${100 + j};\n`);
+      git(tmpDir, ['add', '.']);
+      execFileSync(GIT_EXECUTABLE, ['commit', '-q', '-m', `feat: second author ${j}`], {
+        cwd: tmpDir,
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          GIT_AUTHOR_NAME: 'Second Author',
+          GIT_AUTHOR_EMAIL: 'second@example.invalid',
+          GIT_COMMITTER_NAME: 'Second Author',
+          GIT_COMMITTER_EMAIL: 'second@example.invalid',
+        },
+      });
+    }
+    git(tmpDir, ['mv', 'src/billing/invoice.ts', 'src/billing/invoice_v2.ts']);
+    writeRepoFile(tmpDir, 'src/billing/invoice_v2.ts', 'export function bill() { return 99; }\n');
+    git(tmpDir, ['add', '.']);
+    git(tmpDir, ['commit', '-q', '-m', 'refactor: rename invoice']);
+
+    // Add 2 commits of src/orders/cart.ts + src/mid/pair.ts (3 total cochanges out of 12/3 -> wait: we want cochanges=3, min=6 => conf=0.5 < 0.6)
+    // and src/two/only.ts with only 2 cochanges (< minCochanges=3), plus empty/short mock git log records
+    for (let k = 1; k <= 2; k += 1) {
+      writeRepoFile(tmpDir, 'src/two/only.ts', `export const t = ${k};\n`);
+      writeRepoFile(tmpDir, 'src/orders/cart.ts', `export function calcCart() { return ${50 + k}; }\n`);
+      git(tmpDir, ['add', '.']);
+      git(tmpDir, ['commit', '-q', '-m', `chore: two ${k}`]);
+    }
+    for (let m = 1; m <= 3; m += 1) {
+      writeRepoFile(tmpDir, 'src/mid/pair.ts', `export const m = ${m};\n`);
+      if (m <= 3) {
+        writeRepoFile(tmpDir, 'src/orders/cart.ts', `export function calcCart() { return ${70 + m}; }\n`);
+      }
+      git(tmpDir, ['add', '.']);
+      git(tmpDir, ['commit', '-q', '-m', `chore: mid ${m}`]);
+    }
+    for (let m2 = 1; m2 <= 3; m2 += 1) {
+      writeRepoFile(tmpDir, 'src/mid/pair.ts', `export const m = ${10 + m2};\n`);
+      git(tmpDir, ['add', '.']);
+      git(tmpDir, ['commit', '-q', '-m', `chore: mid solo ${m2}`]);
+    }
+
+    const signals = await collectGitArchSignals(tmpDir);
+    expect(signals.detected).toBe(true);
+    expect(signals.commits_analyzed).toBe(25);
+    expect(signals.hotspots.some((h) => h.file === 'src/orders/cart.ts')).toBe(true);
+    expect(signals.hotspots.every((h) => h.file !== 'pnpm-lock.yaml' && !h.file.endsWith('.snap'))).toBe(true);
+    expect(signals.temporal_coupling_pairs.some((p) => p.cross_module && p.cochanges >= 3)).toBe(true);
+    expect(signals.temporal_coupling_pairs.every((p) => p.confidence >= 0.5)).toBe(true);
+    expect(signals.temporal_coupling_pairs.some((p) => p.file_a === 'src/mid/pair.ts' || p.file_b === 'src/mid/pair.ts')).toBe(true);
+    expect(signals.temporal_coupling_pairs.some((p) => p.file_a === 'src/two/only.ts' || p.file_b === 'src/two/only.ts')).toBe(false);
+    expect(signals.bus_factor_alerts.some((a) => a.module === 'src/orders' && a.top_author_pct === 100)).toBe(true);
+    expect(signals.bus_factor_alerts.some((a) => a.module === 'src/weak')).toBe(false);
+
+    // Mocked malformed git log record exercises header.length !== 5 guard
+    const mockMalformedExec = ((
+      _cmd: string,
+      args: readonly string[],
+      _opts: unknown,
+      cb: (err: Error | null, res: { stdout: string; stderr: string }) => void
+    ) => {
+      const out = args.includes('rev-parse')
+        ? `${tmpDir}\n`
+        : '\x1ebad_header_only\n\x1eH\x1fh\x1f2026-01-01\x1fDev\x1fchore: ok\n\nmalformed_numstat\n1\t2\tdist/bundle.js\n-\t-\tassets/logo.png\n1\t0\troot.txt\n';
+      cb(null, { stdout: out, stderr: '' });
+    }) as unknown as typeof import('node:child_process').execFile;
+    const malformedSignals = await collectGitArchSignals(tmpDir, { execFileFn: mockMalformedExec });
+    expect(malformedSignals.commits_analyzed).toBe(1);
+    expect(malformedSignals.hotspots.map((h) => h.file)).toEqual(['assets/logo.png', 'root.txt']);
+
+    // minConfidence: 0.99 exercises confidence < 0.6 filter in blast-radius.ts + aborted signal fallback
+    const aborted = new AbortController();
+    aborted.abort();
+    const abortedSignals = await collectGitArchSignals(tmpDir, { signal: aborted.signal });
+    expect(abortedSignals.detected).toBe(false);
+
+    // Graph with calcCart in src/orders/cart.ts -> includeGitSignals adds coupled files & tests (>=0.6) and skips src/mid/pair.ts (0.5 < 0.6)
+    writeRepoFile(
+      tmpDir,
+      'graphify-out/graph.json',
+      JSON.stringify({
+        nodes: [{ id: 'n_cart', label: 'calcCart', source_file: 'src/orders/cart.ts' }],
+        links: [],
+      })
+    );
+    const combined = await inspectAstBlastRadius(tmpDir, 'calcCart', 20, {
+      includeGitSignals: true,
+    });
+    expect(combined.git_signals?.detected).toBe(true);
+    expect(combined.dependent_files).toContain('tests/billing.unit.ts');
+    expect(combined.dependent_files).not.toContain('src/mid/pair.ts');
+    expect(combined.suggested_tests_to_run).toContain('tests/billing.unit.ts');
+
+    // Empty target_symbol + include_git_signals via live InMemoryTransport MCP tool call
+    const server = createMcpServer({
+      fetcher: new GitHubFetcher({ localOverridePath: tmpDir }),
+      merger: new SurgicalMerger(),
+    });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const client = new Client({ name: 'test-git-signals', version: '1.0.0' }, { capabilities: {} });
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+    try {
+      const res = await client.callTool({
+        name: 'inspect_ast_blast_radius',
+        arguments: { project_path: tmpDir, include_git_signals: true },
+      });
+      expect(res.isError).not.toBe(true);
+      const parsed = JSON.parse(((res.content as Array<{ text: string }>)[0]?.text ?? '{}')) as {
+        target_symbol: string;
+        git_signals?: { detected: boolean; commits_analyzed: number };
+      };
+      expect(parsed.target_symbol).toBe('');
+      expect(parsed.git_signals?.detected).toBe(true);
+      expect(parsed.git_signals?.commits_analyzed).toBe(25);
+    } finally {
+      await client.close();
+      await server.close();
+    }
   });
 });

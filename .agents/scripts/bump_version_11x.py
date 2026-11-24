@@ -273,6 +273,20 @@ VERSION_RULES: tuple[VersionRule, ...] = (
         optional=True,
         major_minor_only=True,
     ),
+    VersionRule(
+        ".claude-plugin/plugin.json",
+        (
+            re.compile(r'^(\s*"version"\s*:\s*")([^"]+)(")', re.MULTILINE),
+            re.compile(rf"(@sinfallas/mcp-qa-11x@)({_VER_CORE})([\"'])"),
+        ),
+        optional=True,
+    ),
+    VersionRule(
+        ".claude-plugin/marketplace.json",
+        (re.compile(r'^(\s*"version"\s*:\s*")([^"]+)(")', re.MULTILINE),),
+        max_replacements=1,
+        optional=True,
+    ),
 )
 
 EDITION_RULES: tuple[VersionRule, ...] = (
@@ -439,6 +453,30 @@ EDITION_RULES: tuple[VersionRule, ...] = (
     *_bilingual_rules(
         ("docs/specs/README.md", "docs/specs/README.es.md"),
         (re.compile(r"(\*\*QA Testing Blueprints \(`)(QA-11X v\d+\.\d+)(`\)\*\*)"),),
+    ),
+    VersionRule(
+        ".claude-plugin/plugin.json",
+        (
+            re.compile(
+                r'("displayName"\s*:\s*"QA Testing Blueprints \()'
+                r'(QA-11X v\d+\.\d+)(\)")'
+            ),
+            re.compile(
+                r'("description"\s*:\s*"Enterprise QA & DevSecOps Standard \()'
+                r'(QA-11X v\d+\.\d+)(\):)'
+            ),
+        ),
+        optional=True,
+    ),
+    VersionRule(
+        ".claude-plugin/marketplace.json",
+        (
+            re.compile(
+                r'("description"\s*:\s*"Enterprise QA & DevSecOps Standard \()'
+                r'(QA-11X v\d+\.\d+)(\):)'
+            ),
+        ),
+        optional=True,
     ),
 )
 

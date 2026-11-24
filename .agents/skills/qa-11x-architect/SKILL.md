@@ -7,7 +7,7 @@ description: >-
   Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md.
 ---
 
-# Master QA-11X v3.3 Routing Orchestrator (`qa-11x-architect`)
+# Master QA-11X v3.5 Routing Orchestrator (`qa-11x-architect`)
 
 > **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Respond in **user's prompt language** (unless `AGENTS.md` fixes it); docs/commits match `README.md`/`CHANGELOG.md` (Spec 19; `.agents/**` English).
 
@@ -23,7 +23,7 @@ Classify every task first. **NEVER auto-run `git push`** (`QA-GIT-GATE-01` — s
 - **`MICRO_CHANGE` (`<= 3` files, `< 5` callers, `0` routes/ORM):** 3-line plan -> `inspect_ast_blast_radius` -> sync unit/BDD (`QA-TEST-SYNC-01`) + stack QA (`run_ephemeral_qa`) -> AST refresh -> `CHANGELOG.md` -> `certify_11x_gate` -> local `git commit`.
 - **`FULL_11X` (`> 3` files, new API/UI, ORM, security, or `MED`/`HIGH` blast):** 11-step flow (`/plan`, `session_flight_recorder` -> `ACTIVE_TASK.md <= 40L`, full pyramid + `QA-TEST-SYNC-01`, docs, AST, `certify_11x_gate` 10/10, local `git commit`).
 
-### 1.1. MCP Server `qa-11x` (`@sinfallas/mcp-qa-11x` v3.3.0 — 19 Tools + 13 Resources)
+### 1.1. MCP Server `qa-11x` (`@sinfallas/mcp-qa-11x` v3.5.0 — 19 Tools + 13 Resources)
 1. `inspect_ast_blast_radius` — Code Q&A & pre-edit impact.
 2. `inspect_project_config` — stack, drift, `update_available`.
 3. `audit_test_pyramid_gaps` — 13-layer audit + config.
@@ -44,7 +44,7 @@ Classify every task first. **NEVER auto-run `git push`** (`QA-GIT-GATE-01` — s
 18. `sync_enterprise_tms` — Jira/Zephyr/Xray/GitHub Issues sync.
 19. `session_flight_recorder` — `0600` JSON checkpoint + `ACTIVE_TASK.md` + Git.
 
-*Fallback (No MCP):* Load **one** module in `references/01..09.md` (§4), verify `manifest.json` digests inside `Rule Zero` Docker (`python3 .agents/scripts/sync_governance.py --check`), and run `make sync-governance`.
+*Fallback (No MCP):* Load **one** module in `references/01..10.md` (§4), verify `manifest.json` digests inside `Rule Zero` Docker (`python3 .agents/scripts/sync_governance.py --check`), and run `make sync-governance`.
 
 ---
 
@@ -99,7 +99,7 @@ Hydrate specialized sub-skills **strictly on demand** by domain (zero eager load
 
 ---
 
-## 4. On-Demand References (`references/01..09.md`)
+## 4. On-Demand References (`references/01..10.md`)
 
 - [`references/01-core-13-layers.md`](references/01-core-13-layers.md) — 13 QA layers, Anti-Mock, Anti-JSDOM, Trimodal.
 - [`references/02-security-disa-owasp-22.md`](references/02-security-disa-owasp-22.md) — 22 DISA/OWASP ref controls (vs 36 scanner rules) & `SEC-16`.
@@ -110,3 +110,4 @@ Hydrate specialized sub-skills **strictly on demand** by domain (zero eager load
 - [`references/07-mcp-agentic-security-governance.md`](references/07-mcp-agentic-security-governance.md) — Service RBAC, `ApprovalRequest`, Tool Poisoning.
 - [`references/08-postgres-rls-zero-downtime-migrations.md`](references/08-postgres-rls-zero-downtime-migrations.md) — PG17 RLS (`after_begin`), Expand-Contract, `Decimal`.
 - [`references/09-sre-observability-chaos-triage.md`](references/09-sre-observability-chaos-triage.md) — Prometheus RED, `trace_id`, Pumba, `>=180s` timeouts.
+- [references/10-sdd-ears-traceability.md](references/10-sdd-ears-traceability.md) — EARS REQ->Karate, Analyze gate, [P] waves & Delta Specs.

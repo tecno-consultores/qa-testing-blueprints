@@ -464,3 +464,60 @@ def test_action_yml_version_rule_sync_and_check(tmp_path: Path) -> None:
     assert len(errs) == 2
     assert mod.run_rules(tmp_path, (action_rule,), "3.2.0", True) == ([], 1)
     assert mod.run_rules(tmp_path, (action_rule,), "3.2.0", False) == ([], 0)
+
+
+def test_claude_plugin_manifests_version_and_edition_sync(tmp_path: Path) -> None:
+    mod = _load_mod()
+    plugin_dir = tmp_path / ".claude-plugin"
+    plugin_dir.mkdir(parents=True)
+    (plugin_dir / "plugin.json").write_text(
+        json.dumps(
+            {
+                "name": "qa-11x",
+                "displayName": "QA Testing Blueprints (QA-11X v3.3)",
+                "version": "3.3.0",
+                "description": (
+                    "Enterprise QA & DevSecOps Standard (QA-11X v3.3): "
+                    "11 Modular Skills"
+                ),
+                "mcpServers": {
+                    "qa-11x": {
+                        "command": "npx",
+                        "args": ["-y", "@sinfallas/mcp-qa-11x@3.3.0", "--stdio"],
+                    }
+                },
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (plugin_dir / "marketplace.json").write_text(
+        json.dumps(
+            {
+                "name": "tecno-consultores-qa-11x",
+                "plugins": [
+                    {
+                        "name": "qa-11x",
+                        "version": "3.3.0",
+                        "description": (
+                            "Enterprise QA & DevSecOps Standard (QA-11X v3.3): "
+                            "11 Modular Skills"
+                        ),
+                    }
+                ],
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    targets = {".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"}
+    ver_rules = tuple(r for r in mod.VERSION_RULES if r.rel_path in targets)
+    ed_rules = tuple(r for r in mod.EDITION_RULES if r.rel_path in targets)
+    assert len(ver_rules) == 2 and len(ed_rules) == 2
+    assert mod.run_rules(tmp_path, ver_rules, "3.5.0", True) == ([], 2)
+    assert mod.run_rules(tmp_path, ed_rules, "QA-11X v3.5", True) == ([], 2)
+    assert mod.run_rules(tmp_path, ver_rules, "3.5.0", False) == ([], 0)
+    assert mod.run_rules(tmp_path, ed_rules, "QA-11X v3.5", False) == ([], 0)
+    assert "@sinfallas/mcp-qa-11x@3.5.0" in (plugin_dir / "plugin.json").read_text(
+        encoding="utf-8"
+    )

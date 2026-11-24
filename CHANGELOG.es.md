@@ -10,6 +10,19 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ---
 
+## [3.5.0] - 2026-11-23
+
+### Añadido
+* **Fronteras AST Declarativas y Métricas Cuantitativas de Inestabilidad ([`verify_topological_health.py`](.agents/scripts/verify_topological_health.py)):** Incorporada evaluación opcional de `.agents/boundaries.json` (`--boundaries`) para reglas `layers`, `independence` (aislamiento horizontal de Monolito Modular con listas `shared`) y `forbidden` con rechazo de claves JSON duplicadas, guardia *fail-closed* de `0` nodos (*Zero Hardcoded Pass*) y `compute_module_instability` (`--metrics`: $C_a$, $C_e$, Inestabilidad de Martin $I = C_e / (C_a + C_e)$ y detección de *god-modules*).
+* **Señales Arquitectónicas Longitudinales de Git ([`inspect_blast_radius.py`](.agents/scripts/inspect_blast_radius.py) y `mcp-server`):** Incorporado `--git-signals` en Python e `include_git_signals` en `inspect_ast_blast_radius` / `blast-radius --git-signals` (respaldado por [`git-signals.ts`](mcp-server/src/utils/git-signals.ts)) minando `git log --no-merges -M --numstat` con normalización de renombres `-M`, filtrado de lockfiles/snapshots, hotspots ponderados por fixes, acoplamiento temporal cross-módulo y alertas bus-factor, cruzando `declaring_files` en `dependent_files` / `suggested_tests_to_run`.
+* **Trazabilidad SDD/EARS, Compuerta `Analyze`, Olas `[P]` y Rescate Brownfield:** Creada la referencia [`10-sdd-ears-traceability.md`](.agents/skills/qa-11x-architect/references/10-sdd-ears-traceability.md) (`qa-11x-architect` pasa de `9` a `10` referencias bajo demanda dentro de `<= 12,288 B`), actualizados [`active_task_and_planning_resilience.md`](.agents/rules/active_task_and_planning_resilience.md), [`graphify-ast-navigator`](.agents/skills/graphify-ast-navigator/SKILL.md) y [`qa-11x-vibe-rescue`](.agents/skills/qa-11x-vibe-rescue/SKILL.md) (regresión `P1` obligatoria sobre commits `fix` históricos vía `--git-signals`, evidencia `[METRIC:]`/`[COMMITS:]`, tope `<= 20% [INFERRED]` y sección `"Dismissed findings"`).
+* **Esquema Estricto Agent Skills, Validador de Rutas `references/` y Plugin Nativo de Claude:** Endurecido `_validate_frontmatter_fields` en [`test_skill_adherence.py`](tests/evals/test_skill_adherence.py) (`name` kebab-case `<= 64`, `description <= 1024`, cero claves extra), añadidos `_check_skill_backtick_references` y validación upstream-scoped `.claude-plugin/` en [`verify_docs_invariants.py`](.agents/scripts/verify_docs_invariants.py), y publicados [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) + [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) apuntando directo a `./.agents/skills` y sincronizados mediante [`bump_version_11x.py`](.agents/scripts/bump_version_11x.py).
+
+### Modificado
+* **Rotación Global de Versión a `3.5.0` (`QA-11X v3.5`):** Sincronizados `standard_edition` (`QA-11X v3.5`), SemVer `3.5.0`, guías bilingües (`AGENTS.md`, `docs/{02,05,agent-setup,ai-integration}.{md,es.md}`, `README`, `RESOURCES`, `TESTING`, `ROADMAP`, `CHANGELOG`), hashes SHA-256 en `manifest.json` / `catalogs/*` y Escenario Karate `52` (`mcp_cli_test.feature`) preservando `11` skills, `19` tools MCP, `13` resources MCP, `10` stacks y `36` reglas estáticas.
+
+---
+
 ## [3.3.0] - 2026-11-22
 
 ### Añadido

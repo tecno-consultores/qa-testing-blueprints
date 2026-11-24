@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "tecno-consultores-qa-11x",
+  "owner": {
+    "name": "Jesus Palencia (Tecno Consultores)",
+    "email": "sinfallas@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "qa-11x",
+      "version": "3.5.0",
+      "description": "Enterprise QA & DevSecOps Standard (QA-11X v3.5): 11 Modular Skills & @sinfallas/mcp-qa-11x MCP Server.",
+      "author": {
+        "name": "Jesus Palencia (Tecno Consultores)"
+      },
+      "source": "./"
+    }
+  ]
+}

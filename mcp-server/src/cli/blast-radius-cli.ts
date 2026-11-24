@@ -29,6 +29,7 @@ export const BLAST_RADIUS_HELP_TEXT = [
   '  --symbol, -s <symbol>     Símbolo o archivo objetivo para auditar radio de explosión AST',
   '  --project-path, -p <dir>  Directorio del proyecto destino (por defecto: cwd)',
   '  --changed-since <ref>     Referencia Git para evaluar diff semántico y ruta recomendada',
+  '  --git-signals             Mina historia Git (-M --numstat) para hotspots, co-cambio y bus-factor',
   '  --auto-build              Construye graphify-out/graph.json si no existe',
   '  --refresh                 Reconstruye el grafo AST antes de inspeccionar',
   '  --max-tokens <n>          Presupuesto máximo de tokens para el diff semántico',
@@ -43,6 +44,7 @@ interface BlastCliParseState {
   changedSinceRef?: string;
   autoBuildIfMissing: boolean;
   refreshGraph: boolean;
+  includeGitSignals: boolean;
   maxTokensBudget?: number;
   maxItems?: number;
   json: boolean;
@@ -92,6 +94,9 @@ const BOOL_FLAG_HANDLERS: Readonly<Record<string, (state: BlastCliParseState) =>
   '--refresh': (state) => {
     state.refreshGraph = true;
   },
+  '--git-signals': (state) => {
+    state.includeGitSignals = true;
+  },
   '--json': (state) => {
     state.json = true;
   },
@@ -134,6 +139,7 @@ function parseBlastRadiusArgs(args: readonly string[]): BlastCliParseState {
   const state: BlastCliParseState = {
     autoBuildIfMissing: false,
     refreshGraph: false,
+    includeGitSignals: false,
     json: false,
   };
   for (let i = 0; i < args.length; i += 1) {
@@ -164,6 +170,11 @@ function appendBlastOptionalLines(lines: string[], result: BlastRadiusResult): v
   if (result.suggested_tests_to_run.length > 0) {
     lines.push(`🧪 tests: ${result.suggested_tests_to_run.join(', ')}`);
   }
+  if (result.git_signals) {
+    lines.push(
+      `🧭 git_signals: commits=${result.git_signals.commits_analyzed}, hotspots=${result.git_signals.hotspots.length}, coupling=${result.git_signals.temporal_coupling_pairs.length}, bus_factor=${result.git_signals.bus_factor_alerts.length}`
+    );
+  }
   if (result.ast_graph_action_required) {
     lines.push(result.ast_graph_action_required);
   }
@@ -171,7 +182,7 @@ function appendBlastOptionalLines(lines: string[], result: BlastRadiusResult): v
 
 function formatBlastText(result: BlastRadiusResult, recommendedPath: BlastRoutingPath): string {
   const graphStatus = result.ast_graph_detected ? 'detected' : 'missing';
-  const symbolLabel = result.target_symbol || '(changed-since)';
+  const symbolLabel = result.target_symbol || (result.git_signals ? '(git-signals)' : '(changed-since)');
   const lines = [
     `🔎 [blast-radius] symbol=${symbolLabel} | risk=${result.risk_level} | path=${recommendedPath} | dependents=${result.dependent_files_count}`,
     `📁 project=${result.project_path} | ast_graph=${graphStatus}`,
@@ -194,10 +205,10 @@ async function executeBlastInspection(
   parsed: BlastCliParseState,
   deps: BlastRadiusCliDeps
 ): Promise<CliCommandOutput> {
-  if (!parsed.symbol && !parsed.changedSinceRef) {
+  if (!parsed.symbol && !parsed.changedSinceRef && !parsed.includeGitSignals) {
     return {
       exitCode: 1,
-      output: `${CMD_PREFIX} Proporciona un símbolo o --changed-since <ref>.`,
+      output: `${CMD_PREFIX} Proporciona un símbolo o --changed-since <ref> (o --git-signals).`,
       isError: true,
     };
   }
@@ -208,6 +219,7 @@ async function executeBlastInspection(
     refreshGraph: parsed.refreshGraph,
     changedSinceRef: parsed.changedSinceRef,
     maxTokensBudget: parsed.maxTokensBudget,
+    includeGitSignals: parsed.includeGitSignals,
     graphBuilder: deps.graphBuilder,
   });
   return buildBlastCommandOutput(result, parsed.json);

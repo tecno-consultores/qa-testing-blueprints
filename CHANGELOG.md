@@ -10,6 +10,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [3.5.0] - 2026-11-23
+
+### Added
+* **Declarative AST Boundaries & Quantitative Instability Metrics ([`verify_topological_health.py`](.agents/scripts/verify_topological_health.py)):** Added optional `.agents/boundaries.json` (`--boundaries`) evaluation for `layers`, `independence` (modular-monolith horizontal isolation with `shared` allowlists), and `forbidden` contracts with duplicate-key JSON rejection, fail-closed `0`-node guard (*Zero Hardcoded Pass*), and `compute_module_instability` (`--metrics`: $C_a$, $C_e$, Martin Instability $I = C_e / (C_a + C_e)$, and god-module detection).
+* **Longitudinal Git Architectural Signals ([`inspect_blast_radius.py`](.agents/scripts/inspect_blast_radius.py) & `mcp-server`):** Added `--git-signals` in Python and `include_git_signals` in `inspect_ast_blast_radius` / `blast-radius --git-signals` (backed by [`git-signals.ts`](mcp-server/src/utils/git-signals.ts)) mining `git log --no-merges -M --numstat` with `-M` rename path normalization, lockfile/snapshot filtering, fix-weighted hotspots, cross-module temporal coupling, and bus-factor alerts, cross-referencing `declaring_files` into `dependent_files` / `suggested_tests_to_run`.
+* **SDD/EARS Traceability, Pre-Code `Analyze` Gate, Safe `[P]` Waves & Brownfield Rescue:** Added [`10-sdd-ears-traceability.md`](.agents/skills/qa-11x-architect/references/10-sdd-ears-traceability.md) (`qa-11x-architect` expanded from `9` to `10` on-demand references within `<= 12,288 B`), updated [`active_task_and_planning_resilience.md`](.agents/rules/active_task_and_planning_resilience.md), [`graphify-ast-navigator`](.agents/skills/graphify-ast-navigator/SKILL.md), and [`qa-11x-vibe-rescue`](.agents/skills/qa-11x-vibe-rescue/SKILL.md) (mandatory `--git-signals` historical `fix` regression locks, `[METRIC:]`/`[COMMITS:]` P1 evidence, `<= 20% [INFERRED]` cap, and `"Dismissed findings"`).
+* **Strict Agent Skills Frontmatter, Backtick Reference Validator & Native Claude Plugin:** Hardened `_validate_frontmatter_fields` in [`test_skill_adherence.py`](tests/evals/test_skill_adherence.py) (`name` kebab-case `<= 64`, `description <= 1024`, zero extra keys), added `_check_skill_backtick_references` and upstream-scoped `.claude-plugin/` validation in [`verify_docs_invariants.py`](.agents/scripts/verify_docs_invariants.py), and published [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) + [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) pointing directly to `./.agents/skills` and synchronized via [`bump_version_11x.py`](.agents/scripts/bump_version_11x.py).
+
+### Changed
+* **Global Release Rotation to `3.5.0` (`QA-11X v3.5`):** Synchronized `standard_edition` (`QA-11X v3.5`), SemVer `3.5.0`, bilingual guides (`AGENTS.md`, `docs/{02,05,agent-setup,ai-integration}.{md,es.md}`, `README`, `RESOURCES`, `TESTING`, `ROADMAP`, `CHANGELOG`), SHA-256 `manifest.json` / `catalogs/*`, and Karate Scenario `52` (`mcp_cli_test.feature`) while preserving the `11` skills, `19` MCP tools, `13` MCP resources, `10` stacks, and `36` static scanner rules.
+
+---
+
 ## [3.3.0] - 2026-11-22
 
 ### Added

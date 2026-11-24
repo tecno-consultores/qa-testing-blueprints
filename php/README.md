@@ -2,9 +2,9 @@
 
 > 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](README.es.md)
 
-# Canonical Testing and Validation Guide for PHP 8.2–8.5 (QA-11X v3.3)
+# Canonical Testing and Validation Guide for PHP 8.2–8.5 (QA-11X v3.5)
 
-This document contains the non-negotiable **Level-11X (QA-11X v3.3)** corporate instructions you MUST follow when generating, structuring, and running automated tests for backend APIs and microservices built in **PHP (versions 8.2, 8.3, 8.4, and 8.5)**. The goal is to guarantee resilience under extreme stress, cross-service contract parity without external infrastructure (*Zero-Infra*), security by design (DISA ASD STIG V6R5 + OWASP Developer Guide v4.2), and zero local execution on the host.
+This document contains the non-negotiable **Level-11X (QA-11X v3.5)** corporate instructions you MUST follow when generating, structuring, and running automated tests for backend APIs and microservices built in **PHP (versions 8.2, 8.3, 8.4, and 8.5)**. The goal is to guarantee resilience under extreme stress, cross-service contract parity without external infrastructure (*Zero-Infra*), security by design (DISA ASD STIG V6R5 + OWASP Developer Guide v4.2), and zero local execution on the host.
 
 ---
 

@@ -209,6 +209,10 @@ describe('DX CLI Subcommands: blast-radius, mcp-config & completion (QA-11X)', (
       runGit(projDir, ['add', '.']);
       runGit(projDir, ['commit', '-m', 'docs only']);
 
+      const docsTextRes = await runBlastRadiusCli(['--changed-since', 'HEAD~1'], { cwd: projDir });
+      expect(docsTextRes.exitCode).toBe(0);
+      expect(docsTextRes.output).toContain('symbol=(changed-since)');
+
       const docsRes = await runBlastRadiusCli(['--changed-since', 'HEAD~1', '--json'], { cwd: projDir });
       expect(docsRes.exitCode).toBe(0);
       expect((JSON.parse(docsRes.output) as { recommended_path: BlastRoutingPath }).recommended_path).toBe('DOCS_ONLY');
@@ -258,6 +262,19 @@ describe('DX CLI Subcommands: blast-radius, mcp-config & completion (QA-11X)', (
       );
       expect(dirAliasRes.exitCode).toBe(0);
       expect((JSON.parse(dirAliasRes.output) as { target_symbol: string }).target_symbol).toBe('computeTax');
+
+      const gitSignalsText = await runBlastRadiusCli(['--git-signals', '-p', projDir], {
+        cwd: tmpRoot,
+      });
+      expect(gitSignalsText.exitCode).toBe(0);
+      expect(gitSignalsText.output).toContain('symbol=(git-signals)');
+      expect(gitSignalsText.output).toContain('🧭 git_signals:');
+
+      const gitSignalsJson = await runBlastRadiusCli(['--git-signals', '--json', '-p', projDir], {
+        cwd: tmpRoot,
+      });
+      expect(gitSignalsJson.exitCode).toBe(0);
+      expect((JSON.parse(gitSignalsJson.output) as { git_signals?: { detected: boolean } }).git_signals?.detected).toBe(true);
     });
   });
 

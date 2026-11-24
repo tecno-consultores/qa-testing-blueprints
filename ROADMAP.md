@@ -44,6 +44,7 @@
 | **Milestone 25** | 15×12 Matrix, `sinfallas/base-mobile-appium:26` & Bilingual Documentation Architecture | [`19_SPEC`](docs/specs/19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES.md) + [`20_SPEC`](docs/specs/20_SPEC_PLAN_IMAGEN_BASE_DOCKER_MOBILE_APPIUM_26.md) | ✅ Completed | `100%` |
 | **Milestone 26** | `QA-11X v3.1` (`3.1.0`) — Atomic Flight Recorder, `tactical-patterns-11x`, 10-Stack Hydration & Fail-Closed Hardening | [`AGENTS.md`](AGENTS.md) + [`TESTING.md`](TESTING.md) | ✅ Completed | `100%` |
 | **Milestone 27** | `v3.2.0` (`QA-11X v3.2`) — 99/99 Forensic Audit Remediation, 12 CLI Subcommands, MCP 2026 Annotations, A2A v1.0 & 100% Diff Coverage | [`CHANGELOG.md`](CHANGELOG.md) + [`TESTING.md`](TESTING.md) | ✅ Completed | `100%` |
+| **Milestone 28** | `v3.5.0` (`QA-11X v3.5`) — Declarative AST Boundaries/Instability, Longitudinal Git Signals, SDD/EARS (`10` Refs) & `.claude-plugin/` | [`CHANGELOG.md`](CHANGELOG.md) + [`TESTING.md`](TESTING.md) | ✅ Completed | `100%` |
 
 ---
 
@@ -370,3 +371,13 @@
 - [x] **27.1.** Close security and runtime findings across the MCP server (`src/utils/ideConfigPaths.ts`, `src/security/pathRealResolver.ts`, Zod `.strict()`, MCP 2026 tool `annotations`, `A2A v1.0`, `AbortSignal` propagation) and certify Clean-Room `.tgz` E2E + Karate BDD (`51/51`).
 - [x] **27.2.** Harden all 10 stack blueprints (`sinfallas/base-mobile-appium:26` multi-arch OCI digest, `React` portal/dual-refresh contracts, `mutmut >= 3.7.0`, Promptfoo Nunjucks, WORM SQL fail-closed) and fix CI/Bash/Python tooling (`make sbom` + `.sha256`, `make compact-context`, `install-skill.sh` fallback without `jq`).
 - [x] **27.3.** Synchronize 1:1 EN/ES documentation (`docs/`, `README`, `TESTING`, `CHANGELOG`, `ROADMAP`), reach `100.00%` differential line coverage across Python/TS/Bash (`verify_diff_coverage.py`), and lock local release `3.2.0` under `QA-GIT-GATE-01`.
+
+---
+
+## ✅ Milestone 28: `v3.5.0` (`QA-11X v3.5`) — Declarative AST Boundaries/Instability, Longitudinal Git Signals, SDD/EARS & `.claude-plugin/`
+**Mandatory Reference:** [`CHANGELOG.md`](CHANGELOG.md), [`TESTING.md`](TESTING.md), and [`AGENTS.md`](AGENTS.md)
+
+### Implementation Tasks:
+- [x] **28.1.** Implement declarative `.agents/boundaries.json` (`layers`, `independence`, `forbidden` with fail-closed `0`-node guard) and Martin Instability (`--metrics`, `compute_module_instability`) in [`.agents/scripts/verify_topological_health.py`](.agents/scripts/verify_topological_health.py) plus `--git-signals` longitudinal mining in [`.agents/scripts/inspect_blast_radius.py`](.agents/scripts/inspect_blast_radius.py) and `mcp-server` (`src/utils/git-signals.ts`, `include_git_signals`, CLI `--git-signals`).
+- [x] **28.2.** Add [`10-sdd-ears-traceability.md`](.agents/skills/qa-11x-architect/references/10-sdd-ears-traceability.md) (`qa-11x-architect` `10` references within `<= 12,288 B`), update `qa-11x-vibe-rescue`, `graphify-ast-navigator`, and `active_task_and_planning_resilience.md`, harden strict Agent Skills frontmatter + backtick reference checks, and publish [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) + [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json).
+- [x] **28.3.** Rotate monorepo version atomically to `3.5.0` (`QA-11X v3.5`) via `bump_version_11x.py` + `sync_governance.py`, sync 1:1 bilingual docs, certify `10/10` (`certify_task_completion.sh --strict`) with `100%` differential coverage, and conclude at local `git commit` (`QA-GIT-GATE-01`).

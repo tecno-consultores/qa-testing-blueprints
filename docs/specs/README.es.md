@@ -2,7 +2,7 @@
 
 # 📐 Índice de Especificaciones Técnicas (ADRs y Specs `01..20`)
 
-Índice bilingüe central de las **20 especificaciones técnicas** que rigen **QA Testing Blueprints (`QA-11X v3.3`)**. Conforme a la política definida en la Spec 19 (§3, Regla 4), las **Specs `01..18` son ADRs históricos archivados en español** preservados como registros inmutables de diseño, mientras que las especificaciones v3.0+ (`19..20+`) y la documentación operativa adoptan la arquitectura **Inglés Primario (`*.md`) + Espejo Español 1:1 (`*.es.md`)**.
+Índice bilingüe central de las **20 especificaciones técnicas** que rigen **QA Testing Blueprints (`QA-11X v3.5`)**. Conforme a la política definida en la Spec 19 (§3, Regla 4), las **Specs `01..18` son ADRs históricos archivados en español** preservados como registros inmutables de diseño, mientras que las especificaciones v3.0+ (`19..20+`) y la documentación operativa adoptan la arquitectura **Inglés Primario (`*.md`) + Espejo Español 1:1 (`*.es.md`)**.
 
 ---
 

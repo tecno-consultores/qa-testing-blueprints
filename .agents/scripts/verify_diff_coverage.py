@@ -27,6 +27,7 @@ HUNK_HEADER_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 CONDITION_COV_RE = re.compile(r"\((\d+)/(\d+)\)")
 APPROVED_EXCLUSION_RE = re.compile(r"QA11X-APPROVED-EXCLUSION\(\s*[^)\s][^)]*\)")
 CONTAINER_PREFIX_RE = re.compile(r"^(?:/app/|/workspace/|/repo/)")
+QUOTED_HEREDOC_RE = re.compile(r"""<<-?\s*(?:'([A-Za-z0-9_]+)'|"([A-Za-z0-9_]+)")""")
 
 EVASION_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
@@ -789,6 +790,43 @@ def _evaluate_productive_file(
     return None
 
 
+def _sh_quoted_heredoc_lines(file_path: Path) -> set[int]:
+    ignored: set[int] = set()
+    end_marker: str | None = None
+    raw_lines = file_path.read_text(encoding="utf-8", errors="replace").splitlines()
+    for idx, line in enumerate(raw_lines, start=1):
+        if end_marker is not None:
+            if line.strip() == end_marker:
+                end_marker = None
+            else:
+                ignored.add(idx)
+            continue
+        match = QUOTED_HEREDOC_RE.search(line)
+        if match is not None:
+            end_marker = match.group(1) or match.group(2)
+    return ignored
+
+
+def _filter_sh_heredoc_change(
+    rel_path: str, change: DiffFileChange, workspace_root: Path | None
+) -> DiffFileChange:
+    if workspace_root is None or not rel_path.endswith(".sh"):
+        return change
+    full_path = workspace_root / rel_path
+    if not full_path.is_file():
+        return change
+    ignored = _sh_quoted_heredoc_lines(full_path)
+    if not ignored:
+        return change
+    return DiffFileChange(
+        path=change.path,
+        is_new_file=change.is_new_file,
+        added_lines={
+            ln: txt for ln, txt in change.added_lines.items() if ln not in ignored
+        },
+    )
+
+
 def _evaluate_file_metrics(
     changes: dict[str, DiffFileChange],
     cov_map: dict[str, FileCoverageData],
@@ -799,8 +837,11 @@ def _evaluate_file_metrics(
     for rel_path in sorted(changes):
         if not is_productive_source_file(rel_path, workspace_root):
             continue
+        effective_change = _filter_sh_heredoc_change(
+            rel_path, changes[rel_path], workspace_root
+        )
         delta = _evaluate_productive_file(
-            rel_path, changes[rel_path], cov_map.get(rel_path)
+            rel_path, effective_change, cov_map.get(rel_path)
         )
         if delta is not None:
             metrics.append(delta)

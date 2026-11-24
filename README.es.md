@@ -4,7 +4,7 @@
   <img src="assets/qa-logo.jpeg" alt="Logo de QA Testing Blueprints" width="320" />
 </p>
 
-# QA Testing Blueprints (`QA-11X v3.3` — Estándar Corporativo Nivel 11X)
+# QA Testing Blueprints (`QA-11X v3.5` — Estándar Corporativo Nivel 11X)
 
 **Blueprint Zero-Infra de QA Agéntico, Evaluaciones de IA y Gobernanza DevSecOps**
 
@@ -15,7 +15,7 @@
 [![Agentes IA](https://img.shields.io/badge/AI%20Agents-28%20Soportados-ff69b4)](docs/agent-setup.es.md)
 [![FINOS CALM](https://img.shields.io/badge/Architecture-FINOS%20CALM-orange)](architecture/qa-11x.calm.json)
 
-**QA-11X v3.3** transforma tanto a **Agentes de Inteligencia Artificial** (28 agentes soportados incluyendo Google Antigravity, Claude Code, Cursor, Windsurf, Codex, Copilot, Hermes Agent y 21 clientes adicionales) como a **equipos humanos de ingeniería** en operadores deterministas de QA y DevSecOps nivel Staff. Toda validación corre dentro de **contenedores Docker efímeros y no-root (`Rule Zero`)** sin contaminar el host, imponiendo cobertura `>= 95%`, paridad real con bases de datos/contratos, evaluaciones de IA en modo dual y controles **DISA ASD STIG V6R5 + OWASP v4.2** desde el día uno.
+**QA-11X v3.5** transforma tanto a **Agentes de Inteligencia Artificial** (28 agentes soportados incluyendo Google Antigravity, Claude Code, Cursor, Windsurf, Codex, Copilot, Hermes Agent y 21 clientes adicionales) como a **equipos humanos de ingeniería** en operadores deterministas de QA y DevSecOps nivel Staff. Toda validación corre dentro de **contenedores Docker efímeros y no-root (`Rule Zero`)** sin contaminar el host, imponiendo cobertura `>= 95%`, paridad real con bases de datos/contratos, evaluaciones de IA en modo dual y controles **DISA ASD STIG V6R5 + OWASP v4.2** desde el día uno.
 
 ---
 
@@ -57,7 +57,7 @@ jobs:
 
 ---
 
-## 🧭 Arquitectura Diferencial (`QA-11X v3.3`)
+## 🧭 Arquitectura Diferencial (`QA-11X v3.5`)
 
 ```mermaid
 flowchart TD
@@ -85,7 +85,7 @@ flowchart TD
 
 Todas las suites de análisis, mutación, contratos y BDD se ejecutan en contenedores no-root (`-u "$(id -u):$(id -g)" -e HOME=/tmp`) con **`Trivy HIGH/CRITICAL = 0`**:
 
-| Imagen Efímera | Rol en QA-11X v3.3 | Tags Certificados y Herramientas Preinstaladas |
+| Imagen Efímera | Rol en QA-11X v3.5 | Tags Certificados y Herramientas Preinstaladas |
 | :--- | :--- | :--- |
 | **[sinfallas/base-python-uv](https://hub.docker.com/r/sinfallas/base-python-uv)** | Python, FastAPI, AI Evals y Vibe-Rescue | `3.11`, `3.12`, `3.13`, `3.14`, `3.15` y `latest` (`uv`, `ruff`, `mypy`, `pytest`, `bandit`, `radon`, `mutmut`, `deepeval`, `pact-python`, `tesseract-ocr`) |
 | **[sinfallas/base-node-ionic](https://hub.docker.com/r/sinfallas/base-node-ionic)** | MCP Server, Node, Vue 3, React y CALM | `22`, `24`, `26` y `latest` (`pnpm`, `promptfoo`, `@finos/calm-cli`, `playwright`, `@axe-core/playwright`, `@pact-foundation/pact`) |
@@ -153,8 +153,8 @@ A continuación se resume el stack de validación corporativo a lo largo de los 
 
 ## 🤖 11 Skills Modulares (`< 20 KB`), Servidor MCP y 28 Agentes de IA
 
-* **Enrutamiento Progresivo de Skills (`< 20 KB`):** Liderado por [`.agents/skills/qa-11x-architect/SKILL.md`](.agents/skills/qa-11x-architect/SKILL.md) (`<= 12 KB`), hidratando bajo demanda 10 sub-skills especializadas (`qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `qa-11x-docker-certifier`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui` y [`tactical-patterns-11x`](.agents/skills/tactical-patterns-11x/SKILL.md) `<= 2.5 KB` inyectada vía `[DIRECTIVE-11X]`).
-* **Superficie Pública MCP (`@sinfallas/mcp-qa-11x` v3.3.0):** Expone **19 herramientas** y **13 recursos `blueprint://*`** (incluyendo `blueprint://{stack}/readme` para los **10 stacks hidratables**: `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`) sobre `stdio` — combinando 12 núcleo v1 + 6 evaluadores v2.0 + Flight Recorder atómico **v3.1** `session_flight_recorder` (`session_checkpoint.json` `0600` -> `.agents/ACTIVE_TASK.md`) y recurso **v3.1** `blueprint://skills/tactical-patterns-11x` (`11` skills modulares en total), blindados de extremo a extremo por `promptGuard` y `TaskStateGuard`.
+* **Enrutamiento Progresivo de Skills (`< 20 KB`):** Liderado por [`.agents/skills/qa-11x-architect/SKILL.md`](.agents/skills/qa-11x-architect/SKILL.md) (`<= 12 KB`, `10` referencias bajo demanda incl. SDD/EARS), hidratando bajo demanda 10 sub-skills especializadas (`qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `qa-11x-docker-certifier`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui` y [`tactical-patterns-11x`](.agents/skills/tactical-patterns-11x/SKILL.md) `<= 2.5 KB` inyectada vía `[DIRECTIVE-11X]`) e instalables de forma nativa vía [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) + [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json).
+* **Superficie Pública MCP (`@sinfallas/mcp-qa-11x` v3.5.0):** Expone **19 herramientas** y **13 recursos `blueprint://*`** (incluyendo `blueprint://{stack}/readme` para los **10 stacks hidratables**: `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`) sobre `stdio` — combinando 12 núcleo v1 + 6 evaluadores v2.0 + Flight Recorder atómico **v3.1** `session_flight_recorder` (`session_checkpoint.json` `0600` -> `.agents/ACTIVE_TASK.md`) y recurso **v3.1** `blueprint://skills/tactical-patterns-11x` (`11` skills modulares en total), blindados de extremo a extremo por `promptGuard` y `TaskStateGuard`.
 * **Guardia Humana de Cierre Git (`QA-GIT-GATE-01`):** Impuesta por [`.agents/rules/git_closure_gate.md`](.agents/rules/git_closure_gate.md) — los agentes certifican localmente vía `make certify` y se detienen en `git commit` local; cualquier `git push` o `npm publish` automático queda estrictamente prohibido.
 * **Guías y Catálogos:** Consulta [`docs/agent-setup.es.md`](docs/agent-setup.es.md) (Español; versión en inglés en `docs/agent-setup.md`), [`RESOURCES.es.md`](RESOURCES.es.md), [`llms.txt`](llms.txt) (índice GEO), [`catalogs/`](catalogs/agenticskills-submission.md) ([QASkills](catalogs/qaskills-pack.json), [SkillsLLM](catalogs/skillsllm-manifest.json)), [`docs/01_ARQUITECTURA_PIRAMIDE_11X.es.md`](docs/01_ARQUITECTURA_PIRAMIDE_11X.es.md), [`TESTING.es.md`](TESTING.es.md), [`SECURITY.es.md`](SECURITY.es.md) y [`ROADMAP.es.md`](ROADMAP.es.md).
 

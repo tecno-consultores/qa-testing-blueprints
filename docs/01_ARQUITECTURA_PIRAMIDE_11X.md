@@ -1,14 +1,14 @@
 > 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](01_ARQUITECTURA_PIRAMIDE_11X.es.md)
 
-# 🏛️ QA-11X v3.3 Quality Pyramid Architecture (13 Layers + Agentic Cross-Cutting Planes)
+# 🏛️ QA-11X v3.5 Quality Pyramid Architecture (13 Layers + Agentic Cross-Cutting Planes)
 
-> **PURPOSE:** Canonical architectural specification defining the **13 quality layers**, the **agentic and security cross-cutting planes** of **QA-11X v3.3**, the **3 progressive adoption profiles** (`starter`, `standard`, `enterprise`), and the **3 proportional execution paths** (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`).
+> **PURPOSE:** Canonical architectural specification defining the **13 quality layers**, the **agentic and security cross-cutting planes** of **QA-11X v3.5**, the **3 progressive adoption profiles** (`starter`, `standard`, `enterprise`), and the **3 proportional execution paths** (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`).
 
 ---
 
 ## 1. Proportional Adoption Across 3 Paths and 3 Profiles
 
-To prevent over-engineering on small tasks without relaxing controls on critical systems, QA-11X v3.3 decouples the **repository adoption profile** from the **per-change execution path**:
+To prevent over-engineering on small tasks without relaxing controls on critical systems, QA-11X v3.5 decouples the **repository adoption profile** from the **per-change execution path**:
 
 | Dimension | Classification | Activation Criteria | Validation Scope |
 | :--- | :--- | :--- | :--- |
@@ -26,7 +26,7 @@ To prevent over-engineering on small tasks without relaxing controls on critical
 
 ---
 
-## 2. QA-11X v3.3 Pyramid Topology (13 Layers + Cross-Cutting Planes)
+## 2. QA-11X v3.5 Pyramid Topology (13 Layers + Cross-Cutting Planes)
 
 ```mermaid
 flowchart TD
@@ -65,7 +65,7 @@ flowchart TD
 
 ## 3. MCP Surface, Token Economy, and Human Closure Gate (`QA-GIT-GATE-01`)
 
-* **MCP Server `@sinfallas/mcp-qa-11x` v3.3.0:** Publicly exposes **19 Tools** (12 core v1 + 6 v2.0 evaluators + **v3.1** `session_flight_recorder`) and **13 Resources** (`blueprint://*`, including **v3.1** `blueprint://skills/tactical-patterns-11x`) protected over `stdio` with `promptGuard` and `TaskStateGuard`.
+* **MCP Server `@sinfallas/mcp-qa-11x` v3.5.0:** Publicly exposes **19 Tools** (12 core v1 + 6 v2.0 evaluators + **v3.1** `session_flight_recorder`) and **13 Resources** (`blueprint://*`, including **v3.1** `blueprint://skills/tactical-patterns-11x`) protected over `stdio` with `promptGuard` and `TaskStateGuard`.
 * **Token Economy (`<= 12 KB` / `< 20 KB` / `<= 40` lines):** The orchestrator skill [`.agents/skills/qa-11x-architect/SKILL.md`](../.agents/skills/qa-11x-architect/SKILL.md) (`<= 12 KB`) hydrates 10 modular sub-skills on demand (including JIT `tactical-patterns-11x` `<= 2.5 KB`), projects `.agents/ACTIVE_TASK.md` deterministically via `checkpoint_ctl.py`, and uses [`.agents/scripts/compact_context_11x.py`](../.agents/scripts/compact_context_11x.py) + `Pass-Quiet / Fail-Verbose` formatting (`.agents/.cache/qa-11x-last-failure.json`).
 * **Human Closure Guard (`QA-GIT-GATE-01`):** Every `FULL_11X` task completes the 11-step closure protocol (`AGENTS.md` §5), passes all 10 stages of the certification gate ([`.agents/scripts/certify_task_completion.sh`](../.agents/scripts/certify_task_completion.sh)), marks `CERTIFIED_CLEAN` via `checkpoint_ctl.py`, and stops at a local `git commit`. Per [`.agents/rules/git_closure_gate.md`](../.agents/rules/git_closure_gate.md), no agent may execute `git push` or `npm publish` without explicit human authorization.
 

@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0.0",
   "pack_id": "qa-11x-enterprise-pack",
-  "name": "QA Testing Blueprints (QA-11X v3.3)",
-  "version": "3.3.0",
-  "standard_edition": "QA-11X v3.3",
+  "name": "QA Testing Blueprints (QA-11X v3.5)",
+  "version": "3.5.0",
+  "standard_edition": "QA-11X v3.5",
   "license": "MIT",
   "author": "Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)",
   "repository": "https://github.com/tecno-consultores/qa-testing-blueprints",

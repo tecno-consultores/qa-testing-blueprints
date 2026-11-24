@@ -24,7 +24,7 @@ AI-generated prototypes frequently deliver strong visual layouts alongside sever
 ## 2. Stage 1 — Forensic Triage & Secret Quarantine
 
 1. **Map Before Touching (`Graphify AST-First`, `Rule Zero`):**
-   - Generate the initial AST graph via `./scripts/actualizar-grafos-graphify.sh` and inspect high-fan-in hubs inside Docker (`docker run --rm --network none --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/inspect_blast_radius.py "<symbol>"` or MCP `inspect_ast_blast_radius`).
+   - Generate the initial AST graph via `./scripts/actualizar-grafos-graphify.sh` and inspect high-fan-in hubs plus longitudinal Git history inside Docker (`docker run --rm --network none --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/inspect_blast_radius.py "<symbol>" --git-signals` or MCP `inspect_ast_blast_radius` with `include_git_signals: true`) to surface fix-weighted hotspots and cross-module temporal coupling.
 2. **Quarantine Client-Exposed Secrets:**
    - Run `./scripts/verificar-secretos.sh` and scan client bundles (`VITE_*`, `NEXT_PUBLIC_*`, `REACT_APP_*`, committed `.env` files, hardcoded Supabase `service_role` keys, or raw bearer tokens).
    - Remove `.env` from Git index (`git rm --cached .env`), rotate leaked keys immediately, inject `.env.example` placeholders, and route privileged third-party calls exclusively through a server-side BFF/API protected by Vault AES-256-GCM and Pre-DNS Anti-SSRF (`qa-11x-devsecops-hardener`).
@@ -68,8 +68,10 @@ AI-generated prototypes frequently deliver strong visual layouts alongside sever
 2. **Eliminate Dead Scaffolds & Wire Live Parity:**
    - Purge orphan endpoints and untested UI screens (`verify_no_orphan_api_endpoints.py`, `verify_zero_orphan_vue_components.py`, `verify_json_no_duplicate_keys.py`).
    - Pair live/polling views with explicit **`[ 🔄 Refrescar ]`** (`?refresh=true`) controls and semantic badges (`UI-11X-02`).
-3. **Construct the 11X Unmocked Safety Net:**
+3. **Construct the 11X Unmocked Safety Net & Evidence-Backed Audit Rigor:**
    - Write unit suites achieving **`>= 95%` branch/line coverage** (enforcing strict `json.dumps()` without `default=str` over `Decimal` fixtures in `MockDbSession`), real-DB cross-module propagation tests (Anti-Silo), 3-phase temporal assertions ($t < t_0$, $t_0 \le t \le t_1$, $t > t_1$), real-browser Playwright geometry/a11y checks (`375x667`, `768x1024`, `1440x900`, `@axe-core`), and proportional Karate Labs BDD scenarios.
+   - **Historical Regression Lock:** Every recurring historical `fix` commit surfaced by `--git-signals` MUST produce a dedicated `P1` regression test traced explicitly to `[COMMITS: <sha>]`.
+   - **Audit Evidence Invariant:** Every `P1` finding requires verifiable `[METRIC: ...]` or `[COMMITS: ...]` evidence; cap `[INFERRED]` findings at `<= 20%` of the rescue report and document false-positive rejections in a `"Dismissed findings"` section.
 
 ---
 

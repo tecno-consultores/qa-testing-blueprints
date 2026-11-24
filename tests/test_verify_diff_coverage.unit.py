@@ -819,3 +819,45 @@ def test_min_branch_cov_100_rejects_large_denominator_float_rounding_bypass(
     assert rep.total_delta_branches == 20000
 
 
+def test_sh_quoted_heredoc_lines_ignored_while_bash_lines_still_enforced(
+    tmp_path: Path,
+) -> None:
+    """Líneas dentro de heredoc comillado ('PYEOF') en .sh no bloquean kcov."""
+    repo = _init_repo(tmp_path / "sh_heredoc")
+    _write(
+        repo,
+        "scripts/run.sh",
+        "#!/usr/bin/env bash\necho start\n"
+        "python3 - <<'PYEOF'\nprint('v3.5.0')\nPYEOF\n",
+    )
+    _write(repo, "scripts/plain.sh", "#!/usr/bin/env bash\necho plain\n")
+    _git(repo, "add", "scripts/run.sh", "scripts/plain.sh")
+    _write(
+        repo,
+        "cov/bash.xml",
+        "<coverage><packages><package><classes>"
+        '<class filename="scripts/run.sh"><lines>'
+        '<line number="2" hits="1"/>'
+        '<line number="3" hits="1"/>'
+        '<line number="4" hits="0"/>'
+        "</lines></class>"
+        '<class filename="scripts/plain.sh"><lines>'
+        '<line number="2" hits="1"/>'
+        "</lines></class>"
+        "</classes></package></packages></coverage>",
+    )
+    rep = vdc.evaluate_diff_coverage(
+        vdc.DiffCoverageConfig(workspace=repo, base_ref="HEAD", reports_dir="cov")
+    )
+    assert rep.exit_code == vdc.EXIT_OK
+    assert rep.status == "PASSED"
+    assert (
+        vdc._filter_sh_heredoc_change(
+            "scripts/missing.sh",
+            vdc.DiffFileChange("scripts/missing.sh", False, {1: "echo x"}),
+            repo,
+        ).added_lines
+        == {1: "echo x"}
+    )
+
+

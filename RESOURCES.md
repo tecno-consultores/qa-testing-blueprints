@@ -1,6 +1,6 @@
 > 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](RESOURCES.es.md)
 
-# 📚 Master Catalog of Resources & Artifacts (`QA-11X v3.3`)
+# 📚 Master Catalog of Resources & Artifacts (`QA-11X v3.5`)
 
 Verified corporate index of entrypoints, modular skills, active rules, stack blueprints, executable governance, `sinfallas/*` Docker images, and normative references for **QA Testing Blueprints**.
 
@@ -11,8 +11,8 @@ Verified corporate index of entrypoints, modular skills, active rules, stack blu
 * **[`README.md`](README.md):** Primary *English-First* landing page featuring the 30-second `quickstart`, progressive adoption tiers (`starter` / `standard` / `enterprise`), the 15-column × 12-environment testing tools matrix, the ephemeral Docker matrix, and the AI Evals shield.
 * **[`README.es.md`](README.es.md):** 1:1 Spanish mirror with the full testing tools matrix and bilingual entrypoints.
 * **[`.github/actions/qa-11x-pr-check/action.yml`](.github/actions/qa-11x-pr-check/action.yml):** Hardened Composite Action for Pull Requests with AST Blast-Radius selection and progressive tiers.
-* **[`mcp-server/README.md`](mcp-server/README.md) / [`mcp-server/README.es.md`](mcp-server/README.es.md):** Official bilingual documentation for the `@sinfallas/mcp-qa-11x` v3.3.0 npm package (**19 Tools**, **13 Resources** including `quickstart`, **v3.1** `session_flight_recorder` + `blueprint://skills/tactical-patterns-11x`, and 12 CLI subcommands: `quickstart`, `install-skill`, `init-agents`, `reconcile-agents`, `tms-sync`, `doctor`, `upgrade`, `certify`, `audit`, `blast-radius`, `mcp-config`, `completion`, protected by `promptGuard` and `TaskStateGuard`).
-* **[`llms.txt`](llms.txt) & Global Catalogs (`catalogs/`):** GEO index for LLMs/agents ([`llms.txt`](llms.txt)) alongside canonical descriptors [`catalogs/qaskills-pack.json`](catalogs/qaskills-pack.json) (QASkills.sh), [`catalogs/skillsllm-manifest.json`](catalogs/skillsllm-manifest.json) (SkillsLLM.com), and [`catalogs/agenticskills-submission.md`](catalogs/agenticskills-submission.md) (AgenticSkills.io).
+* **[`mcp-server/README.md`](mcp-server/README.md) / [`mcp-server/README.es.md`](mcp-server/README.es.md):** Official bilingual documentation for the `@sinfallas/mcp-qa-11x` v3.5.0 npm package (**19 Tools**, **13 Resources** including `quickstart`, **v3.1** `session_flight_recorder` + `blueprint://skills/tactical-patterns-11x`, and 12 CLI subcommands: `quickstart`, `install-skill`, `init-agents`, `reconcile-agents`, `tms-sync`, `doctor`, `upgrade`, `certify`, `audit`, `blast-radius`, `mcp-config`, `completion`, protected by `promptGuard` and `TaskStateGuard`).
+* **[`llms.txt`](llms.txt) & Global Catalogs (`catalogs/` & `.claude-plugin/`):** GEO index for LLMs/agents ([`llms.txt`](llms.txt)), native Claude Code plugin manifests ([`.claude-plugin/plugin.json`](.claude-plugin/plugin.json), [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json)), alongside canonical descriptors [`catalogs/qaskills-pack.json`](catalogs/qaskills-pack.json) (QASkills.sh), [`catalogs/skillsllm-manifest.json`](catalogs/skillsllm-manifest.json) (SkillsLLM.com), and [`catalogs/agenticskills-submission.md`](catalogs/agenticskills-submission.md) (AgenticSkills.io).
 * **[`docs/agent-setup.md`](docs/agent-setup.md) / [`docs/agent-setup.es.md`](docs/agent-setup.es.md):** Step-by-step setup guides for 28 AI coding agents and MCP clients (`Antigravity`, `Claude Code`, `Cursor`, `Windsurf`, `Codex`, `Copilot`, `Hermes`, `Zed`, `JetBrains`, etc.).
 * **[`AI_MASTER_PROMPT.md`](AI_MASTER_PROMPT.md):** Master adoption prompt for autonomous AI agents ([Spanish mirror](AI_MASTER_PROMPT.es.md)).
 
@@ -24,7 +24,7 @@ Verified corporate index of entrypoints, modular skills, active rules, stack blu
 
 | Skill | Specialty | File |
 | :--- | :--- | :--- |
-| **`qa-11x-architect`** | Master orchestrator (`<= 12 KB`), 3 proportional paths & 11 UAT laws | [`SKILL.md`](.agents/skills/qa-11x-architect/SKILL.md) |
+| **`qa-11x-architect`** | Master orchestrator (`<= 12 KB`, `10` refs incl. SDD/EARS), 3 proportional paths & 11 UAT laws | [`SKILL.md`](.agents/skills/qa-11x-architect/SKILL.md) |
 | **`qa-11x-devsecops-hardener`** | DISA ASD STIG V6R5, OWASP v4.2, PostgreSQL 17 RLS + WORM controls | [`SKILL.md`](.agents/skills/qa-11x-devsecops-hardener/SKILL.md) |
 | **`qa-11x-systematic-debugging`** | 4-phase deterministic root-cause protocol & RED-to-GREEN locks | [`SKILL.md`](.agents/skills/qa-11x-systematic-debugging/SKILL.md) |
 | **`qa-11x-screenplay-builder`** | Multi-role Screenplay pattern, Self-Healing DOM & temporal assertions | [`SKILL.md`](.agents/skills/qa-11x-screenplay-builder/SKILL.md) |

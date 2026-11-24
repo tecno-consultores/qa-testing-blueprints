@@ -1603,6 +1603,86 @@ class TestVerifyDocsInvariants(unittest.TestCase):
             self.assertTrue(any("vendor-large/SKILL.md" in e for e in up_errs))
             self.assertTrue(any("presupuesto cognitivo" in e for e in up_errs))
 
+    def test_skill_backtick_references_and_claude_plugin_manifests(self) -> None:
+        import json
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skill_dir = root / ".agents" / "skills" / "qa-11x-architect"
+            (skill_dir / "references").mkdir(parents=True, exist_ok=True)
+            (skill_dir / "references" / "01-core.md").write_text(
+                "# 01\n", encoding="utf-8"
+            )
+            (skill_dir / "SKILL.md").write_text(
+                "Load `references/01..10.md` or `references/01-core.md`.\n"
+                "Sibling `qa-11x-devsecops-hardener` "
+                "(`references/stig_rls_vault.md`).\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(verify_docs._check_skill_backtick_references(root), [])
+
+            (skill_dir / "SKILL.md").write_text(
+                "Broken `references/missing-doc.md`.\n",
+                encoding="utf-8",
+            )
+            ref_errs = verify_docs._check_skill_backtick_references(root)
+            self.assertEqual(len(ref_errs), 1)
+            self.assertIn("missing-doc.md", ref_errs[0])
+
+            # Consumer repo without .claude-plugin passes cleanly
+            self.assertEqual(verify_docs._check_claude_plugin_manifests(root), [])
+
+            # Upstream repo with .claude-plugin validates plugin.json & marketplace.json
+            (root / "mcp-server").mkdir(parents=True, exist_ok=True)
+            (root / "mcp-server" / "package.json").write_text(
+                json.dumps({"version": "3.5.0"}), encoding="utf-8"
+            )
+            cp_dir = root / ".claude-plugin"
+            cp_dir.mkdir(parents=True, exist_ok=True)
+            missing_errs = verify_docs._check_claude_plugin_manifests(root)
+            self.assertEqual(len(missing_errs), 2)
+
+            (cp_dir / "plugin.json").write_text(
+                '{"version": "3.4.0", "skills": "./wrong"}', encoding="utf-8"
+            )
+            (cp_dir / "marketplace.json").write_text(
+                '{"plugins": []}', encoding="utf-8"
+            )
+            bad_errs = verify_docs._check_claude_plugin_manifests(root)
+            self.assertGreaterEqual(len(bad_errs), 3)
+
+            (cp_dir / "plugin.json").write_text(
+                '{"version": "3.5.0", "version": "3.5.0"}', encoding="utf-8"
+            )
+            (cp_dir / "marketplace.json").write_text(
+                '{"plugins": ["bad"]}', encoding="utf-8"
+            )
+            dup_errs = verify_docs._check_claude_plugin_manifests(root)
+            self.assertEqual(len(dup_errs), 2)
+
+            (cp_dir / "plugin.json").write_text(
+                json.dumps({"version": "3.5.0", "skills": "./.agents/skills"}),
+                encoding="utf-8",
+            )
+            (cp_dir / "marketplace.json").write_text(
+                json.dumps({"plugins": [{"name": "qa-11x", "version": "3.4.0"}]}),
+                encoding="utf-8",
+            )
+            mismatch_errs = verify_docs._check_claude_plugin_manifests(root)
+            self.assertEqual(len(mismatch_errs), 1)
+
+            (cp_dir / "marketplace.json").write_text(
+                '{"plugins": [], "plugins": []}', encoding="utf-8"
+            )
+            self.assertTrue(verify_docs._check_claude_plugin_manifests(root))
+
+            (cp_dir / "marketplace.json").write_text(
+                json.dumps({"plugins": [{"name": "qa-11x", "version": "3.5.0"}]}),
+                encoding="utf-8",
+            )
+            self.assertEqual(verify_docs._check_claude_plugin_manifests(root), [])
+
 
 if __name__ == "__main__":
     unittest.main()

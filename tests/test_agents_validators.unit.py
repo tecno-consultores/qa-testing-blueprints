@@ -1738,3 +1738,212 @@ def test_select_tests_normalizes_pull_request_target_and_merge_group(
         )
     changed = mod._resolve_git_changed_files("HEAD~1", tmp_path)
     assert "scripts/demo.sh" in changed
+
+
+def test_verify_topological_health_declarative_contracts_and_metrics(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mod = _load_script_module(
+        "verify_topological_health_v35", "verify_topological_health.py"
+    )
+    gdir = tmp_path / "graphify-out"
+    gdir.mkdir(parents=True)
+    gpath = gdir / "graph.json"
+
+    graph_ok = {
+        "nodes": [
+            {"id": "n_api", "source_file": "src/api/routes.py"},
+            {"id": "n_svc", "source_file": "src/services/billing_svc.py"},
+            {"id": "n_dom", "source_file": "src/domain/invoice.py"},
+            {"id": "n_bill", "source_file": "src/modules/billing/calc.py"},
+            {"id": "n_pol", "source_file": "src/modules/policies/rule.py"},
+            {"id": "n_shr", "source_file": "src/shared/money.py"},
+        ],
+        "links": [
+            {"source": "n_api", "target": "n_svc", "relation": "calls"},
+            {"source": "n_svc", "target": "n_dom", "relation": "calls"},
+            {"source": "n_bill", "target": "n_shr", "relation": "calls"},
+            {"source": "n_pol", "target": "n_shr", "relation": "calls"},
+            {"source": "n_dom", "target": "n_dom", "relation": "contains"},
+        ],
+    }
+    gpath.write_text(json.dumps(graph_ok), encoding="utf-8")
+
+    bpath = tmp_path / ".agents" / "boundaries.json"
+    bpath.parent.mkdir(parents=True)
+    bpath.write_text(
+        json.dumps(
+            {
+                "rules": [
+                    {
+                        "kind": "layers",
+                        "root": "src",
+                        "layers": ["api", "services", "domain"],
+                    },
+                    {
+                        "kind": "independence",
+                        "root": "src/modules",
+                        "modules": ["billing", "policies"],
+                        "shared": ["src/shared"],
+                    },
+                    {
+                        "kind": "forbidden",
+                        "rules": [
+                            {
+                                "source": "src/domain",
+                                "forbidden": ["fastapi", "axios", "src/api"],
+                            }
+                        ],
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert mod.cli_main(["--workspace", str(tmp_path), "--metrics"]) == 0
+    out_ok = capsys.readouterr().out
+    assert "✔ [AST Topology]" in out_ok
+    assert "Métricas Martin" in out_ok
+
+    # Zero-node fail-closed guard on layers / independence
+    stale_b = tmp_path / "stale_boundaries.json"
+    stale_b.write_text(
+        json.dumps(
+            {
+                "kind": "layers",
+                "root": "src",
+                "layers": ["api", "ghost_layer"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert (
+        mod.cli_main(["--workspace", str(tmp_path), "--boundaries", str(stale_b)]) == 1
+    )
+    assert "0 nodos en graph.json" in capsys.readouterr().out
+
+    # Duplicate keys in boundaries.json -> fail closed
+    dup_b = tmp_path / "dup_boundaries.json"
+    dup_b.write_text('{"kind": "layers", "kind": "forbidden"}', encoding="utf-8")
+    assert mod.main(tmp_path, boundaries_file=dup_b) == 1
+    assert "Clave JSON duplicada" in capsys.readouterr().out
+
+    # Invalid structure in boundaries.json
+    bad_b = tmp_path / "bad_boundaries.json"
+    bad_b.write_text('{"unknown": []}', encoding="utf-8")
+    assert mod.main(tmp_path, boundaries_file=bad_b) == 1
+    assert "Contrato declarativo inválido" in capsys.readouterr().out
+    bad_b.write_text('"str_root"', encoding="utf-8")
+    assert mod.main(tmp_path, boundaries_file=bad_b) == 1
+    capsys.readouterr()
+
+    # Violations: layers + independence + forbidden external + forbidden internal
+    graph_bad = {
+        "nodes": [
+            *graph_ok["nodes"],
+            {"id": "ext_fast", "label": "fastapi.APIRouter", "source_file": ""},
+            {
+                "id": "ext_axios",
+                "label": "axios",
+                "source_file": "node_modules/axios/index.js",
+            },
+        ],
+        "links": [
+            {"source": "n_dom", "target": "n_api", "relation": "imports"},
+            {"source": "n_bill", "target": "n_pol", "relation": "calls"},
+            {"source": "n_dom", "target": "ext_fast", "relation": "imports"},
+            {"source": "n_dom", "target": "ext_axios", "relation": "imports"},
+        ],
+    }
+    gpath.write_text(json.dumps(graph_bad), encoding="utf-8")
+    assert mod.main(tmp_path) == 1
+    out_bad = capsys.readouterr().out
+    assert "Violación de capas" in out_bad
+    assert "Violación de independencia" in out_bad
+    assert "Dependencia prohibida" in out_bad
+
+    # compute_module_instability: god-module + empty graph
+    assert mod.compute_module_instability({"nodes": [], "links": []}) == []
+    god_graph = {
+        "nodes": [
+            {"id": "h1", "source_file": "src/hub/a.py"},
+            {"id": "h2", "source_file": "src/hub/b.py"},
+            {"id": "h3", "source_file": "src/hub/c.py"},
+            {"id": "c1", "source_file": "src/c1/a.py"},
+            {"id": "c2", "source_file": "src/c2/a.py"},
+            {"id": "t1", "source_file": "src/t1/a.py"},
+            {"id": "t2", "source_file": "src/t2/a.py"},
+            {"id": "iso", "source_file": "top.py"},
+        ],
+        "links": [
+            {"source": "c1", "target": "h1", "relation": "calls"},
+            {"source": "c2", "target": "h2", "relation": "calls"},
+            {"source": "h1", "target": "t1", "relation": "calls"},
+            {"source": "h2", "target": "t2", "relation": "calls"},
+        ],
+    }
+    inst_rows = mod.compute_module_instability(god_graph)
+    hub_row = next(r for r in inst_rows if r["module"] == "src/hub")
+    assert hub_row["fan_in"] == 2
+    assert hub_row["fan_out"] == 2
+    assert hub_row["instability"] == 0.5
+    assert hub_row["coupling_score"] == 4
+    assert hub_row["god_module_candidate"] is True
+    root_row = next(r for r in inst_rows if r["module"] == "(root)")
+    assert root_row["instability"] == 0.0
+
+    # Extra edge cases for 100% diff coverage in verify_topological_health
+    assert mod._norm_rel_path("./src/a.py") == "src/a.py"
+    assert mod._matches_prefix("", "src") is False
+    assert mod._join_root_prefix("", "api") == "api"
+    assert mod._matches_forbidden_token(("src/a.py", "a", "a"), "") is False
+    assert mod._matches_forbidden_token(("src/a.py", "a", "a"), "src/b") is False
+    assert mod._resolve_forbidden_source_and_target(
+        {"source": "n_dom", "target": "n_api", "relation": "calls"},
+        {
+            "n_dom": {"source_file": "tests/test_a.py"},
+            "n_api": {"source_file": "src/api.py"},
+        },
+    ) is None
+    assert mod._resolve_forbidden_source_and_target(
+        {"source": "n_dom", "target": "n_api", "relation": "calls"},
+        {
+            "n_dom": {"source_file": "src/dom.py"},
+            "n_api": {"source_file": "tests/test_api.py"},
+        },
+    ) is None
+    assert mod._module_key_from_source("fastapi/src/api/routes.py") == "fastapi/src/api"
+    assert mod._module_key_from_source("scripts/clean.sh") == "scripts"
+    assert mod._percentile_and_median({}, []) == (0, 0.0)
+    assert mod._percentile_and_median({"a": 1}, [0])[1] == 1.0
+
+    list_b = tmp_path / "list_boundaries.json"
+    list_b.write_text(
+        json.dumps(
+            [{"kind": "forbidden", "rules": [{"source": "src", "forbidden": ["x"]}]}]
+        ),
+        encoding="utf-8",
+    )
+    assert len(mod.load_boundary_rules(list_b)) == 1
+    bad_item_b = tmp_path / "bad_item.json"
+    bad_item_b.write_text(json.dumps([{"kind": "unknown"}]), encoding="utf-8")
+    with pytest.raises(ValueError, match="kind"):
+        mod.load_boundary_rules(bad_item_b)
+
+    assert mod._resolve_non_test_link_files(
+        {"source": "n1", "target": "n2", "relation": "calls"},
+        {"n1": {"source_file": "tests/test_a.py"}, "n2": {"source_file": "src/a.py"}},
+    ) is None
+    assert len(
+        mod.compute_module_instability(
+            {
+                "nodes": [
+                    {"id": "n1", "source_file": "src/a/x.py"},
+                    {"id": "n2", "source_file": ""},
+                ],
+                "links": [{"source": "n1", "target": "n2", "relation": "calls"}],
+            }
+        )
+    ) == 1
+    mod._print_instability_table("empty", [])

@@ -132,6 +132,13 @@ export const BlastRadiusInputSchema = z.object({
     .describe(
       'Maximum output token budget (approx. ceil(chars/4)) when changed_since_ref is provided.'
     ),
+  include_git_signals: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe(
+      'If true, mines longitudinal Git history (-M --numstat) for cross-module temporal co-change pairs, fix-weighted hotspots, and bus-factor concentration.'
+    ),
 }).strict();
 
 export const CleanWorkspaceInputSchema = z.object({
@@ -361,6 +368,40 @@ export interface DiffBundleReport {
 
 export type BlastRiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
+export interface GitHotspotEntry {
+  file: string;
+  touches: number;
+  fixes: number;
+  churn_lines: number;
+  score: number;
+}
+
+export interface GitTemporalCouplingPair {
+  file_a: string;
+  file_b: string;
+  cochanges: number;
+  confidence: number;
+  cross_module: boolean;
+  module_a: string;
+  module_b: string;
+}
+
+export interface GitBusFactorAlert {
+  module: string;
+  commits: number;
+  authors: number;
+  top_author: string;
+  top_author_pct: number;
+}
+
+export interface GitArchSignalsReport {
+  detected: boolean;
+  commits_analyzed: number;
+  hotspots: GitHotspotEntry[];
+  temporal_coupling_pairs: GitTemporalCouplingPair[];
+  bus_factor_alerts: GitBusFactorAlert[];
+}
+
 export interface BlastRadiusResult {
   project_path: string;
   target_symbol: string;
@@ -377,6 +418,7 @@ export interface BlastRadiusResult {
   ast_graph_files?: string[];
   ast_graph_action_required?: string;
   diff_bundle?: DiffBundleReport;
+  git_signals?: GitArchSignalsReport;
 }
 
 export interface SecurityFinding {

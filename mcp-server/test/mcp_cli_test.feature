@@ -27,7 +27,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   Scenario: 1. El paquete npm expone nombre, versión, metadatos de npmjs y binario ejecutable canónico
     * match pkg.name == '@sinfallas/mcp-qa-11x'
     * match pkg.version == '#regex ^[0-9]+\\.[0-9]+\\.[0-9]+$'
-    * match pkg.homepage == 'https://github.com/tecno-consultores/qa-testing-blueprints'
+    * match pkg.homepage == 'https://www.tecnoconsultores.net/qa-11x/'
     * match pkg.repository.type == 'git'
     * match pkg.repository.url == 'git+https://github.com/tecno-consultores/qa-testing-blueprints.git'
     * match pkg.repository.directory == 'mcp-server'
@@ -1747,6 +1747,25 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert verifyV251.contains('blast-radius ')
     * assert verifyV251.contains('tms-sync ')
     * assert verifyV251.contains('session_flight_recorder')
+
+  Scenario: 52. Contrato QA-11X v3.5 — Señales Git longitudinales (--git-signals / include_git_signals), fronteras AST declarativas, SDD/EARS y .claude-plugin
+    * def typesSrc52 = karate.readAsString(mcpRoot + '/src/types.ts')
+    * assert typesSrc52.contains('include_git_signals')
+    * assert typesSrc52.contains('GitArchSignalsReport')
+    * def gitSignalsTs52 = karate.readAsString(mcpRoot + '/src/utils/git-signals.ts')
+    * assert gitSignalsTs52.contains('collectGitArchSignals')
+    * assert gitSignalsTs52.contains('resolveGitNumstatRenamePath')
+    * def blastCliSrc52 = karate.readAsString(mcpRoot + '/src/cli/blast-radius-cli.ts')
+    * assert blastCliSrc52.contains('--git-signals')
+    * def topoPy52 = karate.readAsString(repoRoot + '/.agents/scripts/verify_topological_health.py')
+    * assert topoPy52.contains('compute_module_instability')
+    * assert topoPy52.contains('boundaries.json')
+    * def pluginJson52 = read(repoRoot + '/.claude-plugin/plugin.json')
+    * match pluginJson52.name == 'qa-11x'
+    * match pluginJson52.skills == './.agents/skills'
+    * def marketplaceJson52 = read(repoRoot + '/.claude-plugin/marketplace.json')
+    * match marketplaceJson52.name == 'tecno-consultores-qa-11x'
+
 
 
 
