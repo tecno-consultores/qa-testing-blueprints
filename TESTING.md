@@ -294,7 +294,7 @@ The script sequentially and strictly evaluates 10 mandatory gates:
     * `make -C mcp-server build`
     * `make -C mcp-server qa-example && make -C mcp-server qa-e2e` (or `./scripts/probar-mcp-example.sh`)
   * **Coverage & Metrics Achieved:**
-    * **100% assertions passed** (**729** Vitest tests across **42 Vitest suites** + **52** Karate BDD scenarios including **Scenarios 50–52** CLI, `git-signals`, `.claude-plugin/` & IDE config contracts + **288** Python unit & Meta-QA tests + **27** Offline AI (4 live skipped) + **101** BATS + **21** Vibe-Rescue + live E2E over `stdio`).
+    * **100% assertions passed** (**729** Vitest tests across **42 Vitest suites** + **52** Karate BDD scenarios including **Scenarios 50–52** CLI, `git-signals`, `.claude-plugin/` & IDE config contracts + **288** Python unit & Meta-QA tests + **27** Offline AI (4 live skipped) + **109** BATS + **21** Vibe-Rescue + live E2E over `stdio`).
     * **99.57% line/statement coverage and 96.70% branch coverage** (exceeding the `>= 95%` threshold).
     * **99.88% function coverage**.
     * **0 errors from ESLint (`--max-warnings 0`), SonarJS (Cognitive `<= 15`), and TypeScript (`strict: true`)**.

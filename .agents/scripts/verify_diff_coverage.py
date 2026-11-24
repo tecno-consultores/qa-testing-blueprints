@@ -27,7 +27,9 @@ HUNK_HEADER_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 CONDITION_COV_RE = re.compile(r"\((\d+)/(\d+)\)")
 APPROVED_EXCLUSION_RE = re.compile(r"QA11X-APPROVED-EXCLUSION\(\s*[^)\s][^)]*\)")
 CONTAINER_PREFIX_RE = re.compile(r"^(?:/app/|/workspace/|/repo/)")
-QUOTED_HEREDOC_RE = re.compile(r"""<<-?\s*(?:'([A-Za-z0-9_]+)'|"([A-Za-z0-9_]+)")""")
+QUOTED_HEREDOC_RE = re.compile(
+    r"""<<(-?)\s*(?:'([A-Za-z_][A-Za-z0-9_]*)'|"([A-Za-z_][A-Za-z0-9_]*)")"""
+)
 
 EVASION_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
@@ -790,20 +792,83 @@ def _evaluate_productive_file(
     return None
 
 
+def _skip_sh_quoted(line: str, idx: int, quote: str, escaped: bool) -> int:
+    idx += 1
+    n = len(line)
+    while idx < n:
+        ch = line[idx]
+        if escaped and ch == "\\" and idx + 1 < n:
+            idx += 2
+            continue
+        if ch == quote:
+            return idx + 1
+        idx += 1
+    return n
+
+
+def _is_heredoc_prefix(buf: list[str]) -> bool:
+    return "".join(buf).rstrip().endswith(("<<", "<<-"))
+
+
+def _consume_heredoc_delim(
+    line: str, idx: int, quote: str, buf: list[str]
+) -> int:
+    end = line.find(quote, idx + 1)
+    if end == -1:
+        buf.extend(line[idx:])
+        return len(line)
+    buf.extend(line[idx : end + 1])
+    return end + 1
+
+
+def _consume_sh_token(line: str, idx: int, buf: list[str]) -> int:
+    ch = line[idx]
+    if ch == "\\" and idx + 1 < len(line):
+        buf.extend((ch, line[idx + 1]))
+        return idx + 2
+    if ch == "#" and (idx == 0 or line[idx - 1] in " \t;&|({"):
+        return len(line)
+    if ch in ("'", '"'):
+        if _is_heredoc_prefix(buf):
+            return _consume_heredoc_delim(line, idx, ch, buf)
+        esc = ch == '"' or (bool(buf) and buf[-1] == "$")
+        return _skip_sh_quoted(line, idx, ch, escaped=esc)
+    buf.append(ch)
+    return idx + 1
+
+
+def _extract_quoted_heredoc_start(line: str) -> tuple[str, bool] | None:
+    buf: list[str] = []
+    idx, n = 0, len(line)
+    while idx < n:
+        idx = _consume_sh_token(line, idx, buf)
+    match = QUOTED_HEREDOC_RE.search("".join(buf))
+    if match is None:
+        return None
+    marker = match.group(2) or match.group(3)
+    return marker, bool(match.group(1))
+
+
+def _is_heredoc_end(line: str, marker: str, strip_tabs: bool) -> bool:
+    candidate = line.lstrip("\t") if strip_tabs else line
+    return candidate == marker
+
+
 def _sh_quoted_heredoc_lines(file_path: Path) -> set[int]:
     ignored: set[int] = set()
-    end_marker: str | None = None
+    pending: list[int] = []
+    active: tuple[str, bool] | None = None
     raw_lines = file_path.read_text(encoding="utf-8", errors="replace").splitlines()
     for idx, line in enumerate(raw_lines, start=1):
-        if end_marker is not None:
-            if line.strip() == end_marker:
-                end_marker = None
+        if active is not None:
+            if _is_heredoc_end(line, active[0], active[1]):
+                ignored.update(pending)
+                pending.clear()
+                active = None
             else:
-                ignored.add(idx)
+                pending.append(idx)
             continue
-        match = QUOTED_HEREDOC_RE.search(line)
-        if match is not None:
-            end_marker = match.group(1) or match.group(2)
+        active = _extract_quoted_heredoc_start(line)
     return ignored
 
 

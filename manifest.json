@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.5.0",
-  "generated_at_utc": "2026-11-24T01:15:25Z",
+  "generated_at_utc": "2026-11-24T01:27:50Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -1308,8 +1308,8 @@
       "path": ".agents/scripts/verify_diff_coverage.py",
       "target_name": ".agents/scripts/verify_diff_coverage.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "13e0d7981e69a23378236ef0e18f644208ac068547366f1924053dc434366cb0",
-      "size_bytes": 35084
+      "sha256": "57a6851da190689c1fee82d3d5997e60f21c4244b046c6f41833290bcf121af6",
+      "size_bytes": 36932
     },
     {
       "path": ".agents/scripts/verify_docs_invariants.py",
@@ -1343,8 +1343,8 @@
       "path": ".agents/scripts/verify_topological_health.py",
       "target_name": ".agents/scripts/verify_topological_health.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "80489f3b5de20e1f195ac58d4fa8731b1e5a819148692fc33f2af4077dbf6e49",
-      "size_bytes": 27911
+      "sha256": "057a8b6e1fb39dc01008bce13ae1a98ae9c06c659c1f8ee5b4a0ae8a26f0f229",
+      "size_bytes": 28149
     },
     {
       "path": ".agents/scripts/verify_zero_orphan_vue_components.py",

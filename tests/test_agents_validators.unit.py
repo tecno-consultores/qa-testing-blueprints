@@ -1823,6 +1823,27 @@ def test_verify_topological_health_declarative_contracts_and_metrics(
     )
     assert "0 nodos en graph.json" in capsys.readouterr().out
 
+    # Empty layers / independence fail-closed guard
+    empty_layers_b = tmp_path / "empty_layers.json"
+    empty_layers_b.write_text(
+        json.dumps(
+            [
+                {"kind": "layers", "root": "src", "layers": []},
+                {"kind": "independence", "root": "src/modules", "modules": []},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    assert (
+        mod.cli_main(
+            ["--workspace", str(tmp_path), "--boundaries", str(empty_layers_b)]
+        )
+        == 1
+    )
+    empty_out = capsys.readouterr().out
+    assert "sin capas definidas" in empty_out
+    assert "sin módulos definidos" in empty_out
+
     # Duplicate keys in boundaries.json -> fail closed
     dup_b = tmp_path / "dup_boundaries.json"
     dup_b.write_text('{"kind": "layers", "kind": "forbidden"}', encoding="utf-8")

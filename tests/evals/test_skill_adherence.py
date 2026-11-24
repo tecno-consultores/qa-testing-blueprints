@@ -241,8 +241,10 @@ def _validate_frontmatter_fields(
         errors.append(
             f"{skill_dir}: claves frontmatter no permitidas ({extra_keys})"
         )
-    name_val = str(loaded.get("name", "")).strip()
-    desc_val = str(loaded.get("description", "")).strip()
+    raw_name = loaded.get("name")
+    raw_desc = loaded.get("description")
+    name_val = raw_name.strip() if isinstance(raw_name, str) else ""
+    desc_val = raw_desc.strip() if isinstance(raw_desc, str) else ""
     errors.extend(_validate_skill_name(name_val, skill_dir))
     errors.extend(_validate_skill_desc(desc_val, skill_dir))
     return errors
@@ -1043,3 +1045,15 @@ def test_strict_agent_skills_frontmatter_schema_validation() -> None:
         "qa-11x-demo",
     )
     assert any("> 1024 chars" in e for e in long_desc_errs)
+
+    null_desc_errs = _validate_frontmatter_fields(
+        {"name": "qa-11x-demo", "description": None},
+        "qa-11x-demo",
+    )
+    assert any("vacío" in e for e in null_desc_errs)
+
+    null_name_errs = _validate_frontmatter_fields(
+        {"name": None, "description": "Valid"},
+        "qa-11x-demo",
+    )
+    assert any("inválido" in e for e in null_name_errs)

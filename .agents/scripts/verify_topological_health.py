@@ -402,6 +402,8 @@ def _check_layers_rule(
 ) -> list[str]:
     root = str(rule.get("root") or "")
     layers = [str(x) for x in rule.get("layers", []) if str(x)]
+    if not layers:
+        return [f"[{graph_label}] Regla declarativa 'layers' sin capas definidas."]
     prefixes = [_join_root_prefix(root, layer) for layer in layers]
     node_files = _collect_node_files(nodes)
     violations = _verify_prefixes_non_empty(prefixes, node_files, graph_label)
@@ -451,6 +453,10 @@ def _check_independence_rule(
 ) -> list[str]:
     root = str(rule.get("root") or "")
     modules = [str(x) for x in rule.get("modules", []) if str(x)]
+    if not modules:
+        return [
+            f"[{graph_label}] Regla declarativa 'independence' sin módulos definidos."
+        ]
     mod_pairs = tuple((m, _join_root_prefix(root, m)) for m in modules)
     shared = tuple(_norm_rel_path(str(x)) for x in rule.get("shared", []) if str(x))
     ctx = _IndependenceCtx(mod_prefixes=mod_pairs, shared_prefixes=shared)

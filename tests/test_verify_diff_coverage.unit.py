@@ -860,4 +860,68 @@ def test_sh_quoted_heredoc_lines_ignored_while_bash_lines_still_enforced(
         == {1: "echo x"}
     )
 
+    # Edge cases: comments/strings with <<'EOF', unclosed heredoc, <<- tabs
+    evade_repo = _init_repo(tmp_path / "sh_heredoc_edges")
+    _write(
+        evade_repo,
+        "scripts/edges.sh",
+        "#!/usr/bin/env bash\n"
+        "# comment <<'EOF'\n"
+        'echo "example <<\'EOF\'"\n'
+        "cat <<- 'TABEOF'\n"
+        "\tinside_tab_heredoc\n"
+        "\tTABEOF\n"
+        "cat <<'SPCEOF'\n"
+        "  SPCEOF\n"
+        "SPCEOF\n"
+        "echo real_uncovered_bash\n",
+    )
+    _write(
+        evade_repo,
+        "scripts/unclosed.sh",
+        "#!/usr/bin/env bash\n"
+        "cat <<'UNCLOSED'\n"
+        "echo still_enforced_when_unclosed\n",
+    )
+    _git(evade_repo, "add", "scripts/edges.sh", "scripts/unclosed.sh")
+    _write(
+        evade_repo,
+        "cov/bash.xml",
+        "<coverage><packages><package><classes>"
+        '<class filename="scripts/edges.sh"><lines>'
+        '<line number="3" hits="1"/>'
+        '<line number="4" hits="1"/>'
+        '<line number="7" hits="1"/>'
+        '<line number="10" hits="0"/>'
+        "</lines></class>"
+        '<class filename="scripts/unclosed.sh"><lines>'
+        '<line number="2" hits="1"/>'
+        '<line number="3" hits="1"/>'
+        "</lines></class>"
+        "</classes></package></packages></coverage>",
+    )
+    edges_ignored = vdc._sh_quoted_heredoc_lines(evade_repo / "scripts/edges.sh")
+    assert edges_ignored == {5, 8}
+    assert vdc._sh_quoted_heredoc_lines(evade_repo / "scripts/unclosed.sh") == set()
+    edge_rep = vdc.evaluate_diff_coverage(
+        vdc.DiffCoverageConfig(
+            workspace=evade_repo, base_ref="HEAD", reports_dir="cov"
+        )
+    )
+    assert edge_rep.exit_code == vdc.EXIT_COVERAGE_FAIL
+    assert (10,) in [m.uncovered_lines for m in edge_rep.file_metrics]
+
+    # Escapes, ANSI-C $'...', and unclosed quotes outside/inside heredoc prefix
+    ansi_sh = evade_repo / "scripts/ansi.sh"
+    ansi_sh.write_text(
+        "#!/usr/bin/env bash\n"
+        "echo \\# not_a_comment\n"
+        "echo $'escaped \\' <<\\'EOF\\''\n"
+        "echo 'unclosed single quote\n"
+        "cat <<'UNCLOSED_DELIM\n"
+        "cat <<'REAL'\nbody\nREAL\n",
+        encoding="utf-8",
+    )
+    assert vdc._sh_quoted_heredoc_lines(ansi_sh) == {7}
+
 

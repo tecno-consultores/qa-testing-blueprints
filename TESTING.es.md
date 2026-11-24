@@ -294,7 +294,7 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
     * `make -C mcp-server build`
     * `make -C mcp-server qa-example && make -C mcp-server qa-e2e` (o `./scripts/probar-mcp-example.sh`)
   * **Cobertura y Métricas Alcanzadas:**
-    * **100% de aserciones aprobadas** (**729** pruebas Vitest distribuidas en **42 suites Vitest** + **52** escenarios Karate BDD incluyendo los **Escenarios 50–52** de contratos CLI, `git-signals`, `.claude-plugin/` y rutas IDE + **288** pruebas Python unitarias y Meta-QA + **27** AI Offline (4 live omitidas) + **101** BATS + **21** Vibe-Rescue + E2E real sobre `stdio`).
+    * **100% de aserciones aprobadas** (**729** pruebas Vitest distribuidas en **42 suites Vitest** + **52** escenarios Karate BDD incluyendo los **Escenarios 50–52** de contratos CLI, `git-signals`, `.claude-plugin/` y rutas IDE + **288** pruebas Python unitarias y Meta-QA + **27** AI Offline (4 live omitidas) + **109** BATS + **21** Vibe-Rescue + E2E real sobre `stdio`).
     * **99.57% de cobertura de líneas/sentencias y 96.70% de cobertura de ramas** (superando el umbral de `>= 95%`).
     * **99.88% de cobertura de funciones**.
     * **0 errores de ESLint (`--max-warnings 0`), SonarJS (Cognitiva `<= 15`) y TypeScript (`strict: true`)**.
