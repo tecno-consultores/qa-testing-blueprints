@@ -196,7 +196,7 @@ VERSION_RULES: tuple[VersionRule, ...] = (
         (
             re.compile(
                 rf"(QA-11X v\d+\.\d+\s+—\s+v|Runtime Guards \(v|"
-                rf"agentCard\.ts`?\]\([^)]+\)\s*\(`?v)({_VER_CORE})([`\)])"
+                rf"agentCard\.ts`?\]\([^)]+\)(?:\s*\(|,\s*)`?v)({_VER_CORE})([`\)])"
             ),
         ),
         optional=True,
@@ -206,7 +206,7 @@ VERSION_RULES: tuple[VersionRule, ...] = (
         (
             re.compile(
                 rf"(QA-11X v\d+\.\d+\s+—\s+v|Resiliencia Operativa \(v|"
-                rf"agentCard\.ts`?\]\([^)]+\)\s*\(`?v)({_VER_CORE})([`\)])"
+                rf"agentCard\.ts`?\]\([^)]+\)(?:\s*\(|,\s*)`?v)({_VER_CORE})([`\)])"
             ),
         ),
         optional=True,

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.5.0",
-  "generated_at_utc": "2026-11-24T17:42:02Z",
+  "generated_at_utc": "2026-11-24T18:17:29Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -1252,8 +1252,8 @@
       "path": ".agents/scripts/bump_version_11x.py",
       "target_name": ".agents/scripts/bump_version_11x.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "2d275e8973901cd8b5a14a84f647fb8b577833a0b3f9e961e2b270b350005098",
-      "size_bytes": 21552
+      "sha256": "1326154110c5d67d74413fa673d6858a7a0a8a5c0e93647a0a1e73cd98acc2a3",
+      "size_bytes": 21570
     },
     {
       "path": ".agents/scripts/certify_task_completion.sh",

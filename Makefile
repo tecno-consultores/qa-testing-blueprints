@@ -224,7 +224,7 @@ test-frontend-blueprints:
 	'let intervals = 1;' \
 	'const piniaPort: VueSP.PiniaStoreInspectorPort = {' \
 	'  storeId: "nocWallboard",' \
-	'  readState() { return { nodes: ["edge-1"], status: "OPERACION" }; },' \
+	'  readState() { return { tenantId: "tenant-alpha", nodes: ["edge-1"], status: "OPERACION" }; },' \
 	'  activeIntervalCount() { return intervals; },' \
 	'  triggerUnmount() { intervals = 0; },' \
 	'};' \
@@ -257,6 +257,12 @@ test-frontend-blueprints:
 	'const dual = await operator.asks(VueSP.VerifyDualRefreshContract({ viewPath: "/wallboard#noc-live", expectedStateKey: "nodes" }));' \
 	'assert.equal(dual.contractSatisfied, true);' \
 	'assert.equal(dual.activeIntervalsAfterUnmount, 0);' \
+	'const vueIso = await operator.asks(VueSP.VerifyVueTenantIsolation());' \
+	'assert.equal(vueIso.tenantIsolated, true);' \
+	'assert.equal(vueIso.renderedTenantId, "tenant-alpha");' \
+	'assert.equal((await operator.asks(VueSP.VerifyVueTenantIsolation("missingTenant"))).renderedTenantId, null);' \
+	'const crossTenantVue = VueSP.Actor.named("CrossVue", { role: "admin", tenantId: "tenant-omega" }).whoCan(VueSP.InspectPiniaStore.using(piniaPort));' \
+	'assert.equal((await crossTenantVue.asks(VueSP.VerifyVueTenantIsolation())).tenantIsolated, false);' \
 	'assert.equal(await operator.asks(VueSP.TemporalLifecycleQuestion({ startsAtMs: 100, endsAtMs: 200, nowMs: 50 })), "pending");' \
 	'assert.equal(await operator.asks(VueSP.TemporalLifecycleQuestion({ startsAtMs: 100, endsAtMs: 200, nowMs: 150 })), "active");' \
 	'assert.equal(await operator.asks(VueSP.TemporalLifecycleQuestion({ startsAtMs: 100, endsAtMs: 200, nowMs: 250 })), "expired");' \

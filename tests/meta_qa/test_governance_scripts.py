@@ -2140,6 +2140,51 @@ def test_pagespeed_insights_http_fetcher_paths_and_cli(
     assert psi._extract_top_opportunities({"lighthouseResult": {"audits": "bad"}}) == []
 
 
+def test_pagespeed_insights_cli_bounds_and_summary_edges(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Cubre validadores CLI, resumen sin lab_scores y error redactado en main()."""
+    import argparse
+
+    psi: Any = _load_script("audit_pagespeed_insights.py", "audit_pagespeed_insights")
+
+    assert psi._parse_score_threshold("0.9") == 0.9
+    with pytest.raises(argparse.ArgumentTypeError):
+        psi._parse_score_threshold("1.2")
+    with pytest.raises(argparse.ArgumentTypeError):
+        psi._parse_score_threshold("-0.1")
+
+    assert psi._parse_positive_timeout("45") == 45
+    with pytest.raises(argparse.ArgumentTypeError):
+        psi._parse_positive_timeout("0")
+
+    summary = psi.format_human_summary(
+        {
+            "status": "FAILED",
+            "reason": "PARTIAL_TIMEOUT",
+            "passed_strategies": ["mobile"],
+            "strategies": [
+                {"strategy": "desktop", "status": "FAILED", "reason": "TIMEOUT"}
+            ],
+        }
+    )
+    assert "passed_strategies=mobile" in summary
+    assert "[desktop] status=FAILED | reason=TIMEOUT" in summary
+
+    secret_key = "AIzaSyMetaQaRedactionProbe9999999"  # qa-secret-fixture-ok
+
+    def _raise_err(_opts: Any) -> tuple[int, dict[str, Any]]:
+        raise OSError(f"boom key={secret_key}")
+
+    monkeypatch.setattr(psi, "run_pagespeed_audit", _raise_err)
+    rc = psi.main(["--url", "https://example.com", "--api-key", secret_key])
+    assert rc == 1
+    err_out = capsys.readouterr().err
+    assert secret_key not in err_out
+    assert "[REDACTED]" in err_out
+
+
 def test_verify_topological_health_cycle_dfs_and_structural_filter(
     tmp_path: Path,
 ) -> None:

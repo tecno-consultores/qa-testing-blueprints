@@ -321,12 +321,19 @@ function hasJsxPrehydrateConditionalLine(
   return !isInsideUseEffectBlock(lines, idx);
 }
 
+const STANDALONE_PRAGMA_COMMENT_RE = /^(?:\/\/|\/\*|\*|<!--|#)/;
+
+function isStandalonePragmaComment(line: string): boolean {
+  const trimmed = line.trim();
+  return STANDALONE_PRAGMA_COMMENT_RE.test(trimmed) && trimmed.includes(QA_SSR_HYDRATION_OK_PRAGMA);
+}
+
 function inspectPrehydrateLinesInFile(relPath: string, content: string): SecurityFinding[] {
   const findings: SecurityFinding[] = [];
   const lines = content.split(/\r?\n/);
   for (const [i, line] of lines.entries()) {
     const prev = pickAt(lines, i - 1);
-    if (line.includes(QA_SSR_HYDRATION_OK_PRAGMA) || prev.includes(QA_SSR_HYDRATION_OK_PRAGMA)) {
+    if (line.includes(QA_SSR_HYDRATION_OK_PRAGMA) || isStandalonePragmaComment(prev)) {
       continue;
     }
     const isVuePrehydrate = SSR_PREHYDRATE_V_IF_PATTERNS.some((re) => re.test(line));

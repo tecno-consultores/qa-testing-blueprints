@@ -605,6 +605,31 @@ describe('Wave C Audit Remediation Contracts (CLI Catalog, Hints, StructuredCont
     fs.writeFileSync(path.join(nuxtDir, 'src', 'Theme.vue'), '<template><div v-if="localStorage.theme">x</div></template>\n', 'utf8');
     const nuxtRes = await auditSecurityStigOwasp(nuxtDir);
     expect(nuxtRes.findings.some((f) => f.rule_id === 'QA-SSR-HYDRATION-01')).toBe(true);
+
+    // Line-scoped qa-ssr-hydration-ok must exempt only the annotated line, never later unannotated lines
+    const scopedDir = makeTempDir('qa-ssr-scoped-pragma-');
+    fs.mkdirSync(path.join(scopedDir, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(scopedDir, 'package.json'), '{}', 'utf8');
+    fs.writeFileSync(path.join(scopedDir, 'nuxt.config.ts'), 'export default {};\n', 'utf8');
+    fs.writeFileSync(path.join(scopedDir, 'src', 'theme.css'), '@media (prefers-color-scheme: dark) {}\n', 'utf8');
+    fs.writeFileSync(
+      path.join(scopedDir, 'src', 'ScopedTheme.vue'),
+      [
+        '<template>',
+        '  <!-- qa-ssr-hydration-ok -->',
+        '  <div v-if="localStorage.theme === \'dark\'">exempt-prev</div>',
+        '  <div v-if="localStorage.theme === \'light\'">exempt-inline <!-- qa-ssr-hydration-ok --></div>',
+        '  <div v-if="localStorage.theme === \'system\'">unannotated-must-flag</div>',
+        '</template>',
+      ].join('\n'),
+      'utf8'
+    );
+    const scopedRes = await auditSecurityStigOwasp(scopedDir);
+    const scopedFindings = scopedRes.findings.filter(
+      (f) => f.rule_id === 'QA-SSR-HYDRATION-01' && f.file === 'src/ScopedTheme.vue'
+    );
+    expect(scopedFindings).toHaveLength(1);
+    expect(scopedFindings[0]?.line).toBe(5);
   });
 
   it('covers QA-HEALTH-01, QA-CONTRACT-SDK-01, and QA-DOCKER-LOCK-01 edge paths', async () => {

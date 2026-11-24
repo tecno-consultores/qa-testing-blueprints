@@ -536,3 +536,34 @@ def test_atomic_write_cleans_tmp_on_replace_error(
     with pytest.raises(OSError, match="disk full"):
         mod._atomic_write_text(tmp_path / "file.txt", "hello")
     assert list(tmp_path.glob("*.tmp")) == []
+
+
+def test_mcp_readme_agent_card_comma_version_drift_detected_and_synced(
+    tmp_path: Path,
+) -> None:
+    """Detecta y sincroniza versiones con coma junto a agentCard.ts en READMEs."""
+    mod = _load_mod()
+    mcp_dir = tmp_path / "mcp-server"
+    mcp_dir.mkdir(parents=True)
+    (mcp_dir / "README.md").write_text(
+        "implemented in [`src/a2a/agentCard.ts`]"
+        "(https://example.com/agentCard.ts), `v3.2.0`)\n",
+        encoding="utf-8",
+    )
+    (mcp_dir / "README.es.md").write_text(
+        "implementado en [`src/a2a/agentCard.ts`]"
+        "(https://example.com/agentCard.ts), `v3.2.0`)\n",
+        encoding="utf-8",
+    )
+    rules = tuple(
+        r
+        for r in mod.VERSION_RULES
+        if r.rel_path in {"mcp-server/README.md", "mcp-server/README.es.md"}
+    )
+    assert len(rules) == 2
+    errs, _ = mod.run_rules(tmp_path, rules, "3.5.0", False)
+    assert len(errs) == 2
+    assert mod.run_rules(tmp_path, rules, "3.5.0", True) == ([], 2)
+    assert mod.run_rules(tmp_path, rules, "3.5.0", False) == ([], 0)
+    assert "`v3.5.0`" in (mcp_dir / "README.md").read_text(encoding="utf-8")
+    assert "`v3.5.0`" in (mcp_dir / "README.es.md").read_text(encoding="utf-8")
