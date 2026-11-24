@@ -678,6 +678,35 @@ EOF
   run env QA11X_REPO_ROOT="${WORK}" HOME="${FAKE_HOME}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/probar-mcp-example.sh" --offline
   assert_success
   assert_output --partial "[Clean-Room E2E]"
+
+  local rm_fail_bin="${BATS_TEST_TMPDIR}/ex_rm_fail_bin"
+  local rm_fail_marker="${BATS_TEST_TMPDIR}/ex_rm_failed_once"
+  local docker_clean_log="${BATS_TEST_TMPDIR}/ex_docker_clean.log"
+  local real_rm
+  real_rm="$(command -v rm)"
+  mkdir -p "${rm_fail_bin}"
+  cat >"${rm_fail_bin}/rm" <<EOF
+#!/usr/bin/env bash
+if [[ "\$*" == *"qa_mcp_cleanroom_"* ]] && [ ! -f "${rm_fail_marker}" ]; then
+  : >"${rm_fail_marker}"
+  exit 1
+fi
+exec "${real_rm}" "\$@"
+EOF
+  cat >"${rm_fail_bin}/docker" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>"${docker_clean_log}"
+exec "${FAKE_BIN}/docker" "\$@"
+EOF
+  chmod +x "${rm_fail_bin}/rm" "${rm_fail_bin}/docker"
+
+  run env QA11X_REPO_ROOT="${WORK}" HOME="${FAKE_HOME}" PATH="${rm_fail_bin}:${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/probar-mcp-example.sh" --offline
+  assert_success
+  [ -f "${rm_fail_marker}" ]
+  run grep -F -- "--network none --security-opt=no-new-privileges:true" "${docker_clean_log}"
+  assert_success
+  run grep -F -- "alpine:3.21@sha256:" "${docker_clean_log}"
+  assert_success
 }
 
 @test "probar-mcp-example.sh: --offline falla cerrado sin fastapi/httpx o cache UV y acepta QA_UV_CACHE_DIR" {

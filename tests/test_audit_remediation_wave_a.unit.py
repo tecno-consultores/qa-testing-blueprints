@@ -8,15 +8,20 @@ from __future__ import annotations
 
 import ast
 import importlib
+import importlib.util
 import json
+import os
 import re
+import runpy
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
+from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = str(REPO_ROOT / ".agents" / "scripts")
@@ -462,6 +467,259 @@ class TestDocs04PythonRecipesFidelity(unittest.TestCase):
                     [],
                     f"{rel}: Bandit reportó hallazgos HIGH/MEDIUM: {findings}",
                 )
+
+
+class TestDiffCoverageAndStandaloneGuards(unittest.TestCase):
+    """Cubre rutas standalone sys.path, __main__, invariantes docs y kcov."""
+
+    def test_scripts_bootstrap_sys_path_without_pythonpath(self) -> None:
+        targets = (
+            "_common",
+            "_docs_invariants_config",
+            "audit_pagespeed_insights",
+            "bump_version_11x",
+            "compact_context_11x",
+            "lint_test_antipatterns",
+            "lint_workflows",
+            "track_findings_state",
+            "verify_json_no_duplicate_keys",
+            "verify_no_orphan_api_endpoints",
+            "verify_topological_health",
+            "verify_zero_orphan_vue_components",
+        )
+        scripts_resolved = Path(SCRIPTS_DIR).resolve()
+        for name in targets:
+            script_path = REPO_ROOT / ".agents" / "scripts" / f"{name}.py"
+            alias = f"_standalone_cov_{name}"
+            saved_path = list(sys.path)
+            try:
+                sys.path[:] = [
+                    entry
+                    for entry in sys.path
+                    if Path(entry).resolve() != scripts_resolved
+                ]
+                spec = importlib.util.spec_from_file_location(alias, script_path)
+                assert spec is not None and spec.loader is not None
+                mod = importlib.util.module_from_spec(spec)
+                sys.modules[alias] = mod
+                spec.loader.exec_module(mod)
+                self.assertIn(SCRIPTS_DIR, sys.path)
+            finally:
+                sys.modules.pop(alias, None)
+                sys.path[:] = saved_path
+
+    def test_script_main_dunder_entrypoints(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="qa11x_main_") as tmp:
+            ws = Path(tmp)
+            cases: tuple[tuple[str, list[str], int], ...] = (
+                ("lint_workflows.py", ["--workspace", str(ws)], 1),
+                ("lint_docs_gate.py", ["--workspace", str(ws)], 1),
+                (
+                    "normalize_kcov_cobertura.py",
+                    [
+                        "--repo",
+                        str(ws),
+                        "--kcov-dir",
+                        str(ws),
+                        "--output",
+                        str(ws / "out.xml"),
+                    ],
+                    1,
+                ),
+            )
+            for fname, cli_args, expected_code in cases:
+                script_path = REPO_ROOT / ".agents" / "scripts" / fname
+                with (
+                    mock.patch.object(sys, "argv", [str(script_path), *cli_args]),
+                    self.assertRaises(SystemExit) as ctx,
+                ):
+                    runpy.run_path(str(script_path), run_name="__main__")
+                self.assertEqual(ctx.exception.code, expected_code)
+
+    def test_docs_invariants_helper_edge_branches_and_router_leak(self) -> None:
+        bilingual = _import_script("_docs_invariants_bilingual")
+        catalogs = _import_script("_docs_invariants_catalogs")
+        counts = _import_script("_docs_invariants_counts")
+
+        self.assertEqual(
+            bilingual._extract_section_slice("sin marcador", "### 2.1."), ""
+        )
+        self.assertEqual(
+            counts._extract_bracket_items(
+                "tools = ['a', 'b']", r"tools\s*=\s*\[([^\]]+)\]", r"'[a-z]+'"
+            ),
+            2,
+        )
+
+        with tempfile.TemporaryDirectory(prefix="qa11x_docs_edges_") as tmp:
+            root = Path(tmp)
+            auditor = root / "mcp-server" / "src" / "tools" / "security-auditor.ts"
+            auditor.parent.mkdir(parents=True)
+            auditor.write_text("export const x = 'SEC-01';\n", encoding="utf-8")
+            (root / "mcp-server" / "package.json").write_text("{}", encoding="utf-8")
+            (root / "GEMINI.md").write_text(
+                "<!-- QA_11X_MCP_CONNECTOR_START -->\nok\n"
+                "<!-- QA_11X_MCP_CONNECTOR_END -->\n",
+                encoding="utf-8",
+            )
+            (root / "sample.md").write_text(
+                "field: router_display_name\n", encoding="utf-8"
+            )
+
+            self.assertEqual(bilingual._check_auditor_rules_in_human_docs(root), [])
+            self.assertIsNone(catalogs._expected_pkg_version(root))
+            self.assertEqual(catalogs._extract_repo_skill_ids(root), [])
+            self.assertEqual(catalogs._check_cli_catalog_in_readmes(root), [])
+            self.assertEqual(
+                counts._check_global_connector_budget(root, upstream=False), []
+            )
+            leaks = catalogs.check_no_private_consumer_leaks(root)
+            self.assertTrue(any("rosgrid-router-display" in item for item in leaks))
+
+    def test_normalize_kcov_path_resolution_and_tmp_validation(self) -> None:
+        norm = _import_script("normalize_kcov_cobertura")
+        with tempfile.TemporaryDirectory(prefix="qa11x_kcov_paths_") as tmp:
+            root = Path(tmp)
+            (root / "scripts").mkdir()
+            (root / "scripts" / "unique_demo.sh").write_text(
+                "#!/usr/bin/env bash\necho ok\n", encoding="utf-8"
+            )
+            idx = norm._build_repo_index(root)
+
+            self.assertEqual(
+                norm._match_tmp_path("/tmp/sandbox/unique_demo.sh", idx),
+                "scripts/unique_demo.sh",
+            )
+            self.assertEqual(
+                norm._match_direct_path("/repo/scripts/unique_demo.sh", idx),
+                ("scripts/unique_demo.sh", False),
+            )
+            self.assertEqual(
+                norm._match_direct_path("scripts/unique_demo.sh", idx),
+                ("scripts/unique_demo.sh", False),
+            )
+            self.assertEqual(
+                norm._match_direct_path("/opt/untracked.sh", idx), (None, False)
+            )
+            bad_num = [ET.Element("line", {"number": "x"})]
+            oob_num = [ET.Element("line", {"number": "99"})]
+            cmt_num = [ET.Element("line", {"number": "1"})]
+            self.assertFalse(
+                norm._validate_tmp_lines(idx, "scripts/unique_demo.sh", bad_num)
+            )
+            self.assertFalse(
+                norm._validate_tmp_lines(idx, "scripts/unique_demo.sh", oob_num)
+            )
+            self.assertFalse(
+                norm._validate_tmp_lines(idx, "scripts/unique_demo.sh", cmt_num)
+            )
+            cands = norm._build_path_candidates("scripts/unique_demo.sh", ["/repo"])
+            self.assertIn("/repo/scripts/unique_demo.sh", cands)
+            self.assertIsNone(
+                norm._resolve_rel(
+                    idx,
+                    "/tmp/sandbox/unique_demo.sh",
+                    [],
+                    [ET.Element("line", {"number": "1"})],
+                )
+            )
+            self.assertIsNone(norm._resolve_rel(idx, "missing.sh", ["/opt"], []))
+
+    def test_normalize_kcov_merge_branches_and_multiline_reconciliation(self) -> None:
+        norm = _import_script("normalize_kcov_cobertura")
+        with tempfile.TemporaryDirectory(prefix="qa11x_kcov_ml_") as tmp:
+            root = Path(tmp)
+            (root / "scripts").mkdir()
+            (root / "scripts" / "ml.sh").write_text(
+                "#!/usr/bin/env bash\n"
+                "arr=(\n"
+                '  "one"\n'
+                '  "two"\n'
+                ")\n"
+                'cid="$(docker run \\\n'
+                "  -u 1000:1000 \\\n"
+                '  --rm alpine)"\n'
+                "# comentario intermedio\n"
+                'echo "${cid}"\n',
+                encoding="utf-8",
+            )
+            idx = norm._build_repo_index(root)
+            fl: dict[int, Any] = {}
+            norm._merge_line_element(
+                fl,
+                ET.Element(
+                    "line",
+                    {
+                        "number": "2",
+                        "hits": "2",
+                        "branch": "false",
+                        "condition-coverage": "50% (1/2)",
+                    },
+                ),
+            )
+            norm._merge_line_element(
+                fl,
+                ET.Element(
+                    "line",
+                    {
+                        "number": "2",
+                        "hits": "3",
+                        "branch": "true",
+                        "condition-coverage": "100% (2/2)",
+                    },
+                ),
+            )
+            self.assertEqual(fl[2].hits, 5)
+            self.assertEqual(fl[2].branch, "true")
+            self.assertEqual(fl[2].condition, "100% (2/2)")
+
+            fl[3] = norm._LineEntry(0, None, None)
+            fl[4] = norm._LineEntry(0, None, None)
+            fl[6] = norm._LineEntry(0, None, None)
+            fl[10] = norm._LineEntry(7, None, None)
+            norm._reconcile_multiline_hits(idx, {"scripts/ml.sh": fl})
+            self.assertEqual(fl[3].hits, 5)
+            self.assertEqual(fl[4].hits, 5)
+            self.assertEqual(fl[6].hits, 7)
+
+            xml_out = norm._build_cobertura_xml(
+                {"scripts/ml.sh": fl, "scripts/empty.sh": {}}
+            )
+            self.assertIn('branch="true"', xml_out)
+            self.assertIn('condition-coverage="100% (2/2)"', xml_out)
+            self.assertNotIn("scripts/empty.sh", xml_out)
+
+    def test_normalize_kcov_fallback_parser_and_chmod_error(self) -> None:
+        norm = _import_script("normalize_kcov_cobertura")
+        with mock.patch.object(
+            norm.importlib, "import_module", side_effect=ImportError("no defusedxml")
+        ):
+            parsed = norm._parse_xml_safely("<coverage/>")
+            self.assertEqual(parsed.tag, "coverage")
+
+        with tempfile.TemporaryDirectory(prefix="qa11x_kcov_err_") as tmp:
+            root = Path(tmp)
+            (root / "scripts").mkdir()
+            (root / "scripts" / "ok.sh").write_text(
+                "#!/usr/bin/env bash\necho ok\n", encoding="utf-8"
+            )
+            kcov_dir = root / "kcov"
+            kcov_dir.mkdir()
+            (kcov_dir / "cobertura.xml").write_text(
+                '<coverage><sources><source>/repo</source></sources>'
+                '<packages><package name="sh"><classes>'
+                '<class name="skip" filename="/opt/unknown.sh">'
+                '<lines><line number="1" hits="1"/></lines></class>'
+                '<class name="ok" filename="scripts/ok.sh">'
+                '<lines><line number="2" hits="1"/></lines></class>'
+                "</classes></package></packages></coverage>\n",
+                encoding="utf-8",
+            )
+            out_xml = root / "bash.xml"
+            with mock.patch.object(os, "chmod", side_effect=OSError("ro fs")):
+                rc = norm.normalize_kcov_reports(root, kcov_dir, out_xml)
+            self.assertEqual(rc, 0)
+            self.assertTrue(out_xml.is_file())
 
 
 if __name__ == "__main__":

@@ -139,8 +139,7 @@ export function checkOperationalViewsDualRefresh(
     const content = readFileContentSafe(projectPath, view);
     const hasAutoRefresh =
       content.includes('setInterval') ||
-      content.includes('WebSocket') ||
-      content.includes('useWebSocket');
+      content.includes('WebSocket');
     const hasManualRefresh =
       content.includes('Refrescar') ||
       content.includes('refresh=true') ||

@@ -74,13 +74,10 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-case "${PROFILE_ARG}" in
-  auto | generic | qa-11x-self) ;;
-  *)
-    printf '❌ [CALM] Perfil no soportado: %s (use auto, generic o qa-11x-self)\n' "${PROFILE_ARG}" >&2
-    exit 1
-    ;;
-esac
+if [[ "${PROFILE_ARG}" != "auto" && "${PROFILE_ARG}" != "generic" && "${PROFILE_ARG}" != "qa-11x-self" ]]; then
+  printf '❌ [CALM] Perfil no soportado: %s (use auto, generic o qa-11x-self)\n' "${PROFILE_ARG}" >&2
+  exit 1
+fi
 
 run_calm_validation_payload() {
   node - <<'JSEOF'

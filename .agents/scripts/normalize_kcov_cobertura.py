@@ -33,7 +33,7 @@ _HEREDOC_RE = re.compile(r"<<-?\s*" + _SQ + r"([A-Za-z_][A-Za-z0-9_]*)" + _SQ)
 _ARRAY_START_RE = re.compile(
     r"^(?:local\s+-a\s+|declare\s+-a\s+)?[A-Za-z_][A-Za-z0-9_]*=\($"
 )
-_CMD_SUBST_RE = re.compile(r"^(?:local\s+)?[A-Za-z_][A-Za-z0-9_]*=\$\(")
+_CMD_SUBST_RE = re.compile(r'^(?:local\s+)?[A-Za-z_][A-Za-z0-9_]*="?\$\(')
 _BLOCK_END_RE = re.compile(r"^(?:fi|done|esac|else|elif\b|\}|;;)\b")
 _COND_FRAC_RE = re.compile(r"\((\d+)/(\d+)\)")
 _DOCTYPE_RE = re.compile(r"<!DOCTYPE[^>]*>\s*")

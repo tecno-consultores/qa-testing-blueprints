@@ -18,7 +18,11 @@ import {
 } from '../src/cli/commandCatalog.js';
 import { runDoctorCli } from '../src/cli/doctor.js';
 import { runMcpConfigCli } from '../src/cli/mcp-config.js';
-import { runTmsSyncCli } from '../src/integrations/tmsSyncCli.js';
+import {
+  findSummaryTagByPrefix,
+  parseJunitXmlReport,
+} from '../src/integrations/tms/inventoryAndJunit.js';
+import { executeTmsSync, runTmsSyncCli } from '../src/integrations/tmsSyncCli.js';
 import { resolveToolExecutionOptions } from '../src/index.js';
 import {
   ensureStructuredToolResult,
@@ -31,6 +35,18 @@ import {
   MCP_SERVER_VERSION,
   resolveSafeDefaultAnchor,
 } from '../src/services/github-fetcher.js';
+import { resolveComposeDirectFallback } from '../src/tools/ephemeral-runner/composeFallback.js';
+import { resolveMakefileDockerRecipes } from '../src/tools/ephemeral-runner/makefileParser.js';
+import { auditSecurityStigOwasp } from '../src/tools/security-auditor.js';
+import {
+  isExcludedProbePath,
+  parseJsonObjectTextSafe,
+} from '../src/tools/security-auditor/shared.js';
+import { auditTestPyramidGaps } from '../src/tools/test-pyramid-auditor.js';
+import {
+  findOrphanSourceFiles,
+  findUntestedUiViews,
+} from '../src/tools/test-pyramid/inventory.js';
 import {
   DEFAULT_TASK_CAPACITY,
   TASK_CAPACITY_EXTENSION_URI,
@@ -383,5 +399,311 @@ describe('Wave C Audit Remediation Contracts (CLI Catalog, Hints, StructuredCont
     expect(byClient2.get('codex')?.has_qa_11x).toBe(false);
     expect(byClient2.get('hermes')?.has_qa_11x).toBe(false);
     expect(commentedParsed.ide_config_warnings).toEqual([]);
+  });
+
+  it('covers TMS inventory gaps, XML parser edges, and pull-stories skipped status', async () => {
+    const dir = makeTempDir('qa-tms-edges-');
+    fs.writeFileSync(path.join(dir, 'sample.unit.ts'), '// @TC-100\nexport const ok = 1;\n', 'utf8');
+
+    const inv = await executeTmsSync({
+      mode: 'inventory',
+      provider: 'jira',
+      workspaceRoot: dir,
+      requiredKeys: ['REQ-999'],
+    });
+    expect(inv.inventory?.uncoveredRequirements).toContain('REQ-999');
+
+    const trailingCommentXml = '<testsuite><testcase name="a"/></testsuite><!-- trailing -->';
+    expect(parseJunitXmlReport(trailingCommentXml, {}).cases).toHaveLength(1);
+
+    const trailingTextXml = '<testsuite><testcase name="b"/></testsuite>   \n';
+    expect(parseJunitXmlReport(trailingTextXml, {}).cases).toHaveLength(1);
+
+    const unclosedQuoteXml = '<testsuite><testcase name="unclosed></testsuite>';
+    expect(parseJunitXmlReport(unclosedQuoteXml, {}).cases).toHaveLength(1);
+
+    expect(findSummaryTagByPrefix(undefined, 'TC-')).toBeUndefined();
+
+    const skippedPull = await executeTmsSync(
+      {
+        mode: 'pull-stories',
+        provider: 'jira',
+        baseUrl: 'https://jira.example.com',
+        issueKey: 'PROJ-1',
+      },
+      { env: {} }
+    );
+    expect(skippedPull.status).toBe('SKIPPED');
+    expect(skippedPull.message).toContain('ausencia de credenciales');
+  });
+
+  it('covers compose direct fallback parsing and stage null edges', () => {
+    const nodeDir = makeTempDir('qa-compose-node-');
+    fs.writeFileSync(
+      path.join(nodeDir, 'docker-compose.qa.yml'),
+      [
+        'version: "3.9"',
+        'services:',
+        '  - not-a-service',
+        '  invalid_key: alpine',
+        '  qa-custom:',
+        '    image: node:26',
+      ].join('\n'),
+      'utf8'
+    );
+    fs.writeFileSync(path.join(nodeDir, 'package.json'), JSON.stringify({ scripts: {} }), 'utf8');
+    const unitCmds = resolveComposeDirectFallback(nodeDir, 'unit');
+    expect(unitCmds?.[0]).toContain('qa-custom');
+    expect(resolveComposeDirectFallback(nodeDir, 'mutation')).toBeNull();
+
+    const pyDir = makeTempDir('qa-compose-py-');
+    fs.writeFileSync(
+      path.join(pyDir, 'docker-compose.qa.yml'),
+      'services:\n  qa-py:\n    image: python:3.15\n',
+      'utf8'
+    );
+    fs.writeFileSync(path.join(pyDir, 'pyproject.toml'), '[project]\nname = "demo"\n', 'utf8');
+    expect(resolveComposeDirectFallback(pyDir, 'migration')).toBeNull();
+
+    const noQaDir = makeTempDir('qa-compose-noqa-');
+    fs.writeFileSync(
+      path.join(noQaDir, 'docker-compose.qa.yml'),
+      'services:\n  db:\n    image: postgres:17\n',
+      'utf8'
+    );
+    expect(resolveComposeDirectFallback(noQaDir, 'unit')).toBeNull();
+  });
+
+  it('covers Makefile delegation --directory=, non-compose rewrite, and guard errors', () => {
+    const root = makeTempDir('qa-mk-deleg-');
+    const sub = path.join(root, 'sub');
+    fs.mkdirSync(sub, { recursive: true });
+    fs.writeFileSync(
+      path.join(sub, 'Makefile'),
+      'qa-unit:\n\tdocker run --rm alpine:3.21 true\n',
+      'utf8'
+    );
+    const dirFlagRes = resolveMakefileDockerRecipes(
+      'qa-unit:\n\t$(MAKE) --directory=sub qa-unit\n',
+      'qa-unit',
+      root
+    );
+    expect(dirFlagRes.ok).toBe(true);
+    expect(dirFlagRes.ok ? dirFlagRes.commands[0]?.[0] : '').toBe('run');
+
+    const noTargetRes = resolveMakefileDockerRecipes(
+      'qa-unit:\n\t$(MAKE) -C sub\n',
+      'qa-unit',
+      root
+    );
+    expect(noTargetRes.ok).toBe(false);
+
+    const selfLoopRes = resolveMakefileDockerRecipes(
+      'qa-unit:\n\t$(MAKE) -C . qa-unit\n',
+      'qa-unit',
+      root
+    );
+    expect(selfLoopRes.ok).toBe(false);
+    expect(!selfLoopRes.ok ? selfLoopRes.reason : '').toContain('circular');
+
+    const missingDirRes = resolveMakefileDockerRecipes(
+      'qa-unit:\n\t$(MAKE) -C ghost qa-unit\n',
+      'qa-unit',
+      root
+    );
+    expect(missingDirRes.ok).toBe(false);
+    expect(!missingDirRes.ok ? missingDirRes.reason : '').toContain('No existe Makefile');
+
+    const missingSubTargetRes = resolveMakefileDockerRecipes(
+      'qa-unit:\n\t$(MAKE) -C sub nonexistent\n',
+      'qa-unit',
+      root
+    );
+    expect(missingSubTargetRes.ok).toBe(false);
+
+    for (const d of ['d1', 'd2', 'd3', 'd4']) {
+      fs.mkdirSync(path.join(root, d), { recursive: true });
+    }
+    fs.writeFileSync(path.join(root, 'd1', 'Makefile'), 'qa-unit:\n\t$(MAKE) -C ../d2 qa-unit\n', 'utf8');
+    fs.writeFileSync(path.join(root, 'd2', 'Makefile'), 'qa-unit:\n\t$(MAKE) -C ../d3 qa-unit\n', 'utf8');
+    fs.writeFileSync(path.join(root, 'd3', 'Makefile'), 'qa-unit:\n\t$(MAKE) -C ../d4 qa-unit\n', 'utf8');
+    fs.writeFileSync(path.join(root, 'd4', 'Makefile'), 'qa-unit:\n\tdocker run --rm alpine true\n', 'utf8');
+    const deepRes = resolveMakefileDockerRecipes(
+      'qa-unit:\n\t$(MAKE) -C d1 qa-unit\n',
+      'qa-unit',
+      root
+    );
+    expect(deepRes.ok).toBe(false);
+    expect(!deepRes.ok ? deepRes.reason : '').toContain('Profundidad máxima');
+  });
+
+  it('covers security auditor edge rules (JSON array pkg, quoted uses, safe XXE, _headers, compose flags, SSR engines)', async () => {
+    expect(isExcludedProbePath('/tmp/worker.log')).toBe(true);
+    expect(parseJsonObjectTextSafe('[1, 2, 3]')).toBeNull();
+
+    const dir = makeTempDir('qa-sec-edges-');
+    fs.mkdirSync(path.join(dir, '.github', 'workflows'), { recursive: true });
+    fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+    fs.mkdirSync(path.join(dir, 'public'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'package.json'), '[]', 'utf8');
+    fs.writeFileSync(
+      path.join(dir, '.github', 'workflows', 'ci.yml'),
+      [
+        'jobs:',
+        '  t:',
+        '    steps:',
+        '      - uses: "actions/checkout@v4"',
+        '      - run: docker compose -f docker-compose.qa.yml --version',
+      ].join('\n') + '\n',
+      'utf8'
+    );
+    fs.writeFileSync(
+      path.join(dir, 'src', 'safe_xml.py'),
+      'import xml.etree.ElementTree as ET\nimport defusedxml\n',
+      'utf8'
+    );
+    fs.writeFileSync(
+      path.join(dir, 'public', '_headers'),
+      '/*\n  !bad header!\n  X-Frame-Options: DENY\n',
+      'utf8'
+    );
+    fs.writeFileSync(
+      path.join(dir, 'Makefile'),
+      'qa-ver:\n\tdocker compose -f docker-compose.qa.yml --version\n',
+      'utf8'
+    );
+
+    const res = await auditSecurityStigOwasp(dir);
+    expect(res.findings.some((f) => f.rule_id === 'SEC-CI-ACTION-REF')).toBe(true);
+    expect(res.findings.some((f) => f.rule_id === 'SEC-04')).toBe(false);
+
+    // SSR engine detection via createSSRApp, .vitepress/config.ts, and nuxt.config.ts
+    const ssrSrcDir = makeTempDir('qa-ssr-src-');
+    fs.mkdirSync(path.join(ssrSrcDir, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(ssrSrcDir, 'package.json'), '{}', 'utf8');
+    fs.writeFileSync(path.join(ssrSrcDir, 'src', 'entry.ts'), 'createSSRApp(App);\nconst m = "prefers-color-scheme";\n', 'utf8');
+    fs.writeFileSync(path.join(ssrSrcDir, 'src', 'Empty.vue'), '', 'utf8');
+    fs.writeFileSync(path.join(ssrSrcDir, 'src', 'Theme.vue'), '<template><div v-if="localStorage.theme">x</div></template>\n', 'utf8');
+    const ssrSrcRes = await auditSecurityStigOwasp(ssrSrcDir);
+    expect(ssrSrcRes.findings.some((f) => f.rule_id === 'QA-SSR-HYDRATION-01')).toBe(true);
+
+    const vpDir = makeTempDir('qa-ssr-vp-');
+    fs.mkdirSync(path.join(vpDir, '.vitepress'), { recursive: true });
+    fs.mkdirSync(path.join(vpDir, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(vpDir, 'package.json'), '{}', 'utf8');
+    fs.writeFileSync(path.join(vpDir, '.vitepress', 'config.ts'), 'export default {};\n', 'utf8');
+    fs.writeFileSync(path.join(vpDir, 'src', 'theme.css'), '@media (prefers-color-scheme: dark) {}\n', 'utf8');
+    fs.writeFileSync(path.join(vpDir, 'src', 'Theme.vue'), '<template><div v-if="localStorage.theme">x</div></template>\n', 'utf8');
+    const vpRes = await auditSecurityStigOwasp(vpDir);
+    expect(vpRes.findings.some((f) => f.rule_id === 'QA-SSR-HYDRATION-01')).toBe(true);
+
+    const nuxtDir = makeTempDir('qa-ssr-nuxt-');
+    fs.mkdirSync(path.join(nuxtDir, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(nuxtDir, 'package.json'), '{}', 'utf8');
+    fs.writeFileSync(path.join(nuxtDir, 'nuxt.config.ts'), 'export default {};\n', 'utf8');
+    fs.writeFileSync(path.join(nuxtDir, 'src', 'theme.css'), '@media (prefers-color-scheme: dark) {}\n', 'utf8');
+    fs.writeFileSync(path.join(nuxtDir, 'src', 'Theme.vue'), '<template><div v-if="localStorage.theme">x</div></template>\n', 'utf8');
+    const nuxtRes = await auditSecurityStigOwasp(nuxtDir);
+    expect(nuxtRes.findings.some((f) => f.rule_id === 'QA-SSR-HYDRATION-01')).toBe(true);
+  });
+
+  it('covers QA-HEALTH-01, QA-CONTRACT-SDK-01, and QA-DOCKER-LOCK-01 edge paths', async () => {
+    const shHealthDir = makeTempDir('qa-health-sh-');
+    fs.mkdirSync(path.join(shHealthDir, 'tests'), { recursive: true });
+    fs.writeFileSync(path.join(shHealthDir, 'pyproject.toml'), '[project]\nname = "demo"\n', 'utf8');
+    fs.writeFileSync(
+      path.join(shHealthDir, 'Dockerfile'),
+      'FROM alpine:3.21\nHEALTHCHECK CMD test -f /tmp/worker_heartbeat\nRUN pip install -i https://pypi.org/simple requests\n',
+      'utf8'
+    );
+    fs.writeFileSync(path.join(shHealthDir, 'entrypoint.sh'), '#!/bin/sh\ntouch /tmp/worker_heartbeat\n', 'utf8');
+    fs.writeFileSync(
+      path.join(shHealthDir, 'tests', 'worker.test.ts'),
+      "expect(fs.existsSync('/tmp/worker_heartbeat')).toBe(true);\n",
+      'utf8'
+    );
+    const shRes = await auditSecurityStigOwasp(shHealthDir);
+    expect(shRes.findings.some((f) => f.rule_id === 'QA-HEALTH-01')).toBe(false);
+    expect(shRes.findings.some((f) => f.rule_id === 'QA-DOCKER-LOCK-01')).toBe(true);
+
+    const pyHealthDir = makeTempDir('qa-health-py-');
+    fs.mkdirSync(path.join(pyHealthDir, 'src'), { recursive: true });
+    fs.mkdirSync(path.join(pyHealthDir, 'tests'), { recursive: true });
+    fs.writeFileSync(
+      path.join(pyHealthDir, 'Dockerfile'),
+      'FROM python:3.15\nHEALTHCHECK CMD test -f /tmp/py_hb\n',
+      'utf8'
+    );
+    fs.writeFileSync(path.join(pyHealthDir, 'src', 'worker.py'), 'HB = "/tmp/py_hb"\n', 'utf8');
+    fs.writeFileSync(
+      path.join(pyHealthDir, 'tests', 'test_worker.py'),
+      'def test_hb():\n    @custom_dec\n    def inner():\n        pass\n    assert Path("/tmp/py_hb").exists()\n',
+      'utf8'
+    );
+    const pyRes = await auditSecurityStigOwasp(pyHealthDir);
+    expect(pyRes.findings.some((f) => f.rule_id === 'QA-HEALTH-01')).toBe(false);
+
+    const pySdkDir = makeTempDir('qa-sdk-py-');
+    fs.mkdirSync(path.join(pySdkDir, 'src'), { recursive: true });
+    fs.writeFileSync(
+      path.join(pySdkDir, 'src', 'mcp_srv.py'),
+      'app = FastMCP\n(\n  "demo"\n)\n@app.tool()\ndef ping():\n    return "ok"\n',
+      'utf8'
+    );
+    const pySdkRes = await auditSecurityStigOwasp(pySdkDir);
+    expect(pySdkRes.findings.some((f) => f.rule_id === 'QA-CONTRACT-SDK-01')).toBe(true);
+
+    const tsSdkDir = makeTempDir('qa-sdk-ts-');
+    fs.mkdirSync(path.join(tsSdkDir, 'src'), { recursive: true });
+    fs.mkdirSync(path.join(tsSdkDir, 'tests'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tsSdkDir, 'src', 'srv.ts'),
+      "import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';\nserver.tool('ping', () => ({}));\n",
+      'utf8'
+    );
+    fs.writeFileSync(
+      path.join(tsSdkDir, 'tests', 'sdk.test.ts'),
+      "import { Client } from '@modelcontextprotocol/sdk/client/index.js';\nconst c = new Client({ name: 't', version: '1' });\n",
+      'utf8'
+    );
+    const tsSdkRes = await auditSecurityStigOwasp(tsSdkDir);
+    expect(tsSdkRes.findings.some((f) => f.rule_id === 'QA-CONTRACT-SDK-01')).toBe(false);
+  });
+
+  it('covers test-pyramid dual refresh via WebSocket and inventory UI/non-code edges', async () => {
+    const dir = makeTempDir('qa-pyramid-edges-');
+    fs.mkdirSync(path.join(dir, 'src', 'views'), { recursive: true });
+    fs.mkdirSync(path.join(dir, 'features'), { recursive: true });
+    fs.mkdirSync(path.join(dir, 'tests', 'e2e'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ dependencies: { vue: '^3.5.0' } }), 'utf8');
+    fs.writeFileSync(path.join(dir, 'src', 'styles.css'), 'body { color: black; }\n', 'utf8');
+    fs.writeFileSync(
+      path.join(dir, 'src', 'views', 'MonitorDashboard.vue'),
+      '<script setup>\nconst ws = new WebSocket("/ws");\n</script>\n<template><button>Refrescar</button></template>\n',
+      'utf8'
+    );
+    fs.writeFileSync(
+      path.join(dir, 'features', 'ui_business.feature'),
+      'Feature: MonitorDashboard\n  Scenario: loads MonitorDashboard\n',
+      'utf8'
+    );
+    fs.writeFileSync(
+      path.join(dir, 'tests', 'e2e', 'monitor.spec.ts'),
+      "test('MonitorDashboard renders', () => {});\n",
+      'utf8'
+    );
+
+    expect(findOrphanSourceFiles(dir, ['src/styles.css'], ['vue3'])).toEqual([]);
+    const untestedUi = findUntestedUiViews(dir, [
+      'src/views/MonitorDashboard.vue',
+      'features/ui_business.feature',
+      'tests/e2e/monitor.spec.ts',
+    ]);
+    expect(untestedUi).toHaveLength(1);
+    expect(untestedUi[0]?.present_in_bdd_feature).toBe(true);
+    expect(untestedUi[0]?.present_in_e2e_spec).toBe(true);
+
+    const pyramid = await auditTestPyramidGaps(dir);
+    expect(pyramid.detected_stacks).toContain('vue3');
   });
 });

@@ -27,7 +27,6 @@ import {
 import { sanitizeUntrustedOutput } from '../../security/promptGuard.js';
 import {
   getNowMs,
-  isContainedPath,
   redactTmsSecrets,
   resolveSafeWorkspacePath,
 } from './security.js';
@@ -51,19 +50,15 @@ function isTraceableTestFileName(fileName: string): boolean {
   return TRACEABLE_TEST_SUFFIXES.some((suffix) => fileName.endsWith(suffix));
 }
 
-function scanDirectoryForTests(dirReal: string, rootReal: string, out: string[]): void {
+function scanDirectoryForTests(dirReal: string, out: string[]): void {
   const entries = fs.readdirSync(dirReal, { withFileTypes: true });
   for (const entry of entries) {
     if (entry.isSymbolicLink() || IGNORED_SCAN_DIRS.has(entry.name)) {
       continue;
     }
-    const fullPath = path.join(dirReal, entry.name);
-    const resolved = fs.realpathSync(fullPath);
-    if (!isContainedPath(rootReal, resolved)) {
-      continue;
-    }
+    const resolved = fs.realpathSync(path.join(dirReal, entry.name));
     if (entry.isDirectory()) {
-      scanDirectoryForTests(resolved, rootReal, out);
+      scanDirectoryForTests(resolved, out);
     } else if (entry.isFile() && isTraceableTestFileName(entry.name)) {
       out.push(resolved);
     }
@@ -89,9 +84,6 @@ function extractCanonicalTags(content: string): { allTags: string[]; primaryTags
 
 function matchesRequiredKey(discoveredTags: ReadonlySet<string>, rawReq: string): boolean {
   const norm = rawReq.trim().toUpperCase();
-  if (norm.length === 0) {
-    return true;
-  }
   if (norm.startsWith('@')) {
     return discoveredTags.has(norm);
   }
@@ -132,7 +124,7 @@ function buildInventorySummary(
   const rootReal = fs.realpathSync(path.resolve(workspaceRoot));
   const scanReal = resolveSafeWorkspacePath(workspaceRoot, targetDir, 'dir');
   const testFiles: string[] = [];
-  scanDirectoryForTests(scanReal, rootReal, testFiles);
+  scanDirectoryForTests(scanReal, testFiles);
   testFiles.sort((a, b) => a.localeCompare(b));
 
   const mappedTests: MappedTestRecord[] = [];

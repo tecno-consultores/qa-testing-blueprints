@@ -359,7 +359,7 @@ function inspectSsrPrehydrateBranching(
     }
     seenFiles.add(rel);
     const content = readTextFileSafe(path.join(projectPath, rel));
-    if (!content || content.includes(QA_SSR_HYDRATION_OK_PRAGMA)) continue;
+    if (!content) continue;
     findings.push(...inspectPrehydrateLinesInFile(rel, content));
   }
   return findings;

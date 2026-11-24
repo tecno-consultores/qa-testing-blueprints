@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.5.0",
-  "generated_at_utc": "2026-11-24T17:13:24Z",
+  "generated_at_utc": "2026-11-24T17:42:02Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -1210,8 +1210,8 @@
       "path": ".agents/scripts/_common.py",
       "target_name": ".agents/scripts/_common.py",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "d00cf213fa204ac650ba1f6baeb34c8146eac2a397927ea2605370890e25cc8e",
-      "size_bytes": 5439
+      "sha256": "90269588a485dab27f553d80e68fa82b1ac3e12488e92f777388d8b561e48d3a",
+      "size_bytes": 5511
     },
     {
       "path": ".agents/scripts/_docs_invariants_bilingual.py",
@@ -1315,8 +1315,8 @@
       "path": ".agents/scripts/normalize_kcov_cobertura.py",
       "target_name": ".agents/scripts/normalize_kcov_cobertura.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "db99bd57c903ced000d341d9a56c39cabf6fe2d3c35aa4e8bba3361ddcfea097",
-      "size_bytes": 15578
+      "sha256": "af6e0d72901291c8609f4637dddc014393ba3f65277828b8fbf978ad0664dd2e",
+      "size_bytes": 15580
     },
     {
       "path": ".agents/scripts/release_readiness_gate.py",
@@ -1350,8 +1350,8 @@
       "path": ".agents/scripts/validate_calm_architecture.sh",
       "target_name": ".agents/scripts/validate_calm_architecture.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "464aaf5c6f3fe4c1343217343f053e53b1245072dd108d4b1a59b355d1de5983",
-      "size_bytes": 15414
+      "sha256": "84f584be1dab4913df41741bcecea1401d426cf7940393bd7cc127428acc03de",
+      "size_bytes": 15448
     },
     {
       "path": ".agents/scripts/verify_alembic_orm_parity.py",

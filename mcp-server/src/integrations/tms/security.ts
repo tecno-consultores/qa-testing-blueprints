@@ -145,11 +145,7 @@ function isHighPrivateOctet(a: number, b: number): boolean {
 }
 
 function isPrivateIpv4Address(ipv4: string): boolean {
-  const parts = ipv4.split('.').map((seg) => Number(seg));
-  if (parts.length !== 4 || parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) {
-    return true;
-  }
-  const [a = 0, b = 0] = parts;
+  const [a = 0, b = 0] = ipv4.split('.').map((seg) => Number(seg));
   return isLowPrivateOctet(a, b) || isHighPrivateOctet(a, b);
 }
 

@@ -171,11 +171,11 @@ Scope: **10 hydratable stacks** (`python`, `fastapi`, `node-backend`, `vue3`, `r
 ### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x` `v3.5.0`)
 * **Base Image:** `sinfallas/base-node-ionic:26` (Available tags: `22`, `24`, `26` and `latest`)
 * **Certified 11X Metrics (`v3.5.0` / `QA-11X v3.5`):**
-  * **Statements:** `99.62%` (`>= 95.0%`)
-  * **Branches:** `96.85%` global (`src/resources` `97.56%`, `src/cli` `98.09%`, `surgical-merger.ts` `99.05%`)
+  * **Statements:** `99.87%` (`>= 95.0%`)
+  * **Branches:** `97.32%` global (`src/resources` `97.56%`, `src/cli` `98.09%`, `surgical-merger.ts` `99.05%`)
   * **Functions:** `99.89%` (`>= 95.0%`)
-  * **Lines:** `99.62%` (`>= 95.0%`)
-  * **Unit & Live Protocol Tests:** **754 tests passing at 100%** (44 Vitest suites including `tests/audit-remediation-wave-c.unit.ts`, `tests/audit-hardening.unit.ts`, `tests/live-mcp-protocol.test.ts` over `InMemoryTransport` and `StdioClientTransport`, `tests/mobileBlueprint.test.ts`, `tests/path-real-resolver.unit.ts`, `tests/ide-config-paths.unit.ts`, `tests/cli-certify-audit.unit.ts`, `tests/cli-doctor-upgrade.unit.ts`, `tests/cli-dx-tools.unit.ts`, `tests/diff-blast-radius.unit.ts` with `git-signals`, `src/index.ts`, `QA-CLI-TTY-01`, `SEC-09`, and `QA-SSR-HYDRATION-01`)
+  * **Lines:** `99.87%` (`>= 95.0%`)
+  * **Unit & Live Protocol Tests:** **760 tests passing at 100%** (44 Vitest suites including `tests/audit-remediation-wave-c.unit.ts`, `tests/audit-hardening.unit.ts`, `tests/live-mcp-protocol.test.ts` over `InMemoryTransport` and `StdioClientTransport`, `tests/mobileBlueprint.test.ts`, `tests/path-real-resolver.unit.ts`, `tests/ide-config-paths.unit.ts`, `tests/cli-certify-audit.unit.ts`, `tests/cli-doctor-upgrade.unit.ts`, `tests/cli-dx-tools.unit.ts`, `tests/diff-blast-radius.unit.ts` with `git-signals`, `src/index.ts`, `QA-CLI-TTY-01`, `SEC-09`, and `QA-SSR-HYDRATION-01`)
   * **Multi-Stack Differential Coverage (`verify_diff_coverage.py`):** **100.00% delta lines** and **>= 90.00% delta branches** across modified files
   * **MCP Surface:** **19 canonical tools** (12 v1 core + 6 v2.0 tools for CALM, Release Gate, agent trajectory, OWASP LLM Red Team, Vibe-Rescue, and TMS sync + **v3.1** `session_flight_recorder`) and **13 `blueprint://*` resources** (11 static URIs including **v3.1** `blueprint://skills/tactical-patterns-11x` with `?lang=es|en` bilingual negotiation + 2 resource templates) enforcing Thin-Repo contract, AST graph auto-build/refresh (`auto_build_if_missing`, `refresh_graph`), longitudinal Git architectural signals (`include_git_signals`, `--git-signals`), Metadata-Only mode (`include_content: false`), rule grouping (`groupFindingsByRule`), 36 static scanner rules (`SEC-01`..`SEC-16`, `SEC-CI-ACTION-REF`, `SEC-WS-PUBSUB-01`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-MYPY-01`, `QA-PG17-RLS`, `QA-SMOKE-01`, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `QA-STRYKER-CFG-01`, `UI-11X-01..03`) enforcing the 22 DISA ASD STIG V6R5 + OWASP v4.2 reference controls alongside human push guard `QA-GIT-GATE-01`, `TaskStateGuard` + `promptGuard`, and 10/10 parity in `certify_11x_gate`
   * **Karate Labs BDD Scenarios:** `mcp-server/test/mcp_cli_test.feature` (**52 scenarios** in `sinfallas/karatelabs:1.5.1`, including **Scenarios 50–52** covering the 12 CLI subcommands, shared IDE config paths, Clean-Room tarball verification, `blast-radius --git-signals`, `.claude-plugin/` parity, and SARIF v2.1.0 contracts)
@@ -256,12 +256,12 @@ The script sequentially and strictly evaluates 10 mandatory gates:
 
 * **Universal QA 11X Skills Installer (`scripts/install-skill.sh`):**
   * **Test Suites:**
-    * **Python Unit & Meta-QA:** `tests/*.unit.py` + `tests/meta_qa/` + `vibe-rescue/tests/` (**331 tests collected**, **98.25%** branch+line coverage with `ruff CC <= 5` and `mypy --strict`).
+    * **Python Unit & Meta-QA:** `tests/*.unit.py` + `tests/meta_qa/` + `vibe-rescue/tests/` (**337 tests collected**, **99.19%** branch+line coverage with `ruff CC <= 5` and `mypy --strict`).
     * **BATS-core & ShellCheck (`sinfallas/base-bash-qa:latest`, rootless `--cap-drop=ALL --security-opt=no-new-privileges:true`):** `bash-scripts/test/ejemplo_mock.bats`, `tests/bats/{test_ci_make_escape,test_graphify_and_calm,test_install_skill,test_limpieza,test_pagespeed,test_repo_scripts}.bats` (**113 BATS tests**, normalized kcov, and ShellCheck with 0 warnings).
   * **Ephemeral Execution:**
     * `docker run --rm --network none --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=.agents/scripts:vibe-rescue:. -v "${PWD}:/app:ro" -w /app sinfallas/base-python-uv:3.15 pytest -q --import-mode=importlib --cov=.agents/scripts --cov-fail-under=95 tests/*.unit.py tests/meta_qa/test_*.py`
     * `docker run --rm --network none --cap-drop=ALL --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e _USER=qa -v "${PWD}:/repo:ro" -w /repo/bash-scripts sinfallas/base-bash-qa:latest bash -c "shellcheck -x ../scripts/*.sh ../.agents/scripts/*.sh ../*/limpieza.sh ../mcp-server/example/verify-v2.sh ../instalar-hooks.sh ./*.sh && bats test/*.bats ../tests/bats/*.bats"`
-  * **Coverage & Metrics:** **100% assertions passed** (**113** BATS tests, **331** Python unit + Meta-QA + Vibe-Rescue tests at **98.25%**) and **0 errors / 0 warnings** in ShellCheck.
+  * **Coverage & Metrics:** **100% assertions passed** (**113** BATS tests, **337** Python unit + Meta-QA + Vibe-Rescue tests at **99.19%**) and **0 errors / 0 warnings** in ShellCheck.
   * **Validated Assertions:** Smart auto-detection without polluting `$HOME/.agents`, target resolution (`workspace`, `antigravity`, `claude`, `cursor`, `windsurf`, `codex`, `hermes`, `all`), full catalog installation of all 11 modular skills (`qa-11x-architect`, `refactoring-ui`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `qa-11x-docker-certifier`, `qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `tactical-patterns-11x`) plus `.agents/schemas/`, SHA-256 verification against `manifest.json`, strict tampering detection (aborting with exit code 1 under DISA STIG `V-222513`), and `--help` flag check.
 
 * **Node.js / TypeScript MCP Server & Skills Installer (`mcp-server/`):**
@@ -294,8 +294,8 @@ The script sequentially and strictly evaluates 10 mandatory gates:
     * `make -C mcp-server build`
     * `make -C mcp-server qa-example && make -C mcp-server qa-e2e` (or `./scripts/probar-mcp-example.sh`)
   * **Coverage & Metrics Achieved:**
-    * **100% assertions passed** (**754** Vitest tests across **44 Vitest suites** + **52** Karate BDD scenarios including **Scenarios 50–52** CLI, `git-signals`, `.claude-plugin/` & IDE config contracts + **310** Python unit & Meta-QA tests + **28** Offline AI (4 live skipped) + **113** BATS + **21** Vibe-Rescue + live E2E over `stdio`).
-    * **99.62% line/statement coverage and 96.85% branch coverage** (exceeding the `>= 95%` threshold).
+    * **100% assertions passed** (**760** Vitest tests across **44 Vitest suites** + **52** Karate BDD scenarios including **Scenarios 50–52** CLI, `git-signals`, `.claude-plugin/` & IDE config contracts + **316** Python unit & Meta-QA tests + **28** Offline AI (4 live skipped) + **113** BATS + **21** Vibe-Rescue + live E2E over `stdio`).
+    * **99.87% line/statement coverage and 97.32% branch coverage** (exceeding the `>= 95%` threshold).
     * **99.89% function coverage**.
     * **0 errors from ESLint (`--max-warnings 0`, `complexity <= 15`), SonarJS (Cognitive `<= 15`), and TypeScript (`strict: true`)**.
 

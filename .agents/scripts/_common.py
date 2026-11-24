@@ -61,6 +61,7 @@ PRIVATE_CONSUMER_LEAK_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("rosgrid-env", re.compile(r"\bROSGRID_[A-Z0-9_]+\b")),
     ("personal-dropbox-path", re.compile(r"/home/[A-Za-z0-9._-]+/Dropbox/")),
     ("rosgrid-fleet-endpoint", re.compile(r"/api/v1/metrics/fleet\b")),
+    ("rosgrid-router-display", re.compile(r"\brouter_display_name\b")),
 )
 
 
