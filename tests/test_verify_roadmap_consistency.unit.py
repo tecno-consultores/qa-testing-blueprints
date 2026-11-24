@@ -593,6 +593,25 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
             active.unlink()
             self.assertEqual(vrc.validate_session_checkpoint(ckpt, active), [])
 
+            # Cubre fail-closed sin tabla con secciones y desfase de porcentaje parcial
+            orphan_rm = base / "ORPHAN.md"
+            orphan_rm.write_text(
+                "# Roadmap\n\n## 🚧 Hito 1: Demo\n- [x] a\n- [ ] b\n",
+                encoding="utf-8",
+            )
+            orphan_errs = vrc.validate_roadmap_consistency(orphan_rm)
+            self.assertTrue(any("Hito huérfano 1" in e for e in orphan_errs))
+
+            pct_rm = base / "PCT_DRIFT.md"
+            pct_rm.write_text(
+                "# Roadmap\n"
+                "| **Hito 1** | A | `s1` | 🚧 En Progreso | `50%` |\n\n"
+                "## 🚧 Hito 1: A\n- [x] a\n- [ ] b\n- [ ] c\n- [ ] d\n",
+                encoding="utf-8",
+            )
+            pct_errs = vrc.validate_roadmap_consistency(pct_rm)
+            self.assertTrue(any("50%" in e and "25%" in e for e in pct_errs))
+
 
 if __name__ == "__main__":
     unittest.main()

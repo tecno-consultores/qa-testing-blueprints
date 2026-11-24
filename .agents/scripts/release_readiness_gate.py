@@ -514,6 +514,27 @@ def _extract_non_neg_number(
     return 0.0
 
 
+_TELEMETRY_KNOWN_KEYS: tuple[str, ...] = (
+    "errorRatePct",
+    "error_rate_pct",
+    "http_error_rate_pct",
+    "errorRate",
+    "p95Ms",
+    "p95_ms",
+    "latencyP95Ms",
+    "latency_p95_ms",
+    "http_p95_ms",
+    "p99Ms",
+    "p99_ms",
+    "latencyP99Ms",
+    "latency_p99_ms",
+    "http_p99_ms",
+    "activeIncidents",
+    "active_incidents",
+    "incidents_open",
+)
+
+
 def _normalize_telemetry(
     raw: dict[str, Any] | None, reasons: list[BlockingReason]
 ) -> TelemetrySummary:
@@ -528,6 +549,18 @@ def _normalize_telemetry(
     nested = raw.get("metrics")
     non_null_raw = {k: v for k, v in raw.items() if v is not None}
     merged = {**nested, **non_null_raw} if isinstance(nested, dict) else non_null_raw
+    if not any(
+        key in merged and merged[key] is not None for key in _TELEMETRY_KNOWN_KEYS
+    ):
+        reasons.append(
+            _security_reason(
+                "INVALID_INPUT",
+                "telemetry",
+                "empty_or_null",
+                "Telemetría sin métricas numéricas válidas "
+                "(JSON vacío o valores null).",
+            )
+        )
     return TelemetrySummary(
         provided=True,
         error_rate_pct=_extract_non_neg_number(

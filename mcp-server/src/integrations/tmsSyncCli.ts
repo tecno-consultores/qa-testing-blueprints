@@ -301,11 +301,23 @@ function collectSecretsFromEnv(env: Readonly<Record<string, string | undefined>>
   const secrets: string[] = [];
   for (const key of SECRET_ENV_KEYS) {
     const val = env[key]?.trim();
-    if (val && val.length >= 4) {
+    if (val && val.length >= 8) {
       secrets.push(val);
     }
   }
   return secrets;
+}
+
+function serializeRedactedJson(
+  value: unknown,
+  env: Readonly<Record<string, string | undefined>>,
+  indent?: number
+): string {
+  return JSON.stringify(
+    value,
+    (_key, val: unknown) => (typeof val === 'string' ? redactTmsSecrets(val, env) : val),
+    indent
+  );
 }
 
 export function redactTmsSecrets(
@@ -1900,7 +1912,7 @@ export async function runTmsSyncCli(
       return {
         exitCode: isSuccessStatus(result.status) ? 0 : 1,
         result,
-        output: redactTmsSecrets(JSON.stringify(result), env),
+        output: serializeRedactedJson(result, env),
       };
     }
     return formatResultText(result, env);
@@ -1949,7 +1961,7 @@ export async function handleSyncEnterpriseTms(
     const result = await executeTmsSync(guarded.sanitizedArgs as unknown as TmsSyncArgs, deps);
     return {
       isError: !isSuccessStatus(result.status),
-      content: [{ type: 'text', text: redactTmsSecrets(JSON.stringify(result, null, 2), env) }],
+      content: [{ type: 'text', text: serializeRedactedJson(result, env, 2) }],
     };
   } catch (err) {
     const rawMsg = err instanceof Error ? err.message : String(err);

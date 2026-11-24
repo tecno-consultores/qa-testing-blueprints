@@ -225,6 +225,35 @@ function skipJsoncComment(raw: string, start: number): number {
   return -1;
 }
 
+function nextNonWhitespaceChar(raw: string, start: number): string {
+  let idx = start;
+  while (idx < raw.length && /\s/.test(raw.charAt(idx))) {
+    idx += 1;
+  }
+  return raw.charAt(idx);
+}
+
+function stripTrailingCommasOutsideStrings(raw: string): string {
+  let out = '';
+  let i = 0;
+  while (i < raw.length) {
+    const ch = raw.charAt(i);
+    if (ch === '"') {
+      const token = consumeJsonString(raw, i);
+      out += token.chunk;
+      i = token.nextIdx;
+      continue;
+    }
+    if (ch === ',' && (nextNonWhitespaceChar(raw, i + 1) === '}' || nextNonWhitespaceChar(raw, i + 1) === ']')) {
+      i += 1;
+      continue;
+    }
+    out += ch;
+    i += 1;
+  }
+  return out;
+}
+
 function stripJsoncCommentsAndTrailingCommas(raw: string): string {
   let out = '';
   let i = 0;
@@ -244,7 +273,7 @@ function stripJsoncCommentsAndTrailingCommas(raw: string): string {
     out += ch;
     i += 1;
   }
-  return out.replace(/,\s*([}\]])/g, '$1');
+  return stripTrailingCommasOutsideStrings(out);
 }
 
 function isJsoncFile(rel: string): boolean {
@@ -512,10 +541,22 @@ function normalizeSubRoute(sub: string): string {
   return sub.startsWith('/') ? sub : `/${sub}`;
 }
 
+function hasRouteParityIgnore(code: string, matchIndex: number): boolean {
+  const prefix = code.slice(0, matchIndex);
+  const lineEndIdx = code.indexOf('\n', matchIndex);
+  const currentLineEnd = lineEndIdx === -1 ? code.length : lineEndIdx;
+  const lineStartIdx = prefix.lastIndexOf('\n') + 1;
+  const currentLine = code.slice(lineStartIdx, currentLineEnd);
+  if (currentLine.includes('api-parity-ignore')) {
+    return true;
+  }
+  const prevLines = prefix.slice(0, Math.max(0, lineStartIdx - 1)).split('\n').slice(-2);
+  return prevLines.some((line) => line.includes('api-parity-ignore'));
+}
+
 function extractPhpRoutesFromCode(
   code: string,
-  relFile: string,
-  ignoredInParity: boolean
+  relFile: string
 ): Array<{ verb: string; path: string; relFile: string; ignoredInParity: boolean }> {
   const routes: Array<{ verb: string; path: string; relFile: string; ignoredInParity: boolean }> = [];
   const laravelRegex = /\bRoute::(get|post|put|patch|delete)\s*\(\s*['"]([^'"]+)['"]/gi;
@@ -525,7 +566,7 @@ function extractPhpRoutesFromCode(
       verb: pickAt(m, 1).toUpperCase(),
       path: normalizeSubRoute(pickAt(m, 2)),
       relFile,
-      ignoredInParity,
+      ignoredInParity: hasRouteParityIgnore(code, m.index),
     });
   }
   const symfonyRegex = /#\[Route\(\s*['"]([^'"]+)['"]([^)]*)\)/gi;
@@ -539,6 +580,7 @@ function extractPhpRoutesFromCode(
         )
       : [];
     const verbs = extracted.length > 0 ? extracted : ['GET'];
+    const ignoredInParity = hasRouteParityIgnore(code, m.index);
     for (const verb of verbs) {
       routes.push({ verb, path: routePath, relFile, ignoredInParity });
     }
@@ -551,10 +593,9 @@ function extractBackendRoutesFromFile(
   filePath: string
 ): Array<{ verb: string; path: string; relFile: string; ignoredInParity: boolean }> {
   const code = fs.readFileSync(filePath, 'utf8');
-  const ignoredInParity = code.includes('api-parity-ignore');
   const relFile = path.relative(projectPath, filePath);
   if (filePath.endsWith('.php')) {
-    return extractPhpRoutesFromCode(code, relFile, ignoredInParity);
+    return extractPhpRoutesFromCode(code, relFile);
   }
   const routes: Array<{ verb: string; path: string; relFile: string; ignoredInParity: boolean }> = [];
   const prefixMatch = /APIRouter\([^)]*prefix\s*=\s*['"]([^'"]+)['"]/.exec(code);
@@ -571,14 +612,19 @@ function extractBackendRoutesFromFile(
       verb,
       path: `${basePrefix}${routerPrefix}${subNorm}` || '/',
       relFile,
-      ignoredInParity,
+      ignoredInParity: hasRouteParityIgnore(code, m.index),
     });
   }
 
   if (!filePath.endsWith('.py')) {
     const expressRegex = /\b(?:router|app)\.(get|post|put|patch|delete)\(\s*['"]([^'"]+)['"]/gi;
     while ((m = expressRegex.exec(code)) !== null) {
-      routes.push({ verb: pickAt(m, 1).toUpperCase(), path: pickAt(m, 2), relFile, ignoredInParity });
+      routes.push({
+        verb: pickAt(m, 1).toUpperCase(),
+        path: pickAt(m, 2),
+        relFile,
+        ignoredInParity: hasRouteParityIgnore(code, m.index),
+      });
     }
   }
   return routes;
@@ -1488,7 +1534,7 @@ export async function certify11xGate(
     skipped_checks: skippedChecks,
     blockers: allBlockers,
     upstream_evolution_reminder:
-      'MANDATORY POST-MORTEM CHECK: If this fixed a UAT/prod bug that bypassed tests, present "💡 Oportunidad de Mejora Detectada para el Estándar QA 11X" in Spanish and invoke propose_skill_evolution_pr.',
+      'MANDATORY POST-MORTEM CHECK: If this fixed a UAT/prod bug that bypassed tests, present "💡 Oportunidad de Mejora Detectada para el Estándar QA 11X" in the user prompt language and invoke propose_skill_evolution_pr.',
     update_available: updateAvailable,
   };
 }

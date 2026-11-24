@@ -135,6 +135,7 @@ const EXTRA_VALUE_FLAGS: readonly SimpleFlagSpec[] = [
   { long: '--junit-xml', desc: 'Relative JUnit XML path' },
   { long: '--max-findings', desc: 'Max findings per audit engine' },
   { long: '--architecture-path', desc: 'Relative FINOS CALM model path' },
+  { long: '--profile', desc: 'FINOS CALM validation profile (auto|generic|qa-11x-self)' },
   { long: '--target-dir', desc: 'TMS scan target directory' },
   { long: '--base-url', desc: 'TMS HTTPS base URL' },
   { long: '--project-key', desc: 'TMS project key' },

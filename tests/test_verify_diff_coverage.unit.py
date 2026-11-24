@@ -925,3 +925,34 @@ def test_sh_quoted_heredoc_lines_ignored_while_bash_lines_still_enforced(
     assert vdc._sh_quoted_heredoc_lines(ansi_sh) == {7}
 
 
+def test_evasion_approved_exclusion_on_unmodified_previous_line(tmp_path: Path) -> None:
+    """Cubre exención QA11X-APPROVED-EXCLUSION en línea N-1 no modificada en el diff."""
+    src_file = tmp_path / "src" / "mod.py"
+    src_file.parent.mkdir(parents=True, exist_ok=True)
+    src_file.write_text(
+        "# QA11X-APPROVED-EXCLUSION(unmodified guard)\n"
+        "x = 1  # pragma: no cover\n",
+        encoding="utf-8",
+    )
+    change = vdc.DiffFileChange(
+        path="src/mod.py",
+        is_new_file=False,
+        added_lines={2: "x = 1  # pragma: no cover"},
+    )
+    assert (
+        vdc.detect_diff_evasions({"src/mod.py": change}, workspace_root=tmp_path) == ()
+    )
+
+    missing_change = vdc.DiffFileChange(
+        path="src/ghost.py",
+        is_new_file=False,
+        added_lines={2: "y = 1  # pragma: no cover"},
+    )
+    findings = vdc.detect_diff_evasions(
+        {"src/ghost.py": missing_change}, workspace_root=tmp_path
+    )
+    assert len(findings) == 1
+    assert "src/ghost.py:2:" in findings[0]
+
+
+

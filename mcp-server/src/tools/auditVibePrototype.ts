@@ -40,7 +40,7 @@ const TEST_DIR_NAMES = new Set(['tests', 'test', '__tests__']);
 const DEFAULT_ENV_KEYS = ['DATABASE_URL', 'APP_ENCRYPTION_KEY', 'AUDIT_HMAC_KEY'] as const;
 
 const CLIENT_SECRET_VAR_RE =
-  /\b((?:VITE|NEXT_PUBLIC|EXPO_PUBLIC|REACT_APP)_[A-Z0-9_]*(?:SERVICE_ROLE|SECRET|PRIVATE|OPENAI_API_KEY|ANTHROPIC_API_KEY|DATABASE_URL)[A-Z0-9_]*)\b/;
+  /\b((?:VITE|NEXT_PUBLIC|EXPO_PUBLIC|REACT_APP)_[A-Z0-9_]*(?:SERVICE_ROLE|SECRET|PRIVATE|API_KEY|DATABASE_URL)[A-Z0-9_]*)\b/;
 const LITERAL_KEY_PATTERNS: readonly RegExp[] = [
   /\bsk-(?:proj-)?[A-Za-z0-9_-]{16,}\b/,
   /\b(?:ghp|gho|ghs|npm)_[A-Za-z0-9]{20,}\b/,
@@ -560,9 +560,12 @@ interface NonTestCodeScanInput {
   readonly findings: VibeFinding[];
 }
 
+const CLIENT_LAYER_PATH_RE = /(?:^|\/)(?:client|frontend|web|ui|components|pages|views)\//i;
+
 function scanNonTestCode(input: NonTestCodeScanInput): void {
   const { rel, ext, text, lines, maxLines, findings } = input;
-  const isClient = ext === '.tsx' || ext === '.jsx' || ext === '.vue' || rel.toLowerCase().includes('client');
+  const isClient =
+    ext === '.tsx' || ext === '.jsx' || ext === '.vue' || CLIENT_LAYER_PATH_RE.test(rel);
   if (isClient && CLIENT_SERVICE_ROLE_RE.test(text)) {
     addFinding(findings, {
       ruleId: VIBE_RULE_RLS,
@@ -684,11 +687,23 @@ interface ProcessSingleFileInput {
   readonly envKeys: Set<string>;
 }
 
-function processSingleFile(input: ProcessSingleFileInput): boolean {
-  const { filePath, targetReal, gitignorePatterns, maxLines, findings, envKeys } = input;
-  const relPosix = path.relative(targetReal, filePath).split(path.sep).join('/');
-  const baseName = path.basename(filePath);
-  const ext = path.extname(filePath);
+function isScannableVibeFile(baseName: string, ext: string): boolean {
+  if (isEnvFile(baseName) || ext === '.sql' || CODE_EXTENSIONS.has(ext)) {
+    return true;
+  }
+  if (baseName.startsWith('tsconfig') && baseName.endsWith('.json')) {
+    return true;
+  }
+  return baseName === 'Dockerfile' || baseName.startsWith('Dockerfile.');
+}
+
+function scanDecodedVibeFile(
+  input: ProcessSingleFileInput,
+  relPosix: string,
+  baseName: string,
+  ext: string
+): void {
+  const { filePath, gitignorePatterns, maxLines, findings, envKeys } = input;
   const isTest = isTestPath(relPosix);
   const text = fs.readFileSync(filePath, UTF8_ENCODING);
   const lines = text.split(/\r?\n/);
@@ -723,7 +738,17 @@ function processSingleFile(input: ProcessSingleFileInput): boolean {
   } else if (baseName === 'Dockerfile' || baseName.startsWith('Dockerfile.')) {
     scanDockerfile(relPosix, lines, findings);
   }
-  return isTest;
+}
+
+function processSingleFile(input: ProcessSingleFileInput): boolean {
+  const { filePath, targetReal } = input;
+  const relPosix = path.relative(targetReal, filePath).split(path.sep).join('/');
+  const baseName = path.basename(filePath);
+  const ext = path.extname(filePath);
+  if (isScannableVibeFile(baseName, ext)) {
+    scanDecodedVibeFile(input, relPosix, baseName, ext);
+  }
+  return isTestPath(relPosix);
 }
 
 function loadRlsTemplateContent(workspaceRoot: string, templatePath?: string): string {

@@ -1,15 +1,19 @@
 <script lang="ts">
-export function classifyEventBadge(
-  category: 'outage' | 'maintenance' | 'backup' | 'security' | 'operation'
-): string {
-  const mapping: Record<typeof category, string> = {
-    outage: 'CAÍDA',
-    maintenance: 'MANTENIMIENTO',
-    backup: 'RESPALDO',
-    security: 'SEGURIDAD',
-    operation: 'OPERACIÓN',
-  };
-  return mapping[category];
+type EventCategory = 'outage' | 'maintenance' | 'backup' | 'security' | 'operation';
+
+export function classifyEventBadge(category: EventCategory): string {
+  switch (category) {
+    case 'outage':
+      return 'CAÍDA';
+    case 'maintenance':
+      return 'MANTENIMIENTO';
+    case 'backup':
+      return 'RESPALDO';
+    case 'security':
+      return 'SEGURIDAD';
+    default:
+      return 'OPERACIÓN';
+  }
 }
 </script>
 

@@ -44,7 +44,7 @@ const MESSAGE_NORMALIZATION_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/:\d{1,10}\b/g, ''],
   [/\(\d{1,10},\s*\d{1,10}\)/g, ''],
   [/\b(?:line|línea|linea|col|column)\s+\d{1,10}\b/gi, ''],
-  [/\bL(?!0?[1-9]\b|1[0-3]\b)\d{1,10}\b/gi, ''],
+  [/\bL(?!0[1-9]\b|1[0-3]\b)\d{1,10}\b/gi, ''],
   [/\s+/g, ' '],
 ];
 

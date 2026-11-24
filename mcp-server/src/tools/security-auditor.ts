@@ -626,6 +626,42 @@ function checkSec05UnicodeNfkc(relPath: string, lines: string[]): SecurityFindin
   return [];
 }
 
+const SEC06_PROTO_PATTERNS: readonly RegExp[] = [
+  /\.__proto__\s*=(?!=)/,
+  /\[['"]__proto__['"]\]\s*=(?!=)/,
+  /constructor\s*\.\s*prototype\b[^=\n]*=(?!=)/,
+  /Object\s*\.\s*prototype\b[^=\n]*=(?!=)/,
+];
+
+function checkSec06Line(relPath: string, line: string, lineNum: number): SecurityFinding | null {
+  if (line.includes('v-html') || line.includes('innerHTML') || line.includes('dangerouslySetInnerHTML')) {
+    const hasSanitize = /\b(?:escapeHtml|DOMPurify|sanitize\w*)\b/.test(line);
+    if (!hasSanitize) {
+      return {
+        rule_id: 'SEC-06',
+        severity: 'HIGH',
+        stig_owasp_ref: 'APSC-DV-002490 / Patrón 6',
+        file: relPath,
+        line: lineNum,
+        message: 'Inyección de HTML dinámico (v-html / innerHTML / dangerouslySetInnerHTML) sin desinfección explícita.',
+        remediation: 'Sanitizar siempre con DOMPurify.sanitize(...) o escapar con escapeHtml(...) antes de renderizar.',
+      };
+    }
+  }
+  if (SEC06_PROTO_PATTERNS.some((re) => re.test(line))) {
+    return {
+      rule_id: 'SEC-06',
+      severity: 'HIGH',
+      stig_owasp_ref: 'APSC-DV-002490 / Patrón 6',
+      file: relPath,
+      line: lineNum,
+      message: 'Mutación directa de prototipo (__proto__ / constructor.prototype / Object.prototype) detectada (Prototype Pollution).',
+      remediation: 'Usar diccionarios con Object.create(null) o Map y rechazar claves __proto__/constructor/prototype.',
+    };
+  }
+  return null;
+}
+
 function checkSec06XssPrototypePollution(relPath: string, lines: string[]): SecurityFinding[] {
   if (relPath.endsWith('.example') || isTestFilePath(relPath) || isAuditorSelfDefinition(relPath)) {
     return [];
@@ -641,24 +677,12 @@ function checkSec06XssPrototypePollution(relPath: string, lines: string[]): Secu
     return [];
   }
   const findings: SecurityFinding[] = [];
-
   for (const [i, line] of lines.entries()) {
-    if (line.includes('v-html') || line.includes('innerHTML') || line.includes('dangerouslySetInnerHTML')) {
-      const hasSanitize = /\b(?:escapeHtml|DOMPurify|sanitize\w*)\b/.test(line);
-      if (!hasSanitize) {
-        findings.push({
-          rule_id: 'SEC-06',
-          severity: 'HIGH',
-          stig_owasp_ref: 'APSC-DV-002490 / Patrón 6',
-          file: relPath,
-          line: i + 1,
-          message: 'Inyección de HTML dinámico (v-html / innerHTML / dangerouslySetInnerHTML) sin desinfección explícita.',
-          remediation: 'Sanitizar siempre con DOMPurify.sanitize(...) o escapar con escapeHtml(...) antes de renderizar.',
-        });
-      }
+    const hit = checkSec06Line(relPath, line, i + 1);
+    if (hit !== null) {
+      findings.push(hit);
     }
   }
-
   return findings;
 }
 
@@ -761,7 +785,7 @@ function extractUnquotedEnvSecretValue(line: string): string | null {
   const rawVal = line.slice(eqIdx + 1).trim();
   const hashIdx = rawVal.indexOf(' #');
   const val = (hashIdx === -1 ? rawVal : rawVal.slice(0, hashIdx)).trim();
-  if (val.length < 8 || /[\s"'$#]/.test(val)) return null;
+  if (val.length < 8 || /[\s"']/.test(val) || val.startsWith('$')) return null;
   return val;
 }
 

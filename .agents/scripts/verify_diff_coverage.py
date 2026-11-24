@@ -741,13 +741,42 @@ def _match_evasion_label(line_text: str) -> str | None:
     return None
 
 
-def _scan_file_evasions(rel_path: str, added: dict[int, str]) -> list[str]:
+def _read_prev_source_line(
+    workspace_root: Path | None,
+    rel_path: str,
+    line_no: int,
+    file_cache: dict[str, list[str]],
+) -> str:
+    if workspace_root is None or line_no <= 1:
+        return ""
+    if rel_path not in file_cache:
+        candidate = workspace_root / rel_path
+        if candidate.is_file():
+            file_cache[rel_path] = candidate.read_text(
+                encoding="utf-8", errors="replace"
+            ).splitlines()
+        else:
+            file_cache[rel_path] = []
+    lines = file_cache[rel_path]
+    idx = line_no - 2
+    return lines[idx] if 0 <= idx < len(lines) else ""
+
+
+def _scan_file_evasions(
+    rel_path: str,
+    added: dict[int, str],
+    workspace_root: Path | None = None,
+    file_cache: dict[str, list[str]] | None = None,
+) -> list[str]:
     findings: list[str] = []
+    cache = file_cache if file_cache is not None else {}
     for line_no in sorted(added):
         label = _match_evasion_label(added[line_no])
         if label is None:
             continue
-        prev_line = added.get(line_no - 1, "")
+        prev_line = added.get(line_no - 1)
+        if prev_line is None:
+            prev_line = _read_prev_source_line(workspace_root, rel_path, line_no, cache)
         if APPROVED_EXCLUSION_RE.search(added[line_no]) or APPROVED_EXCLUSION_RE.search(
             prev_line
         ):
@@ -759,12 +788,19 @@ def _scan_file_evasions(rel_path: str, added: dict[int, str]) -> list[str]:
     return findings
 
 
-def detect_diff_evasions(changes: dict[str, DiffFileChange]) -> tuple[str, ...]:
+def detect_diff_evasions(
+    changes: dict[str, DiffFileChange], workspace_root: Path | None = None
+) -> tuple[str, ...]:
     findings: list[str] = []
+    file_cache: dict[str, list[str]] = {}
     for rel_path in sorted(changes):
         if is_doc_file(rel_path) or is_test_file(rel_path):
             continue
-        findings.extend(_scan_file_evasions(rel_path, changes[rel_path].added_lines))
+        findings.extend(
+            _scan_file_evasions(
+                rel_path, changes[rel_path].added_lines, workspace_root, file_cache
+            )
+        )
     return tuple(findings)
 
 
@@ -1074,7 +1110,7 @@ def evaluate_diff_coverage(config: DiffCoverageConfig) -> DiffCoverageReport:
             config.min_branch_cov,
         )
 
-    evasions = detect_diff_evasions(changes)
+    evasions = detect_diff_evasions(changes, workspace_root=workspace_root)
     if evasions:
         return _build_failure_report(
             EXIT_EVASION_DETECTED,

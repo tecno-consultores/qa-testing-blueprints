@@ -7,6 +7,7 @@ from __future__ import annotations
 import importlib
 import io
 import json
+import os
 import socket
 import sys
 import urllib.error
@@ -907,3 +908,47 @@ def test_psi_unparseable_ip_and_cli_threshold_timeout_validation() -> None:
         parser.parse_args(["--timeout", "0"])
     with pytest.raises(SystemExit):
         parser.parse_args(["--timeout", "-5"])
+
+
+def test_release_gate_empty_or_null_telemetry_and_psi_atomic_cleanup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Cubre fail-closed en telemetría vacía/null y limpieza .tmp en PSI."""
+    junit_ok = (
+        '<testsuite name="s" tests="1" failures="0">'
+        '<testcase name="t1"/></testsuite>'
+    )
+    (tmp_path / "junit.xml").write_text(junit_ok, encoding="utf-8")
+    (tmp_path / "empty_tel.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "null_tel.json").write_text('{"p95_ms": null}', encoding="utf-8")
+
+    rc_empty, rep_empty = rrg.evaluate_release_gate(
+        workspace_root=tmp_path,
+        junit_xml="junit.xml",
+        telemetry_json="empty_tel.json",
+        dry_run=False,
+    )
+    assert rc_empty == 1
+    assert rep_empty["decision"] == "NO_GO"
+
+    rc_null, rep_null = rrg.evaluate_release_gate(
+        workspace_root=tmp_path,
+        junit_xml="junit.xml",
+        telemetry_json="null_tel.json",
+        dry_run=False,
+    )
+    assert rc_null == 1
+    assert rep_null["decision"] == "NO_GO"
+
+    def _boom_replace(_src: Any, _dst: Any) -> None:
+        raise OSError("replace failed")
+
+    monkeypatch.setattr(os, "replace", _boom_replace)
+    opts = psi.AuditOptions(
+        url="",
+        output_path="out/psi.json",
+        base_dir=tmp_path,
+    )
+    with pytest.raises(OSError, match="replace failed"):
+        psi._persist_report_if_requested(opts, {"status": "SKIPPED"})
+    assert list((tmp_path / "out").glob("*.tmp")) == []

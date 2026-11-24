@@ -526,16 +526,25 @@ function validateControlEntry(
   return true;
 }
 
+function hasQa11xSelfMarkers(doc: JsonRecord, nodeIds: ReadonlySet<string>): boolean {
+  if (REQUIRED_CALM_NODE_IDS.some((id) => nodeIds.has(id))) {
+    return true;
+  }
+  const controls = isPlainRecord(doc.controls) ? doc.controls : null;
+  return controls !== null && REQUIRED_CALM_CONTROL_IDS.some((ctrl) => ctrl in controls);
+}
+
 function isQa11xSelfProfile(
   profile: CalmValidationProfile | undefined,
   workspaceRoot: string,
-  displayPath: string
+  doc: JsonRecord,
+  nodeIds: ReadonlySet<string>
 ): boolean {
   if (profile === 'qa-11x-self') return true;
   if (profile === 'generic') return false;
   return (
-    path.basename(displayPath) === 'qa-11x.calm.json' ||
-    fs.existsSync(path.join(workspaceRoot, 'scripts', 'generar-manifiesto.py'))
+    fs.existsSync(path.join(workspaceRoot, 'scripts', 'generar-manifiesto.py')) ||
+    hasQa11xSelfMarkers(doc, nodeIds)
   );
 }
 
@@ -703,7 +712,7 @@ export function validateCalmArchitecture(
 
   const nodesResult = parseAndValidateNodes(doc, violations);
   const relResult = parseAndValidateRelationships(doc, nodesResult.nodeIds, violations);
-  const enforceQa11xSelf = isQa11xSelfProfile(args.profile, workspaceRoot, fileTarget.displayPath);
+  const enforceQa11xSelf = isQa11xSelfProfile(args.profile, workspaceRoot, doc, nodesResult.nodeIds);
   const controlCount = validateRequiredGovernance(doc, {
     nodeIds: nodesResult.nodeIds,
     relState: relResult,

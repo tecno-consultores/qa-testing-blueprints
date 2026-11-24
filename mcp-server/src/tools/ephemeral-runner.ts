@@ -416,7 +416,7 @@ function parseVariableAssignment(trimmed: string, vars: Map<string, string>): bo
     return false;
   }
   const prevChar = cleaned[eqIdx - 1];
-  const hasCompoundOp = prevChar === '?' || prevChar === ':';
+  const hasCompoundOp = prevChar === '?' || prevChar === ':' || prevChar === '+';
   const op = hasCompoundOp ? `${prevChar}=` : '=';
   const name = cleaned.slice(0, hasCompoundOp ? eqIdx - 1 : eqIdx).trim();
   const rawVal = cleaned.slice(eqIdx + 1);
@@ -426,7 +426,13 @@ function parseVariableAssignment(trimmed: string, vars: Map<string, string>): bo
   if (op === '?=' && vars.has(name)) {
     return true;
   }
-  vars.set(name, expandMakefileVariables(rawVal.trim(), vars));
+  const expanded = expandMakefileVariables(rawVal.trim(), vars);
+  if (op === '+=') {
+    const existing = vars.get(name);
+    vars.set(name, existing ? `${existing} ${expanded}` : expanded);
+    return true;
+  }
+  vars.set(name, expanded);
   return true;
 }
 
@@ -766,6 +772,7 @@ function buildSecretGuardDockerArgs(currentDir: string): string[] | null {
     '--rm',
     '--network',
     'none',
+    '--security-opt=no-new-privileges:true',
     '-u',
     resolveHostUidGid(),
     '-e',
@@ -1234,12 +1241,24 @@ export function resolveMakefileDockerRecipes(
   return prepDirs.length > 0 ? { ok: true, commands, prepDirs } : { ok: true, commands };
 }
 
-function parseTwoSpaceServiceName(line: string): string | null {
-  const colonIdx = line.indexOf(':');
-  if (colonIdx <= 2 || !line.startsWith('  ') || line.startsWith('   ')) {
+function measureLeadingSpaces(line: string): number {
+  let count = 0;
+  while (count < line.length && line.charAt(count) === ' ') {
+    count += 1;
+  }
+  return count;
+}
+
+function parseIndentedServiceName(line: string, expectedIndent: number): string | null {
+  const indent = measureLeadingSpaces(line);
+  if (indent === 0 || (expectedIndent > 0 && indent !== expectedIndent)) {
     return null;
   }
-  const candidate = line.slice(2, colonIdx);
+  const colonIdx = line.indexOf(':', indent);
+  if (colonIdx <= indent) {
+    return null;
+  }
+  const candidate = line.slice(indent, colonIdx);
   const rest = line.slice(colonIdx + 1).trim();
   if (/^[A-Za-z0-9_-]+$/.test(candidate) && (!rest || rest.startsWith('#'))) {
     return candidate;
@@ -1250,6 +1269,7 @@ function parseTwoSpaceServiceName(line: string): string | null {
 function extractComposeServices(composeContent: string): string[] {
   const services: string[] = [];
   let inServices = false;
+  let serviceIndent = 0;
   for (const line of composeContent.split(/\r?\n/)) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) {
@@ -1265,8 +1285,11 @@ function extractComposeServices(composeContent: string): string[] {
     if (!line.startsWith(' ') && !line.startsWith('\t')) {
       break;
     }
-    const svc = parseTwoSpaceServiceName(line);
+    const svc = parseIndentedServiceName(line, serviceIndent);
     if (svc) {
+      if (serviceIndent === 0) {
+        serviceIndent = measureLeadingSpaces(line);
+      }
       services.push(svc);
     }
   }

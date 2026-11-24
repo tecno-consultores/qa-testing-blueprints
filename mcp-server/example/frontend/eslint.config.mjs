@@ -21,10 +21,16 @@ export default tseslint.config(
         extraFileExtensions: ['.vue'],
       },
     },
+    rules: {
+      'no-undef': 'off',
+      'vue/max-attributes-per-line': 'off',
+      'vue/singleline-html-element-content-newline': 'off',
+    },
   },
   {
     files: ['src/**/*.{ts,vue}'],
     rules: {
+      'no-undef': 'off',
       complexity: ['error', 5],
       'max-params': ['error', 4],
       'max-depth': ['error', 3],

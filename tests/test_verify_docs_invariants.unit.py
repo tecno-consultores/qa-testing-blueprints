@@ -1704,6 +1704,34 @@ class TestVerifyDocsInvariants(unittest.TestCase):
             self.assertEqual(len(errs), 1)
             self.assertIn("docs/broken.md:7:", errs[0])
 
+            # Half-missing TESTING.md scoreboard (§2 sin §4) debe fallar
+            (root / "TESTING.md").write_text(
+                "* **Sentencias (Statements):** `99.60%`\n"
+                "* **Ramas (Branches):** `96.75%` global\n"
+                "* **Funciones (Functions):** `99.88%`\n"
+                "* **Líneas (Lines):** `99.60%`\n"
+                "* **Pruebas Unitarias y Protocolo en Vivo:** "
+                "**741 pruebas pasando al 100%** (43 suites Vitest)\n",
+                encoding="utf-8",
+            )
+            tb_errs = verify_docs.check_testing_scoreboard_consistency(root)
+            self.assertTrue(
+                any("marcador de cobertura incompleto" in e for e in tb_errs)
+            )
+
+            # Referencia cruzada a skill hermano presente + rota local en misma línea
+            sib_dir = root / ".agents" / "skills" / "qa-11x-sibling" / "references"
+            sib_dir.mkdir(parents=True, exist_ok=True)
+            (sib_dir / "real.md").write_text("# ok\n", encoding="utf-8")
+            (skill_doc).write_text(
+                "See `qa-11x-sibling` (`references/real.md`) "
+                "and `references/ghost.md`.\n",
+                encoding="utf-8",
+            )
+            ref_errs = verify_docs._check_skill_backtick_references(root)
+            self.assertEqual(len(ref_errs), 1)
+            self.assertIn("references/ghost.md", ref_errs[0])
+
 
 if __name__ == "__main__":
     unittest.main()

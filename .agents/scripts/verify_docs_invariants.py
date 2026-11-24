@@ -2260,6 +2260,10 @@ def _collect_testing_scoreboards(
         if s2 and s4:
             errors.extend(_compare_s2_s4(rel, s2, s4))
             boards[rel] = s2
+        elif s2 or s4:
+            errors.append(
+                f"{rel}: marcador de cobertura incompleto (falta §2 o §4)."
+            )
     return boards, errors
 
 
@@ -2287,7 +2291,16 @@ def _check_specs_and_stack_contracts(root: Path) -> list[str]:
 
 
 _SKILL_BACKTICK_REF_RE = re.compile(r"`(references/[A-Za-z0-9._/-]+\.md)`")
-_SIBLING_SKILL_REF_RE = re.compile(r"`qa-11x-[a-z0-9-]+`")
+_SIBLING_SKILL_REF_RE = re.compile(r"`(qa-11x-[a-z0-9-]+)`\s*\($")
+
+
+def _resolve_skill_ref_base(skill_dir: Path, line: str, start_idx: int) -> Path | None:
+    prefix = line[:start_idx]
+    sibling_match = _SIBLING_SKILL_REF_RE.search(prefix)
+    if sibling_match:
+        sibling_dir = skill_dir.parent / sibling_match.group(1)
+        return sibling_dir if sibling_dir.is_dir() else None
+    return skill_dir
 
 
 def _scan_single_skill_backticks(skill_md: Path) -> list[str]:
@@ -2295,11 +2308,14 @@ def _scan_single_skill_backticks(skill_md: Path) -> list[str]:
     text = skill_md.read_text(encoding="utf-8", errors="ignore")
     errors: list[str] = []
     for ln, line in enumerate(text.splitlines(), 1):
-        if _SIBLING_SKILL_REF_RE.search(line):
-            continue
         for match in _SKILL_BACKTICK_REF_RE.finditer(line):
             rel_ref = match.group(1)
-            if ".." not in rel_ref and not (skill_dir / rel_ref).is_file():
+            base_dir = _resolve_skill_ref_base(skill_dir, line, match.start())
+            if (
+                base_dir is not None
+                and ".." not in rel_ref
+                and not (base_dir / rel_ref).is_file()
+            ):
                 errors.append(
                     f".agents/skills/{skill_dir.name}/SKILL.md:{ln}: "
                     f"referencia '{rel_ref}' no existe en disco."

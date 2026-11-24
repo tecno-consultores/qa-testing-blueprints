@@ -1007,12 +1007,12 @@ interface CoverageConfigBundle {
   readonly phpunitXml: string;
 }
 
-const COV_FAIL_UNDER_RE = /--cov-fail-under[= ]+(\d+)/gi;
-const PY_FAIL_UNDER_RE = /\bfail_under[ \t]*=[ \t]*(\d+)/gi;
-const MIN_COVERAGE_CLI_RE = /--min(?:-coverage)?[= ]+(\d+)/gi;
-const VITEST_THRESHOLD_RE = /\b(?:lines|statements|functions|thresholds)[ \t]*:[ \t]*(\d+)/gi;
-const PKG_THRESHOLD_RE = /"(?:lines|statements|functions)"[ \t]*:[ \t]*(\d+)/gi;
-const PHPUNIT_THRESHOLD_RE = /\b(?:minCoverage|highLowerBound)="(\d+)"/gi;
+const COV_FAIL_UNDER_RE = /--cov-fail-under[= ]+([0-9.]+)/gi;
+const PY_FAIL_UNDER_RE = /\bfail[-_]under[ \t]*=[ \t]*([0-9.]+)/gi;
+const MIN_COVERAGE_CLI_RE = /--min(?:-coverage)?[= ]+([0-9.]+)/gi;
+const VITEST_THRESHOLD_RE = /\b(?:lines|branches|statements|functions|thresholds)[ \t]*:[ \t]*([0-9.]+)/gi;
+const PKG_THRESHOLD_RE = /"(?:lines|branches|statements|functions)"[ \t]*:[ \t]*([0-9.]+)/gi;
+const PHPUNIT_THRESHOLD_RE = /\b(?:minCoverage|highLowerBound)="([0-9.]+)"/gi;
 
 function hasNumericThresholdAtLeast(content: string, patterns: readonly RegExp[], minVal: number): boolean {
   for (const re of patterns) {

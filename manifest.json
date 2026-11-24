@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.5.0",
-  "generated_at_utc": "2026-11-24T13:41:33Z",
+  "generated_at_utc": "2026-11-24T14:23:06Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -424,8 +424,8 @@
           "path": "node-backend/pnpm-workspace.yaml.example",
           "target_name": "pnpm-workspace.yaml",
           "merge_strategy": "surgical_merge",
-          "sha256": "ac02d96368617c760f093cfe61fdec64b6244007ab3553e0d6621f706f54a353",
-          "size_bytes": 29
+          "sha256": "9ee09db2332f126fa616386917d03ff8192f2b6c38c013b43126c8fcdad766b7",
+          "size_bytes": 126
         },
         {
           "path": "node-backend/stryker.conf.json.example",
@@ -452,8 +452,8 @@
           "path": "node-backend/tests/contracts/provider.pact.test.ts",
           "target_name": "tests/contracts/provider.pact.test.ts",
           "merge_strategy": "copy_if_missing",
-          "sha256": "b34e93c0dce54ac84f19b6b1f40528326deb42915ebff44efd97a4f2b7156154",
-          "size_bytes": 28943
+          "sha256": "b7b5f8169246331a5c36beb10f54277b056ef57cf5f8c2a43d62009b29e7555b",
+          "size_bytes": 29668
         },
         {
           "path": "node-backend/tsconfig.build.json.example",
@@ -1210,15 +1210,15 @@
       "path": ".agents/scripts/audit_pagespeed_insights.py",
       "target_name": ".agents/scripts/audit_pagespeed_insights.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "63ae0515a4196222072cde198a7db00bf810e5319fc52b88cf98cdb13b2ec7ec",
-      "size_bytes": 21526
+      "sha256": "eced899dafb684f333e1e87c1613fce93c8e4d68f0cb52c42a604affe812b8dd",
+      "size_bytes": 21751
     },
     {
       "path": ".agents/scripts/bump_version_11x.py",
       "target_name": ".agents/scripts/bump_version_11x.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "5d6ac13757456112036cc256d699c7a46b864572aacbb97b8d1ce0af7094a533",
-      "size_bytes": 21347
+      "sha256": "518babb1a3877cdee1ac93893cb69d0a04efaede39fd09f9ea6f307d7e06c22a",
+      "size_bytes": 21704
     },
     {
       "path": ".agents/scripts/certify_task_completion.sh",
@@ -1266,8 +1266,8 @@
       "path": ".agents/scripts/release_readiness_gate.py",
       "target_name": ".agents/scripts/release_readiness_gate.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "27b86bb0c1f8eb67b7c6cbe622c6dfc417178280bfb94f699360401e47adf71a",
-      "size_bytes": 34488
+      "sha256": "fcd926d7c9380fdb31d0dd06320fa8151a3e7ca2b5e02219b9731d19e210c914",
+      "size_bytes": 35259
     },
     {
       "path": ".agents/scripts/select_tests_by_blast_radius.py",
@@ -1308,15 +1308,15 @@
       "path": ".agents/scripts/verify_diff_coverage.py",
       "target_name": ".agents/scripts/verify_diff_coverage.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "cf45e8c8588c7fbdaa92872028ab60ab8816c6305881b87bbaca3697533e4d7d",
-      "size_bytes": 37497
+      "sha256": "4327e2a80f6f9d1c0e2a88587328c61b1b46442fbb9b72b14ce3a0e4f39c5fbd",
+      "size_bytes": 38589
     },
     {
       "path": ".agents/scripts/verify_docs_invariants.py",
       "target_name": ".agents/scripts/verify_docs_invariants.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "0bd3b33b3287585de314cc302f5342b1b880ce7913377855a3a56d1494500587",
-      "size_bytes": 84516
+      "sha256": "3ad0154ffe3ceed114bca8868f69b9b8e0c6b7983ba6de858ffb91735cdd2177",
+      "size_bytes": 85110
     },
     {
       "path": ".agents/scripts/verify_json_no_duplicate_keys.py",
@@ -1336,8 +1336,8 @@
       "path": ".agents/scripts/verify_roadmap_consistency.py",
       "target_name": ".agents/scripts/verify_roadmap_consistency.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "1322005c375640b155c6e2bd1b7ae1b82d26a05de7c04ffa1098e6a7674d9888",
-      "size_bytes": 20329
+      "sha256": "055925de9d079cf747308a1d9013281dff10cde43ef237d625be22c41619a5c8",
+      "size_bytes": 20810
     },
     {
       "path": ".agents/scripts/verify_topological_health.py",

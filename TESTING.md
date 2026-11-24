@@ -171,15 +171,15 @@ Scope: **10 hydratable stacks** (`python`, `fastapi`, `node-backend`, `vue3`, `r
 ### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x` `v3.5.0`)
 * **Base Image:** `sinfallas/base-node-ionic:26` (Available tags: `22`, `24`, `26` and `latest`)
 * **Certified 11X Metrics (`v3.5.0` / `QA-11X v3.5`):**
-  * **Statements:** `99.60%` (`>= 95.0%`)
-  * **Branches:** `96.75%` global (`src/resources` `98.41%`, `src/cli` `98.06%`, `surgical-merger.ts` `98.50%`)
-  * **Functions:** `99.88%` (`>= 95.0%`)
-  * **Lines:** `99.60%` (`>= 95.0%`)
-  * **Unit & Live Protocol Tests:** **741 tests passing at 100%** (43 Vitest suites including `tests/audit-hardening.unit.ts`, `tests/live-mcp-protocol.test.ts` over `InMemoryTransport` and `StdioClientTransport`, `tests/mobileBlueprint.test.ts`, `tests/path-real-resolver.unit.ts`, `tests/ide-config-paths.unit.ts`, `tests/cli-certify-audit.unit.ts`, `tests/cli-doctor-upgrade.unit.ts`, `tests/cli-dx-tools.unit.ts`, `tests/diff-blast-radius.unit.ts` with `git-signals`, `src/index.ts`, `QA-CLI-TTY-01`, `SEC-09`, and `QA-SSR-HYDRATION-01`)
+  * **Statements:** `99.58%` (`>= 95.0%`)
+  * **Branches:** `96.77%` global (`src/resources` `97.56%`, `src/cli` `97.97%`, `surgical-merger.ts` `98.51%`)
+  * **Functions:** `99.89%` (`>= 95.0%`)
+  * **Lines:** `99.58%` (`>= 95.0%`)
+  * **Unit & Live Protocol Tests:** **742 tests passing at 100%** (43 Vitest suites including `tests/audit-hardening.unit.ts`, `tests/live-mcp-protocol.test.ts` over `InMemoryTransport` and `StdioClientTransport`, `tests/mobileBlueprint.test.ts`, `tests/path-real-resolver.unit.ts`, `tests/ide-config-paths.unit.ts`, `tests/cli-certify-audit.unit.ts`, `tests/cli-doctor-upgrade.unit.ts`, `tests/cli-dx-tools.unit.ts`, `tests/diff-blast-radius.unit.ts` with `git-signals`, `src/index.ts`, `QA-CLI-TTY-01`, `SEC-09`, and `QA-SSR-HYDRATION-01`)
   * **Multi-Stack Differential Coverage (`verify_diff_coverage.py`):** **100.00% delta lines** and **>= 90.00% delta branches** across modified files
   * **MCP Surface:** **19 canonical tools** (12 v1 core + 6 v2.0 tools for CALM, Release Gate, agent trajectory, OWASP LLM Red Team, Vibe-Rescue, and TMS sync + **v3.1** `session_flight_recorder`) and **13 `blueprint://*` resources** (11 static URIs including **v3.1** `blueprint://skills/tactical-patterns-11x` with `?lang=es|en` bilingual negotiation + 2 resource templates) enforcing Thin-Repo contract, AST graph auto-build/refresh (`auto_build_if_missing`, `refresh_graph`), longitudinal Git architectural signals (`include_git_signals`, `--git-signals`), Metadata-Only mode (`include_content: false`), rule grouping (`groupFindingsByRule`), 36 static scanner rules (`SEC-01`..`SEC-16`, `SEC-CI-ACTION-REF`, `SEC-WS-PUBSUB-01`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-MYPY-01`, `QA-PG17-RLS`, `QA-SMOKE-01`, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `QA-STRYKER-CFG-01`, `UI-11X-01..03`) enforcing the 22 DISA ASD STIG V6R5 + OWASP v4.2 reference controls alongside human push guard `QA-GIT-GATE-01`, `TaskStateGuard` + `promptGuard`, and 10/10 parity in `certify_11x_gate`
   * **Karate Labs BDD Scenarios:** `mcp-server/test/mcp_cli_test.feature` (**52 scenarios** in `sinfallas/karatelabs:1.5.1`, including **Scenarios 50–52** covering the 12 CLI subcommands, shared IDE config paths, Clean-Room tarball verification, `blast-radius --git-signals`, `.claude-plugin/` parity, and SARIF v2.1.0 contracts)
-  * **Headless CI CLI Gates & Diagnostics Surface:** `doctor`/`status`, surgical `upgrade`/`cache-clean`, `certify` (`--strict` exit `20` / `--release-gate` exit `30`), `audit` (`--mode security|pyramid|vibe|calm|all`, `--sarif` v2.1.0), `blast-radius` (`--changed-since` routing `DOCS_ONLY`/`MICRO_CHANGE`/`FULL_11X`), `mcp-config` (`--client <id> --install --pin-version` with `.11x-backup`), `completion <fish|bash|zsh>`, and offline `--version --verbose|--json`.
+  * **Headless CI CLI Gates & Diagnostics Surface:** `doctor`/`status`, surgical `upgrade`/`cache-clean`, `certify` (`--strict` exit `20` / `--release-gate` exit `30`), `audit` (`--mode security|pyramid|vibe|calm|all`, `--profile auto|generic|qa-11x-self`, `--sarif` v2.1.0), `blast-radius` (`--changed-since` routing `DOCS_ONLY`/`MICRO_CHANGE`/`FULL_11X`), `mcp-config` (`--client <id> --install --pin-version` with `.11x-backup`), `completion <fish|bash|zsh>`, and offline `--version --verbose|--json`.
 
 ### 🤖 AI / LLM Evals (`ai-evals/`), 📱 Mobile (`mobile-appium/`) and 🚑 Vibe Rescue (`vibe-rescue/`)
 * **Offline AI (`make test-ai-offline` in `sinfallas/base-python-uv:3.15`):** **28 deterministic tests passed** (4 `live` tests skipped by design in offline mode), **97.73% coverage**, `ruff CC <= 5` + `mypy --strict` with **0 findings**.
@@ -256,12 +256,12 @@ The script sequentially and strictly evaluates 10 mandatory gates:
 
 * **Universal QA 11X Skills Installer (`scripts/install-skill.sh`):**
   * **Test Suites:**
-    * **Python Unit & Meta-QA:** `tests/*.unit.py` + `tests/meta_qa/` + `vibe-rescue/tests/` (**313 tests collected**, **99.14%** branch+line coverage with `ruff CC <= 5` and `mypy --strict`).
+    * **Python Unit & Meta-QA:** `tests/*.unit.py` + `tests/meta_qa/` + `vibe-rescue/tests/` (**316 tests collected**, **99.14%** branch+line coverage with `ruff CC <= 5` and `mypy --strict`).
     * **BATS-core & ShellCheck (`sinfallas/base-bash-qa:latest`, rootless `--cap-drop=ALL --security-opt=no-new-privileges:true`):** `bash-scripts/test/ejemplo_mock.bats`, `tests/bats/{test_ci_make_escape,test_graphify_and_calm,test_install_skill,test_limpieza,test_pagespeed,test_repo_scripts}.bats` (**112 BATS tests**, **97.35% normalized kcov**, and ShellCheck with 0 warnings).
   * **Ephemeral Execution:**
     * `docker run --rm --network none --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=.agents/scripts:vibe-rescue:. -v "${PWD}:/app:ro" -w /app sinfallas/base-python-uv:3.15 pytest -q --import-mode=importlib --cov=.agents/scripts --cov-fail-under=95 tests/*.unit.py tests/meta_qa/test_*.py`
     * `docker run --rm --network none --cap-drop=ALL --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e _USER=qa -v "${PWD}:/repo:ro" -w /repo/bash-scripts sinfallas/base-bash-qa:latest bash -c "shellcheck -x ../scripts/*.sh ../.agents/scripts/*.sh ../*/limpieza.sh ../mcp-server/example/verify-v2.sh ../instalar-hooks.sh ./*.sh && bats test/*.bats ../tests/bats/*.bats"`
-  * **Coverage & Metrics:** **100% assertions passed** (**112** BATS tests, **313** Python unit + Meta-QA + Vibe-Rescue tests at **99.14%**) and **0 errors / 0 warnings** in ShellCheck.
+  * **Coverage & Metrics:** **100% assertions passed** (**112** BATS tests, **316** Python unit + Meta-QA + Vibe-Rescue tests at **99.14%**) and **0 errors / 0 warnings** in ShellCheck.
   * **Validated Assertions:** Smart auto-detection without polluting `$HOME/.agents`, target resolution (`workspace`, `antigravity`, `claude`, `cursor`, `windsurf`, `codex`, `hermes`, `all`), full catalog installation of all 11 modular skills (`qa-11x-architect`, `refactoring-ui`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `qa-11x-docker-certifier`, `qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `tactical-patterns-11x`) plus `.agents/schemas/`, SHA-256 verification against `manifest.json`, strict tampering detection (aborting with exit code 1 under DISA STIG `V-222513`), and `--help` flag check.
 
 * **Node.js / TypeScript MCP Server & Skills Installer (`mcp-server/`):**
@@ -294,9 +294,9 @@ The script sequentially and strictly evaluates 10 mandatory gates:
     * `make -C mcp-server build`
     * `make -C mcp-server qa-example && make -C mcp-server qa-e2e` (or `./scripts/probar-mcp-example.sh`)
   * **Coverage & Metrics Achieved:**
-    * **100% assertions passed** (**741** Vitest tests across **43 Vitest suites** + **52** Karate BDD scenarios including **Scenarios 50–52** CLI, `git-signals`, `.claude-plugin/` & IDE config contracts + **292** Python unit & Meta-QA tests + **28** Offline AI (4 live skipped) + **112** BATS + **21** Vibe-Rescue + live E2E over `stdio`).
-    * **99.60% line/statement coverage and 96.75% branch coverage** (exceeding the `>= 95%` threshold).
-    * **99.88% function coverage**.
+    * **100% assertions passed** (**742** Vitest tests across **43 Vitest suites** + **52** Karate BDD scenarios including **Scenarios 50–52** CLI, `git-signals`, `.claude-plugin/` & IDE config contracts + **295** Python unit & Meta-QA tests + **28** Offline AI (4 live skipped) + **112** BATS + **21** Vibe-Rescue + live E2E over `stdio`).
+    * **99.58% line/statement coverage and 96.77% branch coverage** (exceeding the `>= 95%` threshold).
+    * **99.89% function coverage**.
     * **0 errors from ESLint (`--max-warnings 0`), SonarJS (Cognitive `<= 15`), and TypeScript (`strict: true`)**.
 
 * **Universal Cleanup and Sanitization Script (`scripts/limpieza.sh`):**
@@ -310,7 +310,7 @@ The script sequentially and strictly evaluates 10 mandatory gates:
     * Optional deep pruning via `--deep` or `--docker-prune` flags (including `.agents/{backups,proposals,.qa-evidence.json,.cache}` and `~/.cache/qa-11x-blueprints` cache).
 
 * **Multi-Stack Differential Coverage Auditor (`.agents/scripts/verify_diff_coverage.py` / `make diff-cov`):**
-  * **Suite:** `tests/test_verify_diff_coverage.unit.py` (21 unit tests in `sinfallas/base-python-uv:3.15`, **100.00%** line & branch coverage over `verify_diff_coverage.py`, `ruff C901 <= 5`, and `mypy --strict`).
+  * **Suite:** `tests/test_verify_diff_coverage.unit.py` (23 unit tests in `sinfallas/base-python-uv:3.15`, **100.00%** line & branch coverage over `verify_diff_coverage.py`, `ruff C901 <= 5`, and `mypy --strict`).
   * **Validated Assertions:** Anti-XXE blocking (`<!DOCTYPE`/`<!ENTITY` -> `exit 12`), path traversal/out-of-workspace symlink containment and unsafe `--base-ref` guards, Cobertura XML parser (`<sources>`, `/app/` -> workspace) and LCOV parser (`BRDA`, report-stem rewriting e.g. `mcp-server.info`), Anti-Evasion blocking (`# pragma: no cov`+`er`, `// v8 ig`+`nore`, `/* c8 ig`+`nore */`, `@codeCoverageIg`+`nore` -> `exit 11`) with audited `QA11X-APPROVED-EXCLUSION(<reason>)` exemption, rejection of new production files missing reports (`SIN_REPORTE`, `exit 12`), and `DOCS_ONLY` Fast-Path (`exit 0`).
 * **Deterministic Findings Memory & Anti-Loop Circuit Breaker (`.agents/scripts/track_findings_state.py`):**
   * **Suites:** `tests/test_track_findings_state.unit.py` (10 unit tests in `sinfallas/base-python-uv:3.15`, **100.00%** line/branch coverage, `ruff C901 <= 5`, and `mypy --strict`), `mcp-server/tests/findings-breaker.unit.ts`, and Scenario 35 of Karate Labs BDD (`mcp-server/test/mcp_cli_test.feature`).

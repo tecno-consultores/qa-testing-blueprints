@@ -58,9 +58,9 @@ const AST_TOOL_NAMES = new Set<string>([
 
 const FORBIDDEN_REMOTE_CMD_RE =
   /\b(?:git\s+push|npm\s+publish|pnpm\s+publish|docker\s+push)\b/i;
-const FORBIDDEN_GIT_OPT_PUSH_RE = /\bgit\s+-[a-z]\s+\S+\s+push\b/i;
 const NO_VERIFY_FLAG_RE = /(?:^|\s)--no-verify(?=\s|$)/i;
-const RM_COMMAND_SEG_RE = /(?:^|[\s;|&"'])rm\s+([^\r\n;|&"']+)/i;
+const RM_COMMAND_SEG_RE = /(?:^|[\s;|&"'])rm\s+([^;\r\n|&}]+)/gi;
+const GIT_COMMAND_SEG_RE = /\bgit\s+([^;\r\n|&}]+)/gi;
 const PROTECTED_RM_PREFIXES = [
   '/etc',
   '/usr',
@@ -299,17 +299,65 @@ function isDangerousRmTarget(rawTarget: string): boolean {
   return PROTECTED_RM_PREFIXES.some((prefix) => target === prefix || target.startsWith(`${prefix}/`));
 }
 
-function isDestructiveRmCommand(text: string): boolean {
-  const match = RM_COMMAND_SEG_RE.exec(text);
-  if (!match) {
-    return false;
+function stripOuterQuotes(raw: string): string {
+  let start = 0;
+  let end = raw.length;
+  while (start < end && (`"'\\`.includes(raw.charAt(start)))) {
+    start += 1;
   }
-  const tokens = pickAt(match, 1).trim().split(/\s+/);
+  while (end > start && (`"'\\`.includes(raw.charAt(end - 1)))) {
+    end -= 1;
+  }
+  return raw.slice(start, end);
+}
+
+function isDestructiveRmArgs(rawArgs: string): boolean {
+  const tokens = rawArgs.trim().split(/\s+/);
   let hasRecursive = false;
   for (const tok of tokens) {
-    if (tok === '--recursive' || (tok.startsWith('-') && !tok.startsWith('--') && tok.toLowerCase().includes('r'))) {
+    const cleanTok = stripOuterQuotes(tok);
+    if (
+      cleanTok === '--recursive' ||
+      (cleanTok.startsWith('-') && !cleanTok.startsWith('--') && cleanTok.toLowerCase().includes('r'))
+    ) {
       hasRecursive = true;
-    } else if (!tok.startsWith('-') && hasRecursive && isDangerousRmTarget(tok)) {
+    } else if (!cleanTok.startsWith('-') && hasRecursive && isDangerousRmTarget(cleanTok)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function isDestructiveRmCommand(text: string): boolean {
+  for (const match of text.matchAll(RM_COMMAND_SEG_RE)) {
+    if (isDestructiveRmArgs(pickAt(match, 1))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const GIT_OPT_WITH_ARG = new Set(['-c', '-C', '--git-dir', '--work-tree', '--namespace', '--config-env']);
+
+function isGitOptPushArgs(rawArgs: string): boolean {
+  const tokens = rawArgs.trim().split(/\s+/);
+  let idx = 0;
+  while (idx < tokens.length) {
+    const clean = stripOuterQuotes(pickAt(tokens, idx));
+    if (clean.toLowerCase() === 'push') {
+      return true;
+    }
+    if (!clean.startsWith('-')) {
+      return false;
+    }
+    idx += GIT_OPT_WITH_ARG.has(clean) ? 2 : 1;
+  }
+  return false;
+}
+
+function hasGitOptPushCommand(text: string): boolean {
+  for (const match of text.matchAll(GIT_COMMAND_SEG_RE)) {
+    if (isGitOptPushArgs(pickAt(match, 1))) {
       return true;
     }
   }
@@ -319,7 +367,7 @@ function isDestructiveRmCommand(text: string): boolean {
 function hasForbiddenCommand(payload: string): boolean {
   return (
     FORBIDDEN_REMOTE_CMD_RE.test(payload) ||
-    FORBIDDEN_GIT_OPT_PUSH_RE.test(payload) ||
+    hasGitOptPushCommand(payload) ||
     NO_VERIFY_FLAG_RE.test(payload) ||
     isDestructiveRmCommand(payload)
   );

@@ -17,6 +17,7 @@ import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -437,7 +438,13 @@ def _persist_report_if_requested(opts: AuditOptions, report: dict[str, Any]) -> 
     dest = resolve_safe_output_path(opts.output_path, opts.base_dir)
     dest.parent.mkdir(parents=True, exist_ok=True)
     serialized = json.dumps(report, indent=2, ensure_ascii=False) + "\n"
-    dest.write_text(serialized, encoding="utf-8")
+    tmp_path = dest.parent / f".{dest.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
+    try:
+        tmp_path.write_text(serialized, encoding="utf-8")
+        os.replace(tmp_path, dest)
+    except OSError:
+        tmp_path.unlink(missing_ok=True)
+        raise
 
 
 def run_pagespeed_audit(

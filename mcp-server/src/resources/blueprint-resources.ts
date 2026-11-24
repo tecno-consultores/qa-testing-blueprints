@@ -128,7 +128,7 @@ export class BlueprintResources {
       content =
         resolvedLang === 'es'
           ? `# 22 Patrones de Seguridad DISA ASD STIG V6R5 & OWASP v4.2\n\nConsulte ${POSTGRES_ES_DOC_PATH}`
-          : '# 22 Security Patterns DISA ASD STIG V6R5 & OWASP v4.2\n\nSee docs/04_PATRONES_DE_TESTING_Y_SEGURIDAD.md';
+          : '# 22 Security Patterns DISA ASD STIG V6R5 & OWASP v4.2\n\nSee docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md';
     }
     return {
       uri: 'blueprint://security/disa-owasp-22',

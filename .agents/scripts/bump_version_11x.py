@@ -7,8 +7,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -576,6 +578,18 @@ def _rule_expected(rule: VersionRule, expected: str) -> str:
     return ".".join(expected.split(".")[:2])
 
 
+def _atomic_write_text(target: Path, content: str) -> None:
+    tmp_path = (
+        target.parent / f".{target.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
+    )
+    try:
+        tmp_path.write_text(content, encoding="utf-8")
+        os.replace(tmp_path, target)
+    except OSError:
+        tmp_path.unlink(missing_ok=True)
+        raise
+
+
 def process_rule(
     root: Path,
     rule: VersionRule,
@@ -596,7 +610,7 @@ def process_rule(
     if matched_pats != len(rule.patterns):
         return [f"{rule.rel_path}: missing one or more version/edition anchors"], 0
     if rewritten != original and persist:
-        target.write_text(rewritten, encoding="utf-8")
+        _atomic_write_text(target, rewritten)
         return [], 1
     return [], 0
 

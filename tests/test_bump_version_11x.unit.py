@@ -521,3 +521,18 @@ def test_claude_plugin_manifests_version_and_edition_sync(tmp_path: Path) -> Non
     assert "@sinfallas/mcp-qa-11x@3.5.0" in (plugin_dir / "plugin.json").read_text(
         encoding="utf-8"
     )
+
+
+def test_atomic_write_cleans_tmp_on_replace_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verifica limpieza de .tmp cuando os.replace falla en bump_version_11x."""
+    mod = _load_mod()
+
+    def _boom(_src: object, _dst: object) -> None:
+        raise OSError("disk full")
+
+    monkeypatch.setattr(mod.os, "replace", _boom)
+    with pytest.raises(OSError, match="disk full"):
+        mod._atomic_write_text(tmp_path / "file.txt", "hello")
+    assert list(tmp_path.glob("*.tmp")) == []

@@ -10,6 +10,7 @@ import {
 import { auditSecurityStigOwasp } from '../tools/security-auditor.js';
 import { auditTestPyramidGaps } from '../tools/test-pyramid-auditor.js';
 import {
+  type CalmValidationProfile,
   type CalmValidationResult,
   DEFAULT_CALM_ARCHITECTURE_PATH,
   validateCalmArchitecture,
@@ -59,6 +60,8 @@ const FLAG_FAIL_ON = '--fail-on';
 const FLAG_INCLUDE_EXAMPLES = '--include-examples';
 const FLAG_MAX_FINDINGS = '--max-findings';
 const FLAG_ARCH_PATH = '--architecture-path';
+const FLAG_PROFILE = '--profile';
+const VALID_CALM_PROFILES = new Set<string>(['auto', 'generic', 'qa-11x-self']);
 
 export type AuditMode =
   | typeof MODE_SECURITY
@@ -91,6 +94,7 @@ export const AUDIT_HELP_TEXT = [
   '  --include-examples           Incluye archivos .example en auditoría de seguridad',
   '  --max-findings <n>           Límite máximo de hallazgos devueltos por motor',
   '  --architecture-path <rel>    Ruta relativa del modelo FINOS CALM',
+  '  --profile <profile>          Perfil CALM: auto | generic | qa-11x-self (por defecto: auto)',
   '  --help, -h                   Muestra esta ayuda y sale con código 0',
 ].join('\n');
 
@@ -102,6 +106,7 @@ interface ParsedAuditArgs {
   includeExamples: boolean;
   maxFindings: number | undefined;
   architecturePath: string | undefined;
+  calmProfile: CalmValidationProfile | undefined;
 }
 
 interface ExecutedAudits {
@@ -163,6 +168,9 @@ const AUDIT_VALUE_HANDLERS: Readonly<Record<string, AuditValueSetter>> = Object.
   [FLAG_ARCH_PATH]: (val, _flag, state) => {
     state.architecturePath = val;
   },
+  [FLAG_PROFILE]: (val, flag, state) => {
+    state.calmProfile = assertInSet<CalmValidationProfile>(val, VALID_CALM_PROFILES, flag);
+  },
 });
 
 const AUDIT_VALUE_FLAG_KEYS = Object.keys(AUDIT_VALUE_HANDLERS);
@@ -217,6 +225,7 @@ function parseAuditArgs(args: readonly string[]): ParsedAuditArgs {
     includeExamples: false,
     maxFindings: undefined,
     architecturePath: undefined,
+    calmProfile: undefined,
   };
   for (let i = 0; i < args.length; i++) {
     i += applyAuditToken(args, i, state);
@@ -416,6 +425,7 @@ function runCalmAuditWithCap(
   const rawCalm = validateCalmArchitecture({
     workspaceRoot: projectPath,
     ...(parsed.architecturePath !== undefined ? { architecturePath: parsed.architecturePath } : {}),
+    ...(parsed.calmProfile !== undefined ? { profile: parsed.calmProfile } : {}),
   });
   const calm =
     parsed.maxFindings !== undefined && rawCalm.violations.length > parsed.maxFindings

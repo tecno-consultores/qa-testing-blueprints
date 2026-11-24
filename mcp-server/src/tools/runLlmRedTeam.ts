@@ -78,7 +78,7 @@ const LITERAL_CREDENTIAL_RE =
 const TOP_LEVEL_KEY_RE = /^([A-Za-z_]\w*)\s*:/;
 const SLUG_ID_RE = /^[a-z0-9][a-z0-9:_-]*$/i;
 const ASSERT_TYPE_RE = /^\s*-\s*type\s*:\s*["']?([a-z0-9_-]+)["']?/i;
-const SUBSECTION_KEY_RE = /^\s{2}(plugins|strategies)\s*:/;
+const SUBSECTION_KEY_RE = /^\s+(plugins|strategies)\s*:/;
 
 export type RedTeamMode = 'offline' | 'live';
 export type RedTeamStatus = 'PASSED' | 'FAILED' | 'SKIPPED_MISSING_CREDENTIALS';

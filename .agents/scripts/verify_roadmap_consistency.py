@@ -246,6 +246,12 @@ def _check_partial_hito(
             f"icono '{sec['header_icon']}', pero el avance es parcial "
             f"({done}/{total}). Debe llevar '## 🚧 Hito {num}:'."
         )
+    tbl_pct = t_hito["progreso_pct"]
+    if 0 < tbl_pct < 100 and abs(tbl_pct - pct) > 1:
+        errors.append(
+            f"Inconsistencia en Hito {num}: La tabla indica {tbl_pct}%, "
+            f"pero las tareas completadas ({done}/{total}) equivalen a {pct}%."
+        )
     return errors
 
 
@@ -287,7 +293,11 @@ def validate_roadmap_consistency(roadmap_path: Path) -> list[str]:
     sections = parse_roadmap_sections(content)
 
     if not table_hitos:
-        return []
+        return [
+            f"Hito huérfano {orphan_num}: existe sección '## Hito {orphan_num}:' "
+            "sin fila correspondiente en la tabla de resumen."
+            for orphan_num in sorted(sections)
+        ]
 
     errors: list[str] = []
     table_nums = {row["hito_num"] for row in table_hitos}

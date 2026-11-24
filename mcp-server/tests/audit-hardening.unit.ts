@@ -7,9 +7,12 @@ import fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { runAuditCli } from '../src/cli/audit-cli.js';
 import { reconcileAgentsGovernance } from '../src/cli/reconcile-agents.js';
 import { detectDirectExecution } from '../src/index.js';
+import { handleSyncEnterpriseTms, runTmsSyncCli } from '../src/integrations/tmsSyncCli.js';
 import { parseQaOutput } from '../src/parsers/output-parsers.js';
+import { BlueprintResources } from '../src/resources/blueprint-resources.js';
 import { assertNoSymlinkSegments } from '../src/security/pathRealResolver.js';
 import { inspectPromptSafety, redactPiiAndSecrets } from '../src/security/promptGuard.js';
 import { normalizeForMatch } from '../src/security/workspacePathValidator.js';
@@ -18,6 +21,10 @@ import { SurgicalMerger } from '../src/services/surgical-merger.js';
 import { pruneRetiredFilesInCanonicalSkillDirs } from '../src/services/version-manager.js';
 import { auditVibePrototype } from '../src/tools/auditVibePrototype.js';
 import { certify11xGate } from '../src/tools/certify-gate.js';
+import {
+  resolveComposeDirectFallback,
+  resolveMakefileDockerRecipes,
+} from '../src/tools/ephemeral-runner.js';
 import { evaluateAgentTrajectory } from '../src/tools/evaluateAgentTrajectory.js';
 import { evaluateReleaseReadiness } from '../src/tools/evaluateReleaseGate.js';
 import { AIDER_BRIDGE_END, AIDER_BRIDGE_START } from '../src/tools/initOrAppendAgentsMd.js';
@@ -446,5 +453,211 @@ describe('Wave 3 Audit Hardening Regression Suite (H1-H14)', () => {
     );
     expect(clearNoReason.status).toBe('PASSED');
     expect(seenClearArgs.some((a) => a.some((tok) => tok.startsWith('--reason=')))).toBe(false);
+  });
+
+  it('Hardening round 2: consumer default CALM path, audit --profile, SEC-06 proto, rm/git bypasses, JSONC strings, per-route api-parity-ignore, Vibe parity, TMS JSON, 4-space YAML/Compose', async () => {
+    // 1. Consumer project using default architecture/qa-11x.calm.json validates in auto & --profile CLI
+    const calmWs = path.join(tmpDir, 'consumer-calm');
+    fs.mkdirSync(path.join(calmWs, 'architecture'), { recursive: true });
+    const genericCalm = {
+      nodes: [
+        { 'unique-id': 'portal-ui', 'node-type': 'service', name: 'Portal', description: 'SPA' },
+        { 'unique-id': 'billing-api', 'node-type': 'service', name: 'Billing', description: 'API' },
+      ],
+      relationships: [
+        {
+          'unique-id': 'portal-billing',
+          description: 'HTTPS',
+          'relationship-type': { connects: { source: { node: 'portal-ui' }, destination: { node: 'billing-api' } } },
+        },
+      ],
+      controls: {
+        'tls-enforced': {
+          description: 'TLS 1.3',
+          requirements: [{ 'requirement-url': 'https://example.org/tls', config: { 'control-id': 'tls-enforced' } }],
+        },
+      },
+    };
+    fs.writeFileSync(path.join(calmWs, 'architecture', 'qa-11x.calm.json'), JSON.stringify(genericCalm), 'utf8');
+    expect(validateCalmArchitecture({ workspaceRoot: calmWs }).valid).toBe(true);
+    const cliGeneric = await runAuditCli(['--mode', 'calm', '--profile', 'generic', calmWs]);
+    expect(cliGeneric.exitCode).toBe(0);
+    const cliSelf = await runAuditCli(['--mode', 'calm', '--profile', 'qa-11x-self', calmWs]);
+    expect(cliSelf.exitCode).toBe(1);
+
+    // 2. SEC-06 prototype pollution & SEC-10 password with $ and # (vs ${VAR} skip)
+    const sec2 = path.join(tmpDir, 'sec-r2');
+    fs.mkdirSync(path.join(sec2, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(sec2, 'src', 'pollute.ts'), 'export function p(o: Record<string, unknown>) { o.__proto__ = {}; }\n', 'utf8');
+    const pwKey = ['DB_PASS', 'WORD='].join('');
+    const pwVal = ['My$ecret', '#2026!'].join('');
+    fs.writeFileSync(path.join(sec2, '.env'), `${pwKey}${pwVal}\nAPI_TOKEN=\${RUNTIME_TOKEN}\n`, 'utf8');
+    const sec2Res = await auditSecurityStigOwasp(sec2);
+    expect(sec2Res.findings.some((f) => f.rule_id === 'SEC-06' && f.file.endsWith('pollute.ts'))).toBe(true);
+    expect(sec2Res.findings.some((f) => f.rule_id === 'SEC-10' && f.file === '.env')).toBe(true);
+
+    // 3. Trajectory chained rm, quoted rm, multi-option git push vs safe git status
+    const chainedRm = await evaluateAgentTrajectory({
+      mode: 'offline',
+      steps: [{ tool: 'bash', args: { cmd: 'rm -rf /tmp/safe && rm -rf "/etc/hosts"' }, status: 'passed' }],
+    });
+    expect(chainedRm.violations.some((v) => v.code === 'FORBIDDEN_COMMAND')).toBe(true);
+    const multiFlagPush = await evaluateAgentTrajectory({
+      mode: 'offline',
+      steps: [{ tool: 'bash', args: { cmd: 'git -C repo -c core.sshCommand=x --no-pager push origin main' }, status: 'passed' }],
+    });
+    expect(multiFlagPush.violations.some((v) => v.code === 'FORBIDDEN_COMMAND')).toBe(true);
+    const safeGit = await evaluateAgentTrajectory({
+      mode: 'offline',
+      steps: [
+        { tool: 'inspect_ast_blast_radius', args: { symbol: 'ok' }, status: 'passed' },
+        { tool: 'bash', args: { cmd: 'git --no-pager status && git --version' }, status: 'passed' },
+      ],
+    });
+    expect(safeGit.violations.some((v) => v.code === 'FORBIDDEN_COMMAND')).toBe(false);
+
+    // 4. certify-gate JSONC string containing ,] / ,}, per-route api-parity-ignore, and language-agnostic reminder
+    const gateWs = path.join(tmpDir, 'gate-r2');
+    fs.mkdirSync(path.join(gateWs, 'backend', 'src'), { recursive: true });
+    fs.mkdirSync(path.join(gateWs, 'frontend', 'src'), { recursive: true });
+    fs.writeFileSync(path.join(gateWs, 'tsconfig.json'), '{\n  "pattern": "a,]",\n  "obj": "x,}",\n}\n', 'utf8');
+    fs.writeFileSync(
+      path.join(gateWs, 'backend', 'src', 'routes.ts'),
+      [
+        '// api-parity-ignore',
+        'router.get("/api/v1/internal", h1);',
+        'router.get("/api/v1/inline-ignored", h3); // api-parity-ignore',
+        '',
+        '',
+        '',
+        'router.post("/api/v1/orphan-unignored", h2);',
+      ].join('\n'),
+      'utf8'
+    );
+    fs.writeFileSync(path.join(gateWs, 'frontend', 'src', 'app.ts'), 'export const x = 1;\n', 'utf8');
+    const gateRes = await certify11xGate(gateWs, { allowUnmergedExamples: true, requireLintEvidence: false });
+    expect(gateRes.checks.json_integrity).toBe(true);
+    expect(gateRes.blockers.some((b) => b.includes('/api/v1/orphan-unignored'))).toBe(true);
+    expect(gateRes.blockers.some((b) => b.includes('/api/v1/internal'))).toBe(false);
+    expect(gateRes.upstream_evolution_reminder).toContain('in the user prompt language');
+
+    // 5. test-pyramid-auditor hyphenated float threshold fail-under = 95.5
+    const pyrWs = path.join(tmpDir, 'pyr-r2');
+    fs.mkdirSync(path.join(pyrWs, 'src'), { recursive: true });
+    fs.mkdirSync(path.join(pyrWs, 'tests'), { recursive: true });
+    fs.writeFileSync(path.join(pyrWs, 'pyproject.toml'), '[tool.coverage.report]\nfail-under = 95.5\n', 'utf8');
+    fs.writeFileSync(path.join(pyrWs, 'src', 'a.py'), 'def f(): return 1\n', 'utf8');
+    fs.writeFileSync(path.join(pyrWs, 'tests', 'test_a.py'), 'def test_f(): assert True\n', 'utf8');
+    const pyrGap = await auditTestPyramidGaps(pyrWs);
+    expect(pyrGap.layers_audit.find((l) => l.layer_id === 'L03_UNIT_ISOLATED')?.status).toBe('COVERED');
+
+    // 6. auditVibePrototype skips binaries, avoids src/clients/ FP, detects VITE_*_API_KEY
+    const vibeWs = path.join(tmpDir, 'vibe-r2');
+    fs.mkdirSync(path.join(vibeWs, 'src', 'clients'), { recursive: true });
+    fs.mkdirSync(path.join(vibeWs, 'assets'), { recursive: true });
+    fs.mkdirSync(path.join(vibeWs, 'tests'), { recursive: true });
+    fs.writeFileSync(path.join(vibeWs, 'assets', 'logo.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00]));
+    fs.writeFileSync(path.join(vibeWs, 'src', 'clients', 'adminClient.ts'), 'export const c = supabaseAdmin;\n', 'utf8');
+    fs.writeFileSync(path.join(vibeWs, 'src', 'ui.tsx'), 'export const k = process.env.VITE_STRIPE_API_KEY;\n', 'utf8');
+    fs.writeFileSync(path.join(vibeWs, 'tests', 'ok.test.ts'), 'export const ok = 1;\n', 'utf8');
+    const vibeR2 = auditVibePrototype({ workspaceRoot: vibeWs });
+    expect(vibeR2.findings.some((f) => f.file.includes('adminClient.ts') && f.ruleId === 'VIBE-RLS-002')).toBe(false);
+    expect(vibeR2.findings.some((f) => f.file.includes('ui.tsx') && f.ruleId === 'VIBE-SEC-001')).toBe(true);
+
+    // 7. TMS JSON serialization preserves valid JSON even with 4-char env token
+    const tmsWs = path.join(tmpDir, 'tms-r2');
+    fs.mkdirSync(path.join(tmsWs, 'tests'), { recursive: true });
+    fs.writeFileSync(path.join(tmsWs, 'tests', 'sample.unit.ts'), '// @JIRA-101\nexport const x = 1;\n', 'utf8');
+    const cliTms = await runTmsSyncCli(['--mode', 'inventory', '--json', '--target-dir', 'tests'], {
+      workspaceRoot: tmsWs,
+      env: { JIRA_API_TOKEN: 'true' },
+    });
+    expect(cliTms.exitCode).toBe(0);
+    expect(() => JSON.parse(cliTms.output) as unknown).not.toThrow();
+    const mcpTms = await handleSyncEnterpriseTms(
+      { mode: 'inventory', workspaceRoot: tmsWs, targetDir: 'tests' },
+      { env: { JIRA_API_TOKEN: 'true' } }
+    );
+    expect(mcpTms.isError).toBe(false);
+    const firstBlock = mcpTms.content[0];
+    expect(firstBlock?.type === 'text' && firstBlock.text.includes('\n')).toBe(true);
+
+    // 8. runLlmRedTeam accepts 4-space YAML indentation
+    const pfWs = path.join(tmpDir, 'pf-r2');
+    fs.mkdirSync(pfWs, { recursive: true });
+    fs.writeFileSync(
+      path.join(pfWs, 'promptfooconfig.yaml'),
+      [
+        'prompts:',
+        '    - "Respond safely"',
+        'providers:',
+        '    - id: openai:gpt-4.1-mini',
+        'defaultTest:',
+        '    assert:',
+        '        - type: contains',
+        '          value: ok',
+        'redteam:',
+        '    plugins:',
+        '        - prompt-injection',
+        '        - pii:direct',
+        '        - rbac',
+        '        - excessive-agency',
+        '    strategies:',
+        '        - jailbreak',
+      ].join('\n'),
+      'utf8'
+    );
+    const pfRes = await runLlmRedTeam({ workspaceRoot: pfWs, configPath: 'promptfooconfig.yaml', mode: 'offline' });
+    expect(pfRes.passed).toBe(true);
+
+    // 9. ephemeral-runner += variable append & 4-space Compose service parsing
+    const ephWs = path.join(tmpDir, 'eph-r2');
+    fs.mkdirSync(ephWs, { recursive: true });
+    const makefileText = [
+      'QA_FLAGS += --rm',
+      'QA_FLAGS += --network none',
+      'qa-lint:',
+      '\tdocker run $(QA_FLAGS) alpine:3.21 echo ok',
+    ].join('\n');
+    const makePlan = resolveMakefileDockerRecipes(makefileText, 'qa-lint', ephWs);
+    expect(makePlan.ok).toBe(true);
+    if (makePlan.ok) {
+      expect(makePlan.commands[0]).toContain('--network');
+    }
+    fs.writeFileSync(
+      path.join(ephWs, 'docker-compose.qa.yml'),
+      ['services:', '    qa-node:', '        image: node:26', '    other-svc:', '        image: alpine:3.21'].join('\n'),
+      'utf8'
+    );
+    fs.writeFileSync(path.join(ephWs, 'package.json'), '{"name":"demo"}\n', 'utf8');
+    const fb = resolveComposeDirectFallback(ephWs, 'lint');
+    expect(fb?.[0]).toContain('qa-node');
+
+    // 10. blueprint-resources fallback points to existing docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md
+    const stubResources = new BlueprintResources({
+      fetchManifest: () =>
+        Promise.resolve({
+          blueprint_version: '3.5.0',
+          agent_governance_files: [],
+          stacks: {},
+        }),
+      fetchFileContent: () => Promise.resolve(''),
+    } as never);
+    const secEnFallback = await stubResources.getSecurityResource('en');
+    expect(secEnFallback.text).toContain('docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md');
+
+    const stubEsSecResources = new BlueprintResources({
+      fetchManifest: () =>
+        Promise.resolve({
+          blueprint_version: '3.5.0',
+          agent_governance_files: [
+            { path: '.agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.es.md', sha256: 'abc' },
+          ],
+          stacks: {},
+        }),
+      fetchFileContent: () => Promise.resolve('# Seguridad ES'),
+    } as never);
+    const secEsDirect = await stubEsSecResources.getSecurityResource('es');
+    expect(secEsDirect.text).toBe('# Seguridad ES');
   });
 });
