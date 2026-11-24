@@ -694,28 +694,56 @@ describe('validateCalmArchitecture (FINOS CALM 11X Gate)', () => {
     expect(nominal.ok).toBe(true);
     expect(nominal.out).toContain('architecture/qa-11x.calm.json|6|5|7');
 
-    // Consumer generic profile without monorepo nodes/controls passes cleanly
+    // Consumer generic profile without monorepo nodes/controls passes cleanly (incl. @finos/calm-cli --strict)
     const consumerFile = path.join(ws, 'architecture', 'consumer.calm.json');
     fs.writeFileSync(
       consumerFile,
       JSON.stringify({
+        $schema: 'https://calm.finos.org/release/1.2/meta/calm.json',
         nodes: [
-          { 'unique-id': 'svc-a', 'node-type': 'service', name: 'A', description: 'Service A' },
-          { 'unique-id': 'db-b', 'node-type': 'database', name: 'B', description: 'Database B' },
+          {
+            'unique-id': 'svc-a',
+            'node-type': 'service',
+            name: 'Service A',
+            description: 'Consumer API service',
+            interfaces: [{ 'unique-id': 'svc-a-db-client' }],
+          },
+          {
+            'unique-id': 'db-b',
+            'node-type': 'database',
+            name: 'Database B',
+            description: 'Consumer PostgreSQL database',
+            interfaces: [{ 'unique-id': 'db-b-tls-5432' }],
+          },
         ],
         relationships: [
           {
             'unique-id': 'rel-ab',
+            description: 'Service A queries Database B over TLS',
+            protocol: 'TLS',
             'relationship-type': {
-              connects: { source: { node: 'svc-a' }, destination: { node: 'db-b' } },
+              connects: {
+                source: { node: 'svc-a', interfaces: ['svc-a-db-client'] },
+                destination: { node: 'db-b', interfaces: ['db-b-tls-5432'] },
+              },
             },
           },
         ],
         controls: {
           'tenant-rls': {
-            description: 'Tenant RLS',
+            description: 'Tenant RLS isolation control',
             nodes: ['db-b'],
-            requirements: [{ 'requirement-url': 'https://example.org/rls' }],
+            requirements: [
+              {
+                'requirement-url':
+                  'https://calm.finos.org/release/1.2/meta/control-requirement.json',
+                config: {
+                  'control-id': 'CONS-RLS-01',
+                  name: 'Consumer Tenant RLS',
+                  description: 'Enforces tenant isolation on Database B.',
+                },
+              },
+            ],
           },
         },
       }),
@@ -820,5 +848,33 @@ describe('validateCalmArchitecture (FINOS CALM 11X Gate)', () => {
     } finally {
       fs.rmSync(extTarget, { force: true });
     }
+
+    // 8. End-to-end bash wrapper + real Node execution under QA_IN_CONTAINER=1
+    const consumerScript = path.join(ws, '.agents', 'scripts', 'validate_calm_architecture.sh');
+    fs.mkdirSync(path.dirname(consumerScript), { recursive: true });
+    fs.copyFileSync(VALIDATE_CALM_SH_PATH, consumerScript);
+    const bashExec = (args: string[], cwd: string): { ok: boolean; out: string } => {
+      try {
+        const out = execFileSync('/bin/bash', [consumerScript, ...args], {
+          cwd,
+          env: { ...process.env, QA_IN_CONTAINER: '1' },
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+        return { ok: true, out };
+      } catch (err: unknown) {
+        const e = err as { stdout?: string; stderr?: string };
+        return { ok: false, out: `${e.stdout ?? ''}\n${e.stderr ?? ''}` };
+      }
+    };
+    const shGeneric = bashExec(['architecture/consumer.calm.json', '--profile=generic'], ws);
+    expect(shGeneric.ok).toBe(true);
+    expect(shGeneric.out).toContain('validado');
+    const shSelfFail = bashExec(['architecture/consumer.calm.json', '--profile', 'qa-11x-self'], ws);
+    expect(shSelfFail.ok).toBe(false);
+    expect(shSelfFail.out).toContain('[MISSING_REQUIRED_NODE]');
+    const shBadProf = bashExec(['--profile=bogus'], ws);
+    expect(shBadProf.ok).toBe(false);
+    expect(shBadProf.out).toContain('Perfil no soportado');
   });
 });

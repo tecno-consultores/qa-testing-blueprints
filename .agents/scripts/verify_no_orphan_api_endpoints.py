@@ -52,8 +52,8 @@ ARCHITECTURAL_WHITELIST: set[tuple[str, str]] = {
 }
 
 _HTTP_VERBS = frozenset({"GET", "POST", "PUT", "PATCH", "DELETE"})
-_NODE_ROUTE_RE = re.compile(
-    r"\b(?:app|router|fastify|server|[A-Za-z_$][\w$]*(?:Router|_router))\.(get|post|put|patch|delete)\s*\(\s*([`'\"])(.*?)\2",
+_NODE_ROUTE_HEAD_RE = re.compile(
+    r"\b(?:app|router|fastify|server|[A-Za-z_$][\w$]*(?:Router|_router))\.(get|post|put|patch|delete)\b",
     re.IGNORECASE,
 )
 _FRONT_CALL_HEAD_RE = re.compile(
@@ -920,14 +920,25 @@ def _extract_node_file_records(
     raw_text = fpath.read_text(encoding="utf-8", errors="ignore")
     text = _strip_js_comments(raw_text)
     recs: list[_NodeRouteRec] = []
-    for match in _NODE_ROUTE_RE.finditer(text):
-        raw_path = match.group(3).strip()
-        if raw_path.startswith("/"):
+    for match in _NODE_ROUTE_HEAD_RE.finditer(text):
+        parsed = _match_call_url_arg(text, match.end())
+        if parsed is None:
+            continue
+        raw_path, _, arg_end = parsed
+        cleaned_path = raw_path.strip()
+        if cleaned_path.startswith("/"):
             line_no = text[: match.start()].count("\n") + 1
-            end_line = text[: match.end()].count("\n") + 1
+            end_line = text[:arg_end].count("\n") + 1
             recv = _extract_node_receiver(match.group(0))
             recs.append(
-                (recv, match.group(1).upper(), raw_path, rel_file, line_no, end_line)
+                (
+                    recv,
+                    match.group(1).upper(),
+                    cleaned_path,
+                    rel_file,
+                    line_no,
+                    end_line,
+                )
             )
     return text, recs
 

@@ -1,10 +1,28 @@
 # SPDX-License-Identifier: MIT
 services:
+  uv-cache-init:
+    image: sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
+    mem_limit: 256m
+    user: "0:0"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - FOWNER
+    volumes:
+      - example-uv-cache:/uv-cache
+    entrypoint: ["chmod", "-R", "a+rwX", "/uv-cache"]
+
   qa-backend:
     image: sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
     mem_limit: 2g
     working_dir: /app/backend
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    depends_on:
+      uv-cache-init:
+        condition: service_completed_successfully
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -60,18 +78,15 @@ services:
     profiles:
       - e2e
     mem_limit: 2g
-    working_dir: /app/frontend
-    user: "${QA_UID:-1000}:${QA_GID:-1000}"
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
     environment:
-      HOME: /tmp
+      UI_BASE_URL: ${UI_BASE_URL:-http://qa-frontend:5173}
     volumes:
-      - .:/app:ro
-    tmpfs:
-      - /tmp:rw,noexec,nosuid,nodev
+      - ./frontend/test:/app/src/test/java/examples/test:ro
+    command: bash -c "echo 'Contenedor Karate UI listo'; sleep infinity"
 
 volumes:
   example-uv-cache:

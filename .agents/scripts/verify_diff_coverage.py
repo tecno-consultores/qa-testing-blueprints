@@ -17,6 +17,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from _common import git_safe_directory_args
+
 EXIT_OK = 0
 EXIT_COVERAGE_FAIL = 10
 EXIT_EVASION_DETECTED = 11
@@ -456,8 +458,7 @@ def load_coverage_reports(
 def _git_cmd(workspace_root: Path, *args: str) -> list[str]:
     return [
         "git",
-        "-c",
-        f"safe.directory={workspace_root}",
+        *git_safe_directory_args(workspace_root),
         "-c",
         "core.quotePath=false",
         *args,

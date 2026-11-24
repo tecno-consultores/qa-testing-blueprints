@@ -41,7 +41,7 @@ export interface CliFlagSpec {
 export interface CliSubcommandSpec {
   readonly name: CanonicalSubcommandName;
   readonly aliases: readonly string[];
-  readonly usageArgs: string;
+  readonly usageArgs: BilingualText;
   readonly altUsage?: BilingualText;
   readonly summary: BilingualText;
   readonly flags: readonly CliFlagSpec[];
@@ -54,7 +54,15 @@ export interface HelpSurfaceCounts {
 
 const DEFAULT_COUNTS: HelpSurfaceCounts = { tools: 19, resources: 13 };
 const BIN_INVOCATION = 'npx -y @sinfallas/mcp-qa-11x';
-const USAGE_DIR_OPTIONS = '[dir] [options]';
+const USAGE_DIR_OPTIONS: BilingualText = {
+  en: '[dir] [options]',
+  es: '[dir] [opciones]',
+};
+const USAGE_OPTIONS: BilingualText = {
+  en: '[options]',
+  es: '[opciones]',
+};
+const USAGE_COMPLETION_SHELLS = '<fish|bash|zsh>';
 const AGENT_COUNT = SUPPORTED_AGENT_IDS.length;
 
 const COMMON_PROJECT_FLAG: CliFlagSpec = {
@@ -173,7 +181,7 @@ export const CLI_COMMAND_CATALOG: readonly CliSubcommandSpec[] = [
   {
     name: 'install-skill',
     aliases: ['install'],
-    usageArgs: '[options]',
+    usageArgs: USAGE_OPTIONS,
     summary: {
       en: 'Install global 11X skills, scripts, and AGENTS.md connector',
       es: 'Instala skills globales 11X, scripts y conector AGENTS.md',
@@ -273,7 +281,10 @@ export const CLI_COMMAND_CATALOG: readonly CliSubcommandSpec[] = [
   {
     name: 'tms-sync',
     aliases: [],
-    usageArgs: '--mode <inventory|push-results|pull-stories> [options]',
+    usageArgs: {
+      en: '--mode <inventory|push-results|pull-stories> [options]',
+      es: '--mode <inventory|push-results|pull-stories> [opciones]',
+    },
     summary: {
       en: 'Zero-infra traceability sync (jira|zephyr|xray|github-issues)',
       es: 'Sincronización de trazabilidad Zero-Infra (jira|zephyr|xray|github-issues)',
@@ -397,7 +408,7 @@ export const CLI_COMMAND_CATALOG: readonly CliSubcommandSpec[] = [
   {
     name: 'upgrade',
     aliases: ['cache-clean'],
-    usageArgs: '[options]',
+    usageArgs: USAGE_OPTIONS,
     summary: {
       en: 'Clean @sinfallas/mcp-qa-11x caches and sync global skills (alias: cache-clean)',
       es: 'Limpia cachés de @sinfallas/mcp-qa-11x y sincroniza skills globales (alias: cache-clean)',
@@ -579,7 +590,10 @@ export const CLI_COMMAND_CATALOG: readonly CliSubcommandSpec[] = [
   {
     name: 'blast-radius',
     aliases: [],
-    usageArgs: '[symbol] [options]',
+    usageArgs: {
+      en: '[symbol] [options]',
+      es: '[símbolo] [opciones]',
+    },
     summary: {
       en: 'Bidirectional AST impact & differential PR routing triage',
       es: 'Impacto AST bidireccional y enrutamiento diferencial de PR',
@@ -647,7 +661,7 @@ export const CLI_COMMAND_CATALOG: readonly CliSubcommandSpec[] = [
   {
     name: 'mcp-config',
     aliases: [],
-    usageArgs: '[options]',
+    usageArgs: USAGE_OPTIONS,
     summary: {
       en: 'Print or safely merge mcpServers config for supported IDE/CLI clients',
       es: 'Imprime o fusiona de forma segura la configuración mcpServers para clientes IDE/CLI',
@@ -711,7 +725,10 @@ export const CLI_COMMAND_CATALOG: readonly CliSubcommandSpec[] = [
   {
     name: 'completion',
     aliases: [],
-    usageArgs: '<fish|bash|zsh>',
+    usageArgs: {
+      en: USAGE_COMPLETION_SHELLS,
+      es: USAGE_COMPLETION_SHELLS,
+    },
     altUsage: {
       en: `   or: ${BIN_INVOCATION} completion --shell <fish|bash|zsh>`,
       es: `    o: ${BIN_INVOCATION} completion --shell <fish|bash|zsh>`,
@@ -854,7 +871,7 @@ export function renderSubcommandHelpText(
   }
   const usagePrefix = lang === 'es' ? 'Uso' : 'Usage';
   const optionsHeader = lang === 'es' ? 'Opciones:' : 'Options:';
-  const lines: string[] = [`${usagePrefix}: ${BIN_INVOCATION} ${spec.name} ${spec.usageArgs}`];
+  const lines: string[] = [`${usagePrefix}: ${BIN_INVOCATION} ${spec.name} ${spec.usageArgs[lang]}`];
   if (spec.altUsage) {
     lines.push(spec.altUsage[lang]);
   }

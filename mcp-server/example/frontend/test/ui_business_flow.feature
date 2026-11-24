@@ -1,7 +1,8 @@
 Feature: Contrato HTTP BDD 11X — Consola Operativa y Propagación Anti-Silo
 
   Background:
-    * url baseUrl
+    * def envBaseUrl = java.lang.System.getenv('UI_BASE_URL')
+    * url karate.properties['baseUrl'] || karate.properties['UI_BASE_URL'] || envBaseUrl || 'http://qa-frontend:5173'
 
   Scenario: Verificación HTTP de página UI, cabeceras OSHP, alta idempotente y lectura sin mocks
     Given path '/'

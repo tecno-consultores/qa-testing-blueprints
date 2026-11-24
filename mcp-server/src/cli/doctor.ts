@@ -233,9 +233,55 @@ function scanNpxCacheEntries(homeDir: string): NpxCacheEntry[] {
 
 const IDE_MCP_TARGETS = getDoctorIdeMcpTargets();
 
+const TEXT_CONFIG_EXTS = ['.toml', '.yaml', '.yml'] as const;
+const TOML_HEADER_LINE_RE = /^\s*\[{1,2}[^\]]+\]{1,2}\s*$/;
+const YAML_OR_TOML_KEY_PREFIX_RE = /^\s*[A-Za-z0-9_.-]+\s*(?:=|:(?:\s|$))/;
+const SCOPED_PKG_NAME = `${PKG_SCOPE}/${PKG_NAME}`;
+
+function isPkgSpecToken(token: string): boolean {
+  const lower = token.toLowerCase();
+  return (
+    lower === SCOPED_PKG_NAME ||
+    lower.startsWith(`${SCOPED_PKG_NAME}@`) ||
+    lower === PKG_NAME ||
+    lower.startsWith(`${PKG_NAME}@`)
+  );
+}
+
+function isTextConfigFile(filePath: string): boolean {
+  return TEXT_CONFIG_EXTS.some((ext) => filePath.endsWith(ext));
+}
+
+function stripHashCommentFromLine(line: string): string {
+  let quote: string | null = null;
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i];
+    if (quote !== null) {
+      if (ch === '\\' && quote === '"') {
+        i += 1;
+      } else if (ch === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+    } else if (ch === '#') {
+      return line.slice(0, i);
+    }
+  }
+  return line;
+}
+
+function stripHashComments(rawText: string): string {
+  return rawText.split(/\r?\n/).map(stripHashCommentFromLine).join('\n');
+}
+
 function readIdeConfigContainsQa(fullPath: string, client: string): boolean {
   try {
-    return fs.readFileSync(fullPath, UTF8_ENCODING).includes(QA_11X_TOKEN);
+    const raw = fs.readFileSync(fullPath, UTF8_ENCODING);
+    const active = isTextConfigFile(fullPath) ? stripHashComments(raw) : raw;
+    return active.includes(QA_11X_TOKEN);
   } catch (err: unknown) {
     reportDebugCatchError(`doctor.inspectIdeMcpConfig(${client})`, err);
     return false;
@@ -332,10 +378,19 @@ function inspectJsonPinning(filePath: string, rawText: string): string | null {
   return null;
 }
 
-function inspectTextConfigPinning(filePath: string, rawText: string): string | null {
-  const tokens = rawText
+function extractTextConfigValueTokens(rawText: string): string[] {
+  const cleanedLines = stripHashComments(rawText)
+    .split('\n')
+    .filter((line) => !TOML_HEADER_LINE_RE.test(line))
+    .map((line) => line.replace(YAML_OR_TOML_KEY_PREFIX_RE, ' '));
+  return cleanedLines
+    .join('\n')
     .split(/[\s"',[\]{}()]+/)
-    .filter((token) => token.includes(PKG_NAME));
+    .filter((token) => isPkgSpecToken(token));
+}
+
+function inspectTextConfigPinning(filePath: string, rawText: string): string | null {
+  const tokens = extractTextConfigValueTokens(rawText);
   const unpinned = tokens.find((token) => isUnpinnedPackageArg(token));
   return unpinned ? formatUnpinnedWarning(filePath, unpinned) : null;
 }
@@ -347,7 +402,7 @@ function inspectQaServerPinningSafe(filePath: string): string | null {
     if (filePath.endsWith('.json')) {
       return inspectJsonPinning(filePath, rawText);
     }
-    if (filePath.endsWith('.toml') || filePath.endsWith('.yaml') || filePath.endsWith('.yml')) {
+    if (isTextConfigFile(filePath)) {
       return inspectTextConfigPinning(filePath, rawText);
     }
     return null;

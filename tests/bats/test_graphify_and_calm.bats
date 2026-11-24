@@ -445,12 +445,40 @@ EOF
   assert_output --partial "simulated graphify error"
 }
 
-@test "validate_calm_architecture.sh: rechaza --arch= vacío y --profile inválido con exit 1" {
+@test "validate_calm_architecture.sh: rechaza --arch= vacío, --profile vacío/inválido y propaga CALM_PROFILE" {
   run bash "${CALM_SCRIPT}" --arch=
   assert_failure 1
   assert_output --partial "Falta argumento para --arch="
 
+  run bash "${CALM_SCRIPT}" --profile
+  assert_failure 1
+  assert_output --partial "Falta argumento para --profile"
+
+  run bash "${CALM_SCRIPT}" --profile=
+  assert_failure 1
+  assert_output --partial "Falta argumento para --profile="
+
   run bash "${CALM_SCRIPT}" --profile invalid-prof
   assert_failure 1
   assert_output --partial "Perfil no soportado"
+
+  local prof_bin="${BATS_TEST_TMPDIR}/calm_prof_bin"
+  local prof_log="${BATS_TEST_TMPDIR}/calm_prof_docker.log"
+  _populate_minimal_bin "${prof_bin}"
+  cat >"${prof_bin}/docker" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>"${prof_log}"
+exit 0
+EOF
+  chmod +x "${prof_bin}/docker"
+
+  run env QA_IN_CONTAINER=0 PATH="${prof_bin}" LC_ALL=C bash "${CALM_SCRIPT}" --profile=generic
+  assert_success
+  run grep -F "CALM_PROFILE=generic" "${prof_log}"
+  assert_success
+
+  run env QA_IN_CONTAINER=0 PATH="${prof_bin}" LC_ALL=C bash "${CALM_SCRIPT}" --profile qa-11x-self
+  assert_success
+  run grep -F "CALM_PROFILE=qa-11x-self" "${prof_log}"
+  assert_success
 }

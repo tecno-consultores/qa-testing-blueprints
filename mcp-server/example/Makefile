@@ -19,7 +19,7 @@ qa-unit:
 	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" \
 		-e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app/backend/src \
 		-e QA_UV_OFFLINE="$(if $(filter 1 true,$(QA_OFFLINE)),--offline,)" qa-backend bash -c \
-		'if python3 -c "import fastapi, httpx" >/dev/null 2>&1; then PY_BIN=python3; else uv venv -q --system-site-packages /tmp/qa-venv && if [ "$${QA_UV_OFFLINE:-}" = "--offline" ]; then uv pip install -q --offline --python /tmp/qa-venv/bin/python fastapi httpx || { echo "❌ Modo --offline sin fastapi/httpx preinstalados ni cache UV (UV_CACHE_DIR)." >&2; exit 1; }; else uv pip install -q --python /tmp/qa-venv/bin/python fastapi httpx; fi && PY_BIN=/tmp/qa-venv/bin/python; fi && "$$PY_BIN" -m pytest --import-mode=importlib --cov=src --cov-fail-under=95 tests/*.unit.py'
+		'if ! mkdir -p "$${UV_CACHE_DIR:-/tmp/uv-cache}" 2>/dev/null || [ ! -w "$${UV_CACHE_DIR:-/tmp/uv-cache}" ]; then export UV_CACHE_DIR=/tmp/qa-uv-cache; fi; if python3 -c "import fastapi, httpx" >/dev/null 2>&1; then PY_BIN=python3; else uv venv -q --system-site-packages /tmp/qa-venv && if [ "$${QA_UV_OFFLINE:-}" = "--offline" ]; then uv pip install -q --offline --python /tmp/qa-venv/bin/python fastapi httpx || { echo "❌ Modo --offline sin fastapi/httpx preinstalados ni cache UV (UV_CACHE_DIR)." >&2; exit 1; }; else uv pip install -q --python /tmp/qa-venv/bin/python fastapi httpx; fi && PY_BIN=/tmp/qa-venv/bin/python; fi && "$$PY_BIN" -m pytest --import-mode=importlib --cov=src --cov-fail-under=95 tests/*.unit.py'
 	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-frontend bash -c \
 		"if [ ! -d node_modules ]; then pnpm install --prefer-offline --silent; fi && pnpm --silent run test:unit"
 
@@ -28,8 +28,8 @@ qa-integration:
 		"if [ -f alembic.ini ]; then alembic -c alembic.ini upgrade head; else python3 -c \"import ast, pathlib; ast.parse(pathlib.Path('migrations/versions/0001_create_telemetry_devices.py').read_text())\"; echo '⚠️ [SKIPPED/NO_ALEMBIC_INI] Migración validada sintácticamente sin motor PostgreSQL'; fi"
 
 qa-bdd-ui:
-	@docker compose -f docker-compose.qa.yml --profile e2e run --rm -T -u "$(QA_UID):$(QA_GID)" karate-ui sh -c \
-		"java -jar /opt/karate/karate.jar test/ui_business_flow.feature"
+	@docker compose -f docker-compose.qa.yml --profile e2e run --rm -T karate-ui \
+		mvn -B clean test -Dkarate.options="classpath:examples/test/ui_business_flow.feature"
 
 qa-e2e:
 	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-frontend bash -c \

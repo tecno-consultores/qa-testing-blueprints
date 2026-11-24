@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
+import { hasHelpFlag } from '../cli/cliArgHelpers.js';
 import { renderSubcommandHelpText, resolveCliHelpLang } from '../cli/commandCatalog.js';
 import { guardToolCallInput } from '../security/promptGuard.js';
 import {
@@ -62,7 +63,6 @@ export async function executeTmsSync(
 }
 
 interface ParsedCliOptions {
-  help: boolean;
   json: boolean;
   args: TmsSyncArgs;
 }
@@ -137,13 +137,10 @@ function readTmsFlagValue(
 
 function parseTmsCliArgs(argv: readonly string[]): ParsedCliOptions {
   const args: TmsSyncArgs = { mode: MODE_INVENTORY };
-  let help = false;
   let json = false;
   for (let i = 0; i < argv.length; i += 1) {
     const tok = pickAt(argv, i);
-    if (tok === '--help' || tok === '-h') {
-      help = true;
-    } else if (tok === '--json') {
+    if (tok === '--json') {
       json = true;
     } else if (tok === '--live') {
       args.dryRun = false;
@@ -159,7 +156,7 @@ function parseTmsCliArgs(argv: readonly string[]): ParsedCliOptions {
       i += matched.consumed;
     }
   }
-  return { help, json, args };
+  return { json, args };
 }
 
 function isSuccessStatus(status: TmsSyncStatus): boolean {
@@ -213,12 +210,12 @@ export async function runTmsSyncCli(
   argv: readonly string[],
   deps?: TmsSyncDependencies
 ): Promise<TmsCliResult> {
+  if (hasHelpFlag(argv)) {
+    return { exitCode: 0, output: formatCliHelpText(argv) };
+  }
   const env = getEnvMap(deps);
   try {
     const parsed = parseTmsCliArgs(argv);
-    if (parsed.help) {
-      return { exitCode: 0, output: formatCliHelpText(argv) };
-    }
     const result = await executeTmsSync(parsed.args, deps);
     if (parsed.json) {
       return {

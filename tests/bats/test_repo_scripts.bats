@@ -2116,3 +2116,53 @@ PY
   assert_success
   assert_output --partial "publicar-mcp.sh"
 }
+
+@test "certify_task_completion.sh: reutiliza sesión Python efímera (docker run -d + docker exec + docker rm -f)" {
+  local sess_ws="${BATS_TEST_TMPDIR}/py_sess_ws"
+  local sess_bin="${BATS_TEST_TMPDIR}/py_sess_bin"
+  local docker_log="${BATS_TEST_TMPDIR}/py_sess_docker.log"
+  mkdir -p "${sess_ws}/.agents/scripts" "${sess_ws}/scripts" "${sess_bin}"
+  cp "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh" "${sess_ws}/.agents/scripts/"
+  chmod +x "${sess_ws}/.agents/scripts/certify_task_completion.sh"
+  printf '#!/usr/bin/env bash\nexit 0\n' >"${sess_ws}/scripts/verificar-secretos.sh"
+  chmod +x "${sess_ws}/scripts/verificar-secretos.sh"
+  printf '# Agents\n' >"${sess_ws}/AGENTS.md"
+  printf '**Estado:** `COMPLETED`\n' >"${sess_ws}/.agents/ACTIVE_TASK.md"
+  printf 'import sys; sys.exit(0)\n' >"${sess_ws}/.agents/scripts/verify_json_no_duplicate_keys.py"
+  printf 'import sys; sys.exit(0)\n' >"${sess_ws}/.agents/scripts/track_findings_state.py"
+
+  cat >"${sess_bin}/docker" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>"${docker_log}"
+if [ "\${1:-}" = "run" ] && [[ " \$* " == *" -d "* ]]; then
+  printf 'deadbeef1234\n'
+  exit 0
+fi
+if [ "\${1:-}" = "exec" ]; then
+  exit 0
+fi
+if [ "\${1:-}" = "rm" ]; then
+  exit 0
+fi
+exit 0
+EOF
+  chmod +x "${sess_bin}/docker"
+
+  git -C "${sess_ws}" init -q
+  git -C "${sess_ws}" config user.email "qa@example.com"
+  git -C "${sess_ws}" config user.name "QA"
+  git -C "${sess_ws}" add .
+  git -C "${sess_ws}" commit -qm "init"
+
+  cd "${sess_ws}"
+  run env QA11X_DOCKERENV_PATH="${BATS_TEST_TMPDIR}/nonexistent_dockerenv" PATH="${sess_bin}:/usr/bin:/bin" LC_ALL=C bash "${sess_ws}/.agents/scripts/certify_task_completion.sh"
+  assert_success
+  run grep -F "run --rm --network none --security-opt=no-new-privileges:true -d" "${docker_log}"
+  assert_success
+  run grep -F "exec deadbeef1234 python3" "${docker_log}"
+  assert_success
+  run grep -F "exec -i deadbeef1234 python3" "${docker_log}"
+  assert_success
+  run grep -F "rm -f deadbeef1234" "${docker_log}"
+  assert_success
+}

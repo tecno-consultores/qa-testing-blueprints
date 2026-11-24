@@ -36,6 +36,7 @@ from _budgets import (  # noqa: E402
     SECURITY_BLAST_KEYWORDS,
     STRUCTURAL_AST_RELATIONS,
 )
+from _common import build_git_command  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 IGNORED_DIRS: frozenset[str] = CANONICAL_IGNORED_DIRS - {"graphify-out"}
@@ -682,15 +683,7 @@ def analyze_git_arch_signals(
     min_confidence: float = 0.5,
 ) -> dict[str, Any]:
     root_proc = subprocess.run(
-        [
-            "git",
-            "-c",
-            "safe.directory=*",
-            "-C",
-            str(workspace),
-            "rev-parse",
-            "--show-toplevel",
-        ],
+        build_git_command(workspace, "rev-parse", "--show-toplevel"),
         check=False,
         capture_output=True,
         text=True,
@@ -699,14 +692,8 @@ def analyze_git_arch_signals(
     if root_proc.returncode != 0 or not toplevel:
         return _empty_git_signals(False)
     log_proc = subprocess.run(
-        [
-            "git",
-            "-c",
-            "safe.directory=*",
-            "-C",
-            toplevel,
-            "-c",
-            "core.quotePath=false",
+        build_git_command(
+            Path(toplevel),
             "log",
             "--no-merges",
             "-M",
@@ -714,7 +701,7 @@ def analyze_git_arch_signals(
             "--date=short",
             f"--max-count={max_commits}",
             "--pretty=format:\x1e%H\x1f%h\x1f%ad\x1f%an\x1f%s",
-        ],
+        ),
         check=False,
         capture_output=True,
         text=True,

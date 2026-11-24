@@ -14,6 +14,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import {
   createMcpServer,
+  ensureStructuredToolResult,
   getDeclaredSurfaceCounts,
   getRegisteredServerSurface,
   getServerDispatcherRegistry,
@@ -312,11 +313,12 @@ async function executeProtectedTool(
     startedAt
   );
   try {
-    return await taskGuard.executeTask(
+    const rawResult = await taskGuard.executeTask(
       async (taskSignal) =>
         await existingCallHandler(nextRequest, buildAbortAwareExtra(extra, taskSignal)),
       executionOptions
     );
+    return ensureStructuredToolResult(rawResult);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const verboseReport = formatFailVerboseReport({
@@ -330,6 +332,12 @@ async function executeProtectedTool(
     return {
       isError: true,
       content: [{ type: CONTENT_TYPE_TEXT, text: verboseReport }],
+      structuredContent: {
+        ok: false,
+        stageId: toolName,
+        broken: err instanceof TaskGuardError,
+        error: message,
+      },
     };
   }
 }
@@ -369,6 +377,13 @@ export function attachPromptGuard(mcpServer: McpServer, options?: AttachGuardOpt
             text: `[QA-PROMPT-GUARD] Blocked potential prompt injection in tool '${request.params.name}' (score=${verdict.score}, matchedRules=${verdict.matchedRules.join(',')}).`,
           },
         ],
+        structuredContent: {
+          ok: false,
+          blocked: true,
+          tool: request.params.name,
+          score: verdict.score,
+          matchedRules: [...verdict.matchedRules],
+        },
       };
     }
 

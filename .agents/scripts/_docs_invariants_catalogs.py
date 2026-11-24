@@ -94,6 +94,7 @@ _LEAK_EXEMPT_EXACT = frozenset({
     "mcp-server/example/CHANGELOG.es.md",
 })
 _CATALOG_CMD_RE = re.compile(r"\bname:\s*['\"]([a-z0-9-]+)['\"]")
+_CATALOG_FLAG_RE = re.compile(r"\blong:\s*['\"](--[a-z0-9-]+)['\"]")
 
 
 def _derive_refactoring_ui_topics(root: Path) -> frozenset[str]:
@@ -729,23 +730,40 @@ def check_no_private_consumer_leaks(root: Path) -> list[str]:
     return errors
 
 
+def _check_single_readme_cli_parity(
+    rel: str, txt: str, cmds: list[str], flags: list[str]
+) -> list[str]:
+    errors: list[str] = []
+    missing_cmds = [cmd for cmd in cmds if cmd not in txt]
+    if missing_cmds:
+        errors.append(
+            f"{rel}: faltan subcomandos CLI declarados en commandCatalog.ts "
+            f"({', '.join(missing_cmds[:4])})."
+        )
+    missing_flags = [flag for flag in flags if flag not in txt]
+    if missing_flags:
+        errors.append(
+            f"{rel}: faltan flags CLI declarados en commandCatalog.ts "
+            f"({', '.join(missing_flags[:6])})."
+        )
+    return errors
+
+
 def _check_cli_catalog_in_readmes(root: Path) -> list[str]:
     catalog_ts = root / "mcp-server" / "src" / "cli" / "commandCatalog.ts"
     if not catalog_ts.is_file():
         return []
     raw = catalog_ts.read_text(encoding="utf-8")
     cmds = sorted(set(_CATALOG_CMD_RE.findall(raw)))
+    flags = sorted(set(_CATALOG_FLAG_RE.findall(raw)))
     errors: list[str] = []
     for rel in ("mcp-server/README.md", "mcp-server/README.es.md"):
         doc = root / rel
-        if not doc.is_file():
-            continue
-        txt = doc.read_text(encoding="utf-8")
-        missing = [cmd for cmd in cmds if cmd not in txt]
-        if missing:
-            errors.append(
-                f"{rel}: faltan subcomandos CLI declarados en commandCatalog.ts "
-                f"({', '.join(missing[:4])})."
+        if doc.is_file():
+            errors.extend(
+                _check_single_readme_cli_parity(
+                    rel, doc.read_text(encoding="utf-8"), cmds, flags
+                )
             )
     return errors
 

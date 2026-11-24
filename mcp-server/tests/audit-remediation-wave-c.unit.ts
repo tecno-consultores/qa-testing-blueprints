@@ -5,10 +5,12 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { runCli, resolveSubcommandHelpText } from '../src/cli.js';
 import { runCertifyCli } from '../src/cli/certify-cli.js';
 import {
   CLI_COMMAND_CATALOG,
   type CanonicalSubcommandName,
+  getCatalogSubcommandSpec,
   renderRootHelpText,
   renderSubcommandHelpText,
   resolveCatalogCommand,
@@ -16,6 +18,7 @@ import {
 } from '../src/cli/commandCatalog.js';
 import { runDoctorCli } from '../src/cli/doctor.js';
 import { runMcpConfigCli } from '../src/cli/mcp-config.js';
+import { runTmsSyncCli } from '../src/integrations/tmsSyncCli.js';
 import { resolveToolExecutionOptions } from '../src/index.js';
 import {
   ensureStructuredToolResult,
@@ -250,5 +253,135 @@ describe('Wave C Audit Remediation Contracts (CLI Catalog, Hints, StructuredCont
     const fakeHome = makeTempDir('qa-anchor-home-');
     const anchor = resolveSafeDefaultAnchor('/var/folders/xy/qa-11x-cache', fakeHome);
     expect(anchor === '/var' || anchor.startsWith('/var/')).toBe(true);
+  });
+
+  it('renders localized Spanish/English help cleanly for all 12 subcommands including tms-sync and leading --lang', async () => {
+    for (const spec of CLI_COMMAND_CATALOG) {
+      expect(getCatalogSubcommandSpec(spec.name)?.name).toBe(spec.name);
+      const outEs: string[] = [];
+      const resEs = await runCli([spec.name, '--help', '--lang', 'es'], {
+        log: (msg) => outEs.push(msg),
+        errorLog: (msg) => outEs.push(msg),
+      });
+      expect(resEs.exitCode).toBe(0);
+      const joinedEs = outEs.join('\n');
+      expect(joinedEs).toContain(`Uso: npx -y @sinfallas/mcp-qa-11x ${spec.name}`);
+      expect(joinedEs).toContain('Opciones:');
+      expect(joinedEs).not.toContain('[options]');
+      expect(joinedEs).not.toContain('Fail-Verbose');
+    }
+
+    const tmsDirectEs = await runTmsSyncCli(['--help', '--lang', 'es']);
+    expect(tmsDirectEs.exitCode).toBe(0);
+    expect(tmsDirectEs.output).toContain('Uso: npx -y @sinfallas/mcp-qa-11x tms-sync');
+    expect(tmsDirectEs.output).toContain('[opciones]');
+
+    const leadingOut: string[] = [];
+    const leadingRes = await runCli(['--lang', 'es', '--help'], {
+      log: (msg) => leadingOut.push(msg),
+      errorLog: (msg) => leadingOut.push(msg),
+    });
+    expect(leadingRes.exitCode).toBe(0);
+    expect(leadingOut.join('\n')).toContain('Servidor MCP Oficial');
+
+    const leadingSubOut: string[] = [];
+    const leadingSubRes = await runCli(['--lang=es', 'help', 'doctor'], {
+      log: (msg) => leadingSubOut.push(msg),
+      errorLog: (msg) => leadingSubOut.push(msg),
+    });
+    expect(leadingSubRes.exitCode).toBe(0);
+    expect(leadingSubOut.join('\n')).toContain('Uso: npx -y @sinfallas/mcp-qa-11x doctor [dir] [opciones]');
+
+    const helpFlagOut: string[] = [];
+    const helpFlagRes = await runCli(['help', '-l', 'es', 'certify'], {
+      log: (msg) => helpFlagOut.push(msg),
+      errorLog: (msg) => helpFlagOut.push(msg),
+    });
+    expect(helpFlagRes.exitCode).toBe(0);
+    expect(helpFlagOut.join('\n')).toContain('Uso: npx -y @sinfallas/mcp-qa-11x certify [dir] [opciones]');
+
+    const leadingNoHelpErr: string[] = [];
+    const leadingNoHelp = await runCli(['--lang', 'es'], {
+      log: (msg) => leadingNoHelpErr.push(msg),
+      errorLog: (msg) => leadingNoHelpErr.push(msg),
+    });
+    expect(leadingNoHelp.exitCode).toBe(1);
+
+    expect(await resolveSubcommandHelpText('help', 'es')).toContain('Servidor MCP Oficial');
+    expect(await resolveSubcommandHelpText('nonexistent-cmd', 'en')).toBeNull();
+  });
+
+  it('ignores TOML/YAML comments, table headers, and YAML keys in doctor pinning audit', async () => {
+    const fakeHome = makeTempDir('qa-doctor-toml-yaml-');
+    const fakeProject = makeTempDir('qa-doctor-toml-proj-');
+
+    // 1. Pinned Codex TOML with table header [mcp_servers.mcp-qa-11x] + commented @latest + escaped quote
+    const codexPath = path.join(fakeHome, '.codex', 'config.toml');
+    fs.mkdirSync(path.dirname(codexPath), { recursive: true });
+    fs.writeFileSync(
+      codexPath,
+      [
+        '# legacy: "@sinfallas/mcp-qa-11x@latest"',
+        '[mcp_servers.mcp-qa-11x]',
+        'command = "npx"',
+        `args = ["-y", "@sinfallas/mcp-qa-11x@${MCP_SERVER_VERSION}"] # pinned`,
+        'note = "escaped \\"quote\\" and # inside string"',
+      ].join('\n'),
+      'utf8'
+    );
+
+    // 2. Multi-server Hermes YAML with key mcp-qa-11x: + commented @latest + pinned version
+    const hermesYaml = path.join(fakeHome, '.hermes', 'config.yaml');
+    fs.mkdirSync(path.dirname(hermesYaml), { recursive: true });
+    fs.writeFileSync(
+      hermesYaml,
+      [
+        '# old: @sinfallas/mcp-qa-11x@latest',
+        'mcpServers:',
+        '  other-server:',
+        '    command: node',
+        '    args: ["server.js"]',
+        '  mcp-qa-11x:',
+        '    command: npx',
+        '    args:',
+        '      - "-y"',
+        `      - "@sinfallas/mcp-qa-11x@${MCP_SERVER_VERSION}"`,
+      ].join('\n'),
+      'utf8'
+    );
+
+    const pinnedRes = await runDoctorCli([fakeProject, '--offline', '--json'], {
+      homeDir: fakeHome,
+      cwd: fakeProject,
+      platform: 'linux',
+      dockerProbeFn: () => null,
+    });
+    expect(pinnedRes.exitCode).toBe(0);
+    const pinnedParsed = JSON.parse(pinnedRes.output) as {
+      ide_mcp_configs: Array<{ client: string; has_qa_11x: boolean }>;
+      ide_config_warnings: string[];
+    };
+    const byClient = new Map(pinnedParsed.ide_mcp_configs.map((cfg) => [cfg.client, cfg]));
+    expect(byClient.get('codex')?.has_qa_11x).toBe(true);
+    expect(byClient.get('hermes')?.has_qa_11x).toBe(true);
+    expect(pinnedParsed.ide_config_warnings).toEqual([]);
+
+    // 3. Commented-only # qa-11x in TOML/YAML does NOT mark has_qa_11x=true
+    fs.writeFileSync(codexPath, '# [mcp_servers.qa-11x]\n# @sinfallas/mcp-qa-11x@latest\n', 'utf8');
+    fs.writeFileSync(hermesYaml, '# qa-11x: disabled\nother: true\n', 'utf8');
+    const commentedRes = await runDoctorCli([fakeProject, '--offline', '--json'], {
+      homeDir: fakeHome,
+      cwd: fakeProject,
+      platform: 'linux',
+      dockerProbeFn: () => null,
+    });
+    const commentedParsed = JSON.parse(commentedRes.output) as {
+      ide_mcp_configs: Array<{ client: string; has_qa_11x: boolean }>;
+      ide_config_warnings: string[];
+    };
+    const byClient2 = new Map(commentedParsed.ide_mcp_configs.map((cfg) => [cfg.client, cfg]));
+    expect(byClient2.get('codex')?.has_qa_11x).toBe(false);
+    expect(byClient2.get('hermes')?.has_qa_11x).toBe(false);
+    expect(commentedParsed.ide_config_warnings).toEqual([]);
   });
 });

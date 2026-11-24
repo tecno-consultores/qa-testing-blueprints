@@ -27,6 +27,7 @@ from _budgets import (  # noqa: E402
     STRUCTURAL_AST_RELATIONS,
     is_manifest_tracked_doc,
 )
+from _common import git_safe_directory_args  # noqa: E402
 
 CRITICAL_EXACT: frozenset[str] = frozenset(
     {
@@ -467,8 +468,7 @@ def _run_git_diff_names(workspace: Path, diff_expr: str) -> tuple[int, list[str]
         res = subprocess.run(
             [
                 "git",
-                "-c",
-                f"safe.directory={workspace}",
+                *git_safe_directory_args(workspace),
                 "-c",
                 "core.quotePath=false",
                 "diff",

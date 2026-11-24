@@ -72,7 +72,7 @@ for sfile in "${STAGED_FILES[@]+"${STAGED_FILES[@]}"}"; do
 		python/*.py)
 			[ -f "python/pyproject.toml" ] || PY_STAGED+=("${sfile}")
 			;;
-		mcp-server/*.ts)
+		mcp-server/src/*.ts | mcp-server/tests/*.ts)
 			MCP_TS_STAGED+=("${sfile#mcp-server/}")
 			;;
 		node-backend/* | vue3/* | react-frontend/* | php/* | mcp-server/* | mobile-appium/*)

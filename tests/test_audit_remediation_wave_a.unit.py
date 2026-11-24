@@ -108,12 +108,72 @@ class TestWaveACommonAndGuards(unittest.TestCase):
                 "# Changelog\n## [1.0.0]\n", encoding="utf-8"
             )
             (ws / "mcp-server" / "src" / "cli" / "commandCatalog.ts").write_text(
-                "export const X = [{ name: 'missing-cmd' }];\n", encoding="utf-8"
+                "export const X = [{ name: 'missing-cmd', "
+                "flags: [{ long: '--missing-flag' }] }];\n",
+                encoding="utf-8",
             )
             (ws / "mcp-server" / "README.md").write_text("# MCP\n", encoding="utf-8")
             errs = catalogs.check_mcp_release_and_cli_parity(ws)
             self.assertTrue(any("## [9.9.9]" in e for e in errs))
             self.assertTrue(any("missing-cmd" in e for e in errs))
+            self.assertTrue(any("--missing-flag" in e for e in errs))
+
+    def test_spec19_en_to_es_links_and_mcp_tool_parity(self) -> None:
+        bilingual = _import_script("_docs_invariants_bilingual")
+        with tempfile.TemporaryDirectory(prefix="qa11x_spec19_") as tmp:
+            ws = Path(tmp)
+            (ws / "README.md").write_text("# Root\n", encoding="utf-8")
+            (ws / "README.es.md").write_text("# Raiz\n", encoding="utf-8")
+            (ws / "GUIDE.md").write_text("# Guide\n", encoding="utf-8")
+            (ws / "GUIDE.es.md").write_text("# Guia\n", encoding="utf-8")
+            (ws / "ONLY_ES.es.md").write_text("# Solo ES\n", encoding="utf-8")
+
+            en_text = (
+                "> 🌐 **Language:** **English (Canonical)** · "
+                "[🇪🇸 Español](README.es.md)\n"
+                "See [Spanish mirror](GUIDE.es.md) explicitly.\n"
+                "Also [only es](ONLY_ES.es.md) and [outside](../ext.es.md).\n"
+                "Wrong link: [Guide](GUIDE.es.md).\n"
+            )
+            link_errs = bilingual._check_en_mirror_links(
+                ws, "README.md", "README.es.md", en_text
+            )
+            self.assertEqual(len(link_errs), 1)
+            self.assertIn("README.md:4: enlace EN→ES 'GUIDE.es.md'", link_errs[0])
+
+            id_errs = bilingual._check_pair_structure_and_ids(
+                "README.md",
+                "README.es.md",
+                "## Tools\nRun `certify_11x_gate`.\n",
+                "## Herramientas\nSin herramienta.\n",
+            )
+            self.assertTrue(any("certify_11x_gate" in e for e in id_errs))
+
+    def test_common_safe_chmod_handles_eperm_and_reraises_other(self) -> None:
+        common = _import_script("_common")
+        with tempfile.TemporaryDirectory(prefix="qa11x_chmod_") as tmp:
+            target = Path(tmp) / "f.txt"
+            target.write_text("ok\n", encoding="utf-8")
+            orig_chmod = common.os.chmod
+
+            def _raise_eperm(_path: Any, _mode: int) -> None:
+                raise PermissionError(common.errno.EPERM, "eperm")
+
+            def _raise_enoent(_path: Any, _mode: int) -> None:
+                raise FileNotFoundError(common.errno.ENOENT, "enoent")
+
+            common.os.chmod = _raise_eperm
+            try:
+                common._safe_chmod(target, 0o600)
+            finally:
+                common.os.chmod = orig_chmod
+
+            common.os.chmod = _raise_enoent
+            try:
+                with self.assertRaises(OSError):
+                    common._safe_chmod(target, 0o600)
+            finally:
+                common.os.chmod = orig_chmod
 
 
 class TestOrphanApiAndExtractedGates(unittest.TestCase):
@@ -228,10 +288,95 @@ class TestOrphanApiAndExtractedGates(unittest.TestCase):
         assert end_idx is not None
         self.assertTrue(sample[end_idx:].startswith("('/api/v1/x')"))
         self.assertIsNone(mod._skip_balanced_generics("<Unclosed<T>", 0))
+        sample_dq = '<Record<"a\\">b", (x: number) => void>>()'
+        dq_end = mod._skip_balanced_generics(sample_dq, 0)
+        self.assertEqual(dq_end, len(sample_dq) - 2)
+        self.assertEqual(mod._advance_quoted("'unterminated", 0), 13)
         self.assertEqual(
             mod._build_full_route_path("/v1", "/users", ("api", "v1")),
             "/api/v1/users",
         )
+        with tempfile.TemporaryDirectory(prefix="qa11x_fastify_ts_") as tmp:
+            ws = Path(tmp)
+            routes_ts = ws / "node-backend" / "src" / "routes.ts"
+            routes_ts.parent.mkdir(parents=True)
+            routes_ts.write_text(
+                "fastify.get<{ Params: { id: string } }>('/api/v1/items/:id', h);\n"
+                "fastify.get(dynamicVar);\n",
+                encoding="utf-8",
+            )
+            _, recs = mod._extract_node_file_records(routes_ts, ws)
+            self.assertEqual(len(recs), 1)
+            self.assertEqual((recs[0][1], recs[0][2]), ("GET", "/api/v1/items/:id"))
+            fe_ts = ws / "frontend" / "src" / "api.ts"
+            fe_ts.parent.mkdir(parents=True)
+            fe_ts.write_text(
+                "api.get<Unclosed('/api/v1/skip');\n"
+                "fetch<Unclosed('/api/v1/skip2');\n"
+                "fetch<Promise<Array<string>>>('/api/v1/items/1', "
+                "{ method: 'GET' });\n",
+                encoding="utf-8",
+            )
+            calls = mod._extract_file_frontend_calls(fe_ts, ws)
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(calls[0].url, "/api/v1/items/1")
+
+    def test_lint_workflows_edge_branches(self) -> None:
+        lw = _import_script("lint_workflows")
+        with tempfile.TemporaryDirectory(prefix="qa11x_lw_") as tmp:
+            ws = Path(tmp)
+            rc, errs, wf_cnt, act_cnt = lw.lint_workflows_workspace(ws)
+            self.assertEqual((rc, wf_cnt, act_cnt), (1, 0, 0))
+            self.assertTrue(any("No se encontraron workflows" in e for e in errs))
+
+            wf_dir = ws / ".github" / "workflows"
+            act_dir = ws / ".github" / "actions" / "demo"
+            wf_dir.mkdir(parents=True)
+            act_dir.mkdir(parents=True)
+            (wf_dir / "no_jobs.yml").write_text(
+                "# sec-ci-action-ref-ok\npermissions:\n  contents: read\n",
+                encoding="utf-8",
+            )
+            (wf_dir / "local_uses.yml").write_text(
+                "permissions:\n  contents: read\njobs:\n  j:\n"
+                "    timeout-minutes: 5\n    steps:\n      - uses: ./local\n",
+                encoding="utf-8",
+            )
+            (act_dir / "action.yml").write_text(
+                "name: demo\nruns:\n  using: node20\n", encoding="utf-8"
+            )
+            rc2, errs2, wf_cnt2, act_cnt2 = lw.lint_workflows_workspace(ws)
+            self.assertEqual((rc2, wf_cnt2, act_cnt2), (1, 2, 1))
+            self.assertTrue(any("falta jobs:" in e for e in errs2))
+            self.assertTrue(any("runs.using == composite" in e for e in errs2))
+
+    def test_normalize_kcov_cobertura_shell_quotes_heredoc_and_merge(self) -> None:
+        norm = _import_script("normalize_kcov_cobertura")
+        lines = [
+            "#!/usr/bin/env bash",
+            "echo \\#escaped 'single",
+            "continued line'",
+            "x=$'ansi\\n",
+            "quote'",
+            'echo "dbl\\"quote" # trailing comment',
+            "cat <<'EOF'",
+            "inside heredoc",
+            "EOF",
+        ]
+        skipped = norm._compute_sq_continuations(lines)
+        self.assertEqual(skipped, {3, 5, 8, 9})
+        self.assertEqual(norm._merge_condition("50% (1/2)", None), "50% (1/2)")
+        self.assertEqual(
+            norm._merge_condition("50% (1/2)", "100% (2/2)"), "100% (2/2)"
+        )
+        self.assertEqual(norm._merge_condition(None, "100% (2/2)"), "100% (2/2)")
+        with tempfile.TemporaryDirectory(prefix="qa11x_kcov_inst_") as tmp:
+            ws = Path(tmp)
+            (ws / "instalar-hooks.sh").write_text(
+                "#!/usr/bin/env bash\necho ok\n", encoding="utf-8"
+            )
+            idx = norm._build_repo_index(ws)
+            self.assertIn("instalar-hooks.sh", idx.tracked)
 
     def test_normalize_kcov_cobertura_normalizes_xml_and_blocks_xxe(self) -> None:
         norm = _import_script("normalize_kcov_cobertura")

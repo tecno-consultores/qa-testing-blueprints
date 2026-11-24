@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.5.0",
-  "generated_at_utc": "2026-11-24T16:31:07Z",
+  "generated_at_utc": "2026-11-24T17:13:24Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -1068,15 +1068,15 @@
       "path": "instalar-hooks.sh",
       "target_name": "instalar-hooks.sh",
       "merge_strategy": "copy_if_missing",
-      "sha256": "249dc4c98aceacf2d4d6c124f82e253157b8fd7dd26d1041e7847f4217238702",
-      "size_bytes": 16851
+      "sha256": "dcf6c6b67f205fb414455d365a71d33882f2a2e971529a8dfadac429896f09a3",
+      "size_bytes": 16879
     },
     {
       "path": "lefthook.yml",
       "target_name": "lefthook.yml",
       "merge_strategy": "copy_if_missing",
-      "sha256": "f128eb3fcd930ddae74537fceaf414048287ef699a49182a02429ce7f9276e82",
-      "size_bytes": 21507
+      "sha256": "8f5bb1f74dff94cdb2ec3d1215a8f5792a68796ccc98a27d4b33521ce744d4bc",
+      "size_bytes": 21621
     },
     {
       "path": "scripts/actualizar-grafos-graphify.sh",
@@ -1224,8 +1224,8 @@
       "path": ".agents/scripts/_docs_invariants_catalogs.py",
       "target_name": ".agents/scripts/_docs_invariants_catalogs.py",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "88c8b7afb6852d624f48a8deb0cae19e5cbcc81755641f82f15be82aea5c1adc",
-      "size_bytes": 27672
+      "sha256": "b7653387e1dfb19fca0ff469d7c52512044de44c52dbcf7c07df2329ef4202e4",
+      "size_bytes": 28292
     },
     {
       "path": ".agents/scripts/_docs_invariants_config.py",
@@ -1287,8 +1287,8 @@
       "path": ".agents/scripts/inspect_blast_radius.py",
       "target_name": ".agents/scripts/inspect_blast_radius.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "e6c233ad6577567746c828ab56c17be3469226f49a57671e25776d084ded49f1",
-      "size_bytes": 29998
+      "sha256": "6991503e7329fbd7463cdd00e95e6d984958833c67f1de4959c52991aa1e164c",
+      "size_bytes": 29810
     },
     {
       "path": ".agents/scripts/lint_docs_gate.py",
@@ -1329,8 +1329,8 @@
       "path": ".agents/scripts/select_tests_by_blast_radius.py",
       "target_name": ".agents/scripts/select_tests_by_blast_radius.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "a5362437460b53f6420a1628f496f049d6a96a16f44e561c14514dc17472e329",
-      "size_bytes": 18783
+      "sha256": "b6f5ef70363b6a02129eaf9f8108fcb848ea5a4b32be57a039b1d1fa931349b5",
+      "size_bytes": 18825
     },
     {
       "path": ".agents/scripts/sync_governance.py",
@@ -1364,8 +1364,8 @@
       "path": ".agents/scripts/verify_diff_coverage.py",
       "target_name": ".agents/scripts/verify_diff_coverage.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "4327e2a80f6f9d1c0e2a88587328c61b1b46442fbb9b72b14ce3a0e4f39c5fbd",
-      "size_bytes": 38589
+      "sha256": "580932742df631f6bc5a37b24be076e5aacf74cbe8f093058f3572170cc06105",
+      "size_bytes": 38626
     },
     {
       "path": ".agents/scripts/verify_docs_invariants.py",
@@ -1385,8 +1385,8 @@
       "path": ".agents/scripts/verify_no_orphan_api_endpoints.py",
       "target_name": ".agents/scripts/verify_no_orphan_api_endpoints.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "9f58ff30d05c41743deecca843c49c98dd4a4b3bbbfa747755484501e43090c6",
-      "size_bytes": 48640
+      "sha256": "b285b243ba1afaeae8b4813b173570eb2868498266a043d41ca2ef1e28d85947",
+      "size_bytes": 48911
     },
     {
       "path": ".agents/scripts/verify_roadmap_consistency.py",

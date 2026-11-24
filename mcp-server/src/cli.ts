@@ -369,13 +369,10 @@ export async function resolveSubcommandHelpText(
   if (!command) {
     return null;
   }
-  if (command === CMD_HELP || command === CMD_VERSION) {
+  if (command === CMD_HELP || command === CMD_VERSION || !isCanonicalSubcommand(command)) {
     return Promise.resolve(renderRootHelpText({ lang }));
   }
-  if (isCanonicalSubcommand(command)) {
-    return Promise.resolve(renderSubcommandHelpText(command, lang));
-  }
-  return null;
+  return Promise.resolve(renderSubcommandHelpText(command, lang));
 }
 
 function getContextualHelpText(command: CliCommandName, lang: HelpLang = 'en'): string {
@@ -564,10 +561,43 @@ function validateVersionTail(tail: readonly string[]): void {
   }
 }
 
+function isLangFlagToken(token: string): boolean {
+  return (
+    token === FLAG_LANG ||
+    token === FLAG_LANG_SHORT ||
+    token.startsWith(`${FLAG_LANG}=`) ||
+    token.startsWith(`${FLAG_LANG_SHORT}=`)
+  );
+}
+
+function isHelpCommandOrFlag(token: string): boolean {
+  return token === FLAG_HELP || token === FLAG_HELP_SHORT || token === CMD_HELP;
+}
+
+function parseLeadingLangHelpShortcut(
+  argv: readonly string[],
+  first: string,
+  cwd: string
+): ParsedCliArgs | null {
+  if (!isLangFlagToken(first)) {
+    return null;
+  }
+  const helpIdx = argv.findIndex((tok) => isHelpCommandOrFlag(tok));
+  if (helpIdx === -1) {
+    return null;
+  }
+  const tail = argv.filter((_, idx) => idx !== helpIdx);
+  return buildSimpleParsedArgs(CMD_HELP, cwd, tail, true);
+}
+
 function parseShortcutCliArgs(argv: readonly string[], cwd: string): ParsedCliArgs | null {
   const first = argv[0];
   if (!first) {
     return buildSimpleParsedArgs(CMD_STDIO, cwd, [], false);
+  }
+  const langHelpShortcut = parseLeadingLangHelpShortcut(argv, first, cwd);
+  if (langHelpShortcut) {
+    return langHelpShortcut;
   }
   const versionTail = extractVersionTail(argv, first);
   if (versionTail === null) {
@@ -842,16 +872,11 @@ async function handleVersionCommandDispatch(
   return { exitCode: 0, command: CMD_VERSION, parsed };
 }
 
-async function dispatchContextualHelp(
+function dispatchContextualHelp(
   parsed: ParsedCliArgs,
   log: (message: string) => void
-): Promise<CliRunResult> {
+): CliRunResult {
   const helpLang = resolveCliHelpLang(parsed.rawForwardArgs);
-  if (parsed.command === CMD_TMS_SYNC) {
-    const tmsHelp = await runTmsSyncCli(['--help', '--lang', helpLang]);
-    log(tmsHelp.output);
-    return { exitCode: 0, command: CMD_TMS_SYNC, parsed };
-  }
   log(getContextualHelpText(parsed.command, helpLang));
   return { exitCode: 0, command: parsed.command, parsed };
 }
@@ -926,7 +951,7 @@ async function dispatchCliCommand(
     return await handleHelpCommandDispatch(parsed, log, errorLog);
   }
   if (parsed.help) {
-    return await dispatchContextualHelp(parsed, log);
+    return dispatchContextualHelp(parsed, log);
   }
   return await dispatchStandardSubcommand(parsed, deps, log, errorLog);
 }
