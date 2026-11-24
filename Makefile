@@ -2,7 +2,7 @@
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 # Makefile canónico para desarrollo local, automatización y gobernanza Level-11X
 
-.PHONY: help clean qa-clean audit sbom compact-context lint-workflows lint-docs sync-governance version-check validate-calm shellcheck shfmt test test-mcp test-example test-karate test-py test-bats diff-cov pr-verdict test-meta-qa test-ai-offline test-frontend-blueprints test-backend-blueprints test-mobile-blueprints audit-llm audit-psi qa-psi lint build certify publish-mcp publish-mcp-dry
+.PHONY: help clean qa-clean audit sbom compact-context lint-workflows lint-docs sync-governance version-check validate-calm shellcheck shfmt test test-mcp test-example test-karate test-py test-bats diff-cov pr-verdict test-meta-qa test-ai-offline test-frontend-blueprints test-backend-blueprints test-mobile-blueprints audit-llm audit-psi qa-psi qa-k6 lint build certify publish-mcp publish-mcp-dry
 
 DIRECTIVE_11X_COMPLEXITY_MSG := [DIRECTIVE-11X] Complexity/Signature limit exceeded. Do NOT split into pass-through micro-helpers (>4 params). Read '.agents/skills/tactical-patterns-11x/SKILL.md' (or 'blueprint://skills/tactical-patterns-11x') and apply Table-Driven Dispatch, Parameter Object/DTO, Guard Clauses, or Functional Pipeline.
 COMPLEXITY_FAILURE_REGEX := C901|PLR0911|PLR0913|max-params|max-depth|sonarjs/cognitive-complexity|complexity.*[0-9]+|Radon
@@ -66,112 +66,12 @@ compact-context:
 	@if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		python3 .agents/scripts/compact_context_11x.py $(COMPACT_ARGS); \
 	else \
-		docker run --rm --network none -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app" -w /app $(PY_IMG) python3 .agents/scripts/compact_context_11x.py $(COMPACT_ARGS); \
+		docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app" -w /app $(PY_IMG) python3 .agents/scripts/compact_context_11x.py $(COMPACT_ARGS); \
 	fi
 
 lint-workflows:
-	@py=$$(printf '%s\n' \
-	'import re, sys, yaml' \
-	'from pathlib import Path' \
-	'class UniqueKeyLoader(yaml.SafeLoader): pass' \
-	'def _cm(loader, node, deep=False):' \
-	'    seen = set()' \
-	'    for kn, _ in node.value:' \
-	'        k = loader.construct_object(kn, deep=deep)' \
-	'        tok = (type(k), k)' \
-	'        if tok in seen:' \
-	'            raise yaml.constructor.ConstructorError("mapping", node.start_mark, f"clave duplicada {k!r}", kn.start_mark)' \
-	'        seen.add(tok)' \
-	'    return yaml.SafeLoader.construct_mapping(loader, node, deep=deep)' \
-	'UniqueKeyLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _cm)' \
-	'files = sorted([*Path(".github/workflows").glob("*.yml"), *Path(".github/workflows").glob("*.yaml")])' \
-	'if not files:' \
-	'    print("❌ [lint-workflows] No se encontraron workflows en .github/workflows/", file=sys.stderr)' \
-	'    sys.exit(1)' \
-	'errors = []' \
-	'dol, sq, dq = chr(36), chr(39), chr(34)' \
-	'sec_re = re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----|(?:npm|ghp|gho|ghu|ghs)_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|glpat-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9_-]{12,}|AKIA[0-9A-Z]{16}|(?:password|passwd|secret|api_key|token)\s*[=:]\s*[" + sq + dq + r"]?[A-Za-z0-9_/-]{16,}[" + sq + dq + r"]?", re.I)' \
-	'ign_re = re.compile(re.escape(dol + "{{") + r"|" + re.escape(dol + "{") + r"|placeholder|example|dummy|TU_TOKEN|changeme", re.I)' \
-	'uses_re = re.compile(r"^\s*(?:-\s+)?uses\s*:\s*([^\s#]+)")' \
-	'sha40_re = re.compile(r"^[0-9a-f]{40}" + dol)' \
-	'ci_escape_re = re.compile(re.escape(dol + dol) + r"[({][A-Za-z_]")' \
-	'make_pwd_re = re.compile(re.escape(dol) + r"(?:\(PWD\)|\{PWD\})")' \
-	'def _check_uses(src_path, src_txt):' \
-	'    lines = src_txt.splitlines()' \
-	'    if any("sec-ci-action-ref-ok" in l for l in lines[:5]): return' \
-	'    prev = ""' \
-	'    for ln, line in enumerate(lines, 1):' \
-	'        st = line.lstrip()' \
-	'        if not st or st.startswith("#"): prev = line; continue' \
-	'        if "sec-ci-action-ref-ok" in line or "sec-ci-action-ref-ok" in prev: prev = line; continue' \
-	'        m = uses_re.match(line)' \
-	'        if m:' \
-	'            tgt = m.group(1).strip(dq + sq)' \
-	'            if not (tgt.startswith("./") or tgt.startswith("../") or tgt.startswith("docker://")):' \
-	'                at_i = tgt.rfind("@")' \
-	'                ref = tgt[at_i + 1:] if at_i > 0 else ""' \
-	'                if not sha40_re.match(ref):' \
-	'                    errors.append(f"{src_path}:{ln}: [SEC-CI-ACTION-REF] uses: {tgt!r} debe fijarse con SHA de 40 caracteres")' \
-	'        prev = line' \
-	'def _check_ci_escape(src_path, src_txt):' \
-	'    lines = src_txt.splitlines()' \
-	'    if any("qa-ci-escape-ok" in l for l in lines[:5]): return' \
-	'    prev = ""' \
-	'    for ln, line in enumerate(lines, 1):' \
-	'        st = line.lstrip()' \
-	'        if not st or st.startswith("#"): prev = line; continue' \
-	'        if "qa-ci-escape-ok" in line or "qa-ci-escape-ok" in prev: prev = line; continue' \
-	'        if ci_escape_re.search(line):' \
-	'            errors.append(f"{src_path}:{ln}: [QA-CI-ESCAPE-01] escape Makefile/Compose con doble dolar detectado en GitHub Actions; use {dol}(...) o {dol}{{...}}")' \
-	'        prev = line' \
-	'for wf in files:' \
-	'    txt = wf.read_text(encoding="utf-8")' \
-	'    try: doc = yaml.load(txt, Loader=UniqueKeyLoader)' \
-	'    except Exception as exc: errors.append(f"{wf}: {exc}"); continue' \
-	'    if not isinstance(doc, dict): errors.append(f"{wf}: raíz YAML inválida"); continue' \
-	'    if not doc.get("permissions"): errors.append(f"{wf}: falta permissions:")' \
-	'    jobs = doc.get("jobs")' \
-	'    if not isinstance(jobs, dict) or not jobs: errors.append(f"{wf}: falta jobs:")' \
-	'    else:' \
-	'        for jn, jc in jobs.items():' \
-	'            tm = jc.get("timeout-minutes") if isinstance(jc, dict) else None' \
-	'            if not isinstance(tm, int) or isinstance(tm, bool) or tm <= 0: errors.append(f"{wf}: job {jn!r} sin timeout-minutes > 0")' \
-	'    for ln, line in enumerate(txt.splitlines(), 1):' \
-	'        if sec_re.search(line) and not ign_re.search(line): errors.append(f"{wf}:{ln}: posible secreto en texto plano")' \
-	'    _check_uses(wf, txt)' \
-	'    _check_ci_escape(wf, txt)' \
-	'action_files = sorted([*Path(".github/actions").glob("*/action.yml"), *Path(".github/actions").glob("*/action.yaml")])' \
-	'for af in action_files:' \
-	'    txt = af.read_text(encoding="utf-8")' \
-	'    try: doc = yaml.load(txt, Loader=UniqueKeyLoader)' \
-	'    except Exception as exc: errors.append(f"{af}: {exc}"); continue' \
-	'    runs_cfg = doc.get("runs") if isinstance(doc, dict) else None' \
-	'    if not isinstance(runs_cfg, dict) or runs_cfg.get("using") != "composite":' \
-	'        errors.append(f"{af}: falta runs.using == composite")' \
-	'    for ln, line in enumerate(txt.splitlines(), 1):' \
-	'        if sec_re.search(line) and not ign_re.search(line): errors.append(f"{af}:{ln}: posible secreto en texto plano")' \
-	'    _check_uses(af, txt)' \
-	'    _check_ci_escape(af, txt)' \
-	'ignored_dirs = {"node_modules", ".git", "dist", ".venv", "vendor", "target", "graphify-out", "tests", "test", "__tests__"}' \
-	'sub_makefiles = sorted(p for pat in ("Makefile", "Makefile.example") for p in Path(".").rglob(pat) if len(p.parts) >= 2 and not any(d in ignored_dirs for d in p.parts))' \
-	'for mf in sub_makefiles:' \
-	'    lines = mf.read_text(encoding="utf-8").splitlines()' \
-	'    if any("qa-make-curdir-ok" in l for l in lines[:5]): continue' \
-	'    prev = ""' \
-	'    for ln, line in enumerate(lines, 1):' \
-	'        st = line.lstrip()' \
-	'        if not st or st.startswith("#"): prev = line; continue' \
-	'        if "qa-make-curdir-ok" in line or "qa-make-curdir-ok" in prev: prev = line; continue' \
-	'        if make_pwd_re.search(line.replace(dol + dol, "__DBL__")):' \
-	'            errors.append(f"{mf}:{ln}: [QA-MAKE-CURDIR-01] sub-Makefile usa {dol}(PWD)/{dol}{{PWD}}; use {dol}(CURDIR)")' \
-	'        prev = line' \
-	'if errors:' \
-	'    for e in errors: print(f"❌ [lint-workflows] {e}", file=sys.stderr)' \
-	'    sys.exit(1)' \
-	'print(f"✅ [lint-workflows] {len(files)} workflows y {len(action_files)} actions validados sin hallazgos")' \
-	); \
-	if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
-		python3 -c "$$py" || exit 1; \
+	@if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
+		python3 .agents/scripts/lint_workflows.py --workspace . || exit 1; \
 		if command -v actionlint >/dev/null 2>&1; then \
 			set --; for wf in .github/workflows/*.yml .github/workflows/*.yaml; do [ -e "$$wf" ] && set -- "$$@" "$$wf"; done; \
 			[ "$$#" -eq 0 ] || actionlint -color "$$@" || exit 1; \
@@ -179,44 +79,16 @@ lint-workflows:
 			echo "⚠️ [SKIPPED] actionlint no disponible en contenedor aislado"; \
 		fi; \
 	else \
-		docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 -c "$$py" || exit 1; \
+		docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/lint_workflows.py --workspace /app || exit 1; \
 		set --; for wf in .github/workflows/*.yml .github/workflows/*.yaml; do [ -e "$$wf" ] && set -- "$$@" "$$wf"; done; \
 		[ "$$#" -eq 0 ] || docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -v "$$(pwd):/repo:ro" -w /repo $(ACTIONLINT_IMG) -color "$$@" || exit 1; \
 	fi
 
 lint-docs:
-	@py=$$(printf '%s\n' \
-	'import re, subprocess, sys' \
-	'from pathlib import Path' \
-	'errors = []' \
-	'for script in (".agents/scripts/verify_docs_invariants.py", ".agents/scripts/verify_roadmap_consistency.py"):' \
-	'    res = subprocess.run(["python3", script], capture_output=True, text=True)' \
-	'    if res.returncode != 0:' \
-	'        errors.append((res.stdout + res.stderr).strip() or f"Fallo en {script}")' \
-	'gate_rule = Path(".agents/rules/git_closure_gate.md")' \
-	'if not gate_rule.is_file() or "QA-GIT-GATE-01" not in gate_rule.read_text(encoding="utf-8"):' \
-	'    errors.append(".agents/rules/git_closure_gate.md ausente o sin identificador QA-GIT-GATE-01")' \
-	'forbidden_push = re.compile(r"and push to `?git`?|\+\s*`?git push`?|commit and push to git|git commit`?,\s*`?git push|subir siempre los cambios a git|git commit`?\s+y\s+`?git push", re.I)' \
-	'for doc in ("AGENTS.md", "AI_MASTER_PROMPT.md", "AI_MASTER_PROMPT.es.md"):' \
-	'    p = Path(doc)' \
-	'    if not p.is_file():' \
-	'        errors.append(f"Archivo requerido ausente: {doc}")' \
-	'        continue' \
-	'    txt = p.read_text(encoding="utf-8")' \
-	'    if "QA-GIT-GATE-01" not in txt:' \
-	'        errors.append(f"{doc}: falta referencia explícita a QA-GIT-GATE-01")' \
-	'    for ln, line in enumerate(txt.splitlines(), 1):' \
-	'        if forbidden_push.search(line):' \
-	'            errors.append(f"{doc}:{ln}: directiva residual de git push automático obligatorio")' \
-	'if errors:' \
-	'    for err in errors: print(f"❌ [lint-docs] {err}", file=sys.stderr)' \
-	'    sys.exit(1)' \
-	'print("✅ [lint-docs] Invariantes documentales, roadmap y guardia git verificados")' \
-	); \
-	if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
-		python3 -c "$$py"; \
+	@if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
+		python3 .agents/scripts/lint_docs_gate.py --workspace .; \
 	else \
-		docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 -c "$$py"; \
+		docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/lint_docs_gate.py --workspace /app; \
 	fi
 
 sync-governance:
@@ -276,184 +148,7 @@ shfmt:
 test-bats:
 	@echo "🦇 [BATS + kcov] Ejecutando pruebas BATS y generando Cobertura XML en Docker efímero..."
 	@mkdir -p .agents/.cache/coverage && chmod 0700 .agents/.cache
-	@kcov_norm_py=$$(printf '%s\n' \
-	'import os, pathlib, re, sys, xml.etree.ElementTree as ET' \
-	'repo = pathlib.Path("/repo")' \
-	'xmls = sorted(p for p in pathlib.Path("/tmp/kcov-bash").rglob("cobertura.xml") if not p.parent.is_symlink())' \
-	'if not xmls: sys.exit(1)' \
-	'merged_xmls = [p for p in xmls if p.parent.name == "kcov-merged"]' \
-	'target_xmls = merged_xmls if merged_xmls else xmls' \
-	'stacks = ("ai-evals", "bash-scripts", "fastapi", "mobile-appium", "node-backend", "php", "python", "react-frontend", "vibe-rescue", "vue3")' \
-	'tracked = set()' \
-	'if (repo / "instalar-hooks.sh").is_file(): tracked.add("instalar-hooks.sh")' \
-	'for d in ("scripts", ".agents/scripts", "bash-scripts"):' \
-	'    pdir = repo / d' \
-	'    if pdir.is_dir(): tracked.update(f.relative_to(repo).as_posix() for f in pdir.glob("*.sh") if f.is_file())' \
-	'for st in stacks:' \
-	'    if (repo / st / "limpieza.sh").is_file(): tracked.add(f"{st}/limpieza.sh")' \
-	'if (repo / "mcp-server/example/verify-v2.sh").is_file(): tracked.add("mcp-server/example/verify-v2.sh")' \
-	'by_base, base_cnt = {}, {}' \
-	'for rel in sorted(tracked):' \
-	'    b = pathlib.PurePosixPath(rel).name' \
-	'    base_cnt[b] = base_cnt.get(b, 0) + 1' \
-	'    by_base[b] = rel' \
-	'uniq_base = {b: r for b, r in by_base.items() if base_cnt.get(b) == 1}' \
-	'sorted_tracked = sorted(tracked, key=len, reverse=True)' \
-	'real_cache, sq_cache = {}, {}' \
-	'SQ, DQ, BS = chr(39), chr(34), chr(92)' \
-	'def get_lines(rel):' \
-	'    if rel not in real_cache: real_cache[rel] = (repo / rel).read_text(encoding="utf-8", errors="replace").splitlines()' \
-	'    return real_cache[rel]' \
-	'def sq_cont(rel):' \
-	'    if rel in sq_cache: return sq_cache[rel]' \
-	'    st, hd, res = None, None, set()' \
-	'    for idx, line in enumerate(get_lines(rel), 1):' \
-	'        if hd is not None:' \
-	'            res.add(idx)' \
-	'            if line.strip() == hd: hd = None' \
-	'            continue' \
-	'        if st in (SQ, "$$" + SQ): res.add(idx)' \
-	'        i, n, act = 0, len(line), []' \
-	'        while i < n:' \
-	'            c = line[i]' \
-	'            if st is None:' \
-	'                if c == BS and i + 1 < n: act.append(c); act.append(line[i + 1]); i += 2; continue' \
-	'                if c == "#" and (i == 0 or line[i - 1] in (" ", "\t", ";", "&", "|", "(", "{")): break' \
-	'                if c == "$$" and i + 1 < n and line[i + 1] == SQ: st = "$$" + SQ; i += 2; continue' \
-	'                if c == SQ: act.append(c); st = SQ' \
-	'                elif c == DQ: st = DQ' \
-	'                else: act.append(c)' \
-	'            elif st == SQ:' \
-	'                if c == SQ: act.append(c); st = None' \
-	'                else: act.append(c)' \
-	'            elif st == "$$" + SQ:' \
-	'                if c == BS and i + 1 < n: i += 2; continue' \
-	'                if c == SQ: st = None' \
-	'            elif st == DQ:' \
-	'                if c == BS and i + 1 < n: i += 2; continue' \
-	'                if c == DQ: st = None' \
-	'            i += 1' \
-	'        if st is None and hd is None:' \
-	'            m = re.search(r"<<-?\s*" + SQ + r"([A-Za-z_][A-Za-z0-9_]*)" + SQ, "".join(act))' \
-	'            if m: hd = m.group(1)' \
-	'    sq_cache[rel] = res' \
-	'    return res' \
-	'def resolve_rel(raw_fn, sources, line_elems):' \
-	'    cands = [raw_fn.replace("\\", "/").strip()]' \
-	'    if cands[0] and not cands[0].startswith(("/", "repo/", "tmp/")):' \
-	'        for s in sources: cands.append(s.replace("\\", "/").rstrip("/") + "/" + cands[0].lstrip("./"))' \
-	'    rel, from_tmp = None, False' \
-	'    for fn in cands:' \
-	'        if fn.startswith("/repo/") and fn[6:] in tracked: rel = fn[6:]; break' \
-	'        if fn.startswith("repo/") and fn[5:] in tracked: rel = fn[5:]; break' \
-	'        if fn in tracked: rel = fn; break' \
-	'        if fn.startswith(("/tmp/", "tmp/")):' \
-	'            from_tmp = True' \
-	'            norm = "/" + fn.lstrip("/")' \
-	'            for cand in sorted_tracked:' \
-	'                if norm.endswith("/" + cand): rel = cand; break' \
-	'            if rel is None:' \
-	'                b = pathlib.PurePosixPath(norm).name' \
-	'                if b in uniq_base: rel = uniq_base[b]' \
-	'            if rel is not None: break' \
-	'    if rel is None or rel not in tracked: return None' \
-	'    if from_tmp:' \
-	'        rl = get_lines(rel)' \
-	'        try: lnums = [int(le.attrib["number"]) for le in line_elems]' \
-	'        except (KeyError, ValueError): return None' \
-	'        if not lnums or max(lnums) > len(rl): return None' \
-	'        for ln in lnums:' \
-	'            txt = rl[ln - 1].strip()' \
-	'            if not txt or txt.startswith("#"): return None' \
-	'        if len(rl) >= 15 and (max(lnums) < 10 or len(lnums) < 5): return None' \
-	'    return rel' \
-	'merged = {}' \
-	'for xp in target_xmls:' \
-	'    raw = re.sub(r"<!DOCTYPE[^>]*>\s*", "", xp.read_text(encoding="utf-8"))' \
-	'    root = ET.fromstring(raw)' \
-	'    srcs = [n.text.strip() for n in root.findall("./sources/source") if n.text and n.text.strip()]' \
-	'    for ce in root.iter("class"):' \
-	'        les = ce.findall("./lines/line")' \
-	'        rel = resolve_rel(ce.attrib.get("filename", ""), srcs, les)' \
-	'        if rel is None: continue' \
-	'        fl = merged.setdefault(rel, {})' \
-	'        skip = sq_cont(rel)' \
-	'        for le in les:' \
-	'            ln = int(le.attrib["number"])' \
-	'            if ln in skip: continue' \
-	'            hits = max(0, int(float(le.attrib.get("hits", "0"))))' \
-	'            br = le.attrib.get("branch")' \
-	'            cond = le.attrib.get("condition-coverage")' \
-	'            cur = fl.get(ln)' \
-	'            if cur is None: fl[ln] = [hits, br, cond]' \
-	'            else:' \
-	'                cur[0] += hits' \
-	'                if br == "true": cur[1] = "true"' \
-	'                if cond:' \
-	'                    mn = re.search(r"\((\d+)/(\d+)\)", cond)' \
-	'                    mo = re.search(r"\((\d+)/(\d+)\)", cur[2] or "")' \
-	'                    if mn and mo:' \
-	'                        c_cov, c_tot = max(int(mn.group(1)), int(mo.group(1))), max(int(mn.group(2)), int(mo.group(2)))' \
-	'                        cur[2] = f"{int(round(c_cov * 100.0 / c_tot)) if c_tot else 100}% ({c_cov}/{c_tot})"' \
-	'                    elif mn or not cur[2]: cur[2] = cond' \
-	'for rel, fl in merged.items():' \
-	'    rl = get_lines(rel)' \
-	'    i, n_rl = 0, len(rl)' \
-	'    while i < n_rl:' \
-	'        s = rl[i].strip()' \
-	'        if re.match(r"^(?:local\s+-a\s+|declare\s+-a\s+)?[A-Za-z_][A-Za-z0-9_]*=\($$", s):' \
-	'            j = i + 1' \
-	'            while j < n_rl and rl[j].strip() != ")":' \
-	'                if (i + 1) in fl and fl[i + 1][0] > 0 and (j + 1) in fl and fl[j + 1][0] == 0: fl[j + 1][0] = fl[i + 1][0]' \
-	'                j += 1' \
-	'            i = j + 1; continue' \
-	'        if re.match(r"^(?:local\s+)?[A-Za-z_][A-Za-z0-9_]*=\$$?\(", s) and (rl[i].rstrip().endswith(BS) or rl[i].rstrip().endswith("|")):' \
-	'            j = i + 1' \
-	'            while j < n_rl and (rl[j].rstrip().endswith(BS) or rl[j].rstrip().endswith("|")): j += 1' \
-	'            nxt = j + 1' \
-	'            while nxt < n_rl and (not rl[nxt].strip() or rl[nxt].strip().startswith("#")): nxt += 1' \
-	'            if nxt < n_rl and not re.match(r"^(?:fi|done|esac|else|elif\b|\}|;;)\b", rl[nxt].strip()):' \
-	'                if (i + 1) in fl and fl[i + 1][0] == 0 and (nxt + 1) in fl and fl[nxt + 1][0] > 0: fl[i + 1][0] = fl[nxt + 1][0]' \
-	'            i = j + 1; continue' \
-	'        i += 1' \
-	'tot_v = sum(len(v) for v in merged.values())' \
-	'tot_c = sum(1 for v in merged.values() for e in v.values() if e[0] > 0)' \
-	'rate = (tot_c / tot_v) if tot_v else 1.0' \
-	'def calc_br(lines_dict):' \
-	'    bc, bt = 0, 0' \
-	'    for e in lines_dict.values():' \
-	'        if e[2]:' \
-	'            m = re.search(r"\((\d+)/(\d+)\)", e[2])' \
-	'            if m: bc += int(m.group(1)); bt += int(m.group(2))' \
-	'    return bc, bt' \
-	'tot_bc, tot_bt = 0, 0' \
-	'for v in merged.values():' \
-	'    bc, bt = calc_br(v); tot_bc += bc; tot_bt += bt' \
-	'br_rate = (tot_bc / tot_bt) if tot_bt else 1.0' \
-	'cov_el = ET.Element("coverage", {"line-rate": f"{rate:.4f}", "branch-rate": f"{br_rate:.4f}", "lines-covered": str(tot_c), "lines-valid": str(tot_v), "branches-covered": str(tot_bc), "branches-valid": str(tot_bt), "complexity": "1.0", "version": "1.9", "timestamp": "0"})' \
-	'srcs_el = ET.SubElement(cov_el, "sources")' \
-	'ET.SubElement(srcs_el, "source").text = "/repo/"' \
-	'pkgs_el = ET.SubElement(cov_el, "packages")' \
-	'pkg_el = ET.SubElement(pkgs_el, "package", {"name": "bats", "line-rate": f"{rate:.4f}", "branch-rate": f"{br_rate:.4f}", "complexity": "1.0"})' \
-	'clss_el = ET.SubElement(pkg_el, "classes")' \
-	'for idx, rel in enumerate(sorted(merged)):' \
-	'    ld = merged[rel]' \
-	'    if not ld: continue' \
-	'    fv, fc = len(ld), sum(1 for e in ld.values() if e[0] > 0)' \
-	'    fbc, fbt = calc_br(ld)' \
-	'    fbr = (fbc / fbt) if fbt else 1.0' \
-	'    ce = ET.SubElement(clss_el, "class", {"name": re.sub(r"[^a-zA-Z0-9_]", "_", rel) + f"__{idx}", "filename": rel, "branch-rate": f"{fbr:.4f}", "complexity": "1.0", "line-rate": f"{(fc / fv) if fv else 1.0:.4f}"})' \
-	'    le_root = ET.SubElement(ce, "lines")' \
-	'    for ln in sorted(ld):' \
-	'        hits, br, cond = ld[ln]' \
-	'        attrs = {"number": str(ln), "hits": str(hits)}' \
-	'        if br is not None: attrs["branch"] = br' \
-	'        if cond is not None: attrs["condition-coverage"] = cond' \
-	'        ET.SubElement(le_root, "line", attrs)' \
-	'ET.indent(cov_el, space="  ")' \
-	'pathlib.Path("/cov-out/bash.xml").write_text("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" + ET.tostring(cov_el, encoding="unicode") + "\n", encoding="utf-8")' \
-	); \
-	docker run --rm --network none --cap-drop=ALL --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e _USER=qa -e KCOV_NORM_PY="$${kcov_norm_py}" -v "$$(pwd):/repo:ro" -v "$$(pwd)/.agents/.cache/coverage:/cov-out" -w /repo $(BASH_IMG) python3 -c 'import os, pathlib, shutil, stat, subprocess, sys; shutil.rmtree("/tmp/kcov-bash", ignore_errors=True); pathlib.Path("/tmp/kcov-env.sh").write_text("if [[ \"$${KCOV_BASH_XTRACEFD:-}\" =~ ^[0-9]+$$ ]] && [ -p \"/proc/$${BASHPID}/fd/$${KCOV_BASH_XTRACEFD}\" ]; then\n  PS4=\x27kcov@$${BASH_SOURCE}@$${LINENO}@\x27\n  BASH_XTRACEFD=\"$${KCOV_BASH_XTRACEFD}\"\n  set -x\nfi\n", encoding="utf-8"); rb = pathlib.Path("/tmp/run-bats.sh"); rb.write_text("#!/usr/bin/env bash\nexport -n BASH_XTRACEFD 2>/dev/null || unset BASH_XTRACEFD\nexport BASH_ENV=/tmp/kcov-env.sh\nexec bats \"$$@\"\n", encoding="utf-8"); rb.chmod(rb.stat().st_mode | stat.S_IXUSR); p = subprocess.run(["kcov", "--bash-dont-parse-binary-dir", "--include-path=/repo,/tmp", "--exclude-pattern=/repo/tests,/repo/bash-scripts/test,/tmp/kcov-bash,/tmp/kcov-env.sh,/tmp/run-bats.sh,.bats.src,/tmp/bats-mock", "/tmp/kcov-bash", "/tmp/run-bats.sh", "tests/bats/", "bash-scripts/test/"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True); sys.stdout.write(p.stdout); (sys.stderr.write("\n".join(p.stderr.splitlines()[-40:]) + "\n") if p.returncode != 0 and "\nnot ok " not in ("\n" + p.stdout) else None); sys.exit(p.returncode) if p.returncode != 0 else None; subprocess.run(["/usr/bin/python3", "-c", os.environ["KCOV_NORM_PY"]], check=True)'
+	@docker run --rm --network none --cap-drop=ALL --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e _USER=qa -v "$$(pwd):/repo:ro" -v "$$(pwd)/.agents/.cache/coverage:/cov-out" -w /repo $(BASH_IMG) python3 -c 'import pathlib, shutil, stat, subprocess, sys; shutil.rmtree("/tmp/kcov-bash", ignore_errors=True); pathlib.Path("/tmp/kcov-env.sh").write_text("if [[ \"$${KCOV_BASH_XTRACEFD:-}\" =~ ^[0-9]+$$ ]] && [ -p \"/proc/$${BASHPID}/fd/$${KCOV_BASH_XTRACEFD}\" ]; then\n  PS4=\x27kcov@$${BASH_SOURCE}@$${LINENO}@\x27\n  BASH_XTRACEFD=\"$${KCOV_BASH_XTRACEFD}\"\n  set -x\nfi\n", encoding="utf-8"); rb = pathlib.Path("/tmp/run-bats.sh"); rb.write_text("#!/usr/bin/env bash\nexport -n BASH_XTRACEFD 2>/dev/null || unset BASH_XTRACEFD\nexport BASH_ENV=/tmp/kcov-env.sh\nexec bats \"$$@\"\n", encoding="utf-8"); rb.chmod(rb.stat().st_mode | stat.S_IXUSR); p = subprocess.run(["kcov", "--bash-dont-parse-binary-dir", "--include-path=/repo,/tmp", "--exclude-pattern=/repo/tests,/repo/bash-scripts/test,/tmp/kcov-bash,/tmp/kcov-env.sh,/tmp/run-bats.sh,.bats.src,/tmp/bats-mock", "/tmp/kcov-bash", "/tmp/run-bats.sh", "tests/bats/", "bash-scripts/test/"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True); sys.stdout.write(p.stdout); (sys.stderr.write("\n".join(p.stderr.splitlines()[-40:]) + "\n") if p.returncode != 0 and "\nnot ok " not in ("\n" + p.stdout) else None); sys.exit(p.returncode) if p.returncode != 0 else None; subprocess.run(["/usr/bin/python3", "/repo/.agents/scripts/normalize_kcov_cobertura.py", "--repo", "/repo", "--kcov-dir", "/tmp/kcov-bash", "--output", "/cov-out/bash.xml"], check=True)'
 	@echo "✔ [BATS + kcov] Suites BATS OK y reporte Cobertura emitido en .agents/.cache/coverage/bash.xml."
 
 diff-cov:
@@ -461,7 +156,7 @@ diff-cov:
 	@if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		python3 .agents/scripts/verify_diff_coverage.py --workspace . --reports-dir .agents/.cache/coverage $(if $(BASE_REF),--base-ref "$(BASE_REF)",); \
 	else \
-		docker run --rm --network none -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/verify_diff_coverage.py --workspace /app --reports-dir .agents/.cache/coverage $(if $(BASE_REF),--base-ref "$(BASE_REF)",); \
+		docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/verify_diff_coverage.py --workspace /app --reports-dir .agents/.cache/coverage $(if $(BASE_REF),--base-ref "$(BASE_REF)",); \
 	fi
 
 pr-verdict:
@@ -469,7 +164,7 @@ pr-verdict:
 	@if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		python3 .agents/scripts/generate_pr_verdict.py --workspace . --output-md .agents/artifacts/PR_VERDICT.md --output-json .agents/artifacts/pr_verdict_attestation.json; \
 	else \
-		docker run --rm --network none -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e QA11X_ATTESTATION_KEY -v "$$(pwd):/app" -w /app $(PY_IMG) python3 .agents/scripts/generate_pr_verdict.py --workspace /app --output-md .agents/artifacts/PR_VERDICT.md --output-json .agents/artifacts/pr_verdict_attestation.json; \
+		docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e QA11X_ATTESTATION_KEY -v "$$(pwd):/app" -w /app $(PY_IMG) python3 .agents/scripts/generate_pr_verdict.py --workspace /app --output-md .agents/artifacts/PR_VERDICT.md --output-json .agents/artifacts/pr_verdict_attestation.json; \
 	fi
 
 test-meta-qa:
@@ -735,12 +430,16 @@ audit-llm:
 	@echo "🤖 [audit-llm] Ejecutando evaluación DeepEval en sinfallas/base-python-uv:3.15..."
 	@docker run --rm --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -e QA_LLM_AUDIT_LIVE="$${QA_LLM_AUDIT_LIVE:-$${RUN_LLM_AUDIT:-1}}" -e RUN_LLM_AUDIT="$${RUN_LLM_AUDIT:-1}" -e PYTHONPATH=ai-evals -e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -e QA_LLM_MODEL -v "$$(pwd):/app:ro" -w /app $(PY_IMG) pytest ai-evals/rag/test_rag_faithfulness.py ai-evals/voice-realtime/test_voice_websocket_latency.py ai-evals/multimodal-ocr/test_pdf_table_fidelity.py tests/evals/test_skill_adherence.py -k "live"
 	@echo "🛡️ [audit-llm] Ejecutando matrices Promptfoo OWASP LLM Top 10 y Skills en sinfallas/base-node-ionic:26..."
-	@prov_regex=""; judge="$${PROMPTFOO_JUDGE_PROVIDER:-}"; \
+	@mkdir -p .agents/artifacts; \
+	prov_regex=""; judge="$${PROMPTFOO_JUDGE_PROVIDER:-}"; \
 	if [ -n "$${OPENAI_API_KEY:-}" ] || [ -n "$${OPENAI_API_BASE:-}" ]; then prov_regex="$${prov_regex:+$$prov_regex|}openai:"; judge="$${judge:-openai:gpt-4.1-mini}"; fi; \
 	[ -n "$${ANTHROPIC_API_KEY:-}" ] && { prov_regex="$${prov_regex:+$$prov_regex|}anthropic:"; judge="$${judge:-anthropic:messages:claude-sonnet-4-5}"; }; \
 	[ -n "$${GEMINI_API_KEY:-}" ] && { prov_regex="$${prov_regex:+$$prov_regex|}google:"; judge="$${judge:-google:gemini-2.5-flash}"; }; \
 	[ -n "$${OLLAMA_BASE_URL:-}" ] && { prov_regex="$${prov_regex:+$$prov_regex|}ollama:"; judge="$${judge:-ollama:chat:qwen3:8b}"; }; \
-	docker run --rm --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PROMPTFOO_DISABLE_TELEMETRY=1 -e PROMPTFOO_DISABLE_REDTEAM_REMOTE_GENERATION=1 -e PROMPTFOO_CONFIG_DIR=/tmp/.promptfoo -e PROMPTFOO_JUDGE_PROVIDER="$$judge" -e PF_FILTER="$$prov_regex" -e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -e QA_LLM_MODEL -v "$$(pwd):/app:ro" -w /app $(NODE_IMG) sh -c 'if [ -n "$${PF_FILTER:-}" ]; then set -- --filter-providers "$${PF_FILTER}"; else set --; fi; promptfoo eval -c ai-evals/promptfooconfig.yaml "$$@" --no-cache -o /tmp/promptfoo-results.json && promptfoo eval -c tests/evals/promptfoo_skills_matrix.yaml "$$@" --no-cache -o /tmp/promptfoo-skills-results.json'
+	docker run --rm --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PROMPTFOO_DISABLE_TELEMETRY=1 -e PROMPTFOO_DISABLE_REDTEAM_REMOTE_GENERATION=1 -e PROMPTFOO_CONFIG_DIR=/tmp/.promptfoo -e PROMPTFOO_JUDGE_PROVIDER="$$judge" -e PF_FILTER="$$prov_regex" -e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -e QA_LLM_MODEL -v "$$(pwd):/app:ro" -v "$$(pwd)/.agents/artifacts:/artifacts" -w /app $(NODE_IMG) sh -c 'if [ -n "$${PF_FILTER:-}" ]; then set -- --filter-providers "$${PF_FILTER}"; else set --; fi; promptfoo eval -c ai-evals/promptfooconfig.yaml "$$@" --no-cache -o /artifacts/promptfoo-results.json && promptfoo eval -c tests/evals/promptfoo_skills_matrix.yaml "$$@" --no-cache -o /artifacts/promptfoo-skills-results.json'
+
+qa-k6:
+	@docker compose -f docker-compose.qa.yml --profile k6 run --rm -T -u "$$(id -u):$$(id -g)" k6 version
 
 audit-psi:
 	@./scripts/auditar-pagespeed.sh \

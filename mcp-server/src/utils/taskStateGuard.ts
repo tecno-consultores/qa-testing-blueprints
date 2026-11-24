@@ -4,8 +4,9 @@
 import * as fsPromises from 'node:fs/promises';
 import { reportDebugCatchError } from './diagnosticFormatter.js';
 
-export const TASK_CAPACITY_EXTENSION_URI = 'urn:quaia:extensions:task-capacity:v1' as const;
+export const TASK_CAPACITY_EXTENSION_URI = 'urn:qa-11x:extensions:task-capacity:v1' as const;
 export const MIN_TASK_CAPACITY = 1;
+export const DEFAULT_TASK_CAPACITY = 4;
 export const MAX_TASK_CAPACITY = 32;
 export const MAX_STUCK_TASKS = 32;
 export const DEFAULT_TELEMETRY_TIMEOUT_MS = 8_000;
@@ -290,7 +291,7 @@ export class TaskStateGuard {
   private readonly stuckTasks = new Map<string, ActiveTaskRecord>();
 
   constructor(options: TaskStateGuardOptions = {}) {
-    this.capacity = validateCapacity(options.capacity ?? MIN_TASK_CAPACITY);
+    this.capacity = validateCapacity(options.capacity ?? DEFAULT_TASK_CAPACITY);
     this.defaultTimeoutMs = validateTimeoutMs(
       options.defaultTimeoutMs ?? DEFAULT_TELEMETRY_TIMEOUT_MS,
       'defaultTimeoutMs'

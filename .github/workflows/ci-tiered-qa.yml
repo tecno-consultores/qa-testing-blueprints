@@ -84,6 +84,7 @@ jobs:
 
           if [ "${CACHE_HIT}" != "true" ] || [ ! -s "graphify-out/graph.json" ]; then
             if ! docker run --rm --network none \
+              --security-opt=no-new-privileges:true \
               -u "$(id -u):$(id -g)" \
               -e HOME=/tmp \
               -e OLLAMA_BASE_URL="" \
@@ -115,6 +116,7 @@ jobs:
           fi
 
           docker run --rm --network none \
+            --security-opt=no-new-privileges:true \
             -u "$(id -u):$(id -g)" \
             -e HOME=/tmp \
             -e PYTHONDONTWRITEBYTECODE=1 \

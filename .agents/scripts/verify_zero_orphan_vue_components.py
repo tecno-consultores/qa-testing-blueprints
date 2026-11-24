@@ -17,6 +17,12 @@ import sys
 from collections.abc import Iterator
 from pathlib import Path
 
+_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
+from _common import CANONICAL_IGNORED_DIRS  # noqa: E402
+
 _UNIT_SUFFIXES = (
     ".unit.ts",
     ".unit.tsx",
@@ -45,7 +51,7 @@ _JS_COMMENT_OR_STR_RE = re.compile(
 )
 
 
-_IGNORED_DIRS = frozenset({"node_modules", "dist", ".git"})
+_IGNORED_DIRS = CANONICAL_IGNORED_DIRS
 
 
 def _iter_files(directories: list[Path]) -> Iterator[Path]:

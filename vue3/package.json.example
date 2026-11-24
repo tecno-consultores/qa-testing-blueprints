@@ -14,7 +14,7 @@
     "type-check": "vue-tsc --noEmit",
     "format": "prettier --write \"src/**/*.{js,ts,tsx,vue}\" \"tests/**/*.{js,ts,tsx}\" \"e2e/**/*.{js,ts,tsx}\"",
     "format:check": "prettier --check \"src/**/*.{js,ts,tsx,vue}\" \"tests/**/*.{js,ts,tsx}\" \"e2e/**/*.{js,ts,tsx}\"",
-    "lint": "eslint . --max-warnings 0",
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
     "test:unit": "vitest run",
     "test:coverage": "vitest run --coverage",
     "mutate": "stryker run",

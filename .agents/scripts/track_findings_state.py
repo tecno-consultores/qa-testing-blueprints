@@ -13,11 +13,22 @@ import re
 import subprocess
 import sys
 import tempfile
-import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
+from _common import (  # noqa: E402
+    SECRET_PATTERNS as SECRET_PATTERNS,
+)
+from _common import (  # noqa: E402
+    atomic_write_json,
+    build_git_command,
+)
 
 EXIT_PASS = 0
 EXIT_FAIL = 1
@@ -42,36 +53,6 @@ MSG_LINE_REF_RE = re.compile(
     re.IGNORECASE,
 )
 WHITESPACE_RE = re.compile(r"\s+")
-
-SECRET_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"\b(Bearer|Basic)\s+[^\s\"']+", re.IGNORECASE), r"\1 [REDACTED]"),
-    (re.compile(r"(://[^/\s:@]+:)[^/\s@]+(@)"), r"\1[REDACTED]\2"),
-    (
-        re.compile(
-            r"\b(token|access_token|api_key|apikey|secret|password|passwd)=[^\s\"'&]+",
-            re.IGNORECASE,
-        ),
-        r"\1=[REDACTED]",
-    ),
-    (
-        re.compile(
-            r"(--(?:token|api-key|apikey|secret|password|passwd))(?:\s+|=)[^\s\"']+",
-            re.IGNORECASE,
-        ),
-        r"\1=[REDACTED]",
-    ),
-    (
-        re.compile(r"\b(?:ghp|gho|ghs|github_pat|npm)_[A-Za-z0-9_]{12,}\b"),
-        "[REDACTED]",
-    ),
-    (
-        re.compile(r"\b(?:glpat|xox[baprs])-[A-Za-z0-9_-]{12,}\b"),
-        "[REDACTED]",
-    ),
-    (re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b"), "[REDACTED]"),
-    (re.compile(r"\bAIza[A-Za-z0-9_-]{16,}\b"), "[REDACTED]"),
-    (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "[REDACTED]"),
-)
 
 
 @dataclass(frozen=True)
@@ -202,8 +183,7 @@ def validate_base_ref(base_ref: str | None) -> str | None:
 def _run_git(workspace: Path, args: list[str]) -> str | None:
     try:
         proc = subprocess.run(
-            ["git", *args],
-            cwd=workspace,
+            build_git_command(workspace, *args),
             capture_output=True,
             text=True,
             timeout=5,
@@ -291,24 +271,7 @@ def _save_state_doc(
 ) -> None:
     _ensure_no_symlink(state_file, workspace=workspace)
     _ensure_private_parent(state_file.parent)
-    payload = json.dumps(state_doc, indent=2, ensure_ascii=False) + "\n"
-    tmp_path = (
-        state_file.parent
-        / f".{state_file.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
-    )
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
-    fd = os.open(tmp_path, flags, 0o600)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(payload)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.chmod(tmp_path, 0o600)
-        os.replace(tmp_path, state_file)
-        os.chmod(state_file, 0o600)
-    except OSError:
-        tmp_path.unlink(missing_ok=True)
-        raise
+    atomic_write_json(state_file, state_doc, mode=0o600, fsync=True)
 
 
 def _extract_raw_findings(payload: Any) -> tuple[str, list[dict[str, Any]]]:

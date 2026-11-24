@@ -70,7 +70,7 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
       expect(isPromotedSection('Ciclo de 3 Fases Temporales (Pending, Active, Expired)')).toBe(true);
       expect(isPromotedSection('Invariante de Refresco Dual en vistas')).toBe(true);
       expect(isPromotedSection('### Invariante QA-TEST-SYNC-01')).toBe(true);
-      expect(isPromotedSection('Regla exclusiva de MikroTik RouterOS v7')).toBe(false);
+      expect(isPromotedSection('Regla exclusiva de EdgeGateway OS v7')).toBe(false);
       expect(PROMOTED_INVARIANT_FINGERPRINTS.length).toBeGreaterThan(5);
     });
   });
@@ -115,9 +115,9 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
     });
   });
 
-  describe('reconcileAgentsGovernance full workflows (rosgrid style scenario)', () => {
+  describe('reconcileAgentsGovernance full workflows (thin-repo consumer scenario)', () => {
     it('Case 1: reconciles project with redundant promoted rules and extracts domain rules to domain_<project>_rules.md', async () => {
-      const projectDir = path.join(tmpDir, 'rosgrid');
+      const projectDir = path.join(tmpDir, 'acme-core');
       const rulesDir = path.join(projectDir, '.agents', 'rules');
       fs.mkdirSync(rulesDir, { recursive: true });
 
@@ -126,8 +126,8 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
         '# Custom UAT Directives',
         '## Invariante Anti-Silo y Silo Mock Blindness',
         'No validar solo status 200 en módulo A sin verificar consumidor B en base real.',
-        '## MikroTik RouterOS v7 Hardware Offloading',
-        'En los routers CCR2004, siempre habilitar hw-offload en los puentes Ethernet.',
+        '## Hardware Offloading Protocol Rules',
+        'En los nodos de borde, siempre habilitar hw-offload en los puentes Ethernet.',
         '## Ciclo Temporal de 3 Fases del Reloj',
         'Toda ventana de mantenimiento debe probarse en Programada, En Curso y Expirada.',
       ].join('\n');
@@ -135,12 +135,12 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
 
       // AGENTS.md con sección duplicada fuera del bloque conector
       const agentsMdContent = [
-        '# AGENTS.md — rosgrid',
+        '# AGENTS.md — acme-core',
         '## Silo Mock Blindness Universal Directive',
         'Regla duplicada que ya reside en la skill global.',
-        buildConnectorBlock('rosgrid', ['python']),
-        '## WinBox Protocol Rules',
-        'Regla específica de WinBox.',
+        buildConnectorBlock('acme-core', ['python']),
+        '## Custom Edge Protocol Rules',
+        'Regla específica de protocolo interno.',
       ].join('\n\n');
       fs.writeFileSync(path.join(projectDir, 'AGENTS.md'), agentsMdContent, 'utf-8');
 
@@ -154,26 +154,26 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
       // El archivo custom_uat.md fue eliminado tras extraer sus reglas
       expect(fs.existsSync(path.join(rulesDir, 'custom_uat.md'))).toBe(false);
 
-      // Se creó el archivo de dominio domain_rosgrid_rules.md
-      const expectedDomainPath = path.join(rulesDir, 'domain_rosgrid_rules.md');
+      // Se creó el archivo de dominio domain_acme_core_rules.md
+      const expectedDomainPath = path.join(rulesDir, 'domain_acme_core_rules.md');
       expect(fs.existsSync(expectedDomainPath)).toBe(true);
       const domainContent = fs.readFileSync(expectedDomainPath, 'utf-8');
-      expect(domainContent).toContain('MikroTik RouterOS v7 Hardware Offloading');
+      expect(domainContent).toContain('Hardware Offloading Protocol Rules');
       expect(domainContent).not.toContain('Silo Mock Blindness');
 
-      // AGENTS.md fue podado de secciones duplicadas pero conservó el conector y la regla de WinBox
+      // AGENTS.md fue podado de secciones duplicadas pero conservó el conector y la regla propia
       const updatedAgentsMd = fs.readFileSync(path.join(projectDir, 'AGENTS.md'), 'utf-8');
       expect(updatedAgentsMd).toContain('QA_11X_MCP_CONNECTOR_START');
-      expect(updatedAgentsMd).toContain('WinBox Protocol Rules');
+      expect(updatedAgentsMd).toContain('Custom Edge Protocol Rules');
       expect(updatedAgentsMd).not.toContain('Silo Mock Blindness Universal Directive');
     });
 
     it('Case 2: preserves domain_*.md files intact without renaming or modifying', async () => {
-      const projectDir = path.join(tmpDir, 'rosgrid-noc');
+      const projectDir = path.join(tmpDir, 'acme-noc');
       const rulesDir = path.join(projectDir, '.agents', 'rules');
       fs.mkdirSync(rulesDir, { recursive: true });
 
-      const domainNocFile = path.join(rulesDir, 'domain_rosgrid_noc.md');
+      const domainNocFile = path.join(rulesDir, 'domain_acme_noc.md');
       const domainContent = '# NOC Specific Directives\n## Alerting\nSend alerts to NOC Slack channel.';
       fs.writeFileSync(domainNocFile, domainContent, 'utf-8');
 
@@ -181,7 +181,7 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
       const preservedItem = result.reconciled_items.find((item) => item.classification === 'DOMAIN_PRESERVED');
 
       expect(preservedItem).toBeDefined();
-      expect(preservedItem?.file).toContain('domain_rosgrid_noc.md');
+      expect(preservedItem?.file).toContain('domain_acme_noc.md');
       expect(fs.existsSync(domainNocFile)).toBe(true);
       expect(fs.readFileSync(domainNocFile, 'utf-8')).toBe(domainContent);
     });
@@ -210,7 +210,7 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
     });
 
     it('Case 7: extracts custom domain sections from modified canonical rule file in consumer project and deletes the canonical file', async () => {
-      const projectDir = path.join(tmpDir, 'rosgrid-web');
+      const projectDir = path.join(tmpDir, 'acme-web');
       const rulesDir = path.join(projectDir, '.agents', 'rules');
       fs.mkdirSync(rulesDir, { recursive: true });
 
@@ -221,14 +221,14 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
           '# Mandatory Directive: QA 11X Pyramid & Continuous Documentation Sync',
           '## 1. Supreme Directive: Mandatory 11X Test Creation',
           'Regla global ya incluida en la skill global.',
-          '## Topología Cartográfica de Nodos MikroTik',
-          'En el mapa de rosgrid-web, cada router CCR debe mostrar su enlace OSPF activo.',
+          '## Topología Cartográfica de Nodos Edge',
+          'En el mapa de acme-web, cada nodo debe mostrar su enlace OSPF activo.',
         ].join('\n'),
         'utf-8'
       );
 
       expect(isCanonicalRuleSection('## 1. Supreme Directive: Mandatory 11X Test Creation')).toBe(true);
-      expect(isCanonicalRuleSection('## Topología Cartográfica de Nodos MikroTik')).toBe(false);
+      expect(isCanonicalRuleSection('## Topología Cartográfica de Nodos Edge')).toBe(false);
 
       const result = await reconcileAgentsGovernance({ projectPath: projectDir, dryRun: false });
       const item = result.reconciled_items.find((i) =>
@@ -237,10 +237,10 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
       expect(item?.classification).toBe('DOMAIN_EXTRACTED_TO_DOMAIN_FILE');
       expect(fs.existsSync(modifiedCanonicalPath)).toBe(false);
 
-      const expectedDomainFile = path.join(rulesDir, 'domain_rosgrid_web_rules.md');
+      const expectedDomainFile = path.join(rulesDir, 'domain_acme_web_rules.md');
       expect(fs.existsSync(expectedDomainFile)).toBe(true);
       const domainText = fs.readFileSync(expectedDomainFile, 'utf-8');
-      expect(domainText).toContain('Topología Cartográfica de Nodos MikroTik');
+      expect(domainText).toContain('Topología Cartográfica de Nodos Edge');
       expect(domainText).not.toContain('Supreme Directive: Mandatory 11X Test Creation');
     });
 

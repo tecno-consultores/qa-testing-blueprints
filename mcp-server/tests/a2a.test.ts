@@ -112,7 +112,7 @@ describe('Agent2Agent Card Generator (buildAgentCard)', () => {
       },
     ];
     const card = buildAgentCard({
-      name: 'rosgrid-a2a-worker',
+      name: 'acme-a2a-worker',
       description: 'Worker especializado de telemetría QA.',
       version: '3.1.0',
       url: 'https://agent.local/a2a',
@@ -128,7 +128,7 @@ describe('Agent2Agent Card Generator (buildAgentCard)', () => {
 
     expect(customSkills[0]).toBeDefined();
     customSkills[0]?.tags.push('mutated');
-    expect(card.name).toBe('rosgrid-a2a-worker');
+    expect(card.name).toBe('acme-a2a-worker');
     expect(card.description).toBe('Worker especializado de telemetría QA.');
     expect(card.activeModel).toBe('qwen3.8-32b-instruct');
     expect(card.capabilities).toEqual({

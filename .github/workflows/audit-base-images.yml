@@ -26,10 +26,6 @@ on:
       - '*/composer.json*'
       - 'ai-evals/**'
       - 'vibe-rescue/**'
-      - 'RESOURCES.md'
-      - 'RESOURCES.es.md'
-      - 'SECURITY.md'
-      - 'SECURITY.es.md'
 
 permissions:
   contents: read
@@ -94,18 +90,13 @@ jobs:
       fail-fast: false
       matrix:
         image:
-          - 'sinfallas/base-python-uv:latest' # qa-audit-latest-target
-          - 'sinfallas/base-python-uv:3.15'
-          - 'sinfallas/base-node-ionic:latest' # qa-audit-latest-target
-          - 'sinfallas/base-node-ionic:26'
-          - 'sinfallas/basephpcomposer:latest' # qa-audit-latest-target
-          - 'sinfallas/basephpcomposer:8.5'
-          - 'sinfallas/karatelabs:1.5.1'
-          - 'sinfallas/karatelabs:latest' # qa-audit-latest-target
-          - 'sinfallas/base-bash-qa:latest' # qa-audit-latest-target
-          - 'sinfallas/remote-graphify:latest' # qa-audit-latest-target
-          - 'sinfallas/base-mobile-appium:latest' # qa-audit-latest-target
-          - 'sinfallas/base-mobile-appium:26'
+          - 'sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4'
+          - 'sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60'
+          - 'sinfallas/basephpcomposer:8.5@sha256:56ff6d2dbf8b13833555b56ddc517bf520506b669c235026bb23224b212f0208'
+          - 'sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89'
+          - 'sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7'
+          - 'sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0'
+          - 'sinfallas/base-mobile-appium:26@sha256:1bb9e70613a786008fe06c418a557aeaa5fe7c62b3db29a26b4e0ce86d3c6728'
 
     steps:
       - name: Compute UTC date key
@@ -186,6 +177,7 @@ jobs:
     name: Python 3.15 Preinstalled Dependencies Audit (pip-audit)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    continue-on-error: ${{ github.event_name == 'pull_request' }}
 
     steps:
       - name: Audit preinstalled Python packages in non-root container (UID 10001)

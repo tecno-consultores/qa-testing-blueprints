@@ -1,4 +1,3 @@
-#!/usr/bin/env bats
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 QA Testing Blueprints Contributors
 
@@ -13,6 +12,8 @@ setup() {
   else
     REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
   fi
+  HERMETIC_DOCKERENV="${BATS_TEST_TMPDIR}/.dockerenv"
+  touch "${HERMETIC_DOCKERENV}"
 }
 
 @test "bump_version_11x.py: verifica paridad limpia (--check 0) y detecta desfase (--check 1)" {
@@ -683,6 +684,8 @@ EOF
   _setup_probar_mcp_example_env
   local py_stub_bin="${BATS_TEST_TMPDIR}/ex_py_stub_bin"
   local uv_cache_dir="${BATS_TEST_TMPDIR}/ex_uv_cache"
+  local sandbox_uv_cache="${BATS_TEST_TMPDIR}/sandbox_uv_cache"
+  local sandbox_qa_venv="${BATS_TEST_TMPDIR}/sandbox_qa_venv"
   local docker_args_log="${BATS_TEST_TMPDIR}/ex_docker_args.log"
   mkdir -p "${py_stub_bin}" "${uv_cache_dir}"
   touch "${uv_cache_dir}/fastapi.whl"
@@ -694,19 +697,19 @@ if [ "${1:-}" = "-c" ]; then
 fi
 exit 0
 EOF
-  cat >"${py_stub_bin}/uv" <<'EOF'
+  cat >"${py_stub_bin}/uv" <<EOF
 #!/usr/bin/env bash
-if [ "${1:-}" = "venv" ]; then
-  mkdir -p /tmp/qa-venv/bin
-  cat > /tmp/qa-venv/bin/python <<'PYEOF'
+if [ "\${1:-}" = "venv" ]; then
+  mkdir -p "${sandbox_qa_venv}/bin"
+  cat > "${sandbox_qa_venv}/bin/python" <<'PYEOF'
 #!/usr/bin/env bash
 exit 0
 PYEOF
-  chmod +x /tmp/qa-venv/bin/python
+  chmod +x "${sandbox_qa_venv}/bin/python"
   exit 0
 fi
-if [ "${1:-}" = "pip" ] && [ "${2:-}" = "install" ]; then
-  [ -f /tmp/uv-cache/fastapi.whl ] && exit 0
+if [ "\${1:-}" = "pip" ] && [ "\${2:-}" = "install" ]; then
+  [ -f "${sandbox_uv_cache}/fastapi.whl" ] && exit 0
   exit 1
 fi
 exit 0
@@ -730,11 +733,10 @@ if printf '%s\n' "\$*" | grep -q "sh -c"; then
   if printf '%s\n' "\$*" | grep -q "${uv_cache_dir}:/tmp/uv-cache"; then
     has_cache=1
   fi
-  trap 'rm -rf /tmp/uv-cache /tmp/qa-venv' EXIT
-  rm -rf /tmp/uv-cache /tmp/qa-venv
-  mkdir -p /tmp/uv-cache
-  [ "\${has_cache}" -eq 1 ] && touch /tmp/uv-cache/fastapi.whl
-  PATH="${py_stub_bin}:\${PATH}" QA_UV_OFFLINE="--offline" bash -c "\${cmd}"
+  rm -rf "${sandbox_uv_cache}" "${sandbox_qa_venv}"
+  mkdir -p "${sandbox_uv_cache}"
+  [ "\${has_cache}" -eq 1 ] && touch "${sandbox_uv_cache}/fastapi.whl"
+  PATH="${py_stub_bin}:\${PATH}" QA_VENV_DIR="${sandbox_qa_venv}" UV_CACHE_DIR="${sandbox_uv_cache}" QA_UV_OFFLINE="--offline" bash -c "\${cmd}"
   rc=\$?
   exit \$rc
 fi
@@ -903,6 +905,7 @@ EOF
   cp "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh" "${WORK}/.agents/scripts/certify_task_completion.sh"
   cp "${REPO_ROOT}/.agents/scripts/track_findings_state.py" "${WORK}/.agents/scripts/track_findings_state.py"
   cp "${REPO_ROOT}/.agents/scripts/_budgets.py" "${WORK}/.agents/scripts/_budgets.py"
+  cp "${REPO_ROOT}/.agents/scripts/_common.py" "${WORK}/.agents/scripts/_common.py"
   chmod +x "${WORK}/.agents/scripts/certify_task_completion.sh"
 
   cat >"${WORK}/scripts/verificar-secretos.sh" <<'EOF'
@@ -1112,7 +1115,7 @@ EOF
   chmod +x "${WORK}/scripts/verificar-secretos.sh"
 
   # A. QA_DIAGNOSTIC_JSON relativo resuelve contra REPO_ROOT
-  run env QA11X_DOCKERENV_PATH="/.dockerenv" QA_DIAGNOSTIC_JSON="./rel-diag/fail.json" LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh"
+  run env QA11X_DOCKERENV_PATH="${HERMETIC_DOCKERENV}" QA_DIAGNOSTIC_JSON="./rel-diag/fail.json" LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh"
   assert_failure 1
   [ -f "${WORK}/rel-diag/fail.json" ]
   rm -rf "${WORK}/rel-diag"
@@ -1163,7 +1166,7 @@ EOF
   git -C "${WORK}" add scripts/app.sh tests/bats/app.bats README.md
   git -C "${WORK}" commit -q -m "feat: v2"
 
-  run env QA11X_DOCKERENV_PATH="/.dockerenv" LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh" --strict
+  run env QA11X_DOCKERENV_PATH="${HERMETIC_DOCKERENV}" LC_ALL=C bash "${WORK}/.agents/scripts/certify_task_completion.sh" --strict
   assert_success
   assert_output --partial "10/10 PASS"
   run cat "${DIFF_COV_LOG}"
@@ -1287,7 +1290,7 @@ EOF
   assert_failure 1
   run bash "${hook_ws}/.git/hooks/commit-msg" "${msg_ok}"
   assert_success
-  run env QA11X_DOCKERENV_PATH="/.dockerenv" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${clean_room}" "${REPO_ROOT}"
+  run env QA11X_DOCKERENV_PATH="${HERMETIC_DOCKERENV}" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${clean_room}" "${REPO_ROOT}"
   assert_failure 1
   assert_output --partial "Archivo sensible .env bloqueado"
   rm -f "${clean_room}/.env"
@@ -1799,24 +1802,24 @@ EOF
 
   # 1. .env.example sin trackear está permitido en descubrimiento automático git
   printf 'DEBUG=true\nADMIN_USER=root\n' >"${git_env_ws}/.env.example"
-  run env QA11X_DOCKERENV_PATH="/.dockerenv" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${git_env_ws}" "${REPO_ROOT}"
+  run env QA11X_DOCKERENV_PATH="${HERMETIC_DOCKERENV}" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${git_env_ws}" "${REPO_ROOT}"
   assert_success
   assert_output --partial "0 secretos expuestos"
 
   # 2. .env sin trackear (sin patrones de secreto largo) debe bloquearse con 0 argumentos
   printf 'DEBUG=true\nADMIN_USER=root\n' >"${git_env_ws}/.env"
-  run env QA11X_DOCKERENV_PATH="/.dockerenv" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${git_env_ws}" "${REPO_ROOT}"
+  run env QA11X_DOCKERENV_PATH="${HERMETIC_DOCKERENV}" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${git_env_ws}" "${REPO_ROOT}"
   assert_failure 1
   assert_output --partial "Archivo sensible .env bloqueado"
 
   # 3. Paridad con argumento explícito .env
-  run env QA11X_DOCKERENV_PATH="/.dockerenv" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" .env' _ "${git_env_ws}" "${REPO_ROOT}"
+  run env QA11X_DOCKERENV_PATH="${HERMETIC_DOCKERENV}" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" .env' _ "${git_env_ws}" "${REPO_ROOT}"
   assert_failure 1
   assert_output --partial "Archivo sensible .env bloqueado"
 
   # 4. .env trackeado en índice Git también falla inmediatamente
   git -C "${git_env_ws}" add -f .env
-  run env QA11X_DOCKERENV_PATH="/.dockerenv" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${git_env_ws}" "${REPO_ROOT}"
+  run env QA11X_DOCKERENV_PATH="${HERMETIC_DOCKERENV}" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${git_env_ws}" "${REPO_ROOT}"
   assert_failure 1
   assert_output --partial "Archivo sensible trackeado en Git"
 }
@@ -1844,20 +1847,20 @@ EOF
   ln -s "${outside_dir}" "${diag_ws}/.agents/sym_dir"
 
   # 1. Symlink directo en QA_DIAGNOSTIC_JSON no sobrescribe victim.txt
-  run env QA11X_DOCKERENV_PATH="/.dockerenv" QA_DIAGNOSTIC_JSON="${diag_ws}/sym_diag.json" LC_ALL=C bash "${diag_ws}/.agents/scripts/certify_task_completion.sh"
+  run env QA11X_DOCKERENV_PATH="${HERMETIC_DOCKERENV}" QA_DIAGNOSTIC_JSON="${diag_ws}/sym_diag.json" LC_ALL=C bash "${diag_ws}/.agents/scripts/certify_task_completion.sh"
   assert_failure 1
   assert_output --partial "Ruta symlink rechazada por seguridad"
   [ "$(cat "${victim_file}")" = "KEEP_SAFE_ORIGINAL" ]
 
   # 2. Ancestro symlink en QA_DIAGNOSTIC_JSON no crea subdirectorios ni escribe fuera
-  run env QA11X_DOCKERENV_PATH="/.dockerenv" QA_DIAGNOSTIC_JSON="${diag_ws}/.agents/sym_dir/sub/diag.json" LC_ALL=C bash "${diag_ws}/.agents/scripts/certify_task_completion.sh"
+  run env QA11X_DOCKERENV_PATH="${HERMETIC_DOCKERENV}" QA_DIAGNOSTIC_JSON="${diag_ws}/.agents/sym_dir/sub/diag.json" LC_ALL=C bash "${diag_ws}/.agents/scripts/certify_task_completion.sh"
   assert_failure 1
   assert_output --partial "Ruta symlink rechazada por seguridad"
   [ ! -e "${outside_dir}/sub" ]
 
   # 3. Ruta legítima bajo /tmp escribe JSON diagnóstico válido (cubre rama /tmp/*)
   local legit_diag="${BATS_TEST_TMPDIR}/diag_legit/failure.json"
-  run env QA11X_DOCKERENV_PATH="/.dockerenv" QA_DIAGNOSTIC_JSON="${legit_diag}" LC_ALL=C bash "${diag_ws}/.agents/scripts/certify_task_completion.sh"
+  run env QA11X_DOCKERENV_PATH="${HERMETIC_DOCKERENV}" QA_DIAGNOSTIC_JSON="${legit_diag}" LC_ALL=C bash "${diag_ws}/.agents/scripts/certify_task_completion.sh"
   assert_failure 1
   [ -f "${legit_diag}" ]
 
@@ -1903,21 +1906,21 @@ EOF
   ln -s "${outside_dir}" "${trav_ws}/anc_sym"
 
   # 1. nonexistent/../nest_sym/../pwn.json rechazado antes de mkdir y sin sobrescribir pwn.json
-  run env QA11X_DOCKERENV_PATH="/.dockerenv" QA_DIAGNOSTIC_JSON="${trav_ws}/nonexistent/../nest_sym/../pwn.json" LC_ALL=C bash "${trav_ws}/.agents/scripts/certify_task_completion.sh"
+  run env QA11X_DOCKERENV_PATH="${HERMETIC_DOCKERENV}" QA_DIAGNOSTIC_JSON="${trav_ws}/nonexistent/../nest_sym/../pwn.json" LC_ALL=C bash "${trav_ws}/.agents/scripts/certify_task_completion.sh"
   assert_failure 1
   assert_output --partial "Ruta symlink rechazada por seguridad"
   [ ! -e "${trav_ws}/nonexistent" ]
   [ "$(cat "${pwn_file}")" = "ORIG_VICTIM" ]
 
   # 2. nonexistent/../anc_sym/pwn.json rechazado antes de mkdir y montaje Docker
-  run env QA11X_DOCKERENV_PATH="/.dockerenv" QA_DIAGNOSTIC_JSON="${trav_ws}/nonexistent/../anc_sym/pwn.json" LC_ALL=C bash "${trav_ws}/.agents/scripts/certify_task_completion.sh"
+  run env QA11X_DOCKERENV_PATH="${HERMETIC_DOCKERENV}" QA_DIAGNOSTIC_JSON="${trav_ws}/nonexistent/../anc_sym/pwn.json" LC_ALL=C bash "${trav_ws}/.agents/scripts/certify_task_completion.sh"
   assert_failure 1
   assert_output --partial "Ruta symlink rechazada por seguridad"
   [ ! -e "${trav_ws}/nonexistent" ]
   [ "$(cat "${pwn_file}")" = "ORIG_VICTIM" ]
 
   # 3. Segmento '.' seguido de symlink también es rechazado por diag_has_symlink_segment
-  run env QA11X_DOCKERENV_PATH="/.dockerenv" QA_DIAGNOSTIC_JSON="${trav_ws}/./anc_sym/pwn.json" LC_ALL=C bash "${trav_ws}/.agents/scripts/certify_task_completion.sh"
+  run env QA11X_DOCKERENV_PATH="${HERMETIC_DOCKERENV}" QA_DIAGNOSTIC_JSON="${trav_ws}/./anc_sym/pwn.json" LC_ALL=C bash "${trav_ws}/.agents/scripts/certify_task_completion.sh"
   assert_failure 1
   assert_output --partial "Ruta symlink rechazada por seguridad"
   [ "$(cat "${pwn_file}")" = "ORIG_VICTIM" ]
@@ -1949,14 +1952,14 @@ EOF
   printf 'hello\n' >"${unborn_ws}/README.md"
 
   # 1. Repo sin HEAD con secreto staged y archivo untracked limpio: bloqueado con 0 args
-  run env QA11X_DOCKERENV_PATH="/.dockerenv" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${unborn_ws}" "${REPO_ROOT}"
+  run env QA11X_DOCKERENV_PATH="${HERMETIC_DOCKERENV}" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${unborn_ws}" "${REPO_ROOT}"
   assert_failure 1
   assert_output --partial "staged_secret.py"
 
   # 2. Reemplazar secreto staged por contenido limpio: escanea ambos archivos y aprueba
   printf 'KEY = "clean_value"\n' >"${unborn_ws}/staged_secret.py"
   git -C "${unborn_ws}" add staged_secret.py
-  run env QA11X_DOCKERENV_PATH="/.dockerenv" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${unborn_ws}" "${REPO_ROOT}"
+  run env QA11X_DOCKERENV_PATH="${HERMETIC_DOCKERENV}" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${unborn_ws}" "${REPO_ROOT}"
   assert_success
   assert_output --partial "0 secretos expuestos (2 archivos escaneados)"
 
@@ -1965,7 +1968,7 @@ EOF
   git -C "${unborn_ws}" commit -qm "chore: init"
   git -C "${unborn_ws}" rm -q staged_secret.py
   printf 'notes\n' >"${unborn_ws}/notes.txt"
-  run env QA11X_DOCKERENV_PATH="/.dockerenv" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${unborn_ws}" "${REPO_ROOT}"
+  run env QA11X_DOCKERENV_PATH="${HERMETIC_DOCKERENV}" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh"' _ "${unborn_ws}" "${REPO_ROOT}"
   assert_success
   assert_output --partial "0 secretos expuestos (1 archivos escaneados)"
 }
@@ -2095,7 +2098,7 @@ sys.exit(0)
 PY
 
   cd "${cons_ws}"
-  run env QA11X_DOCKERENV_PATH="/.dockerenv" PATH="${cons_bin}:/usr/bin:/bin" LC_ALL=C bash "${cons_ws}/.agents/scripts/certify_task_completion.sh"
+  run env QA11X_DOCKERENV_PATH="${HERMETIC_DOCKERENV}" PATH="${cons_bin}:/usr/bin:/bin" LC_ALL=C bash "${cons_ws}/.agents/scripts/certify_task_completion.sh"
   assert_success
   assert_output --partial "Governance Maintenance Fast-Path"
 }

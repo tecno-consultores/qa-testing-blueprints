@@ -54,6 +54,8 @@ This specification defines the detailed technical roadmap for migrating all huma
      `> 🌐 **Idioma:** [🇺🇸 English (Canonical)](<DOCUMENT>.md) · **Español (Espejo 1:1)**`
 4. **Historical Specifications (`docs/specs/01..18`):**
    - For maintenance ROI, Specs `01..18` remain preserved in Spanish as immutable historical records (indexed from [`docs/specs/README.md`](README.md) and its counterpart `docs/specs/README.es.md` with an explicit archival notice), requiring bilingual pairs (`NN_SPEC_*.md` + `.es.md`) starting from v3.x+ specifications (`19_SPEC`, `20_SPEC`, and beyond).
+5. **External English-Only Catalog Submissions (`catalogs/agenticskills-submission.md`):**
+   - Registry submission templates targeting international English-only catalogs (`catalogs/agenticskills-submission.md`) are explicitly exempt from requiring a `.es.md` mirror.
 
 ---
 

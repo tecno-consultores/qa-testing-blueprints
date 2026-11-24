@@ -91,6 +91,7 @@ if [ -f "${ABS_OUTPUT}" ]; then
     DOCKER_ENV_ARGS+=(-e QA11X_ATTESTATION_KEY)
   fi
   docker run --rm --network none \
+    --security-opt=no-new-privileges:true \
     -u "$(id -u):$(id -g)" \
     -e HOME=/tmp \
     -e PYTHONDONTWRITEBYTECODE=1 \

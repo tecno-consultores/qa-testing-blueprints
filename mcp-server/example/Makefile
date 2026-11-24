@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Makefile de referencia 11X para el proyecto semilla Full-Stack (FastAPI + Vue 3)
 
-.PHONY: qa-lint qa-unit qa-integration qa-e2e qa-all
+.PHONY: qa-lint qa-lint-frontend qa-unit qa-integration qa-e2e qa-bdd-ui qa-all
 
 export QA_UID := $(shell id -u)
 export QA_GID := $(shell id -g)
@@ -9,19 +9,30 @@ export QA_GID := $(shell id -g)
 qa-lint:
 	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-backend bash -c \
 		"ruff check --select E,F,W,I,UP,B,C901,PLR0913 src/ tests/ && ruff format --check src/ tests/ && mypy --strict --cache-dir=/tmp/mypy src/"
+	@$(MAKE) qa-lint-frontend
+
+qa-lint-frontend:
+	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-frontend bash -c \
+		"if [ ! -d node_modules ]; then pnpm install --prefer-offline --silent; fi && pnpm --silent run lint && pnpm --silent run typecheck"
 
 qa-unit:
 	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" \
 		-e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app/backend/src \
 		-e QA_UV_OFFLINE="$(if $(filter 1 true,$(QA_OFFLINE)),--offline,)" qa-backend bash -c \
 		'if python3 -c "import fastapi, httpx" >/dev/null 2>&1; then PY_BIN=python3; else uv venv -q --system-site-packages /tmp/qa-venv && if [ "$${QA_UV_OFFLINE:-}" = "--offline" ]; then uv pip install -q --offline --python /tmp/qa-venv/bin/python fastapi httpx || { echo "❌ Modo --offline sin fastapi/httpx preinstalados ni cache UV (UV_CACHE_DIR)." >&2; exit 1; }; else uv pip install -q --python /tmp/qa-venv/bin/python fastapi httpx; fi && PY_BIN=/tmp/qa-venv/bin/python; fi && "$$PY_BIN" -m pytest --import-mode=importlib --cov=src --cov-fail-under=95 tests/*.unit.py'
+	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-frontend bash -c \
+		"if [ ! -d node_modules ]; then pnpm install --prefer-offline --silent; fi && pnpm --silent run test:unit"
 
 qa-integration:
 	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-backend bash -c \
 		"if [ -f alembic.ini ]; then alembic -c alembic.ini upgrade head; else python3 -c \"import ast, pathlib; ast.parse(pathlib.Path('migrations/versions/0001_create_telemetry_devices.py').read_text())\"; echo '⚠️ [SKIPPED/NO_ALEMBIC_INI] Migración validada sintácticamente sin motor PostgreSQL'; fi"
 
+qa-bdd-ui:
+	@docker compose -f docker-compose.qa.yml --profile e2e run --rm -T -u "$(QA_UID):$(QA_GID)" karate-ui sh -c \
+		"java -jar /opt/karate/karate.jar test/ui_business_flow.feature"
+
 qa-e2e:
 	@docker compose -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-frontend bash -c \
-		"if [ -d node_modules ]; then pnpm --silent run test:e2e; else echo '⚠️ [SKIPPED/NO_NODE_MODULES] Instale dependencias antes de ejecutar Playwright E2E' >&2; exit 2; fi"
+		"if [ ! -d node_modules ]; then pnpm install --prefer-offline --silent; fi && pnpm --silent run test:e2e"
 
-qa-all: qa-lint qa-unit
+qa-all: qa-lint qa-unit qa-integration

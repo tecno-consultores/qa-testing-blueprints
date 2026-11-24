@@ -308,7 +308,11 @@ describe('DX CLI Subcommands: blast-radius, mcp-config & completion (QA-11X)', (
       const codexPrint = runMcpConfigCli(['-c', 'codex'], { homeDir });
       expect(codexPrint.exitCode).toBe(0);
       expect(codexPrint.output).toContain('[mcp_servers.qa-11x]');
-      expect(codexPrint.output).toContain('@sinfallas/mcp-qa-11x@latest');
+      expect(codexPrint.output).toContain(`@sinfallas/mcp-qa-11x@${MCP_SERVER_VERSION}`);
+
+      const codexLatestPrint = runMcpConfigCli(['-c', 'codex', '--latest'], { homeDir });
+      expect(codexLatestPrint.exitCode).toBe(0);
+      expect(codexLatestPrint.output).toContain('@sinfallas/mcp-qa-11x@latest');
 
       const vscodePrint = runMcpConfigCli(['--client', 'vscode', '--pin-version'], { homeDir });
       expect(vscodePrint.exitCode).toBe(0);

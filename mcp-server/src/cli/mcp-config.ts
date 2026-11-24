@@ -24,6 +24,7 @@ import {
   hasHelpFlag,
   matchFlagValue,
 } from './cliArgHelpers.js';
+import { renderSubcommandHelpText, resolveCliHelpLang } from './commandCatalog.js';
 
 export const SUPPORTED_MCP_CLIENTS = [
   'antigravity',
@@ -65,18 +66,7 @@ const JSON_MCP_CLIENTS = new Set<string>([
   'hermes',
 ]);
 
-export const MCP_CONFIG_HELP_TEXT = [
-  'Uso: npx -y @sinfallas/mcp-qa-11x mcp-config [opciones]',
-  '',
-  'Opciones:',
-  `  --client, -c <cliente>  ${SUPPORTED_MCP_CLIENTS.join(' | ')} (por defecto: antigravity)`,
-  '  --print                 Imprime el snippet o comando de configuración (por defecto)',
-  '  --install               Instala la configuración en archivos JSON/TOML con respaldo .11x-backup',
-  '  --pin-version           Fija la versión exacta @sinfallas/mcp-qa-11x@<version> en vez de @latest',
-  '  --dry-run               Previsualiza la ruta destino y cambios sin modificar el disco',
-  '  --json                  Emite salida estructurada JSON',
-  '  --help, -h              Muestra esta ayuda y sale con código 0',
-].join('\n');
+export const MCP_CONFIG_HELP_TEXT = renderSubcommandHelpText('mcp-config', 'en');
 
 type CommandMcpClient = 'claude-code' | 'vscode' | 'gemini-cli';
 
@@ -130,6 +120,9 @@ function applyMcpConfigBoolFlag(
     '--pin-version': () => {
       state.pinVersion = true;
     },
+    '--latest': () => {
+      state.pinVersion = false;
+    },
     '--dry-run': () => {
       state.dryRun = true;
     },
@@ -149,7 +142,7 @@ function parseMcpConfigArgs(args: readonly string[]): McpConfigParseState {
   const state: McpConfigParseState = {
     clientRaw: 'antigravity',
     install: false,
-    pinVersion: false,
+    pinVersion: true,
     dryRun: false,
     json: false,
   };
@@ -528,7 +521,10 @@ export function runMcpConfigCli(
   deps: McpConfigCliDeps = {}
 ): CliCommandOutput {
   if (hasHelpFlag(args)) {
-    return { exitCode: 0, output: MCP_CONFIG_HELP_TEXT };
+    return {
+      exitCode: 0,
+      output: renderSubcommandHelpText('mcp-config', resolveCliHelpLang(args)),
+    };
   }
   try {
     const state = parseMcpConfigArgs(args);

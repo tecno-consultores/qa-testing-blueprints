@@ -194,12 +194,12 @@ describe('init-agents-md (Non-destructive AGENTS.md connector injection)', () =>
 - No tocar el módulo de facturación
 - Mantener compatibilidad con RouterOS v7`;
 
-      const res = mergeOrAppendAgentsMdContent(existing, 'rosgrid', ['python']);
+      const res = mergeOrAppendAgentsMdContent(existing, 'acme-service', ['python']);
       expect(res.action).toBe('appended');
       expect(res.finalContent.startsWith(existing)).toBe(true);
       expect(res.finalContent).toContain('\n\n---\n\n');
       expect(res.finalContent).toContain(CONNECTOR_START_MARKER);
-      expect(res.finalContent).toContain('rosgrid');
+      expect(res.finalContent).toContain('acme-service');
       expect(res.changes[0]).toContain('Agregado bloque conector QA 11X');
     });
 

@@ -6,6 +6,7 @@ import * as path from 'node:path';
 import { CONNECTOR_START_MARKER, CONNECTOR_END_MARKER } from './init-agents-md.js';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { hasHelpFlag, resolveCliProjectPath } from './cliArgHelpers.js';
+import { renderSubcommandHelpText, resolveCliHelpLang } from './commandCatalog.js';
 import { pickAt } from '../utils/diagnosticFormatter.js';
 import { classifySectionForPruning, dedupeRepeatedHeadings } from './reconcile/sectionPruner.js';
 import {
@@ -22,19 +23,7 @@ import {
 import { scanWorkspacesForReconcile } from './reconcile/workspaceScanner.js';
 import type { ReconcileAgentsResult, ReconciledRuleItem } from '../types.js';
 
-export const RECONCILE_AGENTS_HELP_TEXT = [
-  'Uso: npx -y @sinfallas/mcp-qa-11x reconcile-agents [dir] [opciones]',
-  '',
-  'Opciones:',
-  '  --project-path, --dir, -p <dir>  Directorio del proyecto destino (por defecto: cwd)',
-  '  --scan-workspaces <dir>          Escanea repositorios bajo <dir> (por defecto: --dry-run)',
-  '  --apply                          Aplica cambios durante --scan-workspaces',
-  '  --allow-dirty                    Permite --apply en repos con git status sucio',
-  '  --prune-bridges                  Respalda y elimina puentes QA-11X puros sin reglas propias',
-  '  --dry-run                        Simula poda sin modificar archivos ni respaldos',
-  '  --json                           Emite salida estructurada JSON',
-  '  --help, -h                       Muestra esta ayuda y sale con código 0',
-].join('\n');
+export const RECONCILE_AGENTS_HELP_TEXT = renderSubcommandHelpText('reconcile-agents', 'en');
 
 const UTF8 = 'utf-8';
 const AGENTS_DIR = '.agents';
@@ -145,7 +134,7 @@ export const CANONICAL_RULE_SECTION_FINGERPRINTS = [
 ];
 
 /**
- * Huellas semánticas de directivas que nacieron en proyectos consumidores (ej. rosgrid)
+ * Huellas semánticas de directivas que nacieron en proyectos consumidores (ej. acme-service)
  * y ya fueron promovidas oficialmente a qa-testing-blueprints (SKILL.md + .agents/rules/).
  */
 export const PROMOTED_INVARIANT_FINGERPRINTS = [
@@ -750,6 +739,32 @@ function runConsumerHygienePass(opts: {
   };
 }
 
+function collectOptionalReconcileExtras(
+  advisories: readonly string[],
+  hygiene: {
+    readonly consolidatedBackups: string[];
+    readonly gitignoreAdded: string[];
+    readonly bridgesProcessed: string[];
+    readonly suggestedGitCommands: string[];
+  }
+): Partial<ReconcileAgentsResult> {
+  return {
+    ...(advisories.length > 0 ? { advisories: [...advisories] } : {}),
+    ...(hygiene.consolidatedBackups.length > 0
+      ? { consolidated_backups: hygiene.consolidatedBackups }
+      : {}),
+    ...(hygiene.gitignoreAdded.length > 0
+      ? { gitignore_entries_added: hygiene.gitignoreAdded }
+      : {}),
+    ...(hygiene.bridgesProcessed.length > 0
+      ? { bridges_processed: hygiene.bridgesProcessed }
+      : {}),
+    ...(hygiene.suggestedGitCommands.length > 0
+      ? { suggested_git_commands: hygiene.suggestedGitCommands }
+      : {}),
+  };
+}
+
 function executeReconcileAgentsGovernance(options: {
   projectPath: string;
   dryRun?: boolean;
@@ -851,19 +866,7 @@ function executeReconcileAgentsGovernance(options: {
     removed_duplicate_sections_count: totalRemoved,
     preserved_domain_sections_count: totalPreserved,
     reconciled_items: reconciledItems,
-    ...(advisories.length > 0 ? { advisories } : {}),
-    ...(hygiene.consolidatedBackups.length > 0
-      ? { consolidated_backups: hygiene.consolidatedBackups }
-      : {}),
-    ...(hygiene.gitignoreAdded.length > 0
-      ? { gitignore_entries_added: hygiene.gitignoreAdded }
-      : {}),
-    ...(hygiene.bridgesProcessed.length > 0
-      ? { bridges_processed: hygiene.bridgesProcessed }
-      : {}),
-    ...(hygiene.suggestedGitCommands.length > 0
-      ? { suggested_git_commands: hygiene.suggestedGitCommands }
-      : {}),
+    ...collectOptionalReconcileExtras(advisories, hygiene),
   };
 }
 
@@ -1035,7 +1038,7 @@ export async function runReconcileAgentsCli(
 ): Promise<void> {
   const log = options?.log ?? console.log;
   if (hasHelpFlag(args)) {
-    log(RECONCILE_AGENTS_HELP_TEXT);
+    log(renderSubcommandHelpText('reconcile-agents', resolveCliHelpLang(args)));
     return;
   }
   const parsed = parseReconcileAgentsArgs(args, options?.cwd ?? process.cwd());

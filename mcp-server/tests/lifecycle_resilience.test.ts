@@ -78,8 +78,16 @@ describe('TaskStateGuard & Lifecycle Resilience (T1.4)', () => {
       expect(() => validateTimeoutMs(Number.NaN, 'nan')).toThrow(RangeError);
     });
 
+    it('usa DEFAULT_TASK_CAPACITY=4 y URI canónica urn:qa-11x por defecto', () => {
+      const defaultGuard = new TaskStateGuard();
+      expect(defaultGuard.getCapacity()).toBe(4);
+      expect(defaultGuard.getSnapshot().extensionUri).toBe(
+        'urn:qa-11x:extensions:task-capacity:v1'
+      );
+    });
+
     it('ejecuta reserva atómica con capacity=1 (AVAILABLE -> BUSY -> AVAILABLE) sin double-booking', async () => {
-      const guard = new TaskStateGuard();
+      const guard = new TaskStateGuard({ capacity: 1 });
       const gate = createDeferred<void>();
       expect(guard.getCapacity()).toBe(1);
       expect(guard.getState()).toBe('AVAILABLE');

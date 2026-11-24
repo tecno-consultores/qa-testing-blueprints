@@ -15,7 +15,6 @@ import os
 import re
 import subprocess
 import sys
-import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -27,7 +26,12 @@ if str(_SCRIPT_DIR) not in sys.path:
 import release_readiness_gate as rrg  # noqa: E402
 import track_findings_state as tfs  # noqa: E402
 import verify_diff_coverage as vdc  # noqa: E402
-from _budgets import STRUCTURAL_AST_RELATIONS, is_manifest_tracked_doc  # noqa: E402
+from _budgets import (  # noqa: E402
+    CANONICAL_IGNORED_DIRS,
+    STRUCTURAL_AST_RELATIONS,
+    is_manifest_tracked_doc,
+)
+from _common import atomic_write_text, build_git_command  # noqa: E402
 
 EXIT_OK = 0
 EXIT_BLOCKED = 30
@@ -50,26 +54,7 @@ CRITICAL_RISK_RE = re.compile(
     r"auth|vault|rls|rbac|dockerfile|manifest\.json)",
     re.IGNORECASE,
 )
-IGNORED_AST_DIRS = frozenset(
-    {
-        "node_modules",
-        ".git",
-        ".venv",
-        "venv",
-        ".tox",
-        ".nox",
-        ".hypothesis",
-        ".schemathesis",
-        "mutants",
-        ".mutmut-cache",
-        "__pycache__",
-        "dist",
-        "build",
-        ".cache",
-        "vendor",
-        "target",
-    }
-)
+IGNORED_AST_DIRS = CANONICAL_IGNORED_DIRS - {"graphify-out"}
 IGNORED_CODE_FP_PREFIXES = (
     ".agents/.cache/",
     ".agents/artifacts/",
@@ -173,7 +158,7 @@ def resolve_contained_path(
 def _run_git(workspace_real: Path, args: list[str]) -> str:
     try:
         res = subprocess.run(
-            ["git", "-C", str(workspace_real), "-c", "core.quotePath=false", *args],
+            build_git_command(workspace_real, *args),
             capture_output=True,
             text=True,
             shell=False,
@@ -657,27 +642,11 @@ def _collect_blocking_reasons(
 
 
 def _write_private_json(target: Path, payload: dict[str, Any]) -> None:
-    target.parent.mkdir(parents=True, exist_ok=True)
     raw = (
         json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
         + "\n"
     )
-    tmp_path = (
-        target.parent / f".{target.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
-    )
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
-    fd = os.open(tmp_path, flags, 0o600)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(raw)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.chmod(tmp_path, 0o600)
-        os.replace(tmp_path, target)
-        os.chmod(target, 0o600)
-    except OSError:
-        tmp_path.unlink(missing_ok=True)
-        raise
+    atomic_write_text(target, raw, mode=0o600, fsync=True)
 
 
 def _group_modules(
@@ -914,17 +883,7 @@ def generate_pr_verdict(
     )
     md_text = _render_pr_verdict_markdown(attestation, diff_cov)
     try:
-        safe_md.parent.mkdir(parents=True, exist_ok=True)
-        tmp_md = (
-            safe_md.parent
-            / f".{safe_md.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
-        )
-        try:
-            tmp_md.write_text(md_text, encoding="utf-8")
-            os.replace(tmp_md, safe_md)
-        except OSError:
-            tmp_md.unlink(missing_ok=True)
-            raise
+        atomic_write_text(safe_md, md_text)
         _write_private_json(safe_json, attestation)
     except OSError as exc:
         raise VerdictDivergenceError(

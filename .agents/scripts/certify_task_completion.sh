@@ -44,6 +44,22 @@ LAST_SUMMARY_LINE=""
 PASS_COUNT=0
 SKIPPED_COUNT=0
 FAIL_COUNT=0
+PY_SESSION_CID=""
+PY_SESSION_TRIED=0
+
+ensure_py_session() {
+  if [ -n "${PY_SESSION_CID}" ] || [ "${PY_SESSION_TRIED}" -eq 1 ]; then
+    return 0
+  fi
+  PY_SESSION_TRIED=1
+  local cid
+  cid="$(docker run --rm --network none --security-opt=no-new-privileges:true -d \
+    -u "$(id -u):$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 \
+    -v "${REPO_ROOT}:/app" -w /app "${PY_DOCKER_IMAGE}" sleep 600 2>/dev/null | head -n 1 || true)"
+  if [[ "${cid}" =~ ^[0-9a-f]{12,64}$ ]]; then
+    PY_SESSION_CID="${cid}"
+  fi
+}
 
 run_py_rule_zero() {
   local use_stdin=false
@@ -94,8 +110,24 @@ run_py_rule_zero() {
     esac
   done
 
+  if [ "${#extra_docker_args[@]}" -eq 0 ]; then
+    ensure_py_session
+    if [ -n "${PY_SESSION_CID}" ]; then
+      local -a exec_cmd=(docker exec)
+      if [ "${use_stdin}" = "true" ]; then
+        exec_cmd+=(-i)
+      fi
+      exec_cmd+=("${PY_SESSION_CID}" python3)
+      if [ "${#container_args[@]}" -gt 0 ]; then
+        exec_cmd+=("${container_args[@]}")
+      fi
+      "${exec_cmd[@]}"
+      return $?
+    fi
+  fi
+
   local -a docker_cmd=(
-    docker run --rm --network none
+    docker run --rm --network none --security-opt=no-new-privileges:true
   )
   if [ "${use_stdin}" = "true" ]; then
     docker_cmd+=(-i)
@@ -126,6 +158,10 @@ cleanup_certify_tmp() {
     run_py_rule_zero "${ctl_script}" record-cmd --workspace "${REPO_ROOT}" \
       --cmd "certify_task_completion" --rc "${final_rc}" \
       --summary "${summary}" >/dev/null 2>&1 || true
+  fi
+  if [ -n "${PY_SESSION_CID:-}" ]; then
+    docker rm -f "${PY_SESSION_CID}" >/dev/null 2>&1 || true
+    PY_SESSION_CID=""
   fi
   rm -rf "${GATE_TMP_DIR}" 2>/dev/null || true
   exit "${final_rc}"

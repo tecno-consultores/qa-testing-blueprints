@@ -1150,28 +1150,10 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             )
             self.assertIn("--security-opt=no-new-privileges:true", clean_sh)
 
-    def _extract_kcov_norm_py(self) -> str:
-        """Extrae el script KCOV_NORM_PY del Makefile desescapando $$ -> $."""
-        lines = (REPO_ROOT / "Makefile").read_text(encoding="utf-8").splitlines()
-        start = next(
-            idx for idx, line in enumerate(lines) if "@kcov_norm_py=$$(printf" in line
-        )
-        end = next(
-            idx for idx in range(start + 1, len(lines)) if lines[idx].strip() == "); \\"
-        )
-        extracted: list[str] = []
-        for raw in lines[start + 1 : end]:
-            stripped = raw.strip()
-            if stripped.endswith("\\"):
-                stripped = stripped[:-1].strip()
-            if stripped.startswith("'") and stripped.endswith("'"):
-                stripped = stripped[1:-1]
-            extracted.append(stripped.replace("$$", "$"))
-        return "\n".join(extracted)
-
     def test_makefile_kcov_norm_case_boundaries_and_subshells(self) -> None:
-        """Verifica que KCOV_NORM_PY no enmascare case/subshells no cubiertos."""
-        script_src = self._extract_kcov_norm_py()
+        """Verifica que normalize_kcov_cobertura.py no enmascare case/subshells."""
+        norm_script = REPO_ROOT / ".agents" / "scripts" / "normalize_kcov_cobertura.py"
+        script_src = norm_script.read_text(encoding="utf-8")
         self.assertNotIn(r"^[^#()\n]+\)\s*;;$", script_src)
 
         with tempfile.TemporaryDirectory(prefix="qa11x_kcov_norm_") as tmp:
@@ -1213,12 +1195,19 @@ class TestStacksHydrationSmoke(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            patched_src = (
-                script_src.replace('"/repo"', f'"{repo_dir}"')
-                .replace('"/tmp/kcov-bash"', f'"{tmp_root / "kcov"}"')
-                .replace('"/cov-out/bash.xml"', f'"{cov_out / "bash.xml"}"')
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(norm_script),
+                    "--repo",
+                    str(repo_dir),
+                    "--kcov-dir",
+                    str(tmp_root / "kcov"),
+                    "--output",
+                    str(cov_out / "bash.xml"),
+                ],
+                check=True,
             )
-            subprocess.run([sys.executable, "-c", patched_src], check=True)
             xml_out = ET.fromstring((cov_out / "bash.xml").read_text(encoding="utf-8"))
             hits = {
                 int(el.attrib["number"]): int(el.attrib["hits"])
@@ -1472,6 +1461,58 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             self.assertIn("acp_api.py", single_calls)
             self.assertIn("hermes_bridge/server.py", single_calls)
             self.assertNotIn(".venv/ignored.py", single_calls)
+
+    def test_all_compose_files_valid_profile_config_and_no_fixed_container_names(
+        self,
+    ) -> None:
+        """Valida los 13 docker-compose.qa.yml sin container_name fijo."""
+        compose_files = [
+            REPO_ROOT / "docker-compose.qa.yml",
+            REPO_ROOT / "mcp-server" / "docker-compose.qa.yml",
+            REPO_ROOT / "mcp-server" / "example" / "docker-compose.qa.yml",
+            *(REPO_ROOT / s / "docker-compose.qa.yml" for s in EXPECTED_STACKS),
+        ]
+        docker_bin = shutil.which("docker")
+        for compose_path in compose_files:
+            rel = compose_path.relative_to(REPO_ROOT).as_posix()
+            self.assertTrue(compose_path.is_file(), f"Falta {rel}")
+            data = _load_yaml_mapping(compose_path.read_text(encoding="utf-8"))
+            services = data.get("services")
+            self.assertIsInstance(services, dict, f"{rel}: services inválido")
+            assert isinstance(services, dict)
+            self.assertGreater(len(services), 0, f"{rel}: sin servicios")
+            for svc_name, svc_cfg in services.items():
+                self.assertIsInstance(svc_cfg, dict, f"{rel}:{svc_name}")
+                assert isinstance(svc_cfg, dict)
+                self.assertNotIn(
+                    "container_name",
+                    svc_cfg,
+                    f"{rel}:{svc_name} no debe fijar container_name",
+                )
+            if docker_bin:
+                proc = subprocess.run(
+                    [
+                        docker_bin,
+                        "compose",
+                        "-f",
+                        str(compose_path),
+                        "--profile",
+                        "*",
+                        "config",
+                        "--format",
+                        "json",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(
+                    proc.returncode,
+                    0,
+                    f"{rel}: docker compose config falló: {proc.stderr}",
+                )
+                parsed = json.loads(proc.stdout)
+                self.assertIn("services", parsed, f"{rel}: JSON sin services")
 
 
 if __name__ == "__main__":

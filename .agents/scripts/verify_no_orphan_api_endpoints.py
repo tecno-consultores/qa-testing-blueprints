@@ -29,11 +29,16 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import NamedTuple
 
+_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
+from _common import CANONICAL_IGNORED_DIRS  # noqa: E402
+
 ARCHITECTURAL_WHITELIST: set[tuple[str, str]] = {
     ("GET", "/health"),
     ("GET", "/api/v1/health"),
     ("GET", "/metrics"),
-    ("GET", "/api/v1/metrics/fleet"),
     ("POST", "/api/v1/mcp"),
     ("GET", "/users/me"),
     ("GET", "/api/v1/auth/me"),
@@ -48,17 +53,16 @@ ARCHITECTURAL_WHITELIST: set[tuple[str, str]] = {
 
 _HTTP_VERBS = frozenset({"GET", "POST", "PUT", "PATCH", "DELETE"})
 _NODE_ROUTE_RE = re.compile(
-    r"\b(?:app|router|[A-Za-z_$][\w$]*(?:Router|_router))\.(get|post|put|patch|delete)\s*\(\s*([`'\"])(.*?)\2",
+    r"\b(?:app|router|fastify|server|[A-Za-z_$][\w$]*(?:Router|_router))\.(get|post|put|patch|delete)\s*\(\s*([`'\"])(.*?)\2",
     re.IGNORECASE,
 )
-_FRONT_CALL_RE = re.compile(
-    r"\b(?:http|api|axios)\.(get|post|put|patch|delete)\s*(?:<[^>]+>)?\s*\(\s*([`'\"])(.*?)\2",
-    re.DOTALL,
+_FRONT_CALL_HEAD_RE = re.compile(
+    r"\b(?:http|api|axios)\.(get|post|put|patch|delete)\b"
 )
-_FETCH_CALL_RE = re.compile(
-    r"(?<![.\w$])(?:(?:window|globalThis)\.)?fetch\s*(?:<[^>]+>)?\s*\(\s*([`'\"])(.*?)\1",
-    re.DOTALL,
+_FETCH_CALL_HEAD_RE = re.compile(
+    r"(?<![.\w$])(?:(?:window|globalThis)\.)?fetch\b"
 )
+_FIRST_STRING_ARG_RE = re.compile(r"\s*\(\s*([`'\"])(.*?)\1", re.DOTALL)
 _FETCH_METHOD_RE = re.compile(r"\bmethod\s*:\s*([`'\"])([A-Za-z]+)\1")
 _ADD_API_ROUTE_START_RE = re.compile(r"\badd_api_route\s*\(")
 _ADD_API_PATH_RE = re.compile(r"\s*(?:path\s*=\s*)?(['\"])([^'\"]+)\1")
@@ -66,9 +70,16 @@ _METHODS_KW_RE = re.compile(r"\bmethods\s*=\s*[\[\(]([^\]\)]+)[\]\)]", re.DOTALL
 _PAREN_OR_STR_RE = re.compile(
     r"\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|[()]"
 )
+_PY_STRING_OR_COMMENT_RE = re.compile(
+    r'"""[\s\S]*?"""'
+    r"|'''[\s\S]*?'''"
+    r'|"(?:\\.|[^"\\\n])*"'
+    r"|'(?:\\.|[^'\\\n])*'"
+    r"|#[^\n]*"
+)
 _PARITY_IGNORE_RE = re.compile(r"(?:#|//)\s*api-parity-ignore")
 _COMMENT_ONLY_IGNORE_RE = re.compile(r"^\s*(?:#|//)\s*api-parity-ignore")
-_ALLOWED_API_PREFIXES = ("/api/v1", "api/v1", "/health", "/users/me")
+_ALLOWED_API_PREFIXES = ("/api/", "api/", "/health", "/users/me")
 _TEST_SOURCE_SUFFIXES = (
     ".unit.ts",
     ".unit.tsx",
@@ -118,7 +129,9 @@ class _RouterGraph(NamedTuple):
     parent_edges: dict[RouterRef, list[tuple[RouterRef, str]]]
 
 
-_ROUTE_TOKEN_RE = re.compile(r"(\{[a-zA-Z0-9_]+(?::path)?\}|:[a-zA-Z0-9_]+)")
+_ROUTE_TOKEN_RE = re.compile(
+    r"(\{[a-zA-Z0-9_]+(?::[a-zA-Z0-9_]+)?\}|:[a-zA-Z0-9_]+)"
+)
 
 
 def _replace_route_token(token: str) -> str:
@@ -169,27 +182,37 @@ def _parse_methods_list(methods_raw: str) -> list[str]:
     return verbs or ["GET"]
 
 
+def _blank_py_comment(match: re.Match[str]) -> str:
+    token = match.group(0)
+    return " " * len(token) if token.startswith("#") else token
+
+
+def _strip_py_comments(text: str) -> str:
+    return _PY_STRING_OR_COMMENT_RE.sub(_blank_py_comment, text)
+
+
 def _extract_main_py_routes_from_text(
     content: str, rel_file: str
 ) -> list[_BackendRoute]:
+    cleaned = _strip_py_comments(content)
     routes: list[_BackendRoute] = []
-    for match in _ADD_API_ROUTE_START_RE.finditer(content):
-        end_idx = _find_matching_paren(content, match.end() - 1)
-        body = content[match.end() : end_idx]
+    for match in _ADD_API_ROUTE_START_RE.finditer(cleaned):
+        end_idx = _find_matching_paren(cleaned, match.end() - 1)
+        body = cleaned[match.end() : end_idx]
         path_m = _ADD_API_PATH_RE.match(body)
         if not path_m:
             continue
         methods_m = _METHODS_KW_RE.search(body)
         verbs = _parse_methods_list(methods_m.group(1)) if methods_m else ["GET"]
-        line_no = content[: match.start()].count("\n") + 1
-        end_line_no = content[:end_idx].count("\n") + 1
+        line_no = cleaned[: match.start()].count("\n") + 1
+        end_line_no = cleaned[:end_idx].count("\n") + 1
         for verb in verbs:
             routes.append(
                 _BackendRoute(verb, path_m.group(2), rel_file, line_no, end_line_no)
             )
-    if "Instrumentator" in content:
-        inst_idx = content.find("Instrumentator")
-        inst_line = content[:inst_idx].count("\n") + 1
+    if "Instrumentator" in cleaned:
+        inst_idx = cleaned.find("Instrumentator")
+        inst_line = cleaned[:inst_idx].count("\n") + 1
         routes.append(_BackendRoute("GET", "/metrics", rel_file, inst_line, inst_line))
     return routes
 
@@ -257,14 +280,17 @@ def _build_full_route_path(
     norm_r = (
         r_prefix if r_prefix.startswith("/") else ("/" + r_prefix if r_prefix else "")
     )
-    base_prefix = (
-        "/api/v1" if ("v1" in dir_parts and not norm_r.startswith("/api/")) else ""
-    )
     norm_sub = (
         sub_path if sub_path.startswith("/") else ("/" + sub_path if sub_path else "")
     )
-    full_path = (base_prefix + norm_r).rstrip("/") + norm_sub
-    return full_path or "/"
+    combined = norm_r.rstrip("/") + norm_sub
+    if "v1" not in dir_parts:
+        return combined or "/"
+    if combined.startswith("/api/") or combined == "/api":
+        return combined
+    if combined.startswith("/v1/") or combined == "/v1":
+        return "/api" + combined
+    return "/api/v1" + combined
 
 
 def _extract_methods_kw_ast(call: ast.Call) -> list[str]:
@@ -706,9 +732,11 @@ def _extract_fastapi_routes_from_src(
     return _dedup_backend_routes(routes)
 
 
-_IGNORED_SOURCE_DIRS: frozenset[str] = frozenset(
-    {"node_modules", "dist", "coverage", "tests", "test", "__tests__", ".git"}
-)
+_IGNORED_SOURCE_DIRS: frozenset[str] = CANONICAL_IGNORED_DIRS | {
+    "tests",
+    "test",
+    "__tests__",
+}
 _JS_STRING_OR_COMMENT_RE = re.compile(
     r'"(?:\\.|[^"\\])*"'
     r"|'(?:\\.|[^'\\])*'"
@@ -1075,29 +1103,74 @@ def _extract_fetch_verb(tail: str) -> str:
     return "GET"
 
 
-def _extract_file_frontend_calls(fpath: Path, repo_root: Path) -> list[_FrontendCall]:
-    rel_file = str(fpath.relative_to(repo_root))
-    full_text = _strip_js_comments(fpath.read_text(encoding="utf-8", errors="ignore"))
+def _skip_ws(text: str, idx: int) -> int:
+    length = len(text)
+    while idx < length and text[idx].isspace():
+        idx += 1
+    return idx
+
+
+def _advance_quoted(text: str, idx: int) -> int:
+    quote = text[idx]
+    idx += 1
+    length = len(text)
+    while idx < length:
+        if text[idx] == "\\" and idx + 1 < length:
+            idx += 2
+            continue
+        if text[idx] == quote:
+            return idx + 1
+        idx += 1
+    return length
+
+
+def _generic_angle_delta(text: str, idx: int) -> int:
+    ch = text[idx]
+    if ch == "<":
+        return 1
+    if ch == ">" and (idx == 0 or text[idx - 1] != "="):
+        return -1
+    return 0
+
+
+def _skip_balanced_generics(text: str, idx: int) -> int | None:
+    idx = _skip_ws(text, idx)
+    if idx >= len(text) or text[idx] != "<":
+        return idx
+    depth = 0
+    while idx < len(text):
+        if text[idx] in ("'", '"', "`"):
+            idx = _advance_quoted(text, idx)
+            continue
+        depth += _generic_angle_delta(text, idx)
+        idx += 1
+        if depth == 0:
+            return idx
+    return None
+
+
+def _match_call_url_arg(text: str, after_head: int) -> tuple[str, int, int] | None:
+    after_gen = _skip_balanced_generics(text, after_head)
+    if after_gen is None:
+        return None
+    arg_m = _FIRST_STRING_ARG_RE.match(text, after_gen)
+    if arg_m is None:
+        return None
+    open_idx = text.find("(", after_gen)
+    return arg_m.group(2), open_idx, arg_m.end()
+
+
+def _collect_client_calls(full_text: str, rel_file: str) -> list[_FrontendCall]:
     calls: list[_FrontendCall] = []
-    for match in _FRONT_CALL_RE.finditer(full_text):
-        open_idx = full_text.find("(", match.start())
+    for match in _FRONT_CALL_HEAD_RE.finditer(full_text):
+        parsed = _match_call_url_arg(full_text, match.end())
+        if parsed is None:
+            continue
+        raw_url, open_idx, _ = parsed
         end_idx = _find_matching_paren(full_text, open_idx)
         call = _normalize_frontend_call(
             match.group(1).upper(),
-            match.group(3),
-            rel_file,
-            full_text[: match.start()].count("\n") + 1,
-            full_text[:end_idx].count("\n") + 1,
-        )
-        if call is not None:
-            calls.append(call)
-    for match in _FETCH_CALL_RE.finditer(full_text):
-        open_idx = full_text.find("(", match.start())
-        end_idx = _find_matching_paren(full_text, open_idx)
-        verb = _extract_fetch_verb(full_text[match.end() : end_idx])
-        call = _normalize_frontend_call(
-            verb,
-            match.group(2),
+            raw_url,
             rel_file,
             full_text[: match.start()].count("\n") + 1,
             full_text[:end_idx].count("\n") + 1,
@@ -1105,6 +1178,36 @@ def _extract_file_frontend_calls(fpath: Path, repo_root: Path) -> list[_Frontend
         if call is not None:
             calls.append(call)
     return calls
+
+
+def _collect_fetch_calls(full_text: str, rel_file: str) -> list[_FrontendCall]:
+    calls: list[_FrontendCall] = []
+    for match in _FETCH_CALL_HEAD_RE.finditer(full_text):
+        parsed = _match_call_url_arg(full_text, match.end())
+        if parsed is None:
+            continue
+        raw_url, open_idx, arg_end = parsed
+        end_idx = _find_matching_paren(full_text, open_idx)
+        verb = _extract_fetch_verb(full_text[arg_end:end_idx])
+        call = _normalize_frontend_call(
+            verb,
+            raw_url,
+            rel_file,
+            full_text[: match.start()].count("\n") + 1,
+            full_text[:end_idx].count("\n") + 1,
+        )
+        if call is not None:
+            calls.append(call)
+    return calls
+
+
+def _extract_file_frontend_calls(fpath: Path, repo_root: Path) -> list[_FrontendCall]:
+    rel_file = str(fpath.relative_to(repo_root))
+    full_text = _strip_js_comments(fpath.read_text(encoding="utf-8", errors="ignore"))
+    return [
+        *_collect_client_calls(full_text, rel_file),
+        *_collect_fetch_calls(full_text, rel_file),
+    ]
 
 
 def _extract_frontend_calls_from_dirs(
@@ -1128,7 +1231,7 @@ def _route_matches_call(r_verb: str, r_path: str, f_verb: str, f_url: str) -> bo
     f_reg_str = _frontend_url_to_regex(f_url)
     norm_b_path = r_path.rstrip("/") if len(r_path) > 1 else r_path
     norm_b_path = re.sub(r"\{[a-zA-Z0-9_]+:path\}", "path_arg", norm_b_path)
-    norm_b_path = re.sub(r"\{[a-zA-Z0-9_]+\}", "id_arg", norm_b_path)
+    norm_b_path = re.sub(r"\{[a-zA-Z0-9_]+(?::[a-zA-Z0-9_]+)?\}", "id_arg", norm_b_path)
     norm_b_path = re.sub(r":[a-zA-Z0-9_]+", "id_arg", norm_b_path)
     return bool(re.match(f_reg_str, norm_b_path))
 

@@ -16,7 +16,6 @@ services:
 
   qa-mobile:
     image: sinfallas/base-mobile-appium:26@sha256:1bb9e70613a786008fe06c418a557aeaa5fe7c62b3db29a26b4e0ce86d3c6728
-    container_name: mobile_qa_runner
     hostname: mobile_qa_runner
     pull_policy: if_not_present
     mem_limit: 4g
@@ -46,7 +45,6 @@ services:
 
   appium-bridge:
     image: sinfallas/base-mobile-appium:26@sha256:1bb9e70613a786008fe06c418a557aeaa5fe7c62b3db29a26b4e0ce86d3c6728
-    container_name: mobile_appium_bridge
     hostname: mobile_appium_bridge
     pull_policy: if_not_present
     mem_limit: 4g

@@ -44,15 +44,17 @@ describe('ideConfigPaths & CLI help loaders', () => {
     expect(resolveJsonMcpClientRelPath('claude-desktop', 'win32')).toContain('AppData');
   });
 
-  it('returns all 7 IDE doctor specs and absolute browser MCP candidate paths', () => {
+  it('returns all 9 IDE doctor specs (including vscode & gemini-cli) and 11 browser MCP candidate paths', () => {
     const targets = getDoctorIdeMcpTargets('linux');
     expect(targets.map((t) => t.client)).toEqual([
       'antigravity',
       'claude',
       'claude-desktop',
       'cursor',
+      'vscode',
       'windsurf',
       'codex',
+      'gemini-cli',
       'hermes',
     ]);
     expect(targets[0]?.relPaths).toEqual([
@@ -60,15 +62,15 @@ describe('ideConfigPaths & CLI help loaders', () => {
       ANTIGRAVITY_FALLBACK_MCP_REL_PATH,
     ]);
     expect(targets[1]?.relPaths).toEqual([CLAUDE_CODE_MCP_REL_PATH]);
-    expect(targets[5]?.relPaths).toEqual([CODEX_MCP_REL_PATH]);
-    expect(targets[6]?.relPaths).toEqual([
+    expect(targets[6]?.relPaths).toEqual([CODEX_MCP_REL_PATH]);
+    expect(targets[8]?.relPaths).toEqual([
       HERMES_CANONICAL_MCP_REL_PATH,
       HERMES_FALLBACK_MCP_REL_PATH,
     ]);
 
     const fakeHome = path.join('/tmp', 'qa-ide-home');
     const winCandidates = getBrowserMcpCandidatePaths(fakeHome, 'win32');
-    expect(winCandidates).toHaveLength(9);
+    expect(winCandidates).toHaveLength(11);
     expect(winCandidates.some((candidate) => candidate.endsWith(CODEX_MCP_REL_PATH))).toBe(true);
     expect(winCandidates.every((candidate) => candidate.startsWith(fakeHome))).toBe(true);
     expect(winCandidates.some((candidate) => candidate.includes('AppData'))).toBe(true);

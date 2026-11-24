@@ -18,31 +18,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
+from _common import CANONICAL_IGNORED_DIRS, reject_duplicate_json_keys  # noqa: E402
+
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
-_IGNORED_DIRS = frozenset(
-    {
-        "node_modules",
-        ".venv",
-        "venv",
-        ".tox",
-        ".nox",
-        ".hypothesis",
-        ".schemathesis",
-        "mutants",
-        ".mutmut-cache",
-        ".git",
-        ".trivycache",
-        "dist",
-        "build",
-        "coverage",
-        "vendor",
-        "target",
-        ".pytest_cache",
-        ".mypy_cache",
-        ".ruff_cache",
-    }
-)
+_IGNORED_DIRS = CANONICAL_IGNORED_DIRS - {"graphify-out"}
 _DOMAIN_RE = re.compile(r"(?:^|/)(?:src/)?(?:models|schemas|core|domain|services)/")
 _TEST_PATH_RE = re.compile(
     r"(?:^|/)(?:tests?|__tests__|e2e)/"
@@ -73,14 +57,7 @@ _VALID_BOUNDARY_KINDS = frozenset({"layers", "independence", "forbidden"})
 
 
 def _detect_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-    seen: set[str] = set()
-    result: dict[str, Any] = {}
-    for key, value in pairs:
-        if key in seen:
-            raise ValueError(f"Clave JSON duplicada: {key!r}")
-        seen.add(key)
-        result[key] = value
-    return result
+    return reject_duplicate_json_keys(pairs)
 
 
 def _norm_rel_path(raw: str) -> str:

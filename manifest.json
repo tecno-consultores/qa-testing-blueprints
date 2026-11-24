@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.5.0",
-  "generated_at_utc": "2026-11-24T14:23:06Z",
+  "generated_at_utc": "2026-11-24T16:31:07Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -17,8 +17,8 @@
           "path": "ai-evals/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "a69af3313bf9b3dc7e48e9d2db598b48e98d1a3e051c9adf1ef730dd00a73929",
-          "size_bytes": 5769
+          "sha256": "cef036fb5ddf702635860fd18a8e3315bb4926b14f9144cc763b1ea62f8076b9",
+          "size_bytes": 5807
         },
         {
           "path": "ai-evals/_llm_judge.py",
@@ -117,8 +117,8 @@
           "path": "bash-scripts/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "3bd35eb60532ccef5e4c86e24a2c19737d01889b2a5808a26e8e576badf8dd23",
-          "size_bytes": 2199
+          "sha256": "3fbb7eff65f03865739f75497d33d4e1d1c8b3c9584f92a36be8c8a69035b16d",
+          "size_bytes": 2094
         },
         {
           "path": "bash-scripts/gitignore.example",
@@ -196,8 +196,8 @@
           "path": "fastapi/mutmut_gates.py.example",
           "target_name": "mutmut_gates.py",
           "merge_strategy": "copy_if_missing",
-          "sha256": "9a62d772db102789968b83f9ca22a9e4a17efd425202ef0e654a6351cbec39db",
-          "size_bytes": 7140
+          "sha256": "74c403ddec305c8dacd437b2584a0cc155b5fe841e0c0f81a5da1d1c60389441",
+          "size_bytes": 7117
         },
         {
           "path": "fastapi/pyproject.toml.example",
@@ -268,15 +268,15 @@
           "path": "mobile-appium/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "19aef02368abe7a9352c0e13e8999b4c29025a6ee7608a16e01d4b0cd4165f50",
-          "size_bytes": 4985
+          "sha256": "42860592f36fc49d587c56d2b95b1ae710e18b2b149c29fc2c4bf6b4cf6573e5",
+          "size_bytes": 5023
         },
         {
           "path": "mobile-appium/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "38fc1819b0bd5a28ea689ccd5879e61ca1ad6d4727a741fddafe0bbcc1b5e28e",
-          "size_bytes": 2813
+          "sha256": "9e33645fc793696b575635791fb3e413464dca576ab83ee23104c69180d1fe77",
+          "size_bytes": 2735
         },
         {
           "path": "mobile-appium/eslint.config.mjs.example",
@@ -638,8 +638,8 @@
           "path": "python/mutmut_gates.py.example",
           "target_name": "mutmut_gates.py",
           "merge_strategy": "copy_if_missing",
-          "sha256": "b26e2098792b41817c35ae7583c1849ad15a19a1a80f3627ce89049f976fb12c",
-          "size_bytes": 7142
+          "sha256": "6b7838a2810eb2589f948333ecbc05427f684fe823ae9caca306c47501feccdc",
+          "size_bytes": 7119
         },
         {
           "path": "python/pyproject.toml.example",
@@ -689,15 +689,15 @@
           "path": "react-frontend/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "3b4e48f39705cf6237aeda557e7b4cdb92a4a57e49ccd050ce28d09c9265b930",
-          "size_bytes": 7045
+          "sha256": "a00de9462994731d39f82eac6ac7da2db7ab51b0732b85b5b27c797b55d230bd",
+          "size_bytes": 7083
         },
         {
           "path": "react-frontend/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "d7d13758177e13c9f25a777de16484967aeebb15c3700be6b306dfee31228ec3",
-          "size_bytes": 5341
+          "sha256": "3af4e61f745009451bf78b95f0193863fef55b5bb9da46df4000f07071bbb6d9",
+          "size_bytes": 5122
         },
         {
           "path": "react-frontend/e2e/accessibility.e2e.ts",
@@ -838,8 +838,8 @@
           "path": "vibe-rescue/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "93accbcae524edb2c7a8719a889dc5c963f98513af53fc211b506eaf92568b39",
-          "size_bytes": 3915
+          "sha256": "ec84f42dca63d6bb635a832e4c65fa8b63ffb2fe5678ad66c2596c3ab5f287ec",
+          "size_bytes": 3953
         },
         {
           "path": "vibe-rescue/_vibe_rules.py",
@@ -859,8 +859,8 @@
           "path": "vibe-rescue/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "e17afc2bed3cf529bd37d241515655925889ea5d4ed5312528bcb0ff0913fd74",
-          "size_bytes": 1133
+          "sha256": "cfe02c00a39386308fb7c9fe527ba25f04dfcc639f7db958d04502a568663c39",
+          "size_bytes": 1098
         },
         {
           "path": "vibe-rescue/gitignore.example",
@@ -887,8 +887,8 @@
           "path": "vibe-rescue/tests/test_audit_vibe_prototype.unit.py",
           "target_name": "tests/test_audit_vibe_prototype.unit.py",
           "merge_strategy": "copy_if_missing",
-          "sha256": "06beb40bf97a1916aacc0eacd8c6669cb6f1cab8628ddf5c76b304078ae86525",
-          "size_bytes": 18015
+          "sha256": "bcc84c57c7c2199d09c01b450002b005b6ac07c922e5549b3b547dee7f6cdaa6",
+          "size_bytes": 17992
         }
       ]
     },
@@ -917,15 +917,15 @@
           "path": "vue3/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "15bd29b3d81f4a101e083ec43e5038ff9bfd727bdc08813cd5637dc1103ae199",
-          "size_bytes": 7253
+          "sha256": "3016acb9a6de2ea38eebe55ada496ca72e7f9289035fce02f15b66be31e46511",
+          "size_bytes": 7291
         },
         {
           "path": "vue3/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "642e5ce181c324b1684d0e3d42155c226225cb0c92be9a22495bb6f12cd8023e",
-          "size_bytes": 5303
+          "sha256": "d900b7dfd6f265e791d0f9373313a6c2e090c442a4c04a46f7ca0b1924c58d7a",
+          "size_bytes": 5096
         },
         {
           "path": "vue3/e2e/accessibility.e2e.ts",
@@ -980,8 +980,8 @@
           "path": "vue3/package.json.example",
           "target_name": "package.json",
           "merge_strategy": "surgical_merge",
-          "sha256": "5af2428e7bbcda0135dd64c586c779cd7da31e34ba40feb3ee8116f8140b2f13",
-          "size_bytes": 1906
+          "sha256": "70ecf61561236f7b9a991b88392ac5bc78e49df2b5d39fe6fa5e76efd7bcc318",
+          "size_bytes": 1941
         },
         {
           "path": "vue3/playwright.config.ts.example",
@@ -1015,8 +1015,8 @@
           "path": "vue3/tests/screenplay/Actor.ts",
           "target_name": "tests/screenplay/Actor.ts",
           "merge_strategy": "copy_if_missing",
-          "sha256": "bb934da055f72c56ad8b92ff8d35b19704262096f541a0b8876987a44e45867e",
-          "size_bytes": 18613
+          "sha256": "518e182d2e57fd8c4ef4b0750f0120c56794802848b3c1ef1e162c09cd7e5f5b",
+          "size_bytes": 19691
         },
         {
           "path": "vue3/tests/utils/semanticLocator.ts",
@@ -1068,15 +1068,15 @@
       "path": "instalar-hooks.sh",
       "target_name": "instalar-hooks.sh",
       "merge_strategy": "copy_if_missing",
-      "sha256": "d57fbec3fed3bd52bb40ba26e39ee068ff763d8b019c409d5bb82951d649e450",
-      "size_bytes": 15806
+      "sha256": "249dc4c98aceacf2d4d6c124f82e253157b8fd7dd26d1041e7847f4217238702",
+      "size_bytes": 16851
     },
     {
       "path": "lefthook.yml",
       "target_name": "lefthook.yml",
       "merge_strategy": "copy_if_missing",
-      "sha256": "f4763ec112c70e987af2ebc91c5bf84c24962574bf176f6977cbd9705f05dee7",
-      "size_bytes": 21558
+      "sha256": "f128eb3fcd930ddae74537fceaf414048287ef699a49182a02429ce7f9276e82",
+      "size_bytes": 21507
     },
     {
       "path": "scripts/actualizar-grafos-graphify.sh",
@@ -1103,8 +1103,8 @@
       "path": "scripts/generar-sbom-cyclonedx.sh",
       "target_name": "scripts/generar-sbom-cyclonedx.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "ea86969f48f25daf48d3842252b94430d4a290bb76d889b416270341b58a1731",
-      "size_bytes": 4601
+      "sha256": "0b494b3be3d819e668ceb1051c840511ae9614e6c509a4cc75ae175c082b84ad",
+      "size_bytes": 4645
     },
     {
       "path": "scripts/limpieza.sh",
@@ -1133,8 +1133,8 @@
       "path": ".agents/README.md",
       "target_name": ".agents/README.md",
       "merge_strategy": "copy_if_missing",
-      "sha256": "cf3824329c1abf9364b7b45008c5f24b9a429b1f078361821c0c12c63eeffe6e",
-      "size_bytes": 12467
+      "sha256": "4c0a0c17d323022479e0f031e06db6c03b8bd6569577005e30f7730b695f21a0",
+      "size_bytes": 13267
     },
     {
       "path": ".agents/rules/active_task_and_planning_resilience.md",
@@ -1147,50 +1147,50 @@
       "path": ".agents/rules/anti_regression_and_side_effects_guardrail.md",
       "target_name": ".agents/rules/anti_regression_and_side_effects_guardrail.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "ee0a9e81104bf4a5faaf1d559eb41d3a2d8b2046cc0357f9535edf127eb51813",
-      "size_bytes": 9211
+      "sha256": "eded493d50a67743a63870a012ff956daec80028a3ec5e3ec9029e43af40973c",
+      "size_bytes": 3614
     },
     {
       "path": ".agents/rules/continuous_agent_evolution.md",
       "target_name": ".agents/rules/continuous_agent_evolution.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "62610d8b04fba3abf40f6f6e15eda4140622d190a1f792db77addad6303a7c92",
-      "size_bytes": 6675
+      "sha256": "cacc4aba6c56384cbf29b5ff7a3a9100beaa675355b95072f144b4f93ae8023c",
+      "size_bytes": 2845
     },
     {
       "path": ".agents/rules/frontend_parity_and_closure.md",
       "target_name": ".agents/rules/frontend_parity_and_closure.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "fcd98d19cadeaa090aff76559e6a6e16e86dad6d447e9eeec589d5fb0349e4dd",
-      "size_bytes": 8800
+      "sha256": "af784a371d8a600a5d311e53cfe94b8f27a84f6a6dbec20fb726afc392a9304c",
+      "size_bytes": 3305
     },
     {
       "path": ".agents/rules/git_closure_gate.md",
       "target_name": ".agents/rules/git_closure_gate.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "60cbe1a2c56044b3284fc87b4e8ea89016bd4f562c8f40bf080ab42d975b2b89",
-      "size_bytes": 2494
+      "sha256": "f31d37ccce6d3133872ddd2df91c39e0236b29022b08f23097cfdf81f08fd842",
+      "size_bytes": 1397
     },
     {
       "path": ".agents/rules/ground_truth_fixtures_and_negative_invariants.md",
       "target_name": ".agents/rules/ground_truth_fixtures_and_negative_invariants.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "2bf438e969dd1a791ea03ddffd4f20e03c012caf4ce7acf72a6bd4ee840316c7",
-      "size_bytes": 5578
+      "sha256": "237f86a4815d67dfdb8e94fefc733754cc9d8a2dc1da82303d7314c60c36a9f3",
+      "size_bytes": 2790
     },
     {
       "path": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "target_name": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "8f63f0961f9f4d792e03b19bb493ae79dd805c880fe869785da99848279125fa",
-      "size_bytes": 17329
+      "sha256": "e392eea482f8ad3060adbb3018bb5c5193dd53378f7be2d7844f02623c37f232",
+      "size_bytes": 6493
     },
     {
       "path": ".agents/rules/secure_development_and_testing_guidelines.md",
       "target_name": ".agents/rules/secure_development_and_testing_guidelines.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "7745c2ed865b8939ea5a1015549ae62868bdd2d175d37092b71bb83f1614e201",
-      "size_bytes": 19945
+      "sha256": "18784e3d3f4133edbb378c9980c4a70f8abb304ccdd72f6a70eea5a5458498ef",
+      "size_bytes": 7883
     },
     {
       "path": ".agents/schemas/session_checkpoint.schema.json",
@@ -1203,50 +1203,85 @@
       "path": ".agents/scripts/_budgets.py",
       "target_name": ".agents/scripts/_budgets.py",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "4d0873eb20e83a6be7981af3441e6c8a031fe5b8f0a9a9b09143e10907c0c6e2",
-      "size_bytes": 2675
+      "sha256": "4ba9fea3c711e011a82561ab4e276e643920437cfa02b5807a206caa28ebb631",
+      "size_bytes": 2711
+    },
+    {
+      "path": ".agents/scripts/_common.py",
+      "target_name": ".agents/scripts/_common.py",
+      "merge_strategy": "copy_or_overwrite",
+      "sha256": "d00cf213fa204ac650ba1f6baeb34c8146eac2a397927ea2605370890e25cc8e",
+      "size_bytes": 5439
+    },
+    {
+      "path": ".agents/scripts/_docs_invariants_bilingual.py",
+      "target_name": ".agents/scripts/_docs_invariants_bilingual.py",
+      "merge_strategy": "copy_or_overwrite",
+      "sha256": "a5c55546bb5574af3df54af109e704fe503254514a6c95871baf1d471e54bc06",
+      "size_bytes": 22501
+    },
+    {
+      "path": ".agents/scripts/_docs_invariants_catalogs.py",
+      "target_name": ".agents/scripts/_docs_invariants_catalogs.py",
+      "merge_strategy": "copy_or_overwrite",
+      "sha256": "88c8b7afb6852d624f48a8deb0cae19e5cbcc81755641f82f15be82aea5c1adc",
+      "size_bytes": 27672
+    },
+    {
+      "path": ".agents/scripts/_docs_invariants_config.py",
+      "target_name": ".agents/scripts/_docs_invariants_config.py",
+      "merge_strategy": "copy_or_overwrite",
+      "sha256": "49e8a12b2adf4704c273c833edc22ad926646e1d49a0db7792e83c59fdab835f",
+      "size_bytes": 19872
+    },
+    {
+      "path": ".agents/scripts/_docs_invariants_counts.py",
+      "target_name": ".agents/scripts/_docs_invariants_counts.py",
+      "merge_strategy": "copy_or_overwrite",
+      "sha256": "d3028e01f46e85a6b17421b191ff9265a882effe4f3644a8c2265451a7de4f8e",
+      "size_bytes": 23292
     },
     {
       "path": ".agents/scripts/audit_pagespeed_insights.py",
       "target_name": ".agents/scripts/audit_pagespeed_insights.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "eced899dafb684f333e1e87c1613fce93c8e4d68f0cb52c42a604affe812b8dd",
-      "size_bytes": 21751
+      "sha256": "0c1dae82929721911c155efa4a2d870a56cf99c5aaec9e7301d62924cd0aff36",
+      "size_bytes": 21564
     },
     {
       "path": ".agents/scripts/bump_version_11x.py",
       "target_name": ".agents/scripts/bump_version_11x.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "518babb1a3877cdee1ac93893cb69d0a04efaede39fd09f9ea6f307d7e06c22a",
-      "size_bytes": 21704
+      "sha256": "2d275e8973901cd8b5a14a84f647fb8b577833a0b3f9e961e2b270b350005098",
+      "size_bytes": 21552
     },
     {
       "path": ".agents/scripts/certify_task_completion.sh",
       "target_name": ".agents/scripts/certify_task_completion.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "e8a45933cb78a966de4acc2054be4bee7e7325b40ce5f83e6c2c5e6e363b88ca",
-      "size_bytes": 30969
+      "sha256": "def106838247345b3a115b9737f07b031b0b4aab793acd784e9bb19a2a7561a5",
+      "size_bytes": 32077
     },
     {
       "path": ".agents/scripts/checkpoint_ctl.py",
       "target_name": ".agents/scripts/checkpoint_ctl.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "c6c3007e99131cacf96dad6a183887e2befb9f27f28072165c443665513296ff",
-      "size_bytes": 37502
+      "sha256": "b02fa1f3df8c3bcf4f29b1f938e622ea9e7857ebbd1b5387fa3442967d77e5f5",
+      "size_bytes": 36516
     },
     {
       "path": ".agents/scripts/compact_context_11x.py",
       "target_name": ".agents/scripts/compact_context_11x.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "944c03891d4c56ab90b21f971a1fbb98c02025fe48a2406e485e6e53bafca844",
-      "size_bytes": 16768
+      "sha256": "f48393ef26dbfa8010d5b631dfbe37209bb386301bc16fb09686763b97887c73",
+      "size_bytes": 16329
     },
     {
       "path": ".agents/scripts/generate_pr_verdict.py",
       "target_name": ".agents/scripts/generate_pr_verdict.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "84d7c44a118ed25dfe1e998021fbb87b50a7ac0772faec393d5fb8a10e0a75bd",
-      "size_bytes": 34903
+      "sha256": "8a4ce4bc0cb8dc7dd5f8527f813b1b7285cbea2ffb97b50ede850571cb7182ad",
+      "size_bytes": 33779
     },
     {
       "path": ".agents/scripts/inspect_blast_radius.py",
@@ -1256,11 +1291,32 @@
       "size_bytes": 29998
     },
     {
+      "path": ".agents/scripts/lint_docs_gate.py",
+      "target_name": ".agents/scripts/lint_docs_gate.py",
+      "merge_strategy": "overwrite_executable",
+      "sha256": "71a92b39d4353d800b1ad25a0320487a5b4e4dbfee93523805576cecb31ad322",
+      "size_bytes": 3047
+    },
+    {
       "path": ".agents/scripts/lint_test_antipatterns.py",
       "target_name": ".agents/scripts/lint_test_antipatterns.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "40e291587821705bf8bc9ab8082cf5c5ce599132fae011275d46c159591d7a80",
-      "size_bytes": 40975
+      "sha256": "85dfbcb92543e5b40604c30aee1e5a85f5703140fd4055031aab64e1b0055a4c",
+      "size_bytes": 40768
+    },
+    {
+      "path": ".agents/scripts/lint_workflows.py",
+      "target_name": ".agents/scripts/lint_workflows.py",
+      "merge_strategy": "overwrite_executable",
+      "sha256": "4e3a465599939cdde2d39942cb27ab4d62eaddea254aee09b6b35690d27cf988",
+      "size_bytes": 8690
+    },
+    {
+      "path": ".agents/scripts/normalize_kcov_cobertura.py",
+      "target_name": ".agents/scripts/normalize_kcov_cobertura.py",
+      "merge_strategy": "overwrite_executable",
+      "sha256": "db99bd57c903ced000d341d9a56c39cabf6fe2d3c35aa4e8bba3361ddcfea097",
+      "size_bytes": 15578
     },
     {
       "path": ".agents/scripts/release_readiness_gate.py",
@@ -1280,22 +1336,22 @@
       "path": ".agents/scripts/sync_governance.py",
       "target_name": ".agents/scripts/sync_governance.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "79a757271c87a41ebe9e3bec2255f36130343324468879085d6381be393711f5",
-      "size_bytes": 43517
+      "sha256": "fd209b3d4c4430bb7cf18d06bd04d23f0e4c976a2caae46ebcaaffc3b235d064",
+      "size_bytes": 44676
     },
     {
       "path": ".agents/scripts/track_findings_state.py",
       "target_name": ".agents/scripts/track_findings_state.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "e014721e0c55127677f9b20f48d4d3161828d220b662622b4b19d3635d8dd7ed",
-      "size_bytes": 23683
+      "sha256": "9001e51cc39cf6f1455f0b7a71ebe4bec6e5ee6e8d6662063c2536b329a95899",
+      "size_bytes": 22368
     },
     {
       "path": ".agents/scripts/validate_calm_architecture.sh",
       "target_name": ".agents/scripts/validate_calm_architecture.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "e231f26fca0547b1e39e50f2244f5b00aa7cfcb535b18adfd88ca9503c5184e6",
-      "size_bytes": 14533
+      "sha256": "464aaf5c6f3fe4c1343217343f053e53b1245072dd108d4b1a59b355d1de5983",
+      "size_bytes": 15414
     },
     {
       "path": ".agents/scripts/verify_alembic_orm_parity.py",
@@ -1315,22 +1371,22 @@
       "path": ".agents/scripts/verify_docs_invariants.py",
       "target_name": ".agents/scripts/verify_docs_invariants.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "3ad0154ffe3ceed114bca8868f69b9b8e0c6b7983ba6de858ffb91735cdd2177",
-      "size_bytes": 85110
+      "sha256": "803e3603923fdf9e7afc438af393e3520948b3acd6a49a269d5427e0356e9468",
+      "size_bytes": 7988
     },
     {
       "path": ".agents/scripts/verify_json_no_duplicate_keys.py",
       "target_name": ".agents/scripts/verify_json_no_duplicate_keys.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "622f2884e414bd4b51688077643da7011c58e083acee0da656b8288e7a19ae5a",
-      "size_bytes": 4938
+      "sha256": "4350cac4e0a71a3cee249072edf42a283847afbbc70af35de2e245ae3c42f9fc",
+      "size_bytes": 4643
     },
     {
       "path": ".agents/scripts/verify_no_orphan_api_endpoints.py",
       "target_name": ".agents/scripts/verify_no_orphan_api_endpoints.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "de39556d9deec6aa4801c73c2124c93d6ab867f464367f0182cf323eda54882f",
-      "size_bytes": 45927
+      "sha256": "9f58ff30d05c41743deecca843c49c98dd4a4b3bbbfa747755484501e43090c6",
+      "size_bytes": 48640
     },
     {
       "path": ".agents/scripts/verify_roadmap_consistency.py",
@@ -1343,15 +1399,15 @@
       "path": ".agents/scripts/verify_topological_health.py",
       "target_name": ".agents/scripts/verify_topological_health.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "8858993602adb04df2240366212b790f6b5a66cc5a8862c912ac4fbc01cd4f87",
-      "size_bytes": 29334
+      "sha256": "f4a4d32d0fbc31257f58086f51f5dd108e1fbe25361737b32068ebb1a1545e87",
+      "size_bytes": 28982
     },
     {
       "path": ".agents/scripts/verify_zero_orphan_vue_components.py",
       "target_name": ".agents/scripts/verify_zero_orphan_vue_components.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "76ca1da5434971a95981420dd6959ab5b8f9cdb9babfa783e557cbc7d4ce9dd3",
-      "size_bytes": 10125
+      "sha256": "71e26e6ed5187c0293795503e5ed70c43366e8603ea34b2d0b7b0e23c68fc593",
+      "size_bytes": 10285
     },
     {
       "path": ".agents/skills/docker-trivy-keydb-hardening/SKILL.md",
@@ -1574,8 +1630,8 @@
       "path": "AGENTS.md",
       "target_name": "AGENTS.md",
       "merge_strategy": "surgical_merge",
-      "sha256": "7ef1a750ab7aaaf0df1e22000dee39b63599f51ca22646fea4feb82ce57eb86c",
-      "size_bytes": 7127
+      "sha256": "33dffba121ff7bdec8536e0c364b2b7bbe3d908eddf166dd61d23f89f1b3b00b",
+      "size_bytes": 7247
     },
     {
       "path": "AI_MASTER_PROMPT.es.md",
@@ -1637,8 +1693,8 @@
       "path": "scripts/install-skill.sh",
       "target_name": "scripts/install-skill.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "0f8298082de236d83ed4f55f63ab2eecb0e5bc30eb1c0445f1beab978f25daeb",
-      "size_bytes": 38164
+      "sha256": "2a44bde1937598321d34fe72ab4322287b4453309a0e9a3e8943e0b44c091261",
+      "size_bytes": 38202
     }
   ]
 }

@@ -17,11 +17,16 @@ import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
-import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TypeGuard
+
+_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
+from _common import atomic_write_json  # noqa: E402
 
 PSI_API_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed"
 CATEGORIES: tuple[str, ...] = ("performance", "accessibility", "best-practices", "seo")
@@ -436,15 +441,7 @@ def _persist_report_if_requested(opts: AuditOptions, report: dict[str, Any]) -> 
     if not opts.output_path:
         return
     dest = resolve_safe_output_path(opts.output_path, opts.base_dir)
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    serialized = json.dumps(report, indent=2, ensure_ascii=False) + "\n"
-    tmp_path = dest.parent / f".{dest.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
-    try:
-        tmp_path.write_text(serialized, encoding="utf-8")
-        os.replace(tmp_path, dest)
-    except OSError:
-        tmp_path.unlink(missing_ok=True)
-        raise
+    atomic_write_json(dest, report)
 
 
 def run_pagespeed_audit(

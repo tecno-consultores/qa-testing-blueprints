@@ -1062,6 +1062,7 @@ export async function handleSessionFlightRecorder(
         text: JSON.stringify(result, null, 2),
       },
     ],
+    structuredContent: JSON.parse(JSON.stringify(result)) as Record<string, unknown>,
   };
 }
 

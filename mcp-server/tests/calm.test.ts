@@ -38,6 +38,8 @@ interface CalmControlRequirement {
 interface CalmControl {
   enabled?: boolean;
   description?: string;
+  nodes?: string[];
+  relationships?: string[];
   requirements?: CalmControlRequirement[];
 }
 
@@ -669,11 +671,15 @@ describe('validateCalmArchitecture (FINOS CALM 11X Gate)', () => {
     expect(endIdx).toBeGreaterThan(startIdx);
     const jsPayload = shText.slice(startIdx + startMark.length, endIdx);
 
-    const runPayload = (cwd: string, archRel: string): { ok: boolean; out: string } => {
+    const runPayload = (
+      cwd: string,
+      archRel: string,
+      profile: 'auto' | 'generic' | 'qa-11x-self' = 'auto'
+    ): { ok: boolean; out: string } => {
       try {
         const stdout = execFileSync(process.execPath, ['-e', jsPayload], {
           cwd,
-          env: { ...process.env, ARCH_INPUT: archRel },
+          env: { ...process.env, ARCH_INPUT: archRel, CALM_PROFILE: profile },
           encoding: 'utf8',
         });
         return { ok: true, out: stdout };
@@ -684,24 +690,100 @@ describe('validateCalmArchitecture (FINOS CALM 11X Gate)', () => {
     };
 
     const ws = createWorkspaceWithModel(loadCanonicalDoc());
-    const nominal = runPayload(ws, DEFAULT_CALM_ARCHITECTURE_PATH);
+    const nominal = runPayload(ws, DEFAULT_CALM_ARCHITECTURE_PATH, 'qa-11x-self');
     expect(nominal.ok).toBe(true);
-    expect(nominal.out).toContain('architecture/qa-11x.calm.json|');
+    expect(nominal.out).toContain('architecture/qa-11x.calm.json|6|5|7');
 
+    // Consumer generic profile without monorepo nodes/controls passes cleanly
+    const consumerFile = path.join(ws, 'architecture', 'consumer.calm.json');
+    fs.writeFileSync(
+      consumerFile,
+      JSON.stringify({
+        nodes: [
+          { 'unique-id': 'svc-a', 'node-type': 'service', name: 'A', description: 'Service A' },
+          { 'unique-id': 'db-b', 'node-type': 'database', name: 'B', description: 'Database B' },
+        ],
+        relationships: [
+          {
+            'unique-id': 'rel-ab',
+            'relationship-type': {
+              connects: { source: { node: 'svc-a' }, destination: { node: 'db-b' } },
+            },
+          },
+        ],
+        controls: {
+          'tenant-rls': {
+            description: 'Tenant RLS',
+            nodes: ['db-b'],
+            requirements: [{ 'requirement-url': 'https://example.org/rls' }],
+          },
+        },
+      }),
+      'utf8'
+    );
+    expect(runPayload(ws, 'architecture/consumer.calm.json', 'generic').ok).toBe(true);
+
+    // Exhaustive coverage of all CALM validator error codes in real Node.js:
     const badJsonFile = path.join(ws, 'architecture', 'bad.calm.json');
-    fs.writeFileSync(badJsonFile, '{invalid', 'utf8');
-    const badJsonRes = runPayload(ws, 'architecture/bad.calm.json');
-    expect(badJsonRes.ok).toBe(false);
-    expect(badJsonRes.out).toContain('[INVALID_JSON]');
 
+    // 1. INVALID_JSON
+    fs.writeFileSync(badJsonFile, '{invalid', 'utf8');
+    expect(runPayload(ws, 'architecture/bad.calm.json').out).toContain('[INVALID_JSON]');
+
+    // 2. DUPLICATE_JSON_KEY
+    fs.writeFileSync(badJsonFile, '{"nodes":[],"nodes":[]}', 'utf8');
+    expect(runPayload(ws, 'architecture/bad.calm.json').out).toContain('[DUPLICATE_JSON_KEY]');
+
+    // 3. Missing arrays & required nodes/relationships/controls
+    fs.writeFileSync(badJsonFile, '{}', 'utf8');
+    const emptyDocOut = runPayload(ws, 'architecture/bad.calm.json', 'qa-11x-self').out;
+    expect(emptyDocOut).toContain('[MISSING_NODE_FIELD] Falta arreglo nodes.');
+    expect(emptyDocOut).toContain('[MISSING_RELATIONSHIP_FIELD] Falta arreglo relationships.');
+    expect(emptyDocOut).toContain('[MISSING_REQUIRED_NODE]');
+    expect(emptyDocOut).toContain('[MISSING_REQUIRED_RELATIONSHIP]');
+    expect(emptyDocOut).toContain('[MISSING_REQUIRED_CONTROL]');
+
+    // 4. MISSING_NODE_FIELD
     const noMetaDoc = loadCanonicalDoc();
     delete noMetaDoc.nodes[0]?.['node-type'];
     delete noMetaDoc.nodes[0]?.name;
     fs.writeFileSync(badJsonFile, JSON.stringify(noMetaDoc), 'utf8');
     const noMetaRes = runPayload(ws, 'architecture/bad.calm.json');
     expect(noMetaRes.ok).toBe(false);
-    expect(noMetaRes.out).toContain('node-type');
+    expect(noMetaRes.out).toContain('[MISSING_NODE_FIELD]');
 
+    // 5. DUPLICATE_RELATIONSHIP_ID, MISSING_RELATIONSHIP_FIELD, ORPHAN_CRITICAL_NODE, DANGLING_CONTROL_TARGET
+    const structuralBad = loadCanonicalDoc();
+    structuralBad.nodes.push({
+      'unique-id': 'orphan-svc',
+      'node-type': 'service',
+      name: 'Orphan',
+      description: 'Disconnected node',
+    });
+    const firstRel = structuralBad.relationships[0];
+    if (firstRel) {
+      structuralBad.relationships.push({ ...firstRel });
+    }
+    structuralBad.relationships.push({
+      'unique-id': 'empty-rel',
+      'relationship-type': {},
+    });
+    structuralBad.controls = {
+      ...structuralBad.controls,
+      'dangling-target-ctrl': {
+        description: 'Points to nonexistent node',
+        nodes: ['ghost-node-999'],
+        requirements: [{ 'requirement-url': 'https://example.org/ghost' }],
+      },
+    };
+    fs.writeFileSync(badJsonFile, JSON.stringify(structuralBad), 'utf8');
+    const structuralOut = runPayload(ws, 'architecture/bad.calm.json', 'qa-11x-self').out;
+    expect(structuralOut).toContain('[DUPLICATE_RELATIONSHIP_ID]');
+    expect(structuralOut).toContain('[MISSING_RELATIONSHIP_FIELD]');
+    expect(structuralOut).toContain('[ORPHAN_CRITICAL_NODE]');
+    expect(structuralOut).toContain('[DANGLING_CONTROL_TARGET]');
+
+    // 6. DUPLICATE_NODE_ID, DANGLING_RELATIONSHIP_NODE, INACTIVE_CONTROL, UNREFERENCED_CONTROL
     const dupAndDangling = loadCanonicalDoc();
     dupAndDangling.nodes.push({ ...dupAndDangling.nodes[0] });
     dupAndDangling.relationships.push({
@@ -720,13 +802,14 @@ describe('validateCalmArchitecture (FINOS CALM 11X Gate)', () => {
       },
     };
     fs.writeFileSync(badJsonFile, JSON.stringify(dupAndDangling), 'utf8');
-    const multiBad = runPayload(ws, 'architecture/bad.calm.json');
+    const multiBad = runPayload(ws, 'architecture/bad.calm.json', 'qa-11x-self');
     expect(multiBad.ok).toBe(false);
     expect(multiBad.out).toContain('[DUPLICATE_NODE_ID]');
     expect(multiBad.out).toContain('[DANGLING_RELATIONSHIP_NODE]');
     expect(multiBad.out).toContain('[INACTIVE_CONTROL]');
     expect(multiBad.out).toContain('[UNREFERENCED_CONTROL]');
 
+    // 7. PATH_TRAVERSAL via external symlink
     const extTarget = path.join(os.tmpdir(), `calm-ext-${Date.now()}.json`);
     fs.writeFileSync(extTarget, '{}', 'utf8');
     try {

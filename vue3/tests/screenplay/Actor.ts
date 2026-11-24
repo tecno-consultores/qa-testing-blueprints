@@ -583,6 +583,37 @@ export function InspectBatchExecutionQuestion(
   };
 }
 
+export interface VueTenantIsolationReport {
+  readonly actorTenantId: string;
+  readonly storeId: string;
+  readonly renderedTenantId: string | null;
+  readonly storeSnapshot: Record<string, unknown>;
+  readonly tenantIsolated: boolean;
+}
+
+export function VerifyVueTenantIsolation(
+  tenantField = 'tenantId',
+): Question<VueTenantIsolationReport> {
+  return {
+    description: `Verificar aislamiento multi-tenant Vue 3 y estado de Pinia (${tenantField})`,
+    answeredBy(actor: Actor): VueTenantIsolationReport {
+      const pinia = actor.abilityTo(InspectPiniaStore);
+      const storeSnapshot = pinia.readState();
+      const rawTenant = Object.prototype.hasOwnProperty.call(storeSnapshot, tenantField)
+        ? storeSnapshot[tenantField]
+        : null;
+      const renderedTenantId = typeof rawTenant === 'string' ? rawTenant : null;
+      return {
+        actorTenantId: actor.identity.tenantId,
+        storeId: pinia.storeId,
+        renderedTenantId,
+        storeSnapshot,
+        tenantIsolated: renderedTenantId === actor.identity.tenantId,
+      };
+    },
+  };
+}
+
 export interface DualRefreshContractReport {
   readonly storeId: string;
   readonly refreshedUrl: string;

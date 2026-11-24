@@ -4,7 +4,6 @@
 services:
   ui-prod:
     image: nginxinc/nginx-unprivileged:1.27-alpine@sha256:65e3e85dbaed8ba248841d9d58a899b6197106c23cb0ff1a132b7bfe0547e4c0
-    container_name: react_ui_prod
     hostname: react_ui_prod
     pull_policy: if_not_present
     mem_limit: 512m
@@ -36,7 +35,6 @@ services:
 
   qa-frontend:
     image: sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60
-    container_name: react_qa_frontend
     hostname: react_qa_frontend
     pull_policy: if_not_present
     mem_limit: 4g
@@ -61,7 +59,6 @@ services:
 
   ui-e2e:
     image: mcr.microsoft.com/playwright:v1.52.0-noble@sha256:a021500a801bab0611049217ffad6b9697d827205c15babb86a53bc1a61c02d5
-    container_name: react_ui_e2e
     hostname: react_ui_e2e
     pull_policy: if_not_present
     mem_limit: 4g
@@ -91,7 +88,6 @@ services:
 
   karatelabs:
     image: sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89
-    container_name: react_ui_karate
     hostname: react_ui_karate
     pull_policy: if_not_present
     mem_limit: 2g
@@ -108,7 +104,6 @@ services:
 
   nginx-exporter:
     image: nginx/nginx-prometheus-exporter:1.3.0@sha256:6477cf3bddc4e042d3496856fb2e8e382301bac47fb18cb83924389717261cb1
-    container_name: react_nginx_exporter
     hostname: react_nginx_exporter
     pull_policy: if_not_present
     mem_limit: 256m
@@ -126,7 +121,6 @@ services:
 
   prometheus:
     image: prom/prometheus:v2.55.1@sha256:2659f4c2ebb718e7695cb9b25ffa7d6be64db013daba13e05c875451cf51b0d3
-    container_name: react_prometheus
     hostname: react_prometheus
     pull_policy: if_not_present
     mem_limit: 512m

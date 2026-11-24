@@ -54,6 +54,8 @@ Esta especificación define la planificación técnica detallada para migrar tod
      `> 🌐 **Idioma:** [🇺🇸 English (Canonical)](<DOCUMENTO>.md) · **Español (Espejo 1:1)**`
 4. **Especificaciones Históricas (`docs/specs/01..18`):**
    - Por ROI de mantenimiento, las Specs `01..18` permanecen como registros históricos en español (indexadas desde [`docs/specs/README.es.md`](README.es.md) y su contraparte `docs/specs/README.md` con aviso de archivo histórico), exigiendo formato bilingüe (`NN_SPEC_*.md` + `.es.md`) a partir de nuevas especificaciones v3.x+ (`19_SPEC`, `20_SPEC` y sucesivas).
+5. **Plantillas de Catálogos Internacionales en Inglés (`catalogs/agenticskills-submission.md`):**
+   - Las plantillas de envío destinadas a catálogos internacionales exclusivamente en inglés (`catalogs/agenticskills-submission.md`) están explícitamente exentas de mantener espejo `.es.md`.
 
 ---
 

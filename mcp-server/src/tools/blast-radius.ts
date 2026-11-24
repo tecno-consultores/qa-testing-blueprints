@@ -548,6 +548,45 @@ function buildBlastRadiusResult(input: BuildBlastResultInput): BlastRadiusResult
   };
 }
 
+async function resolveOptionalBlastOverlays(
+  resolvedPath: string,
+  ctx: GraphScanContext,
+  options?: BlastRadiusOptions
+): Promise<{ diffBundle?: DiffBundleReport; gitSignals?: GitArchSignalsReport }> {
+  let diffBundle: DiffBundleReport | undefined;
+  if (options?.changedSinceRef !== undefined) {
+    diffBundle = await buildSemanticDiffBundle(
+      resolvedPath,
+      options.changedSinceRef,
+      options.maxTokensBudget
+    );
+    mergeDiffBundleDependents(diffBundle, ctx);
+  }
+  let gitSignals: GitArchSignalsReport | undefined;
+  if (options?.includeGitSignals) {
+    gitSignals = await collectGitArchSignals(resolvedPath, { signal: options.signal });
+    mergeGitSignalCouplingDependents(gitSignals, ctx);
+  }
+  return { diffBundle, gitSignals };
+}
+
+async function runGraphScanWithAutoBuild(
+  resolvedPath: string,
+  ctx: GraphScanContext,
+  options?: BlastRadiusOptions
+): Promise<boolean> {
+  const builder = options?.graphBuilder ?? defaultGraphifyBuilder;
+  let astGraphRebuilt = options?.refreshGraph ? await builder(resolvedPath, options.signal) : false;
+  runGraphAndConditionalRegexScan(resolvedPath, ctx);
+  if (ctx.graphFiles.length === 0 && options?.autoBuildIfMissing && !astGraphRebuilt) {
+    astGraphRebuilt = await builder(resolvedPath, options.signal);
+    if (astGraphRebuilt) {
+      runGraphAndConditionalRegexScan(resolvedPath, ctx);
+    }
+  }
+  return astGraphRebuilt;
+}
+
 export async function inspectAstBlastRadius(
   projectPathInput: string,
   targetSymbol = '',
@@ -555,7 +594,6 @@ export async function inspectAstBlastRadius(
   options?: BlastRadiusOptions
 ): Promise<BlastRadiusResult> {
   const resolvedPath = resolveSafeProjectPath(projectPathInput);
-
   if (!fs.existsSync(resolvedPath)) {
     throw new Error(`El directorio no existe: ${resolvedPath}`);
   }
@@ -568,9 +606,6 @@ export async function inspectAstBlastRadius(
     );
   }
 
-  const builder = options?.graphBuilder ?? defaultGraphifyBuilder;
-  let astGraphRebuilt = options?.refreshGraph ? await builder(resolvedPath, options.signal) : false;
-
   const ctx: GraphScanContext = {
     cleanSymbol,
     dependentFiles: new Set<string>(),
@@ -581,31 +616,8 @@ export async function inspectAstBlastRadius(
     declaringLocations: new Set<string>(),
     outgoingDependencies: new Set<string>(),
   };
-
-  runGraphAndConditionalRegexScan(resolvedPath, ctx);
-
-  if (ctx.graphFiles.length === 0 && options?.autoBuildIfMissing && !astGraphRebuilt) {
-    astGraphRebuilt = await builder(resolvedPath, options?.signal);
-    if (astGraphRebuilt) {
-      runGraphAndConditionalRegexScan(resolvedPath, ctx);
-    }
-  }
-
-  let diffBundle: DiffBundleReport | undefined;
-  if (options?.changedSinceRef !== undefined) {
-    diffBundle = await buildSemanticDiffBundle(
-      resolvedPath,
-      options.changedSinceRef,
-      options.maxTokensBudget
-    );
-    mergeDiffBundleDependents(diffBundle, ctx);
-  }
-
-  let gitSignals: GitArchSignalsReport | undefined;
-  if (options?.includeGitSignals) {
-    gitSignals = await collectGitArchSignals(resolvedPath, { signal: options.signal });
-    mergeGitSignalCouplingDependents(gitSignals, ctx);
-  }
+  const astGraphRebuilt = await runGraphScanWithAutoBuild(resolvedPath, ctx, options);
+  const { diffBundle, gitSignals } = await resolveOptionalBlastOverlays(resolvedPath, ctx, options);
 
   return buildBlastRadiusResult({
     resolvedPath,

@@ -1097,5 +1097,6 @@ export async function handleEvaluateAgentTrajectory(
         text: result.summary,
       },
     ],
+    structuredContent: JSON.parse(JSON.stringify(result)) as Record<string, unknown>,
   };
 }

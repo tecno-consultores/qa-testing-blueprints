@@ -130,6 +130,8 @@ function collectSafeAnchors(homeDir?: string): string[] {
   }
   addAnchorVariants(anchors, os.tmpdir());
   addAnchorVariants(anchors, '/tmp');
+  // macOS symlinks /var -> /private/var (used by /var/folders temp paths); anchoring at /var avoids false CWE-22 on OS symlink while still checking every descendant segment
+  addAnchorVariants(anchors, '/var');
   return Array.from(anchors);
 }
 

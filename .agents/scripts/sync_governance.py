@@ -9,11 +9,10 @@ import argparse
 import datetime
 import hashlib
 import json
-import os
+import os as os
 import re
 import subprocess
 import sys
-import uuid
 from pathlib import Path
 from typing import Any
 
@@ -42,9 +41,19 @@ from _budgets import (  # noqa: E402
 from _budgets import (  # noqa: E402
     REPO_AGENTS_MD_MAX_BYTES as REPO_AGENTS_MD_MAX_BYTES,
 )
+from _budgets import (  # noqa: E402
+    RULES_TOTAL_MAX_BYTES as RULES_TOTAL_MAX_BYTES,
+)
 from _budgets import SKILL_MAX_BYTES as SKILL_MAX_BYTES  # noqa: E402
 from _budgets import (  # noqa: E402
     TACTICAL_SKILL_MAX_BYTES as TACTICAL_SKILL_MAX_BYTES,
+)
+from _common import (  # noqa: E402
+    atomic_write_text as _atomic_write_text,
+)
+from _common import (  # noqa: E402
+    build_git_command,
+    reject_duplicate_json_keys,
 )
 
 SCHEMA_VERSION = "1.0.0"
@@ -169,14 +178,7 @@ _SPECIAL_SKILL_LIMITS: dict[str, int] = {
 
 def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     """Rechaza objetos JSON con claves duplicadas."""
-    obj: dict[str, Any] = {}
-    for key, value in pairs:
-        if key in obj:
-            raise ValueError(
-                f"Clave JSON duplicada detectada en manifest.json: {key!r}"
-            )
-        obj[key] = value
-    return obj
+    return reject_duplicate_json_keys(pairs, context="manifest.json")
 
 
 def load_manifest_strict(manifest_path: Path) -> dict[str, Any]:
@@ -316,12 +318,10 @@ def classify_governance_file(rel_path: str) -> tuple[str, str]:
         return ".agents/ACTIVE_TASK.md", "copy_if_missing"
     if rel_path == ".agents/README.md":
         return rel_path, "copy_if_missing"
-    exact_strategies = {
-        "_budgets.py": "copy_or_overwrite",
-        "AGENTS.md": "surgical_merge",
-    }
-    if path_obj.name in exact_strategies:
-        return rel_path, exact_strategies[path_obj.name]
+    if path_obj.name.startswith("_") and path_obj.suffix == ".py":
+        return rel_path, "copy_or_overwrite"
+    if path_obj.name == "AGENTS.md":
+        return rel_path, "surgical_merge"
     exec_suffixes = {".sh": "overwrite_executable", ".py": "overwrite_executable"}
     return rel_path, exec_suffixes.get(path_obj.suffix, "copy_or_overwrite")
 
@@ -834,13 +834,54 @@ def _check_upstream_agents_md_budget(repo_root: Path) -> str | None:
     return None
 
 
+def _check_rules_total_budget(repo_root: Path) -> str | None:
+    rules_dir = repo_root / ".agents" / "rules"
+    if not rules_dir.is_dir():
+        return None
+    total_bytes = sum(
+        p.stat().st_size
+        for p in sorted(rules_dir.glob("*.md"))
+        if p.is_file() and not p.name.startswith("domain_")
+    )
+    if total_bytes > RULES_TOTAL_MAX_BYTES:
+        return (
+            ".agents/rules/*.md excede el presupuesto cognitivo total "
+            f"({total_bytes} > {RULES_TOTAL_MAX_BYTES} bytes)."
+        )
+    return None
+
+
+def _check_global_connector_templates(repo_root: Path) -> list[str]:
+    installer = repo_root / "scripts" / "install-skill.sh"
+    if not installer.is_file():
+        return []
+    text = installer.read_text(encoding="utf-8")
+    blocks = re.findall(
+        r"<!-- QA_11X_MCP_CONNECTOR_START -->.*?<!-- QA_11X_MCP_CONNECTOR_END -->",
+        text,
+        flags=re.DOTALL,
+    )
+    errors: list[str] = []
+    for idx, block in enumerate(blocks, 1):
+        size = len(block.encode("utf-8"))
+        if size > GLOBAL_CONNECTOR_MAX_BYTES:
+            errors.append(
+                f"scripts/install-skill.sh bloque conector #{idx} excede "
+                f"{GLOBAL_CONNECTOR_MAX_BYTES} bytes ({size})."
+            )
+    return errors
+
+
 def validate_cognitive_budgets(repo_root: Path) -> list[str]:
-    """Valida SKILL.md (<20KB / <=12KB / <=2.5KB), AGENTS.md raíz y líneas."""
+    """Valida SKILL.md (<20KB / <=12KB / <=2.5KB), reglas, conectores y líneas."""
     agents_err = _check_upstream_agents_md_budget(repo_root)
+    rules_err = _check_rules_total_budget(repo_root)
     return [
         *_collect_skill_budget_errors(repo_root),
         *_collect_line_limit_errors(repo_root),
+        *_check_global_connector_templates(repo_root),
         *([agents_err] if agents_err else []),
+        *([rules_err] if rules_err else []),
     ]
 
 
@@ -898,7 +939,7 @@ def has_structural_git_changes(repo_root: Path) -> bool:
         return False
     try:
         res = subprocess.run(
-            ["git", "-C", str(repo_root), "status", "--porcelain=v1", "-z"],
+            build_git_command(repo_root, "status", "--porcelain=v1", "-z"),
             capture_output=True,
             text=False,
             check=False,
@@ -1001,17 +1042,6 @@ def _build_skill_catalog_updates(
     if fm_desc is not None:
         updates["description"] = fm_desc
     return updates
-
-
-def _atomic_write_text(target: Path, content: str) -> None:
-    tmp_name = f".{target.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
-    tmp_path = target.parent / tmp_name
-    try:
-        tmp_path.write_text(content, encoding="utf-8")
-        os.replace(tmp_path, target)
-    except OSError:
-        tmp_path.unlink(missing_ok=True)
-        raise
 
 
 def _sync_single_skill_entry(

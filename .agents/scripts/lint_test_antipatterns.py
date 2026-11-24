@@ -16,29 +16,13 @@ from collections.abc import Iterator, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-IGNORED_DIRS: frozenset[str] = frozenset(
-    {
-        ".git",
-        ".hypothesis",
-        ".mutmut-cache",
-        ".mypy_cache",
-        ".nox",
-        ".pytest_cache",
-        ".ruff_cache",
-        ".schemathesis",
-        ".tox",
-        ".venv",
-        "__pycache__",
-        "build",
-        "coverage",
-        "dist",
-        "graphify-out",
-        "mutants",
-        "node_modules",
-        "vendor",
-        "venv",
-    }
-)
+_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
+from _common import CANONICAL_IGNORED_DIRS  # noqa: E402
+
+IGNORED_DIRS: frozenset[str] = CANONICAL_IGNORED_DIRS
 TARGET_EXTENSIONS: frozenset[str] = frozenset(
     {".cjs", ".cts", ".js", ".jsx", ".mjs", ".mts", ".py", ".ts", ".tsx"}
 )

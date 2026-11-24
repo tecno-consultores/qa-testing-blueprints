@@ -702,6 +702,32 @@ export interface RecordStageFindingsOptions {
   readonly execFileSyncFn?: typeof execFileSync;
 }
 
+function persistCertifyStateSafe(root: string, doc: CertifyStateDocument): void {
+  try {
+    writeCertifyStateDocument(root, CERTIFY_STATE_REL_PATH, doc);
+  } catch (err: unknown) {
+    const code = (err as NodeJS.ErrnoException)?.code;
+    if (code !== 'EROFS' && code !== 'EACCES' && code !== 'EPERM') {
+      throw err;
+    }
+    reportDebugCatchError('qaEvidence.recordQaStageFindingsState', err);
+  }
+}
+
+function dedupeNormalizedFindings(
+  rawFindings: readonly RawFindingInput[],
+  root: string,
+  stage: string
+): { readonly orderedKeys: string[]; readonly deduped: Map<string, NormalizedFindingRecord> } {
+  const deduped = new Map<string, NormalizedFindingRecord>();
+  for (const item of rawFindings) {
+    const normalized = normalizeFindingForFingerprint(item, root, stage);
+    deduped.set(normalized.fingerprint, normalized);
+  }
+  const orderedKeys = Array.from(deduped.keys()).sort((a, b) => a.localeCompare(b));
+  return { orderedKeys, deduped };
+}
+
 export function recordQaStageFindingsState(
   projectPath: string,
   stage: string,
@@ -727,13 +753,7 @@ export function recordQaStageFindingsState(
   const session = doc.sessions[sessionKey] ?? { updated_at: '', runs: [], stage_runs: {} };
   const priorRuns = (session.stage_runs[stage] ?? []).slice(-MAX_BREAKER_HISTORY_RUNS);
   const historySets = priorRuns.map((run) => new Set(run.fingerprints));
-
-  const deduped = new Map<string, NormalizedFindingRecord>();
-  for (const item of rawFindings) {
-    const normalized = normalizeFindingForFingerprint(item, root, stage);
-    deduped.set(normalized.fingerprint, normalized);
-  }
-  const orderedKeys = Array.from(deduped.keys()).sort((a, b) => a.localeCompare(b));
+  const { orderedKeys, deduped } = dedupeNormalizedFindings(rawFindings, root, stage);
 
   const blockingFindings: QaTrackedFindingSummary[] = [];
   let maxStreakObserved = 0;
@@ -761,15 +781,7 @@ export function recordQaStageFindingsState(
   session.streaks = { ...(session.streaks ?? {}), [stage]: maxStreakObserved };
   session.oscillations = { ...(session.oscillations ?? {}), [stage]: oscillationsObserved };
   doc.sessions[sessionKey] = session;
-  try {
-    writeCertifyStateDocument(root, CERTIFY_STATE_REL_PATH, doc);
-  } catch (err: unknown) {
-    const code = (err as NodeJS.ErrnoException)?.code;
-    if (code !== 'EROFS' && code !== 'EACCES' && code !== 'EPERM') {
-      throw err;
-    }
-    reportDebugCatchError('qaEvidence.recordQaStageFindingsState', err);
-  }
+  persistCertifyStateSafe(root, doc);
 
   const triggered = blockingFindings.length > 0;
   return {

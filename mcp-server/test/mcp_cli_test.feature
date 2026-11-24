@@ -13,6 +13,60 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def Paths = Java.type('java.nio.file.Paths')
     * def repoRoot = Files.exists(Paths.get('/repo/manifest.json')) ? 'file:/repo' : 'file:..'
     * def mcpRoot = repoRoot + '/mcp-server'
+    * def readModule =
+      """
+      function(uriPath) {
+        var content = karate.readAsString(uriPath);
+        var clean = uriPath.replace(/^file:/, '');
+        var extraDirs = {
+          '/src/server.ts': ['/src/server'],
+          '/src/tools/security-auditor.ts': ['/src/tools/security-auditor'],
+          '/src/tools/test-pyramid-auditor.ts': ['/src/tools/test-pyramid'],
+          '/src/tools/ephemeral-runner.ts': ['/src/tools/ephemeral-runner'],
+          '/src/integrations/tmsSyncCli.ts': ['/src/integrations/tms'],
+          '/src/services/surgical-merger.ts': ['/src/services/surgical-merger']
+        };
+        var extraFiles = {
+          '/src/index.ts': ['/src/cli/commandCatalog.ts'],
+          '/src/cli.ts': ['/src/cli/commandCatalog.ts'],
+          '/src/cli/completion.ts': ['/src/cli/commandCatalog.ts'],
+          '/.agents/scripts/verify_docs_invariants.py': [
+            '/.agents/scripts/_docs_invariants_config.py',
+            '/.agents/scripts/_docs_invariants_counts.py',
+            '/.agents/scripts/_docs_invariants_bilingual.py',
+            '/.agents/scripts/_docs_invariants_catalogs.py'
+          ]
+        };
+        var baseRoot = clean.replace(/(\/src\/|\/\.agents\/scripts\/).*$/, '');
+        var rel = clean.slice(baseRoot.length);
+        var dirs = extraDirs[rel] || [];
+        for (var i = 0; i < dirs.length; i++) {
+          var dirPath = Paths.get(baseRoot + dirs[i]);
+          if (Files.isDirectory(dirPath)) {
+            var stream = Files.list(dirPath);
+            try {
+              var iter = stream.sorted().iterator();
+              while (iter.hasNext()) {
+                var p = iter.next();
+                if (p.toString().endsWith('.ts')) {
+                  content += '\n' + karate.readAsString('file:' + p.toString());
+                }
+              }
+            } finally {
+              stream.close();
+            }
+          }
+        }
+        var files = extraFiles[rel] || [];
+        for (var j = 0; j < files.length; j++) {
+          var fPath = baseRoot + files[j];
+          if (Files.exists(Paths.get(fPath))) {
+            content += '\n' + karate.readAsString('file:' + fPath);
+          }
+        }
+        return content;
+      }
+      """
     * def pkg = read(mcpRoot + '/package.json')
     * def manifest = read(repoRoot + '/manifest.json')
     * def expectedSemver3x = '#regex ^3\\.[0-9]+\\.[0-9]+$'
@@ -61,14 +115,14 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   # ==============================================================================
 
   Scenario: 3. Definición de contratos y esquemas JSON para las 19 Herramientas MCP
-    * def serverSrc3 = karate.readAsString(mcpRoot + '/src/server.ts')
+    * def serverSrc3 = readModule(mcpRoot + '/src/server.ts')
     * def typesSrc3 = karate.readAsString(mcpRoot + '/src/types.ts')
     * def calmToolSrc3 = karate.readAsString(mcpRoot + '/src/tools/validateCalmArchitecture.ts')
     * def gateToolSrc3 = karate.readAsString(mcpRoot + '/src/tools/evaluateReleaseGate.ts')
     * def trajToolSrc3 = karate.readAsString(mcpRoot + '/src/tools/evaluateAgentTrajectory.ts')
     * def redToolSrc3 = karate.readAsString(mcpRoot + '/src/tools/runLlmRedTeam.ts')
     * def vibeToolSrc3 = karate.readAsString(mcpRoot + '/src/tools/auditVibePrototype.ts')
-    * def tmsToolSrc3 = karate.readAsString(mcpRoot + '/src/integrations/tmsSyncCli.ts')
+    * def tmsToolSrc3 = readModule(mcpRoot + '/src/integrations/tmsSyncCli.ts')
     * def flightToolSrc3 = karate.readAsString(mcpRoot + '/src/tools/sessionFlightRecorder.ts')
     * def allToolSources3 = serverSrc3 + '\n' + calmToolSrc3 + '\n' + gateToolSrc3 + '\n' + trajToolSrc3 + '\n' + redToolSrc3 + '\n' + vibeToolSrc3 + '\n' + tmsToolSrc3 + '\n' + flightToolSrc3
     * def coreTools3 =
@@ -119,7 +173,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   # ==============================================================================
 
   Scenario: 4. Definición de URIs y tipos MIME para los 13 Recursos MCP (11 estáticos + 2 templates)
-    * def serverSrc4 = karate.readAsString(mcpRoot + '/src/server.ts')
+    * def serverSrc4 = readModule(mcpRoot + '/src/server.ts')
     * def resSrc4 = karate.readAsString(mcpRoot + '/src/resources/blueprint-resources.ts')
     * def aiRes4 = karate.readAsString(mcpRoot + '/src/resources/aiEvalsBlueprint.ts')
     * def stackRes4 = karate.readAsString(mcpRoot + '/src/resources/stackBlueprints.ts')
@@ -165,7 +219,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   # ==============================================================================
 
   Scenario: 5. Estructura canónica de respuesta de ejecución de herramientas MCP (JSON compacto ahorrador de tokens)
-    * def serverSrc5 = karate.readAsString(mcpRoot + '/src/server.ts')
+    * def serverSrc5 = readModule(mcpRoot + '/src/server.ts')
     * def certifySrc5 = karate.readAsString(mcpRoot + '/src/tools/certify-gate.ts')
     * def typesSrc5 = karate.readAsString(mcpRoot + '/src/types.ts')
     * assert serverSrc5.contains('function toJsonToolResult')
@@ -304,8 +358,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   # ==============================================================================
 
   Scenario: 10. Los auditores de seguridad y pirámide 11X exponen reglas SEC-11, UI-11X-02, UI-11X-03, 3 fases temporales y refresco dual
-    * def secSrc10 = karate.readAsString(mcpRoot + '/src/tools/security-auditor.ts')
-    * def pyrSrc10 = karate.readAsString(mcpRoot + '/src/tools/test-pyramid-auditor.ts')
+    * def secSrc10 = readModule(mcpRoot + '/src/tools/security-auditor.ts')
+    * def pyrSrc10 = readModule(mcpRoot + '/src/tools/test-pyramid-auditor.ts')
     * def expectedSecRules10 = ['SEC-01', 'SEC-02', 'SEC-03', 'SEC-04', 'SEC-05', 'SEC-06', 'SEC-07', 'SEC-08', 'SEC-09', 'SEC-10', 'SEC-11', 'UI-11X-01', 'UI-11X-02', 'UI-11X-03']
     * def missingSecRules10 = karate.filter(expectedSecRules10, function(r) { return !secSrc10.contains("'" + r + "'") })
     * match missingSecRules10 == '#[0]'
@@ -390,7 +444,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match agentsContent contains '`DOCS_ONLY` (human'
     * match agentsContent contains '**`FULL_11X`:**'
 
-    * def runnerSrc14 = karate.readAsString(mcpRoot + '/src/tools/ephemeral-runner.ts')
+    * def runnerSrc14 = readModule(mcpRoot + '/src/tools/ephemeral-runner.ts')
     * assert runnerSrc14.contains('options?.skipIfDocsOnly && isDocsOnlyWorkspaceChange')
     * assert runnerSrc14.contains("status: 'SKIPPED'")
     * assert runnerSrc14.contains('exit_code: 0')
@@ -418,7 +472,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert fetchSrc15.contains('cached_path:')
 
     # Validar implementación real de hallazgos agrupados y truncado de seguridad en audit_security_stig_owasp
-    * def secSrc15 = karate.readAsString(mcpRoot + '/src/tools/security-auditor.ts')
+    * def secSrc15 = readModule(mcpRoot + '/src/tools/security-auditor.ts')
     * assert secSrc15.contains('grouped_findings: groupedFindings')
     * assert secSrc15.contains('truncated_findings_count:')
     * assert secSrc15.contains('occurrences_count:')
@@ -455,7 +509,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert certifySource.contains('checkAstTopology')
     * assert certifySource.contains('ast_topology_clean')
 
-    * def secSource = karate.readAsString(mcpRoot + '/src/tools/security-auditor.ts')
+    * def secSource = readModule(mcpRoot + '/src/tools/security-auditor.ts')
     * assert secSource.contains('QA-KARATE-IDEMP')
     * assert secSource.contains('SEC-12')
 
@@ -465,7 +519,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert skillContent.contains('references/09-sre-observability-chaos-triage.md')
 
   Scenario: 17. Evolución empírica RLS Multi-Tx (after_begin), Cadena WORM (seq_num + pg_advisory_xact_lock), COVERAGE_FILE=/tmp/.coverage, Monorepo certify_11x_gate y SEC-11
-    * def secSource = karate.readAsString(mcpRoot + '/src/tools/security-auditor.ts')
+    * def secSource = readModule(mcpRoot + '/src/tools/security-auditor.ts')
     * assert secSource.contains('isDirectRealAuditFunctionTest')
     * assert secSource.contains('SEC-13')
     * assert secSource.contains('SEC-14')
@@ -477,7 +531,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert certifySource.contains(".env.example")
     * assert certifySource.contains('resolveWithParentFallback')
 
-    * def mergerSource = karate.readAsString(mcpRoot + '/src/services/surgical-merger.ts')
+    * def mergerSource = readModule(mcpRoot + '/src/services/surgical-merger.ts')
     * assert mergerSource.contains('COVERAGE_FILE=/tmp/.coverage')
     * assert mergerSource.contains('--cov=src --cov-fail-under=95')
 
@@ -515,7 +569,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def commonPaths = karate.map(manifest.common_files, function(x) { return x.path })
     * match commonPaths !contains 'scripts/publicar-mcp.sh'
 
-    * def secSource = karate.readAsString(mcpRoot + '/src/tools/security-auditor.ts')
+    * def secSource = readModule(mcpRoot + '/src/tools/security-auditor.ts')
     * assert secSource.contains('SEC-16')
     * assert secSource.contains('PREAUTH_PUBLIC_ROUTES')
     * assert secSource.contains('checkPreAuthNonAtomicChallengeConsumption')
@@ -527,10 +581,10 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert certifySource.contains('checkManifestCryptographicParity')
     * assert certifySource.contains('checkRoadmapConsistency')
 
-    * def cliIndexSource = karate.readAsString(mcpRoot + '/src/index.ts')
+    * def cliIndexSource = readModule(mcpRoot + '/src/index.ts')
     * assert cliIndexSource.contains('--version')
     * assert cliIndexSource.contains('dispatchCliArgs')
-    * def cliRouterSource = karate.readAsString(mcpRoot + '/src/cli.ts')
+    * def cliRouterSource = readModule(mcpRoot + '/src/cli.ts')
     * assert cliRouterSource.contains("'--version'")
 
   Scenario: 20. Presupuesto Cognitivo SKILL.md (<= 12 KB), Regla #8 Anti-Ceguera UAT (SEC-16) y Paridad de 13 Recursos Documentales
@@ -576,7 +630,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert certifySource.contains('stripDynamicQuerySuffix')
     * assert certifySource.contains('SUBPATH_INTERPOLATION_TOKEN')
 
-    * def secSource = karate.readAsString(mcpRoot + '/src/tools/security-auditor.ts')
+    * def secSource = readModule(mcpRoot + '/src/tools/security-auditor.ts')
     * assert secSource.contains('QA-MYPY-01')
     * assert secSource.contains('QA-PG17-RLS')
     * assert secSource.contains('--import-mode=importlib')
@@ -655,7 +709,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert refactSkill.contains('OUTPUT LANGUAGE & DYNAMIC MIRRORING')
 
   Scenario: 23. Invariante QA-HEALTH-01 (Regla Anti-Silo #9), Paridad Documental Humana 1:1 y Gobernanza Dual-Consumer
-    * def secSource = karate.readAsString(mcpRoot + '/src/tools/security-auditor.ts')
+    * def secSource = readModule(mcpRoot + '/src/tools/security-auditor.ts')
     * assert secSource.contains('QA-HEALTH-01')
     * assert secSource.contains('checkQaHealth01SupervisorTaskExit')
     * assert secSource.contains('checkQaHealth01ContainerHeartbeatContract')
@@ -666,7 +720,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert proposeSource.contains('docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md')
     * assert proposeSource.contains('docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md')
 
-    * def docsValidator = karate.readAsString(repoRoot + '/.agents/scripts/verify_docs_invariants.py')
+    * def docsValidator = readModule(repoRoot + '/.agents/scripts/verify_docs_invariants.py')
     * assert docsValidator.contains('check_dual_consumer_parity')
     * assert docsValidator.contains('_check_uat_rules_parity')
     * assert docsValidator.contains('_check_auditor_rules_in_human_docs')
@@ -711,7 +765,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def installSkillSh = karate.readAsString(repoRoot + '/scripts/install-skill.sh')
     * assert installSkillSh.contains('.qa-11x-version')
 
-    * def cliIndexSource = karate.readAsString(mcpRoot + '/src/index.ts')
+    * def cliIndexSource = readModule(mcpRoot + '/src/index.ts')
     * assert cliIndexSource.contains('syncGlobalSkillsInBackground')
 
   Scenario: 25. Alineación Non-Root UID 10001 en CI / Stacks Node (pnpm-store-init) y Paridad Documental Integral
@@ -822,17 +876,17 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   Scenario: 28. Invariante Dual-Consumer QA-CLI-TTY-01 (Regla UAT #10), Guardia Anti-Bloqueo TTY, Flag --stdio y Alias install
     * match pkg.version == expectedSemver3x
     * match manifest.blueprint_version == pkg.version
-    * def cliIndexSource = karate.readAsString(mcpRoot + '/src/index.ts')
+    * def cliIndexSource = readModule(mcpRoot + '/src/index.ts')
     * assert cliIndexSource.contains('shouldExitInteractiveTty')
     * assert cliIndexSource.contains('INTERACTIVE_TTY_NOTICE')
     * assert cliIndexSource.contains("arg1 === '--stdio'")
     * assert cliIndexSource.contains('runCli(args')
-    * def cliRouterSource = karate.readAsString(mcpRoot + '/src/cli.ts')
-    * assert cliRouterSource.contains("'install-skill': CMD_INSTALL_SKILL")
-    * assert cliRouterSource.contains('install: CMD_INSTALL_SKILL')
+    * def cliRouterSource = readModule(mcpRoot + '/src/cli.ts')
+    * assert cliRouterSource.contains("name: 'install-skill'")
+    * assert cliRouterSource.contains("aliases: ['install']")
     * assert cliIndexSource.contains('process.stdin.isTTY')
 
-    * def secAuditorSource = karate.readAsString(mcpRoot + '/src/tools/security-auditor.ts')
+    * def secAuditorSource = readModule(mcpRoot + '/src/tools/security-auditor.ts')
     * assert secAuditorSource.contains('QA-CLI-TTY-01')
     * assert secAuditorSource.contains('checkQaCliTty01InteractiveHangGuard')
     * assert secAuditorSource.contains('QA-DOCKER-TTY-01')
@@ -967,7 +1021,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def docs02 = karate.readAsString(repoRoot + '/docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md')
     * assert docs02.contains('## 8.')
     * assert docs02.contains('conf.d/zz-qa11x.ini')
-    * def runnerTs = karate.readAsString(repoRoot + '/mcp-server/src/tools/ephemeral-runner.ts')
+    * def runnerTs = readModule(repoRoot + '/mcp-server/src/tools/ephemeral-runner.ts')
     * assert runnerTs.contains('resolveMakefileDockerRecipes')
     * assert runnerTs.contains('resolveComposeDirectFallback')
     * def findEntry = function(list, pathStr) { return karate.filter(list, function(x) { return x.path == pathStr })[0] }
@@ -978,7 +1032,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
 
   Scenario: 32. Verificar paridad Dual-Consumer QA-PLAYWRIGHT-PIN-01, fallbacks ui-e2e/make -C, exclusiones PSI y scripts PageSpeed Insights
     * def findEntry = function(list, pathStr) { return karate.filter(list, function(x) { return x.path == pathStr })[0] }
-    * def secAuditor = karate.readAsString(repoRoot + '/mcp-server/src/tools/security-auditor.ts')
+    * def secAuditor = readModule(repoRoot + '/mcp-server/src/tools/security-auditor.ts')
     * assert secAuditor.contains('QA-PLAYWRIGHT-PIN-01')
     * assert secAuditor.contains('/tmp/psi')
     * def securityDoc = karate.readAsString(repoRoot + '/SECURITY.md')
@@ -1002,13 +1056,13 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
 
   Scenario: 33. Verificar paridad Dual-Consumer QA-SSR-HYDRATION-01, exclusión vendor en MCP/.trivy.yaml y endurecimiento QA-HEALTH-01 / fallback sin make
     * def findEntry = function(list, pathStr) { return karate.filter(list, function(x) { return x.path == pathStr })[0] }
-    * def secAuditor = karate.readAsString(repoRoot + '/mcp-server/src/tools/security-auditor.ts')
+    * def secAuditor = readModule(repoRoot + '/mcp-server/src/tools/security-auditor.ts')
     * assert secAuditor.contains('QA-SSR-HYDRATION-01')
     * assert secAuditor.contains('QA-STRYKER-CFG-01')
     * assert secAuditor.contains('SEC-WS-PUBSUB-01')
     * assert secAuditor.contains('extractPythonTestBlocks')
     * assert secAuditor.contains('isUncheckedSupervisorWindow')
-    * def serverTs = karate.readAsString(repoRoot + '/mcp-server/src/server.ts')
+    * def serverTs = readModule(repoRoot + '/mcp-server/src/server.ts')
     * assert serverTs.contains('22 DISA ASD STIG V6R5 / OWASP v4.2 reference controls + 36 static scanner rules')
     * assert serverTs.contains('QA-SSR-HYDRATION-01')
     * assert serverTs.contains('QA-STRYKER-CFG-01')
@@ -1046,7 +1100,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * string phpCompScen33Raw = karate.readAsString(repoRoot + '/php/composer.json.example')
     * json phpCompScen33 = phpCompScen33Raw
     * assert phpCompScen33.scripts['qa:unit'].contains('-d pcov.directory=src')
-    * def runnerTs = karate.readAsString(repoRoot + '/mcp-server/src/tools/ephemeral-runner.ts')
+    * def runnerTs = readModule(repoRoot + '/mcp-server/src/tools/ephemeral-runner.ts')
     * assert runnerTs.contains('hasUnquotedShellSyntax')
     * assert runnerTs.contains('--remove-orphans')
     * def phpunitManifest = findEntry(manifest.stacks.php.files, 'php/phpunit.xml.example')
@@ -1059,7 +1113,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def makefileText = karate.readAsString(repoRoot + '/Makefile')
     * assert makefileText.contains('diff-cov:')
     * assert makefileText.contains('.agents/.cache/coverage')
-    * def runnerTs = karate.readAsString(repoRoot + '/mcp-server/src/tools/ephemeral-runner.ts')
+    * def runnerTs = readModule(repoRoot + '/mcp-server/src/tools/ephemeral-runner.ts')
     * assert runnerTs.contains('ensureCoverageCacheDir')
     * assert runnerTs.contains('harvestCoverageReports')
     * def gitignoreText = karate.readAsString(repoRoot + '/.gitignore')
@@ -1080,7 +1134,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert qaEvidenceTs.contains('CERTIFY_STATE_REL_PATH')
     * assert qaEvidenceTs.contains('EXIT_BREAKER_42 = 42')
     * assert qaEvidenceTs.contains('recordQaStageFindingsState')
-    * def runnerTs = karate.readAsString(repoRoot + '/mcp-server/src/tools/ephemeral-runner.ts')
+    * def runnerTs = readModule(repoRoot + '/mcp-server/src/tools/ephemeral-runner.ts')
     * assert runnerTs.contains('BREAKER_42')
     * assert runnerTs.contains('formatFailVerboseReport')
     * def certifySh = karate.readAsString(repoRoot + '/.agents/scripts/certify_task_completion.sh')
@@ -1196,7 +1250,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def resourceLangTs = karate.readAsString(mcpRoot + '/src/resources/resourceLang.ts')
     * assert resourceLangTs.contains('parseResourceUriAndLang')
     * assert resourceLangTs.contains('runWithResourceLang')
-    * def serverTs38 = karate.readAsString(mcpRoot + '/src/server.ts')
+    * def serverTs38 = readModule(mcpRoot + '/src/server.ts')
     * assert serverTs38.contains('wrapReadResourceDispatcher')
 
   Scenario: 39. Hito 26 — Flight Recorder Atómico (checkpoint_ctl.py + session_flight_recorder) y Micro-Skill Táctica JIT (tactical-patterns-11x + candados linter)
@@ -1260,7 +1314,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def typesTs41 = karate.readAsString(mcpRoot + '/src/types.ts')
     * assert typesTs41.contains('allow_unmerged_examples:')
 
-    * def serverTs41 = karate.readAsString(mcpRoot + '/src/server.ts')
+    * def serverTs41 = readModule(mcpRoot + '/src/server.ts')
     * assert serverTs41.contains('allowUnmergedExamples: args.allow_unmerged_examples')
     * assert serverTs41.contains('args.dry_run')
     * assert serverTs41.contains('validateV2ToolWorkspaceArgs')
@@ -1274,7 +1328,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert reconcileTs41.contains('options.dryRun ?? true')
     * assert reconcileTs41.contains('resolveSafeProjectPath')
 
-    * def indexTs41 = karate.readAsString(mcpRoot + '/src/index.ts')
+    * def indexTs41 = readModule(mcpRoot + '/src/index.ts')
     * assert indexTs41.contains('runAutoSyncSafely')
     * assert indexTs41.contains('runBoundedInteractiveAutoSync')
     * assert indexTs41.contains('INTERACTIVE_TTY_SYNC_TIMEOUT_MS')
@@ -1350,14 +1404,14 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert rootReadme42.includes('12 matrix environments')
 
   Scenario: 43. Contratos Fase 5 (F5.3, F5.6, F5.12, F5.13) — Conteos Dinamicos Runtime, Standard Edition Dinamico, D3 y 15 Etapas run_ephemeral_qa
-    * def indexTs43 = karate.readAsString(mcpRoot + '/src/index.ts')
+    * def indexTs43 = readModule(mcpRoot + '/src/index.ts')
     * assert indexTs43.contains('getRegisteredSurfaceCounts')
     * assert indexTs43.contains('createConfiguredMcpServer')
     * assert indexTs43.contains('getCliHelpText')
     * assert indexTs43.contains('getInteractiveTtyNotice')
     * assert !indexTs43.contains('(19 tools, 13 resources)')
 
-    * def serverTs43 = karate.readAsString(mcpRoot + '/src/server.ts')
+    * def serverTs43 = readModule(mcpRoot + '/src/server.ts')
     * assert serverTs43.contains('getRegisteredServerSurface')
     * assert serverTs43.contains('22 DISA ASD STIG V6R5 / OWASP v4.2 reference controls + 36 static scanner rules')
 
@@ -1401,7 +1455,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def aiIntEs44 = karate.readAsString(repoRoot + '/docs/ai-integration.es.md')
     * assert !aiIntEs44.contains('agent-setup.en.md')
 
-    * def verifyDocsPy44 = karate.readAsString(repoRoot + '/.agents/scripts/verify_docs_invariants.py')
+    * def verifyDocsPy44 = readModule(repoRoot + '/.agents/scripts/verify_docs_invariants.py')
     * assert verifyDocsPy44.contains('docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md')
     * assert verifyDocsPy44.contains('docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md')
     * assert verifyDocsPy44.contains('19_SPEC_PLAN_ARQUITECTURA_BILINGUE_EN_PRIMARIO_Y_ESPEJO_ES')
@@ -1606,7 +1660,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert bashMake48.contains('auditar-pagespeed.sh')
     * assert bashMake48.contains('install-skill.sh')
     * assert bashMake48.contains('.agents/.cache/coverage/bash.xml')
-    * def runner48 = karate.readAsString(mcpRoot + '/src/tools/ephemeral-runner.ts')
+    * def runner48 = readModule(mcpRoot + '/src/tools/ephemeral-runner.ts')
     * assert runner48.contains('UNQUOTED_POSIX_ESCAPABLE')
     * def lefthook48 = karate.readAsString(repoRoot48 + '/lefthook.yml')
     * assert lefthook48.contains('-e _USER=qa')
@@ -1632,7 +1686,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def guardSrc49 = karate.readAsString(mcpRoot + '/src/utils/taskStateGuard.ts')
     * assert guardSrc49.contains('MAX_STUCK_TASKS = 32')
 
-    * def indexSrc49 = karate.readAsString(mcpRoot + '/src/index.ts')
+    * def indexSrc49 = readModule(mcpRoot + '/src/index.ts')
     * assert indexSrc49.contains('resolveToolExecutionOptions')
     * assert indexSrc49.contains('heavy_transfer')
 
@@ -1649,7 +1703,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert qaEvSrc49.contains('oscillations')
 
   Scenario: 50. Contratos Fase 2 — 7 Subcomandos CLI (doctor, upgrade, certify, audit, blast-radius, mcp-config, completion), SARIF 2.1.0 y Paridad 19 Tools / 13 Resources
-    * def cliSrc50 = karate.readAsString(mcpRoot + '/src/cli.ts')
+    * def cliSrc50 = readModule(mcpRoot + '/src/cli.ts')
     * assert cliSrc50.contains("'doctor'")
     * assert cliSrc50.contains("'upgrade'")
     * assert cliSrc50.contains("'certify'")
@@ -1657,11 +1711,12 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert cliSrc50.contains("'blast-radius'")
     * assert cliSrc50.contains("'mcp-config'")
     * assert cliSrc50.contains("'completion'")
-    * assert cliSrc50.contains('status: CMD_DOCTOR')
-    * assert cliSrc50.contains("'cache-clean': CMD_UPGRADE")
+    * assert cliSrc50.contains("aliases: ['status']")
+    * assert cliSrc50.contains("aliases: ['cache-clean']")
     * assert cliSrc50.contains('LAZY_CLI_HANDLERS')
+    * assert cliSrc50.contains('resolveCatalogCommand')
 
-    * def indexSrc50 = karate.readAsString(mcpRoot + '/src/index.ts')
+    * def indexSrc50 = readModule(mcpRoot + '/src/index.ts')
     * assert indexSrc50.contains('doctor')
     * assert indexSrc50.contains('upgrade')
     * assert indexSrc50.contains('certify')
@@ -1711,20 +1766,21 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert qsSrc51.contains('audit --mode vibe')
 
     * def certifyCliSrc51 = karate.readAsString(mcpRoot + '/src/cli/certify-cli.ts')
-    * assert certifyCliSrc51.contains('requireLintEvidence: false')
+    * assert certifyCliSrc51.contains('requireLintEvidence: true')
+    * assert certifyCliSrc51.contains('--no-require-lint-evidence')
 
     * def upgradeCliSrc51 = karate.readAsString(mcpRoot + '/src/cli/upgrade.ts')
     * assert upgradeCliSrc51.contains('FLAG_RECONCILE')
 
-    * def completionSrc51 = karate.readAsString(mcpRoot + '/src/cli/completion.ts')
+    * def completionSrc51 = readModule(mcpRoot + '/src/cli/completion.ts')
     * assert completionSrc51.contains('shift words')
     * assert completionSrc51.contains('(( CURRENT-- ))')
 
-    * def cliSrc51 = karate.readAsString(mcpRoot + '/src/cli.ts')
-    * assert cliSrc51.contains('resolveSubcommandHelpText')
+    * def cliSrc51 = readModule(mcpRoot + '/src/cli.ts')
+    * assert cliSrc51.contains('renderSubcommandHelpText')
     * assert cliSrc51.contains('executeInitAgentsCli')
 
-    * def indexSrc51 = karate.readAsString(mcpRoot + '/src/index.ts')
+    * def indexSrc51 = readModule(mcpRoot + '/src/index.ts')
     * assert indexSrc51.contains('mcp-config --client')
 
     * def dashboardVue51 = karate.readAsString(mcpRoot + '/example/frontend/src/views/DevicesDashboard.vue')

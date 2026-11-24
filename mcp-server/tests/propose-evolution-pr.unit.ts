@@ -22,7 +22,7 @@ const STATUS_ISSUE_CREATED = 'ISSUE_CREATED_VIA_GH';
 const STATUS_PROPOSAL_GENERATED = 'PROPOSAL_FILE_AND_URL_GENERATED';
 const TARGET_FILE = '.agents/skills/qa-11x-architect/SKILL.md';
 const IMPROVEMENT_TITLE = 'Soporte Mejorado para Safe Mode en RouterOS v7';
-const RATIONALE = 'En producción con MikroTik v7.18 se detectó que el Safe Mode requiere un rollback explícito tras 60s.';
+const RATIONALE = 'En producción con EdgeGateway v7.18 se detectó que el Safe Mode requiere un rollback explícito tras 60s.';
 const SNIPPET = '### Safe Mode Invariant\nassert router.safe_mode == True\n';
 
 describe('propose_skill_evolution_pr Tool Suite (Zero-Trust Skill Evolution)', () => {

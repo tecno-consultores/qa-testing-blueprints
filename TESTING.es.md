@@ -43,7 +43,7 @@ Alcance: **10 stacks hidratables** (`python`, `fastapi`, `node-backend`, `vue3`,
 | `make lint-workflows` / `make lint-docs` | Valida seguridad/claves en workflows GitHub, paridad documental/roadmap y `QA-GIT-GATE-01` |
 | `make sync-governance` / `make version-check` | Verifica integridad SHA-256 en `manifest.json`, presupuestos cognitivos y paridad SemVer/edición |
 | `make test` / `make certify` | Ejecuta la suite QA integral del monorepo o la compuerta de 10 etapas `.agents/scripts/certify_task_completion.sh` |
-| `make test-mcp` / `make test-karate` / `make test-example` | Corre Vitest MCP (`>= 95%`, 43 suites), Karate Labs BDD (`52` escenarios) y E2E Clean-Room `.tgz` sobre `stdio` |
+| `make test-mcp` / `make test-karate` / `make test-example` | Corre Vitest MCP (`>= 95%`, 44 suites), Karate Labs BDD (`52` escenarios) y E2E Clean-Room `.tgz` sobre `stdio` |
 | `make test-py` / `make test-bats` / `make test-meta-qa` | Ejecuta unitarias Python, BATS-core + cobertura XML kcov y Meta-QA trimodal sobre `.agents/scripts/` |
 | `make test-ai-offline` / `make audit-llm` | Corre contratos deterministas IA sin coste (`97.73%`) o auditorías bajo demanda DeepEval + Promptfoo OWASP |
 | `make test-frontend-blueprints` / `make test-backend-blueprints` / `make test-mobile-blueprints` | Certifica Screenplay+antipatrones Vue/React, Pact V4+k6 FastAPI↔Node y `base-mobile-appium:26` W3C |
@@ -171,11 +171,11 @@ Alcance: **10 stacks hidratables** (`python`, `fastapi`, `node-backend`, `vue3`,
 ### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x` `v3.5.0`)
 * **Imagen Base:** `sinfallas/base-node-ionic:26` (Tags disponibles: `22`, `24`, `26` y `latest`)
 * **Métricas 11X Certificadas (`v3.5.0` / `QA-11X v3.5`):**
-  * **Sentencias (Statements):** `99.58%` (`>= 95.0%`)
-  * **Ramas (Branches):** `96.77%` global (`src/resources` `97.56%`, `src/cli` `97.97%`, `surgical-merger.ts` `98.51%`)
-  * **Funciones (Functions):** `99.89%` (`>= 95.0%`)
-  * **Líneas (Lines):** `99.58%` (`>= 95.0%`)
-  * **Pruebas Unitarias y Protocolo en Vivo:** **742 pruebas pasando al 100%** (43 suites Vitest incluyendo `tests/audit-hardening.unit.ts`, `tests/live-mcp-protocol.test.ts` sobre `InMemoryTransport` y `StdioClientTransport`, `tests/mobileBlueprint.test.ts`, `tests/path-real-resolver.unit.ts`, `tests/ide-config-paths.unit.ts`, `tests/cli-certify-audit.unit.ts`, `tests/cli-doctor-upgrade.unit.ts`, `tests/cli-dx-tools.unit.ts`, `tests/diff-blast-radius.unit.ts` con `git-signals`, `src/index.ts`, `QA-CLI-TTY-01`, `SEC-09` y `QA-SSR-HYDRATION-01`)
+  * **Sentencias (Statements):** `99.57%` (`>= 95.0%`)
+  * **Ramas (Branches):** `96.76%` global (`src/resources` `97.56%`, `src/cli` `98.09%`, `surgical-merger.ts` `99.05%`)
+  * **Funciones (Functions):** `99.84%` (`>= 95.0%`)
+  * **Líneas (Lines):** `99.57%` (`>= 95.0%`)
+  * **Pruebas Unitarias y Protocolo en Vivo:** **751 pruebas pasando al 100%** (44 suites Vitest incluyendo `tests/audit-remediation-wave-c.unit.ts`, `tests/audit-hardening.unit.ts`, `tests/live-mcp-protocol.test.ts` sobre `InMemoryTransport` y `StdioClientTransport`, `tests/mobileBlueprint.test.ts`, `tests/path-real-resolver.unit.ts`, `tests/ide-config-paths.unit.ts`, `tests/cli-certify-audit.unit.ts`, `tests/cli-doctor-upgrade.unit.ts`, `tests/cli-dx-tools.unit.ts`, `tests/diff-blast-radius.unit.ts` con `git-signals`, `src/index.ts`, `QA-CLI-TTY-01`, `SEC-09` y `QA-SSR-HYDRATION-01`)
   * **Cobertura Diferencial Multi-Stack (`verify_diff_coverage.py`):** **100.00% líneas delta** y **>= 90.00% ramas delta** sobre los archivos modificados
   * **Herramientas MCP:** **19 herramientas canónicas** (12 núcleo v1 + 6 herramientas v2.0 de CALM, Release Gate, trayectoria agéntica, OWASP LLM Red Team, Vibe-Rescue y sincronización TMS + `session_flight_recorder` en **v3.1**) y **13 recursos `blueprint://*`** (11 URIs estáticas incluyendo `blueprint://skills/tactical-patterns-11x` en **v3.1** con negociación bilingüe `?lang=es|en` + 2 *resource templates*) con contrato Thin-Repo, autoconstrucción/refresco de grafos AST (`auto_build_if_missing`, `refresh_graph`), señales longitudinales Git (`include_git_signals`, `--git-signals`), modo *Metadata-Only* (`include_content: false`), agrupador por regla (`groupFindingsByRule`), 36 reglas estáticas del escáner (`SEC-01`..`SEC-16`, `SEC-CI-ACTION-REF`, `SEC-WS-PUBSUB-01`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-MYPY-01`, `QA-PG17-RLS`, `QA-SMOKE-01`, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `QA-STRYKER-CFG-01`, `UI-11X-01..03`) que implementan los 22 puntos de control de referencia DISA ASD STIG V6R5 + OWASP v4.2 junto con la guardia humana de push `QA-GIT-GATE-01`, `TaskStateGuard` + `promptGuard` y paridad 10/10 en `certify_11x_gate`
   * **Escenarios BDD Karate Labs:** `mcp-server/test/mcp_cli_test.feature` (**52 escenarios** en `sinfallas/karatelabs:1.5.1`, incluyendo los **Escenarios 50–52** que cubren los 12 subcomandos CLI, rutas IDE compartidas, verificación clean-room de tarball, `blast-radius --git-signals`, `.claude-plugin/` y contratos SARIF v2.1.0)
@@ -256,12 +256,12 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
 
 * **Instalador Universal de Skills QA 11X (`scripts/install-skill.sh`):**
   * **Suites de Pruebas:**
-    * **Python Unit y Meta-QA:** `tests/*.unit.py` + `tests/meta_qa/` + `vibe-rescue/tests/` (**316 pruebas recolectadas**, **99.14%** cobertura líneas+ramas con `ruff CC <= 5` y `mypy --strict`).
-    * **BATS-core y ShellCheck (`sinfallas/base-bash-qa:latest`, rootless `--cap-drop=ALL --security-opt=no-new-privileges:true`):** `bash-scripts/test/ejemplo_mock.bats`, `tests/bats/{test_ci_make_escape,test_graphify_and_calm,test_install_skill,test_limpieza,test_pagespeed,test_repo_scripts}.bats` (**112 pruebas BATS**, **97.35% kcov normalizado** y ShellCheck con 0 advertencias).
+    * **Python Unit y Meta-QA:** `tests/*.unit.py` + `tests/meta_qa/` + `vibe-rescue/tests/` (**327 pruebas recolectadas**, **97.65%** cobertura líneas+ramas con `ruff CC <= 5` y `mypy --strict`).
+    * **BATS-core y ShellCheck (`sinfallas/base-bash-qa:latest`, rootless `--cap-drop=ALL --security-opt=no-new-privileges:true`):** `bash-scripts/test/ejemplo_mock.bats`, `tests/bats/{test_ci_make_escape,test_graphify_and_calm,test_install_skill,test_limpieza,test_pagespeed,test_repo_scripts}.bats` (**112 pruebas BATS**, kcov normalizado y ShellCheck con 0 advertencias).
   * **Ejecución Efímera:**
     * `docker run --rm --network none --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=.agents/scripts:vibe-rescue:. -v "${PWD}:/app:ro" -w /app sinfallas/base-python-uv:3.15 pytest -q --import-mode=importlib --cov=.agents/scripts --cov-fail-under=95 tests/*.unit.py tests/meta_qa/test_*.py`
     * `docker run --rm --network none --cap-drop=ALL --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e _USER=qa -v "${PWD}:/repo:ro" -w /repo/bash-scripts sinfallas/base-bash-qa:latest bash -c "shellcheck -x ../scripts/*.sh ../.agents/scripts/*.sh ../*/limpieza.sh ../mcp-server/example/verify-v2.sh ../instalar-hooks.sh ./*.sh && bats test/*.bats ../tests/bats/*.bats"`
-  * **Cobertura y Métricas:** **100% de aserciones aprobadas** (**112** pruebas BATS, **316** pruebas Python unitarias + Meta-QA + Vibe-Rescue al **99.14%**) y **0 errores / 0 advertencias** en ShellCheck.
+  * **Cobertura y Métricas:** **100% de aserciones aprobadas** (**112** pruebas BATS, **327** pruebas Python unitarias + Meta-QA + Vibe-Rescue al **97.65%**) y **0 errores / 0 advertencias** en ShellCheck.
   * **Aserciones Validadas:** Auto-detección inteligente sin contaminar `$HOME/.agents`, resolución de destinos (`workspace`, `antigravity`, `claude`, `cursor`, `windsurf`, `codex`, `hermes`, `all`), instalación del catálogo completo de las 11 skills modulares (`qa-11x-architect`, `refactoring-ui`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `qa-11x-docker-certifier`, `qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `tactical-patterns-11x`) más `.agents/schemas/`, verificación criptográfica SHA-256 contra `manifest.json`, detección estricta de manipulaciones/tampering (abortando con código de salida 1 bajo DISA STIG `V-222513`), y verificación de flag `--help`.
 
 * **Servidor MCP e Instalador de Skills Node.js / TypeScript (`mcp-server/`):**
@@ -294,10 +294,10 @@ El script evalúa de forma secuencial e implacable 10 compuertas obligatorias:
     * `make -C mcp-server build`
     * `make -C mcp-server qa-example && make -C mcp-server qa-e2e` (o `./scripts/probar-mcp-example.sh`)
   * **Cobertura y Métricas Alcanzadas:**
-    * **100% de aserciones aprobadas** (**742** pruebas Vitest distribuidas en **43 suites Vitest** + **52** escenarios Karate BDD incluyendo los **Escenarios 50–52** de contratos CLI, `git-signals`, `.claude-plugin/` y rutas IDE + **295** pruebas Python unitarias y Meta-QA + **28** AI Offline (4 live omitidas) + **112** BATS + **21** Vibe-Rescue + E2E real sobre `stdio`).
-    * **99.58% de cobertura de líneas/sentencias y 96.77% de cobertura de ramas** (superando el umbral de `>= 95%`).
-    * **99.89% de cobertura de funciones**.
-    * **0 errores de ESLint (`--max-warnings 0`), SonarJS (Cognitiva `<= 15`) y TypeScript (`strict: true`)**.
+    * **100% de aserciones aprobadas** (**751** pruebas Vitest distribuidas en **44 suites Vitest** + **52** escenarios Karate BDD incluyendo los **Escenarios 50–52** de contratos CLI, `git-signals`, `.claude-plugin/` y rutas IDE + **306** pruebas Python unitarias y Meta-QA + **28** AI Offline (4 live omitidas) + **112** BATS + **21** Vibe-Rescue + E2E real sobre `stdio`).
+    * **99.57% de cobertura de líneas/sentencias y 96.76% de cobertura de ramas** (superando el umbral de `>= 95%`).
+    * **99.84% de cobertura de funciones**.
+    * **0 errores de ESLint (`--max-warnings 0`, `complexity <= 15`), SonarJS (Cognitiva `<= 15`) y TypeScript (`strict: true`)**.
 
 * **Script Universal de Limpieza y Saneamiento (`scripts/limpieza.sh`):**
   * **Suites de Pruebas:** `tests/test_stacks_hydration_smoke.unit.py` (aislado sin `docker`), `tests/bats/test_limpieza.bats`, `mcp-server/tests/tools-and-resources.unit.ts`, `mcp-server/tests/v2-16-invariants.unit.ts` y Escenario 27 de `mcp-server/test/mcp_cli_test.feature`.

@@ -19,7 +19,6 @@ import type { SecurityAuditResult, TestPyramidGapResult } from '../types.js';
 import { pickAt } from '../utils/diagnosticFormatter.js';
 import {
   type SarifFindingInput,
-  type SarifSeverity,
   buildSarifLog,
 } from '../utils/sarifFormatter.js';
 import {
@@ -29,6 +28,7 @@ import {
   matchFlagValue,
   resolveCliProjectPath,
 } from './cliArgHelpers.js';
+import { renderSubcommandHelpText, resolveCliHelpLang } from './commandCatalog.js';
 
 const PREFIX_ERROR = '❌ [audit]';
 const MODE_SECURITY = 'security' as const;
@@ -44,9 +44,9 @@ const FAIL_HIGH = 'high' as const;
 const FAIL_MEDIUM = 'medium' as const;
 const FAIL_ANY = 'any' as const;
 const FAIL_NONE = 'none' as const;
-const SEV_CRITICAL: SarifSeverity = 'CRITICAL';
-const SEV_HIGH: SarifSeverity = 'HIGH';
-const SEV_MEDIUM: SarifSeverity = 'MEDIUM';
+const SEV_CRITICAL = 'CRITICAL' as const;
+const SEV_HIGH = 'HIGH' as const;
+const SEV_MEDIUM = 'MEDIUM' as const;
 
 const FLAG_PROJECT_PATH = '--project-path';
 const FLAG_PROJECT_PATH_SHORT = '-p';
@@ -81,22 +81,7 @@ const VALID_MODES = new Set<string>([MODE_SECURITY, MODE_PYRAMID, MODE_VIBE, MOD
 const VALID_FORMATS = new Set<string>([FORMAT_TEXT, FORMAT_JSON, FORMAT_SARIF]);
 const VALID_FAIL_ON = new Set<string>([FAIL_CRITICAL, FAIL_HIGH, FAIL_MEDIUM, FAIL_ANY, FAIL_NONE]);
 
-export const AUDIT_HELP_TEXT = [
-  'Uso: npx -y @sinfallas/mcp-qa-11x audit [dir] [opciones]',
-  '',
-  'Opciones:',
-  '  --project-path, -p <dir>     Directorio del proyecto a auditar (por defecto: cwd)',
-  '  --mode, -m <mode>            security | pyramid | vibe | calm | all (por defecto: security)',
-  '  --format, -f <fmt>           text | json | sarif (por defecto: text)',
-  '  --json                       Atajo para --format json',
-  '  --sarif                      Atajo para --format sarif',
-  '  --fail-on <level>            critical | high | medium | any | none (por defecto: high)',
-  '  --include-examples           Incluye archivos .example en auditoría de seguridad',
-  '  --max-findings <n>           Límite máximo de hallazgos devueltos por motor',
-  '  --architecture-path <rel>    Ruta relativa del modelo FINOS CALM',
-  '  --profile <profile>          Perfil CALM: auto | generic | qa-11x-self (por defecto: auto)',
-  '  --help, -h                   Muestra esta ayuda y sale con código 0',
-].join('\n');
+export const AUDIT_HELP_TEXT = renderSubcommandHelpText('audit', 'en');
 
 interface ParsedAuditArgs {
   rawDir: string | undefined;
@@ -328,6 +313,44 @@ function collectSarifFindings(audits: ExecutedAudits): SarifFindingInput[] {
   return results;
 }
 
+type BlockingAuditSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM';
+
+function hasSeverityFinding(
+  sev: BlockingAuditSeverity,
+  sarifFindings: readonly SarifFindingInput[],
+  audits: ExecutedAudits
+): boolean {
+  if (sarifFindings.some((f) => f.severity === sev)) {
+    return true;
+  }
+  const secCount = audits.security?.findings_count[sev] ?? 0;
+  const vibeMap: Readonly<Record<BlockingAuditSeverity, number>> = {
+    CRITICAL: audits.vibe?.counts.critical ?? 0,
+    HIGH: audits.vibe?.counts.high ?? 0,
+    MEDIUM: audits.vibe?.counts.medium ?? 0,
+  };
+  return secCount > 0 || vibeMap[sev] > 0;
+}
+
+function evaluateFailLevel(
+  failOn: Exclude<FailOnLevel, typeof FAIL_NONE>,
+  flags: {
+    readonly crit: boolean;
+    readonly high: boolean;
+    readonly med: boolean;
+    readonly calmInvalid: boolean;
+    readonly vibeBlocked: boolean;
+    readonly hasAnySarif: boolean;
+  }
+): boolean {
+  if (flags.vibeBlocked || flags.crit) return true;
+  if (failOn === FAIL_CRITICAL) return false;
+  if (flags.high || flags.calmInvalid) return true;
+  if (failOn === FAIL_HIGH) return false;
+  if (flags.med) return true;
+  return failOn === FAIL_ANY && flags.hasAnySarif;
+}
+
 function shouldFailAudit(
   failOn: FailOnLevel,
   sarifFindings: readonly SarifFindingInput[],
@@ -336,31 +359,14 @@ function shouldFailAudit(
   if (failOn === FAIL_NONE) {
     return false;
   }
-  const hasCrit =
-    sarifFindings.some((f) => f.severity === SEV_CRITICAL) ||
-    (audits.security?.findings_count.CRITICAL ?? 0) > 0 ||
-    (audits.vibe?.counts.critical ?? 0) > 0;
-  const hasHigh =
-    sarifFindings.some((f) => f.severity === SEV_HIGH) ||
-    (audits.security?.findings_count.HIGH ?? 0) > 0 ||
-    (audits.vibe?.counts.high ?? 0) > 0;
-  const hasMed =
-    sarifFindings.some((f) => f.severity === SEV_MEDIUM) ||
-    (audits.security?.findings_count.MEDIUM ?? 0) > 0 ||
-    (audits.vibe?.counts.medium ?? 0) > 0;
-  const calmInvalid = audits.calm !== undefined && !audits.calm.valid;
-  const vibeBlocked = audits.vibe?.hasSecurityOrInputError === true;
-
-  if (failOn === FAIL_CRITICAL) {
-    return hasCrit || vibeBlocked;
-  }
-  if (failOn === FAIL_HIGH) {
-    return hasCrit || hasHigh || calmInvalid || vibeBlocked;
-  }
-  if (failOn === FAIL_MEDIUM) {
-    return hasCrit || hasHigh || hasMed || calmInvalid || vibeBlocked;
-  }
-  return sarifFindings.length > 0 || calmInvalid || vibeBlocked || hasCrit || hasHigh || hasMed;
+  return evaluateFailLevel(failOn, {
+    crit: hasSeverityFinding(SEV_CRITICAL, sarifFindings, audits),
+    high: hasSeverityFinding(SEV_HIGH, sarifFindings, audits),
+    med: hasSeverityFinding(SEV_MEDIUM, sarifFindings, audits),
+    calmInvalid: audits.calm !== undefined && !audits.calm.valid,
+    vibeBlocked: audits.vibe?.hasSecurityOrInputError === true,
+    hasAnySarif: sarifFindings.length > 0,
+  });
 }
 
 interface FormatAuditTextInput {
@@ -524,7 +530,10 @@ export async function runAuditCli(
   deps: { readonly cwd?: string } = {}
 ): Promise<CliCommandOutput> {
   if (hasHelpFlag(args)) {
-    return { exitCode: 0, output: AUDIT_HELP_TEXT };
+    return {
+      exitCode: 0,
+      output: renderSubcommandHelpText('audit', resolveCliHelpLang(args)),
+    };
   }
   try {
     const parsed = parseAuditArgs(args);

@@ -3,93 +3,39 @@
 
 # Mandatory Directive: QA 11X Pyramid & Continuous Documentation Sync
 
-> **SUPREME CORPORATE GOVERNANCE DIRECTIVE:**
-> Applies to all AI agents (Google Antigravity, Claude Code, Hermes Agent, Cursor) and human developers.
-> **OUTPUT LANGUAGE & DYNAMIC MIRRORING (Spec 19):** Respond in the **user's prompt language** (unless `AGENTS.md` explicitly pins `--lang es|en`); human docs use EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) here (matching `README.md`/`CHANGELOG.md` in consumer repos), while `.agents/**` remains concise English.
+> **SCOPE:** Applies to all AI agents and human developers. Follow Spec 19 language mirroring (respond in prompt language unless `--lang es|en`; EN canonical `*.md` + 1:1 ES mirror `*.es.md`; `.agents/**` concise English).
 
----
+## 1. Mandatory 11X Test Creation & Co-Evolution (`QA-TEST-SYNC-01`)
 
-## 1. Supreme Directive: Mandatory 11X Test Creation & Existing Test Co-Evolution (QA-TEST-SYNC-01)
+Any change in source code, MCP tools, scripts, catalogs, or `.agents/{skills,rules,schemas}/` MUST create and synchronize tests across all applicable 11X layers:
 
-Any addition, modification, or bug fix in application source code, MCP tools, governance/automation scripts, or tracked blueprint catalogs (`python/`, `fastapi/`, `node-backend/`, `vue3/`, `react-frontend/`, `php/`, `bash-scripts/`, `ai-evals/`, `mobile-appium/`, `vibe-rescue/`, `mcp-server/`, `architecture/`, `catalogs/`, `scripts/`, `.agents/scripts/`, `.agents/skills/`, `.agents/rules/`, `.agents/schemas/`, `manifest.json`, `llms.txt`) **MUST strictly create AND synchronize** corresponding test suites across all applicable layers of the 11X quality pyramid:
+1. **Unit Layer (`>= 95.0%` line/branch):** Pytest, Vitest v8, Pest/PHPUnit, BATS+kcov, or `node --test`. Strict network/IO isolation (zero outbound calls).
+   - **`QA-COV-01` & `QA-MYPY-01`:** Never pass `-o addopts=""` to `pytest` without `--import-mode=importlib --cov=src --cov-fail-under=95`, `-e COVERAGE_FILE=/tmp/.coverage`, and `-e PYTHONPATH=/app/src`. When `pyproject.toml` defines `[tool.mypy]`, chain `mypy --strict --cache-dir=/tmp/mypy src/` with `ruff check` and `ruff format --check`.
+2. **DB & Migration Parity:** Generate and validate migrations against a real ephemeral DB container (`.agents/scripts/verify_alembic_orm_parity.py` / `doctrine:schema:validate`); zero schema drift.
+3. **Contract Integration & Cross-Module Invariants:** Validate live HTTP payloads and persistence against ephemeral API/DB instances. Enforce Anti-Silo cross-module propagation, 3-phase temporal assertions, `>= 180s` heavy-transfer timeouts with `0-byte` purge, per-item `results[].status` batch checks, and `SEC-16` continuous pre-auth KeyDB/Redis flows (canonical details in `ground_truth_fixtures_and_negative_invariants.md` & `secure_development_and_testing_guidelines.md`).
+4. **Proportional API / Acceptance BDD:**
+   - **`FULL_11X` Multi-Service:** Karate Labs BDD (`sinfallas/karatelabs:1.5.1`) with dynamic `Idempotency-Key` UUIDs per mutating call is mandatory for multi-service, stateful, or full-stack UI+API contracts.
+   - **Lightweight / CLI / Library Modules:** Pure libraries, CLI/MCP tools, or `<= 3`-endpoint stacks (`python/`, `bash-scripts/`, `ai-evals/`, `mobile-appium/`, `vibe-rescue/`) may certify contracts with JVM-free ephemeral runners (`pytest+httpx/pact`, `bats`, `vitest`/Playwright/WDIO) preserving Rule Zero and `>= 95%` coverage.
+5. **Zero-Orphan UI Components:** Every `.vue`/`.tsx`/`.jsx` component MUST have dedicated unit test coverage (`.agents/scripts/verify_zero_orphan_vue_components.py`).
+6. **Mutation Testing:** Kill logical mutations (`MSI >= 80%`) via Mutmut, Stryker, or Infection.
+7. **Zero-Warning Static Analysis:** Enforce `--max-warnings 0` (ESLint) and strict modes (Ruff `CC <= 5`, Mypy strict, PHPStan `level: max`, Psalm `--taint-analysis`, ShellCheck). Load `tactical-patterns-11x` on demand for complexity/concurrency refactors.
+8. **Zero Hardcoded Pass Stubs:** Quality gates, runners, and auditors MUST NEVER return hardcoded `true`/`PASSED` without executing real verification. Return explicit `SKIPPED` (`detected: false`) when not applicable.
+9. **Existing Test Co-Evolution (`QA-TEST-SYNC-01`):** Trace impacted tests before/after changes via `inspect_blast_radius.py` and targeted searches across `tests/`, `test/`, `*.feature`, `*.bats`. Sync legitimate inventory/contract shifts without deleting or weakening valid regression tests, and re-run every affected suite (including `test-karate` when `mcp-server/`, `.agents/skills/`, or `manifest.json` changes) inside Docker before committing.
+10. **Differential Coverage & Anti-Evasion (`verify_diff_coverage.py` / `make diff-cov`):** Productive deltas require `100%` line and `>= 90%` branch coverage from `.agents/.cache/coverage/`. Unapproved exclusions (`# pragma: no cover`, `// v8 ignore`, `/* c8 ignore */`, `@codeCoverageIgnore`) fail (`exit 11`) without adjacent `QA11X-APPROVED-EXCLUSION(<reason>)`. Missing reports, XXE (`<!DOCTYPE`/`<!ENTITY`), or path traversal abort (`exit 12`).
 
-1. **Backend Unit Layer (Pytest / Vitest / Pest / PHPUnit / BATS-kcov / node --test):**
-   - Backend suites (`tests/**/*.unit.py`, `test/**/*.unit.ts`, `tests/**/*Test.php`, `tests/bats/*.bats`, or `tests/*.spec.ts`) with **`>= 95.0%` branch and line coverage** (`pytest-cov`, `vitest v8`, `pcov`, or `kcov`).
-   - **Non-Root Ephemeral Coverage, `importlib` Collection & Strict `Mypy` Enforcement (`QA-COV-01` & `QA-MYPY-01`):** Never pass `-o addopts=""` to `pytest` without explicitly appending `--import-mode=importlib --cov=src --cov-fail-under=95` and `-e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app/src` (preventing `ModuleNotFoundError` on `*.unit.py`/`*.int.py` and host bind-mount permission errors). Whenever `pyproject.toml` defines `[tool.mypy]`, chain `mypy --strict --cache-dir=/tmp/mypy src/` alongside `ruff check` and `ruff format --check` prior to `pytest` (never replace `make qa-lint` with partial `ruff` commands).
-   - Strict isolation: mock external I/O and network boundaries.
-2. **Database & Migration Parity Layer:**
-   - When modifying ORM models, immediately generate and verify the database migration against a real ephemeral database engine (e.g. PostgreSQL via Alembic or Doctrine/Laravel migrations).
-   - Zero tolerance for schema drift between code models and database tables (`.agents/scripts/verify_alembic_orm_parity.py` or `doctrine:schema:validate`).
-3. **Front-Back Contract Integration & Anti-Silo Cross-Module State Propagation Layer:**
-   - Validate live HTTP payloads, response shapes, and persistence against running ephemeral API and DB instances.
-   - **Anti-Silo Cross-Module Propagation Invariant:** It is strictly prohibited to validate a mutating operation in Module A (`POST`/`PUT`/`PATCH`/`DELETE`, e.g. scheduling/cancelling a maintenance window, activating Safe Mode, or changing an administrative state) by checking only its `HTTP 200/201` response while testing Consumer Module B (e.g. NOC Wallboard, Inventory, Command Center) with hand-crafted static mocks. The test suite MUST immediately invoke the query endpoints (`GET`) and stores of Consumer Modules B **without intermediate mocks**, certifying end-to-end propagation across KPI counters, badges, and live maps.
-   - **Mandatory 3-Phase Temporal Lifecycle Assertion:** Every entity governed by time windows, countdowns, or TTL (`starts_at` / `ends_at`, 60s Safe Mode confirmation/rollback, 30s Step-Up tokens, leases) MUST be tested across all **3 clock phases**: Phase 1 Pending/Scheduled (`t < starts_at`, `Programada`), Phase 2 Active/In-Progress (`starts_at <= t <= ends_at`, `En Curso` / `Activa`, verifying the background scheduler remains alive and projects the active state to consumers), and Phase 3 Expired/Reverted/Cancelled (`t > ends_at`, verifying automatic nominal state restoration and audit trail).
-   - **Audit Payload & Semantic Badge Integrity:** Never replace `write_audit_log` with an uninspected `AsyncMock()` without asserting its call arguments. Assert that visible identity fields (`actor_username`, `resource_display_name`) resolve to human-readable strings and never match a raw UUID v4 (`/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i`), and prohibit generic catch-all `else` clauses in UI event badge mappers (e.g. `else return 'MAINTENANCE'`).
-   - **Heavy-Transfer Timeout Separation (`>= 180s` + Zero-Byte Purge) & Batch `HTTP 200 OK` Per-Item Validation:** Instant unit test mocks (`AsyncMock` / `vi.fn()`) mask short HTTP telemetry timeouts (`5s–10s`) that abort real synchronous package/firmware/archive downloads (e.g. ~21 MB binary archives) leaving `0-byte` truncated files, as well as `HTTP 200 OK` batch responses carrying per-item failures (`results[].status == "FAILED"` or `"ERROR: bad HTTP response"`). Every HTTP client performing synchronous heavy transfers MUST allow and pass a per-request timeout override (`timeout >= 180s`) and purge `0-byte` artifacts (verified via `call_args` in unit tests). Every batch consumer (`POST .../execute`) MUST inspect `results[].status` per resource instead of assuming blanket success from `HTTP 200 OK`.
-   - **Multi-Step Pre-Auth & Ephemeral Challenge Continuity Invariant (`SEC-16`):** Never test multi-step unauthenticated flows (`POST /auth/login` returning `mfa_enrollment_required` / `mfa_challenge` / `password_change_required` -> `POST /auth/mfa/enroll`, `POST /auth/mfa/verify`, or WebAuthn) as disconnected unit tests with manually seeded Redis mocks (`redis.set(...)`). Execute a single continuous end-to-end/integration test over the same live/in-memory KeyDB/Redis instance without intermediate mocks, verifying that `CSRF`, `Idempotency-Key`, and frontend `401` interceptors honor `PREAUTH_PUBLIC_ROUTES` and consume the challenge atomically.
-4. **Proportional API / Acceptance BDD Layer (Architectural Proportionality Rule):**
-   - **Mandatory in Complex Integrated Flows (`FULL_11X` Enterprise / Multi-Service):** Karate Labs BDD (`sinfallas/karatelabs:1.5.1` — e.g. `fastapi/test/api_test.feature`, `php/test/api_test.feature`, `node-backend/test/node_api.feature`, `vue3/test/ui_business_flow.feature`, `react-frontend/test/ui_business_flow.feature`, and `mcp-server/test/mcp_cli_test.feature`, injecting dynamic `Idempotency-Key` UUIDs on mutating requests) is **MANDATORY** whenever multi-service integrations, stateful business orchestration, full-stack UI+API flows, or cross-team BDD contracts exist.
-   - **JVM-Free Native Adapters in Lightweight Modules:** Pure libraries, CLI/MCP tools, or isolated lightweight stacks (`python/`, `bash-scripts/`, `ai-evals/`, `mobile-appium/`, `vibe-rescue/`, or `<= 3`-endpoint microservices with zero multi-service orchestration) may certify their API/integration contract layer using ephemeral JVM-free native runners (`pytest` + `httpx`/`pact-python` in `sinfallas/base-python-uv`, `bats` in `sinfallas/base-bash-qa`, or `vitest`/Playwright/WDIO in `sinfallas/base-node-ionic` / `sinfallas/base-mobile-appium:26`), strictly preserving Rule Zero, `>= 95.0%` unit coverage, and zero JVM over-engineering.
-5. **Zero-Orphan UI Component Invariant:**
-   - Every single UI component or view (`.vue`, `.tsx`, `.jsx`) must have a dedicated `.unit.ts` or `.unit.tsx` test suite. Zero orphan components allowed (`.agents/scripts/verify_zero_orphan_vue_components.py`).
-6. **Mutation Testing Resilience (Mutmut / Stryker / Infection):**
-   - Tests must kill artificial logical mutations (`MSI >= 80%`) to prove test assertion rigor and eliminate false confidence.
-7. **Linter Inflexibility & Zero-Warning Invariant:**
-   - Static analysis scripts (`lint`) MUST enforce `--max-warnings 0` (for ESLint) or equivalent strict modes (Ruff, Mypy, PHPStan `level: max`, Psalm `--taint-analysis`, ShellCheck). Any warning MUST fail the process immediately (`Exit Code 1`), eliminating unnoticed technical debt or cosmetic degradation.
-   - Hydrate `tactical-patterns-11x` (`.agents/skills/tactical-patterns-11x/SKILL.md` / `blueprint://skills/tactical-patterns-11x`) strictly on demand when designing concurrency, idempotency, or external ports, or after complexity/parameter gate failures.
-8. **Hermetic Test Isolation (Zero Network Leaks):**
-   - Unit tests (`.unit.py`, `.unit.ts`, `.unit.tsx`) MUST strictly isolate network boundaries. Outbound calls to external APIs or GitHub Raw during unit testing are strictly prohibited; developers and agents must mock or intercept network interfaces deterministically.
-9. **Zero Hardcoded Pass Invariant (Anti-Fake Gate Guarantee):**
-   - Quality gates, certification scripts (`certify_11x_gate`, `certify_task_completion.sh`), test runners (`run_ephemeral_qa`), and topological/security auditors MUST NEVER return hardcoded `true`, `'PASSED'`, or `coverage.passed: true` without executing actual verification logic. When a check is bypassed or not applicable (e.g. `skip_if_docs_only: true`), return explicit `'SKIPPED'` status and `detected: false`.
-10. **Mandatory Existing Test & Contract Co-Evolution Invariant (`QA-TEST-SYNC-01`):**
-    - Modifying code, schemas, CLI flags, skills, rules, or `manifest.json` MUST NOT leave pre-existing unit, integration, Meta-QA, BATS, or Karate BDD (`.feature`) assertions stale.
-    - Before and after every change, trace all affected existing test consumers using `inspect_blast_radius.py` and targeted searches across `tests/`, `test/`, `*.feature`, and `*.bats`.
-    - Synchronize assertions, catalog counts (`#[N]`), fixtures, and contract expectations whenever behavior or inventory legitimately changes (strictly prohibiting deleting or weakening valid regression checks to force a green run).
-    - Re-execute every affected existing test suite inside ephemeral Docker containers — ALWAYS including `test-karate` (`sinfallas/karatelabs`) whenever `mcp-server/`, `.agents/skills/`, or `manifest.json` changes — prior to creating the local `git commit`.
-11. **Multi-Stack Differential Coverage & Anti-Evasion Gate (`verify_diff_coverage.py` / `make diff-cov`):**
-    - Every delta (`git diff --unified=0`) touching productive code MUST achieve `100%` delta line coverage and `>= 90%` delta branch coverage across harvested Cobertura XML (`coverage.xml` / `python.xml`) and LCOV (`lcov.info` / `mcp-server.info`) reports preserved in `.agents/.cache/coverage/` before `--rm` container exit (`DOCS_ONLY` fast-paths skip cleanly with `exit 0`).
-    - Adding unapproved coverage-suppression directives in productive files (`# pragma: no cover`, `// v8 ignore`, `/* c8 ignore */`, `@codeCoverageIgnore`) blocks closure (`exit 11`) unless accompanied by `QA11X-APPROVED-EXCLUSION(<reason>)` on the same or immediately preceding line.
-    - New non-trivial productive files absent from coverage reports, XXE payloads (`<!DOCTYPE`/`<!ENTITY`), or path/ref traversal attempts abort certification immediately (`exit 12`).
+## 2. Rule Zero & 3-Path Execution (`DOCS_ONLY` / `MICRO_CHANGE` / `FULL_11X`)
 
----
+- **Rule Zero:** NEVER run tests, migrations, linters, or builds directly on the host OS. Execute exclusively inside non-root ephemeral Docker containers (`Makefile`, `docker-compose.qa.yml`, `run_ephemeral_qa`).
+- **`DOCS_ONLY`** (human `*.{md,es.md}` / `docs/` only; excludes `.agents/{skills,rules,schemas}/`): Skip Docker test suites and AST rebuilds; run `make sync-governance` (if manifest-tracked), `make lint-docs`, and `./.agents/scripts/certify_task_completion.sh`, then commit locally (`QA-GIT-GATE-01`).
+- **`MICRO_CHANGE`** (`<= 3` files, `0` API/ORM changes, `LOW < 5` AST callers): 3-line inline plan, `inspect_blast_radius.py`, co-evolve tests (`QA-TEST-SYNC-01`), run stack Docker QA, refresh stack AST, sync `CHANGELOG.{md,es.md}`, run `certify_task_completion.sh`, commit locally (`QA-GIT-GATE-01`).
+- **`FULL_11X`** (`> 3` files, new routes/views, ORM/migrations, security, or `MEDIUM`/`HIGH`/`CRITICAL` blast radius): Full 11-step protocol (`/plan`, `checkpoint_ctl.py` / `session_flight_recorder`, full Docker pyramid, bilingual docs/specs/CHANGELOG/TESTING/ROADMAP sync, AST refresh, 10/10 certification, `CERTIFIED_CLEAN`, local commit under `QA-GIT-GATE-01`).
+- **Production `--no-dev` Cleanliness:** `src/` MUST never import dev-only dependencies (`pytest`, `radon`, `mutmut`).
 
-## 2. Rule Zero, 3-Path Proportional Execution (`DOCS_ONLY` / `MICRO_CHANGE` / `FULL_11X`) & Execution Gates
+## 3. Continuous Documentation, Manifest & Closure Sync
 
-- **NEVER** execute tests, migrations, linters, or operational scripts directly on the host machine (`Ubuntu`, `macOS`, or `Windows`). All executions must occur inside the project's ephemeral Docker containers (`docker-compose.qa.yml` and `Makefile`).
-- **3-Path Proportional Execution Protocol (Token & Compute Economy):**
-  - **`DOCS_ONLY` Fast-Path:** When a task modifies **only human documentation** (`*.{md,es.md}`, `docs/**`, `CHANGELOG.{md,es.md}`, `README.{md,es.md}`, `ROADMAP.{md,es.md}`, strictly excluding `.agents/skills/**`, `.agents/rules/**`, and `.agents/schemas/**` which are `CODE_CHANGE`) and zero executable code, templates, scripts, or configurations, **DO NOT trigger test suite execution** (`run_ephemeral_qa` / `make qa-*`) and **DO NOT rebuild the AST knowledge graph** (`./scripts/actualizar-grafos-graphify.sh`). Run `make sync-governance` (when manifest-tracked files change), `./.agents/scripts/certify_task_completion.sh` (`certify_11x_gate`), and conclude with a certified local `git commit` (`QA-GIT-GATE-01`).
-  - **`MICRO_CHANGE` Surgical-Path (`<= 3` files, `LOW` Blast Radius):** When a change touches `<= 3` files, introduces zero new API routes or database/ORM schema migrations, and has a `LOW` AST Blast Radius (`< 5` callers via `inspect_blast_radius.py`), use an inline 3-line plan instead of a heavy `/plan` artifact, create/update affected unit, integration, and BDD contract tests (`QA-TEST-SYNC-01`), run the affected stack suite in Docker (`run_ephemeral_qa`), incrementally update the stack's AST graph, update `CHANGELOG.{md,es.md}`, run `certify_task_completion.sh` BEFORE promoting `CERTIFIED_CLEAN`, and conclude with a certified local `git commit` (`QA-GIT-GATE-01`).
-  - **`CODE_CHANGE` (`FULL_11X`) Architectural-Path:** Whenever `> 3` files, new endpoints/views, ORM models/migrations, security controls, or `MEDIUM`/`HIGH`/`CRITICAL` Blast Radius modules are modified, execute the complete 11-step workflow (`/plan`, `.agents/ACTIVE_TASK.md`, full pyramid + proportional API/BDD layer in ephemeral Docker, `docs/specs/`, `TESTING.{md,es.md}`, `CHANGELOG.{md,es.md}`, `ROADMAP.{md,es.md}`, AST graph refresh, `certify_task_completion.sh`, `CERTIFIED_CLEAN`, and certified local `git commit` under `QA-GIT-GATE-01`).
-- **Canonical Context-Compaction Scratchpad & Planning Tool (`.agents/ACTIVE_TASK.md`):** Prior to modifying code on `FULL_11X` tasks, formulate a phased plan (via `/plan` command or interactive plan artifact) and track progress via `checkpoint_ctl.py` / `session_flight_recorder` (projecting git-ignored `.agents/ACTIVE_TASK.md` at `<= 40 lines` automatically without manual editing). Never create `ACTIVE_TASK.md` in the repository root. Mark as `CERTIFIED_CLEAN` via `checkpoint_ctl.py` / `session_flight_recorder` upon closure.
-- **Production `--no-dev` Cleanliness:** Ensure `src/` never imports packages from `[project.optional-dependencies].dev` (e.g. `pytest`, `radon`, `mutmut`), preventing `ModuleNotFoundError` when building production images with `uv sync --frozen --no-dev`.
-
----
-
-## 3. Continuous Mandatory Documentation, Governance & AST Graph Sync
-
-Following any code modification, the AI agent **MUST autonomously and continuously synchronize**:
-
-1. **Affected Guides, Manuals & Technical Specifications (`docs/` & `docs/specs/`):**
-   - ALWAYS update operational manuals, architecture guides, and v3.0+ technical specifications as EN canonical + 1:1 ES mirrors (`docs/*.{md,es.md}`, `docs/specs/{README,19..20+}.{md,es.md}`; historical ADRs `docs/specs/01..18_*.md` remain preserved in Spanish per Spec 19 §3.4).
-2. **Change History & Concise Hygiene in `CHANGELOG.{md,es.md}`:**
-   - ALWAYS record additions, modifications, fixes, and security hardening under `## [Unreleased]` in both `CHANGELOG.md` and `CHANGELOG.es.md`.
-   - **Concise `CHANGELOG.{md,es.md}` Hygiene:** Maintain a single header per published version (and a single `## [Unreleased]` block) using concise executive bullet points (1–2 lines per change). Strictly prohibit duplicate version headers or dumping verbose internal sub-milestone/sub-task execution logs into `CHANGELOG.{md,es.md}`.
-3. **Assurance Metrics in `TESTING.{md,es.md}` & Milestones in `ROADMAP.{md,es.md}`:**
-   - ALWAYS record updated test counts, pass rates, and coverage percentages in `TESTING.md` and `TESTING.es.md`.
-   - Update `ROADMAP.md` and `ROADMAP.es.md` whenever applicable, verifying bidirectional parity inside ephemeral Docker (`sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_roadmap_consistency.py`).
-4. **Project Root, Zero-LLM Manifest Sync & Governance (`README.{md,es.md}`, `AGENTS.md`, `.agents/`, `manifest.json`, `scripts/limpieza.sh`, `.gitignore`):**
-   - ALWAYS update `README.{md,es.md}`, repository governance files (`AGENTS.md`, `.agents/rules/`, `.agents/skills/`), workspace cleanup scripts (`scripts/limpieza.sh`), and `.gitignore` whenever architectural blueprints, tools, or artifacts evolve.
-   - **Preferential Zero-LLM Governance Sync (`make sync-governance`):** Whenever governance files, skills, rules, or blueprint templates change, ALWAYS execute `make sync-governance` (`python3 .agents/scripts/sync_governance.py`) to deterministically compute SHA-256 digests, byte sizes, and cognitive-budget checks in `manifest.json` instead of manually calculating hashes or file sizes in the LLM.
-5. **Post-Modification AST Graph Refresh & Certified Local Git Closure (`QA-GIT-GATE-01`):**
-   - ALWAYS update the AST knowledge graph at the end of code changes via `./scripts/actualizar-grafos-graphify.sh`.
-   - ALWAYS stage and record a certified local commit (`git add`, `git commit`) after passing the 11X certification gate; NEVER execute automatic `git push` unless explicitly authorized by the human operator (`QA-GIT-GATE-01`).
-
----
-
-## 4. Pre-Conclusion Verification Gate
-
-Before completing any task, execute:
-```bash
-./.agents/scripts/certify_task_completion.sh
-```
-All checks must pass with exit code 0.
+After every code change, autonomously synchronize:
+1. **Bilingual Docs & Specs:** Update affected EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) manuals (`docs/*.{md,es.md}`, `docs/specs/{README,19+}.{md,es.md}`; historical `01..18_*.md` remain Spanish per Spec 19 §3.4).
+2. **`CHANGELOG.{md,es.md}`:** Concise 1–2 line bullets under a single `## [Unreleased]` header (no duplicate version headers or verbose sub-task dumps).
+3. **`TESTING.{md,es.md}` & `ROADMAP.{md,es.md}`:** Record real test counts/coverage and verify roadmap parity (`verify_roadmap_consistency.py`).
+4. **Zero-LLM Governance Sync:** Run `make sync-governance` (`sync_governance.py`) to compute SHA-256 digests, sizes, and budgets in `manifest.json` deterministically.
+5. **AST Refresh, 10/10 Gate & Local Commit (`QA-GIT-GATE-01`):** Run `./scripts/actualizar-grafos-graphify.sh`, verify `./.agents/scripts/certify_task_completion.sh` passes (`exit 0`), then record a local `git commit` (NEVER auto-`git push`).

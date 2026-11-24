@@ -9,12 +9,16 @@ import argparse
 import copy
 import json
 import math
-import os
 import sys
-import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
+
+_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
+from _common import atomic_write_json  # noqa: E402
 
 CLEARED_TOOL_MARKER = "[tool result cleared]"
 DEFAULT_CONTEXT_WINDOW = 200_000
@@ -399,22 +403,7 @@ def _write_output_atomic(output_path: str, result: CompactionResult) -> None:
     if raw_dest.is_symlink():
         raise ValueError("Symlink no permitido en --output.")
     dest = raw_dest.resolve()
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = dest.parent / f".compact-{uuid.uuid4().hex}.tmp"
-    payload = json.dumps(asdict(result), indent=2, ensure_ascii=False) + "\n"
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
-    try:
-        fd = os.open(tmp_path, flags, 0o600)
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(payload)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.chmod(tmp_path, 0o600)
-        os.replace(tmp_path, dest)
-        os.chmod(dest, 0o600)
-    except OSError:
-        tmp_path.unlink(missing_ok=True)
-        raise
+    atomic_write_json(dest, asdict(result), mode=0o600, fsync=True)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

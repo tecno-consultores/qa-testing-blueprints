@@ -4,6 +4,7 @@
 import * as path from 'node:path';
 import { pickAt } from '../utils/diagnosticFormatter.js';
 import { hasHelpFlag, matchFlagValue } from './cliArgHelpers.js';
+import { renderSubcommandHelpText, resolveCliHelpLang } from './commandCatalog.js';
 import {
   CONNECTOR_START_MARKER,
   CONNECTOR_END_MARKER,
@@ -55,16 +56,7 @@ const PROJECT_PATH_FLAGS = new Set(['--project-path', '--dir', '-p']);
 const LANG_FLAGS = new Set(['--lang', '-l']);
 const AGENTS_FLAGS = new Set(['--agents', '-a']);
 
-export const INIT_AGENTS_HELP_TEXT = [
-  'Uso: npx -y @sinfallas/mcp-qa-11x init-agents [dir] [opciones]',
-  '',
-  'Opciones:',
-  '  --project-path, --dir, -p <dir>  Directorio del proyecto destino (por defecto: cwd)',
-  '  --lang, -l <auto|es|en>          Política de idioma en AGENTS.md (por defecto: auto)',
-  '  --agents, -a <spec>              Puentes opcionales (auto | all | lista CSV de 28 agentes)',
-  '  --dry-run                        Simula sin modificar archivos en disco',
-  '  --help, -h                       Muestra esta ayuda y sale con código 0',
-].join('\n');
+export const INIT_AGENTS_HELP_TEXT = renderSubcommandHelpText('init-agents', 'en');
 
 export type { InitAgentsMdOptions, InitAgentsMdResult, InitAgentsAction, OutputLanguageMode };
 
@@ -248,7 +240,7 @@ export async function executeInitAgentsCli(
 ): Promise<InitOrAppendAgentsMdResult | undefined> {
   const log = deps.log ?? console.log;
   if (hasHelpFlag(args)) {
-    log(INIT_AGENTS_HELP_TEXT);
+    log(renderSubcommandHelpText('init-agents', resolveCliHelpLang(args)));
     return undefined;
   }
   const { projectPath, dryRun, lang, agents } = parseInitAgentsArgs(args, deps.cwd);

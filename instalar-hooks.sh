@@ -50,11 +50,16 @@ if [ "${#STAGED_FILES[@]}" -gt 0 ] && [ -x "./scripts/verificar-secretos.sh" ]; 
 	./scripts/verificar-secretos.sh "${STAGED_FILES[@]}"
 fi
 if [ -f "./.agents/scripts/sync_governance.py" ] && [ -f "./manifest.json" ]; then
-	docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 \
-		bash -c "python3 .agents/scripts/sync_governance.py --check && python3 .agents/scripts/verify_docs_invariants.py"
+	docker run --rm --network none --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 \
+		python3 .agents/scripts/sync_governance.py --check
+fi
+if [ -f "./.agents/scripts/verify_docs_invariants.py" ]; then
+	docker run --rm --network none --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 \
+		python3 .agents/scripts/verify_docs_invariants.py
 fi
 PY_STAGED=()
 SH_STAGED=()
+MCP_TS_STAGED=()
 for sfile in "${STAGED_FILES[@]+"${STAGED_FILES[@]}"}"; do
 	[ -f "${sfile}" ] || continue
 	case "${sfile}" in
@@ -66,6 +71,9 @@ for sfile in "${STAGED_FILES[@]+"${STAGED_FILES[@]}"}"; do
 			;;
 		python/*.py)
 			[ -f "python/pyproject.toml" ] || PY_STAGED+=("${sfile}")
+			;;
+		mcp-server/*.ts)
+			MCP_TS_STAGED+=("${sfile#mcp-server/}")
 			;;
 		node-backend/* | vue3/* | react-frontend/* | php/* | mcp-server/* | mobile-appium/*)
 			case "${sfile}" in
@@ -80,6 +88,10 @@ for sfile in "${STAGED_FILES[@]+"${STAGED_FILES[@]}"}"; do
 			;;
 	esac
 done
+if [ "${#MCP_TS_STAGED[@]}" -gt 0 ] && [ -f "./mcp-server/package.json" ]; then
+	docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "$(pwd)/mcp-server:/app" -w /app sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60 \
+		bash -c 'pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && npx eslint --max-warnings 0 "$@" && pnpm --silent run typecheck' _ "${MCP_TS_STAGED[@]}"
+fi
 if [ "${#SH_STAGED[@]}" -gt 0 ] && { [ -f "./docker-compose.qa.yml" ] || [ -f "./lefthook.yml" ] || [ -f "./manifest.json" ]; }; then
 	docker run --rm --network none --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e _USER=qa -v "$(pwd):/repo:ro" -w /repo sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7 \
 		bash -c 'shellcheck -x "$@" && shfmt -i 2 -ci -d "$@"' _ "${SH_STAGED[@]}"
@@ -102,7 +114,7 @@ if [ "${#PY_STAGED[@]}" -gt 0 ]; then
 		QA_UID="$(id -u)" QA_GID="$(id -g)" docker compose -f docker-compose.qa.yml run --rm -T ${QA_PY_DEPS[@]+"${QA_PY_DEPS[@]}"} --entrypoint bash -u "$(id -u):$(id -g)" -e HOME=/tmp -e UV_CACHE_DIR=/tmp/uv-cache -e UV_PROJECT_ENVIRONMENT=/tmp/qa-venv -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 "${QA_PY_SVC}" \
 			-c 'if ! mkdir -p "${UV_CACHE_DIR:-/tmp/uv-cache}" 2>/dev/null || [ ! -w "${UV_CACHE_DIR:-/tmp/uv-cache}" ]; then export UV_CACHE_DIR=/tmp/qa-uv-cache; fi; if [ -f uv.lock ]; then uv sync --frozen --all-extras -q && uv run --frozen --no-sync ruff check "$@" && uv run --frozen --no-sync ruff format --check "$@" && uv run --frozen --no-sync mypy --strict --cache-dir=/tmp/mypy "$@"; elif [ -w . ]; then uv sync --all-extras -q && uv run --no-sync ruff check "$@" && uv run --no-sync ruff format --check "$@" && uv run --no-sync mypy --strict --cache-dir=/tmp/mypy "$@"; else PATH="/tmp/qa-venv/bin:${PATH}" ruff check "$@" && PATH="/tmp/qa-venv/bin:${PATH}" ruff format --check "$@" && PATH="/tmp/qa-venv/bin:${PATH}" mypy --strict --cache-dir=/tmp/mypy "$@"; fi' _ "${PY_STAGED[@]}"
 	elif [ -f "./pytest.ini" ] || [ -f "./pyproject.toml" ]; then
-		docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -e MYPYPATH=/app/.agents/scripts:/app/ai-evals:/app/vibe-rescue -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 \
+		docker run --rm --network none --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -e MYPYPATH=/app/.agents/scripts:/app/ai-evals:/app/vibe-rescue -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 \
 			bash -c 'ruff check --select E,F,W,I,UP,B,C901,FLY --config "lint.mccabe.max-complexity=5" "$@" && mypy --strict --cache-dir=/tmp/mypy "$@"' _ "${PY_STAGED[@]}"
 	fi
 fi
@@ -148,7 +160,7 @@ if [ "${MCP_CHANGED}" = true ] && [ -f "./mcp-server/package.json" ]; then
 			MCP_EXTRA_VOLS+=(-v "$(pwd)/${dir}:/${dir}:ro")
 		fi
 	done
-	docker run --rm -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false \
+	docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false \
 		-v "$(pwd)/mcp-server:/app" -v "$(pwd)/.agents/.cache/coverage:/cov-out" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60 \
 		bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run lint && pnpm --silent run typecheck && pnpm --silent run test:unit && if [ -f coverage/lcov.info ]; then sed -E 's|^SF:/app/|SF:mcp-server/|; s|^SF:(src/)|SF:mcp-server/\1|' coverage/lcov.info > /cov-out/mcp-server.info; fi && rm -rf coverage .eslintcache"
 	if [ -x "./scripts/probar-mcp-example.sh" ]; then
@@ -168,7 +180,7 @@ if [ -f "./ai-evals/rag/test_rag_faithfulness.py" ]; then
 	fi
 fi
 if [ -f "./scripts/generar-manifiesto.py" ]; then
-	docker run --rm --network none -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache \
+	docker run --rm --network none --security-opt=no-new-privileges:true -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache \
 		-e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=/app/.agents/scripts \
 		-u "$(id -u):$(id -g)" -e HOME=/tmp -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 \
 		bash -c "python3 .agents/scripts/sync_governance.py --check && python3 .agents/scripts/bump_version_11x.py --workspace . --check && python3 .agents/scripts/verify_docs_invariants.py && python3 .agents/scripts/verify_roadmap_consistency.py && python3 .agents/scripts/verify_topological_health.py && python3 .agents/scripts/verify_json_no_duplicate_keys.py"
@@ -177,7 +189,7 @@ if [ -f "./scripts/generar-manifiesto.py" ]; then
 		make test-py && make test-meta-qa
 	else
 		mkdir -p .agents/.cache/coverage && chmod 0700 .agents/.cache
-		docker run --rm --network none -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 \
+		docker run --rm --network none --security-opt=no-new-privileges:true -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 \
 			-e PYTHONPATH=/app/.agents/scripts:/app/vibe-rescue:/app -e HOME=/tmp -u "$(id -u):$(id -g)" -v "$(pwd):/app:ro" -v "$(pwd)/.agents/.cache/coverage:/app/.agents/.cache/coverage" -w /app \
 			sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 \
 			bash -c "ruff check --select E,F,W,I,UP,B,C901,FLY --config 'lint.mccabe.max-complexity=5' .agents/scripts scripts tests vibe-rescue && MYPYPATH=/app/.agents/scripts:ai-evals:vibe-rescue mypy --strict --cache-dir=/tmp/mypy .agents/scripts/*.py scripts/*.py tests/*.unit.py tests/meta_qa/*.py tests/evals/*.py vibe-rescue/*.py vibe-rescue/tests/*.py && pytest --cov=.agents/scripts --cov=scripts --cov=vibe-rescue --cov-fail-under=95 --cov-branch --cov-report=xml:/app/.agents/.cache/coverage/python.xml tests/*.unit.py tests/meta_qa/test_*.py vibe-rescue/tests/*.unit.py -q"
@@ -232,13 +244,9 @@ if p.returncode != 0:
     if "\nnot ok " not in ("\n" + p.stdout):
         sys.stderr.write("\n".join(p.stderr.splitlines()[-40:]) + "\n")
     sys.exit(p.returncode)
-mk = pathlib.Path("/repo/Makefile")
-mk_txt = mk.read_text(encoding="utf-8", errors="replace") if mk.is_file() else ""
-marker = "@kcov_norm_py=$$(printf '%s\\n' \\\n"
-if marker in mk_txt:
-    blk = mk_txt.split(marker, 1)[1].split("\n\t);", 1)[0]
-    code = "\n".join(re.sub(r"^\t'(.*)'(?:\s*\\)?$", r"\1", ln).replace("$$", "$") for ln in blk.splitlines())
-    exec(compile(code, "<Makefile:kcov_norm_py>", "exec"), {})
+norm_script = pathlib.Path("/repo/.agents/scripts/normalize_kcov_cobertura.py")
+if norm_script.is_file():
+    subprocess.run(["/usr/bin/python3", str(norm_script), "--repo", "/repo", "--kcov-dir", "/tmp/kcov-bash", "--output", "/cov-out/bash.xml"], check=True)
 else:
     xmls = sorted(x for x in pathlib.Path("/tmp/kcov-bash").rglob("cobertura.xml") if not x.parent.is_symlink())
     mxmls = [x for x in xmls if x.parent.name == "kcov-merged"]

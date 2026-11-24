@@ -17,34 +17,13 @@ import os
 import sys
 from pathlib import Path
 
-_IGNORED_DIRS: frozenset[str] = frozenset(
-    {
-        "node_modules",
-        ".venv",
-        "venv",
-        ".tox",
-        ".nox",
-        ".hypothesis",
-        ".schemathesis",
-        "mutants",
-        ".mutmut-cache",
-        ".git",
-        ".trivycache",
-        "dist",
-        "coverage",
-        "vendor",
-        "target",
-        ".pytest_cache",
-        ".mypy_cache",
-        ".ruff_cache",
-        ".cache",
-        "artifacts",
-        "__pycache__",
-        ".stryker-tmp",
-        "build",
-        "graphify-out",
-    }
-)
+_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
+from _common import CANONICAL_IGNORED_DIRS  # noqa: E402
+
+_IGNORED_DIRS: frozenset[str] = CANONICAL_IGNORED_DIRS | {"artifacts"}
 
 
 def detect_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:

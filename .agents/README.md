@@ -38,8 +38,10 @@ This directory implements the portable, open agent-governance layout across Goog
 │   ├── graphify-ast-navigator/                       # Bidirectional AST Knowledge Graph navigation & blast-radius analysis
 │   ├── refactoring-ui/                               # Visual hierarchy, discrete scales, OKLCH contrast, tabular-nums & WCAG 2.1 AA (SKILL.md + 9 references/)
 │   └── tactical-patterns-11x/                        # Ultra-compact JIT tactical patterns <= 2.5 KB (CC <= 5, max-params: 4, Port/Adapter, Outbox)
-└── scripts/                                          # Deterministic automation gates & utilities (22 files: _budgets.py + 21 CLI scripts)
-    ├── _budgets.py                                   # Single-source cognitive budgets & AST blast-radius thresholds
+└── scripts/                                          # Deterministic automation gates & utilities (30 files: 6 internal _*.py helpers + 24 CLI scripts)
+    ├── _budgets.py                                   # Single-source cognitive budgets (incl. 36 KB rules cap) & AST blast-radius thresholds
+    ├── _common.py                                    # Shared CANONICAL_IGNORED_DIRS, SECRET_PATTERNS, private-leak guards, atomic writes & safe.directory
+    ├── _docs_invariants_{config,counts,bilingual,catalogs}.py # Modular Spec 19, catalog, parity & leak-guard submodules for verify_docs_invariants.py
     ├── checkpoint_ctl.py                             # Atomic Flight Recorder controller (0600 JSON -> ACTIVE_TASK.md + live Git check)
     ├── verify_alembic_orm_parity.py                  # Strict ORM model vs. migration parity auditor (revision <= 32 chars)
     ├── verify_json_no_duplicate_keys.py              # Strict duplicate-key validator for i18n JSON locale files
@@ -49,18 +51,21 @@ This directory implements the portable, open agent-governance layout across Goog
     ├── verify_zero_orphan_vue_components.py          # Zero-orphan UI component test parity validator
     ├── verify_no_orphan_api_endpoints.py             # Bidirectional frontend-backend API route parity validator
     ├── verify_roadmap_consistency.py                 # Bidirectional ROADMAP.md & ACTIVE_TASK.md consistency validator
-    ├── verify_docs_invariants.py                     # Cognitive-budget (<=12KB architect / <20KB skills / <=40 lines) & bilingual/Dual-Consumer parity validator
+    ├── verify_docs_invariants.py                     # Cognitive-budget, Spec 19 bilingual/Dual-Consumer parity, MCP CLI parity & leak-guard validator
     ├── verify_diff_coverage.py                       # Multi-stack differential coverage gate (100% lines / >=90% branches) & anti-evasion guard
     ├── track_findings_state.py                       # Line-shift-invariant finding state tracker & BREAKER-42 anti-loop circuit breaker (exit 42)
     ├── generate_pr_verdict.py                        # Deterministic PR_VERDICT.md & SHA-256/HMAC attestation generator
     ├── lint_test_antipatterns.py                     # UI (QA-UI-ANTI-001..005) & Python AST (QA-PY-ANTI-001..003) anti-pattern linter
+    ├── lint_workflows.py                             # GitHub Actions YAML & pinned-SHA security gate (make lint-workflows)
+    ├── lint_docs_gate.py                             # Documentation Markdown, JSON & invariant gate (make lint-docs)
+    ├── normalize_kcov_cobertura.py                   # kcov Cobertura XML path normalizer for Bash coverage gates
     ├── bump_version_11x.py                           # Zero-LLM deterministic version & edition synchronizer
     ├── sync_governance.py                            # Offline SHA-256 cryptographic manifest.json synchronizer
     ├── release_readiness_gate.py                     # SLA Release Readiness Gate evaluator (GO / NO_GO)
     ├── compact_context_11x.py                        # Two-tier Zero-LLM conversation context compactor
     ├── audit_pagespeed_insights.py                   # Ephemeral PageSpeed Insights / Core Web Vitals auditor
-    ├── validate_calm_architecture.sh                 # Ephemeral Docker FINOS CALM architecture validator
-    └── certify_task_completion.sh                    # Automated 10-stage pre-commit certification gate
+    ├── validate_calm_architecture.sh                 # Ephemeral Docker FINOS CALM architecture validator (--profile auto|generic|qa-11x-self)
+    └── certify_task_completion.sh                    # Automated 10-stage pre-commit certification gate (consolidated ephemeral Python session)
 ```
 
 ---

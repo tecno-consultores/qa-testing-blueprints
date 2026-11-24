@@ -41,6 +41,7 @@ import {
   resolveCliProjectPath,
   resolveComparablePath,
 } from './cliArgHelpers.js';
+import { renderSubcommandHelpText, resolveCliHelpLang } from './commandCatalog.js';
 
 const PREFIX_ERROR = '❌ [doctor]';
 const UTF8_ENCODING = 'utf-8';
@@ -56,15 +57,7 @@ const PKG_NAME = 'mcp-qa-11x';
 const PACKAGE_JSON_FILE = 'package.json';
 const UNKNOWN_VALUE = 'unknown';
 
-export const DOCTOR_HELP_TEXT = [
-  'Uso: npx -y @sinfallas/mcp-qa-11x doctor [dir] [opciones]',
-  '',
-  'Opciones:',
-  '  --project-path, -p <dir>  Directorio del proyecto a diagnosticar (por defecto: cwd)',
-  '  --offline                 Omite verificación de versión remota en npm/GitHub',
-  '  --json                    Emite diagnóstico estructurado en JSON',
-  '  --help, -h                Muestra esta ayuda y sale con código 0',
-].join('\n');
+export const DOCTOR_HELP_TEXT = renderSubcommandHelpText('doctor', 'en');
 
 export type BinaryOrigin = 'npx-cache' | 'global-bin' | 'local-workspace';
 
@@ -301,6 +294,14 @@ function inspectGlobalConnectors(homeDir: string): GlobalConnectorHealth[] {
   });
 }
 
+function formatUnpinnedWarning(filePath: string, pkgArg: string): string {
+  return `IDE MCP '${filePath}' usa '${pkgArg}' sin versión fija (recomendado @${MCP_SERVER_VERSION}).`;
+}
+
+function isUnpinnedPackageArg(pkgArg: string): boolean {
+  return pkgArg.includes('@latest') || !pkgArg.includes(`${PKG_NAME}@`);
+}
+
 function checkQaServerEntryPinning(
   filePath: string,
   serverKey: string,
@@ -313,21 +314,41 @@ function checkQaServerEntryPinning(
   const argsList = Array.isArray(argsRaw) ? argsRaw.map(String) : [];
   const pkgArg = argsList.find((item) => item.includes(PKG_NAME));
   if (!pkgArg) return null;
-  const unpinned = pkgArg.includes('@latest') || !pkgArg.includes(`${PKG_NAME}@`);
-  return unpinned
-    ? `IDE MCP '${filePath}' usa '${pkgArg}' sin versión fija (recomendado @${MCP_SERVER_VERSION}).`
-    : null;
+  return isUnpinnedPackageArg(pkgArg) ? formatUnpinnedWarning(filePath, pkgArg) : null;
+}
+
+function inspectJsonPinning(filePath: string, rawText: string): string | null {
+  const raw = JSON.parse(rawText) as Record<string, unknown>;
+  const serverMaps = [raw.mcpServers, raw.servers].filter(
+    (entry): entry is Record<string, unknown> =>
+      typeof entry === 'object' && entry !== null && !Array.isArray(entry)
+  );
+  for (const servers of serverMaps) {
+    for (const [serverKey, entryRaw] of Object.entries(servers)) {
+      const warn = checkQaServerEntryPinning(filePath, serverKey, entryRaw);
+      if (warn) return warn;
+    }
+  }
+  return null;
+}
+
+function inspectTextConfigPinning(filePath: string, rawText: string): string | null {
+  const tokens = rawText
+    .split(/[\s"',[\]{}()]+/)
+    .filter((token) => token.includes(PKG_NAME));
+  const unpinned = tokens.find((token) => isUnpinnedPackageArg(token));
+  return unpinned ? formatUnpinnedWarning(filePath, unpinned) : null;
 }
 
 function inspectQaServerPinningSafe(filePath: string): string | null {
-  if (!filePath.endsWith('.json') || !fs.existsSync(filePath)) return null;
+  if (!fs.existsSync(filePath)) return null;
   try {
-    const raw = JSON.parse(fs.readFileSync(filePath, UTF8_ENCODING)) as Record<string, unknown>;
-    const servers = raw.mcpServers;
-    if (typeof servers !== 'object' || servers === null || Array.isArray(servers)) return null;
-    for (const [serverKey, entryRaw] of Object.entries(servers as Record<string, unknown>)) {
-      const warn = checkQaServerEntryPinning(filePath, serverKey, entryRaw);
-      if (warn) return warn;
+    const rawText = fs.readFileSync(filePath, UTF8_ENCODING);
+    if (filePath.endsWith('.json')) {
+      return inspectJsonPinning(filePath, rawText);
+    }
+    if (filePath.endsWith('.toml') || filePath.endsWith('.yaml') || filePath.endsWith('.yml')) {
+      return inspectTextConfigPinning(filePath, rawText);
     }
     return null;
   } catch (err: unknown) {
@@ -460,67 +481,75 @@ async function buildHomeDoctorProjectInspection(
   };
 }
 
+async function buildDoctorReport(
+  parsed: ParsedDoctorArgs,
+  deps: DoctorCliDeps
+): Promise<DoctorReport> {
+  const homeDir = resolveSafeHomeDir(deps.homeDir);
+  const rawCwd = deps.cwd ?? process.cwd();
+  const inHomeMode = parsed.rawDir === undefined && isSameResolvedDir(rawCwd, homeDir);
+  const projectPath = inHomeMode
+    ? resolveComparablePath(homeDir)
+    : resolveCliProjectPath(parsed.rawDir, rawCwd);
+  const entryScriptPath = deps.entryScriptPath ?? pickAt(process.argv, 1);
+  const execPath = deps.execPath ?? process.execPath;
+  const npxEntries = scanNpxCacheEntries(homeDir);
+  const skillDirs = detectExistingQa11xSkillDirs(homeDir);
+  const dockerProbeFn = deps.dockerProbeFn ?? defaultDockerProbe;
+
+  const projectInspection = inHomeMode
+    ? await buildHomeDoctorProjectInspection(projectPath, parsed.offline, deps)
+    : await inspectProjectConfig(projectPath, homeDir, {
+        allowNetworkCheck: !parsed.offline,
+        fetchFn: deps.fetchFn,
+        fetcher: deps.fetcher,
+      });
+
+  const ideTargets =
+    deps.platform !== undefined ? getDoctorIdeMcpTargets(deps.platform) : IDE_MCP_TARGETS;
+  const ideConfigs = ideTargets.map((t) => inspectIdeMcpConfig(homeDir, t));
+  const projectConnector = inHomeMode
+    ? null
+    : inspectDelimitedConnector(path.join(projectPath, 'AGENTS.md'), PROJECT_CONNECTOR_MAX_BYTES);
+
+  return {
+    mcp_version: MCP_SERVER_VERSION,
+    node_version: process.version,
+    exec_path: execPath,
+    entry_script_path: entryScriptPath,
+    binary_origin: detectBinaryOrigin(entryScriptPath, projectPath),
+    home_dir: homeDir,
+    project_path: projectPath,
+    npx_cache: {
+      entries: npxEntries,
+      multiple_npx_caches: npxEntries.length > 1,
+    },
+    global_skills: skillDirs.map((dir) => ({ dir, version: readVersionStamp(dir) })),
+    global_connectors: inspectGlobalConnectors(homeDir),
+    project_connector: projectConnector,
+    ide_mcp_configs: ideConfigs,
+    ide_config_warnings: collectIdeConfigWarnings(homeDir, ideConfigs),
+    stamp_drift_warnings: collectStampDriftWarnings(skillDirs, projectPath, inHomeMode),
+    docker_version: dockerProbeFn(),
+    graphify_graph_present:
+      !inHomeMode && fs.existsSync(path.join(projectPath, 'graphify-out', 'graph.json')),
+    project_inspection: projectInspection,
+  };
+}
+
 export async function runDoctorCli(
   args: readonly string[],
   deps: DoctorCliDeps = {}
 ): Promise<CliCommandOutput> {
   if (hasHelpFlag(args)) {
-    return { exitCode: 0, output: DOCTOR_HELP_TEXT };
+    return {
+      exitCode: 0,
+      output: renderSubcommandHelpText('doctor', resolveCliHelpLang(args)),
+    };
   }
   try {
     const parsed = parseDoctorArgs(args);
-    const homeDir = resolveSafeHomeDir(deps.homeDir);
-    const rawCwd = deps.cwd ?? process.cwd();
-    const inHomeMode = parsed.rawDir === undefined && isSameResolvedDir(rawCwd, homeDir);
-    const projectPath = inHomeMode
-      ? resolveComparablePath(homeDir)
-      : resolveCliProjectPath(parsed.rawDir, rawCwd);
-    const entryScriptPath = deps.entryScriptPath ?? pickAt(process.argv, 1);
-    const execPath = deps.execPath ?? process.execPath;
-    const npxEntries = scanNpxCacheEntries(homeDir);
-    const skillDirs = detectExistingQa11xSkillDirs(homeDir);
-    const dockerProbeFn = deps.dockerProbeFn ?? defaultDockerProbe;
-
-    const projectInspection = inHomeMode
-      ? await buildHomeDoctorProjectInspection(projectPath, parsed.offline, deps)
-      : await inspectProjectConfig(projectPath, homeDir, {
-          allowNetworkCheck: !parsed.offline,
-          fetchFn: deps.fetchFn,
-          fetcher: deps.fetcher,
-        });
-
-    const ideTargets =
-      deps.platform !== undefined ? getDoctorIdeMcpTargets(deps.platform) : IDE_MCP_TARGETS;
-
-    const ideConfigs = ideTargets.map((t) => inspectIdeMcpConfig(homeDir, t));
-    const projectConnector = inHomeMode
-      ? null
-      : inspectDelimitedConnector(path.join(projectPath, 'AGENTS.md'), PROJECT_CONNECTOR_MAX_BYTES);
-
-    const report: DoctorReport = {
-      mcp_version: MCP_SERVER_VERSION,
-      node_version: process.version,
-      exec_path: execPath,
-      entry_script_path: entryScriptPath,
-      binary_origin: detectBinaryOrigin(entryScriptPath, projectPath),
-      home_dir: homeDir,
-      project_path: projectPath,
-      npx_cache: {
-        entries: npxEntries,
-        multiple_npx_caches: npxEntries.length > 1,
-      },
-      global_skills: skillDirs.map((dir) => ({ dir, version: readVersionStamp(dir) })),
-      global_connectors: inspectGlobalConnectors(homeDir),
-      project_connector: projectConnector,
-      ide_mcp_configs: ideConfigs,
-      ide_config_warnings: collectIdeConfigWarnings(homeDir, ideConfigs),
-      stamp_drift_warnings: collectStampDriftWarnings(skillDirs, projectPath, inHomeMode),
-      docker_version: dockerProbeFn(),
-      graphify_graph_present:
-        !inHomeMode && fs.existsSync(path.join(projectPath, 'graphify-out', 'graph.json')),
-      project_inspection: projectInspection,
-    };
-
+    const report = await buildDoctorReport(parsed, deps);
     return {
       exitCode: 0,
       output: parsed.json ? formatCliJson(report) : formatDoctorText(report),

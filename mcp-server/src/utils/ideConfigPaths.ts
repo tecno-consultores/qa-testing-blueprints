@@ -21,8 +21,24 @@ export const CLAUDE_CODE_MCP_REL_PATH = '.claude.json';
 export const CURSOR_MCP_REL_PATH = path.join('.cursor', 'mcp.json');
 export const WINDSURF_MCP_REL_PATH = path.join('.codeium', 'windsurf', MCP_CONFIG_JSON_FILE);
 export const CODEX_MCP_REL_PATH = path.join('.codex', 'config.toml');
+export const GEMINI_CLI_MCP_REL_PATH = path.join('.gemini', 'settings.json');
 export const HERMES_CANONICAL_MCP_REL_PATH = path.join('.hermes', 'mcp.json');
 export const HERMES_FALLBACK_MCP_REL_PATH = path.join('.hermes', 'config.yaml');
+
+const VSCODE_DARWIN_REL_PATH = path.join(
+  'Library',
+  'Application Support',
+  'Code',
+  'User',
+  'mcp.json'
+);
+const VSCODE_WIN32_REL_PATH = path.join('AppData', 'Roaming', 'Code', 'User', 'mcp.json');
+const VSCODE_LINUX_REL_PATH = path.join('.config', 'Code', 'User', 'mcp.json');
+
+const VSCODE_BY_PLATFORM: Readonly<Partial<Record<NodeJS.Platform, string>>> = {
+  darwin: VSCODE_DARWIN_REL_PATH,
+  win32: VSCODE_WIN32_REL_PATH,
+};
 
 const CLAUDE_DESKTOP_DARWIN_REL_PATH = path.join(
   'Library',
@@ -68,6 +84,11 @@ export function resolveClaudeDesktopMcpRelPath(
   return CLAUDE_DESKTOP_BY_PLATFORM[platform] ?? CLAUDE_DESKTOP_LINUX_REL_PATH;
 }
 
+/** Resolves the platform-specific VS Code user MCP configuration relative path. */
+export function resolveVsCodeMcpRelPath(platform: NodeJS.Platform = process.platform): string {
+  return VSCODE_BY_PLATFORM[platform] ?? VSCODE_LINUX_REL_PATH;
+}
+
 /** Resolves the canonical JSON MCP configuration relative path for a supported client. */
 export function resolveJsonMcpClientRelPath(
   client: JsonMcpClient,
@@ -108,8 +129,10 @@ export function getDoctorIdeMcpTargets(
     { client: 'claude', relPaths: [CLAUDE_CODE_MCP_REL_PATH] },
     { client: 'claude-desktop', relPaths: [resolveClaudeDesktopMcpRelPath(platform)] },
     { client: 'cursor', relPaths: [CURSOR_MCP_REL_PATH] },
+    { client: 'vscode', relPaths: [resolveVsCodeMcpRelPath(platform)] },
     { client: 'windsurf', relPaths: [WINDSURF_MCP_REL_PATH] },
     { client: 'codex', relPaths: [CODEX_MCP_REL_PATH] },
+    { client: 'gemini-cli', relPaths: [GEMINI_CLI_MCP_REL_PATH] },
     {
       client: 'hermes',
       relPaths: [HERMES_CANONICAL_MCP_REL_PATH, HERMES_FALLBACK_MCP_REL_PATH],
@@ -127,8 +150,10 @@ export function getBrowserMcpCandidatePaths(
     ANTIGRAVITY_FALLBACK_MCP_REL_PATH,
     CLAUDE_CODE_MCP_REL_PATH,
     CURSOR_MCP_REL_PATH,
+    resolveVsCodeMcpRelPath(platform),
     WINDSURF_MCP_REL_PATH,
     CODEX_MCP_REL_PATH,
+    GEMINI_CLI_MCP_REL_PATH,
     resolveClaudeDesktopMcpRelPath(platform),
     HERMES_CANONICAL_MCP_REL_PATH,
     HERMES_FALLBACK_MCP_REL_PATH,

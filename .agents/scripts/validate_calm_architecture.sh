@@ -8,10 +8,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 CALM_DOCKER_IMAGE="${QA_NODE_IMAGE:-sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60}"
 ARCH_ARG="architecture/qa-11x.calm.json"
+PROFILE_ARG="auto"
 
 usage() {
   cat <<'EOF'
-Uso: validate_calm_architecture.sh [--arch <ruta_relativa> | <ruta_relativa>]
+Uso: validate_calm_architecture.sh [--arch <ruta_relativa> | <ruta_relativa>] [--profile auto|generic|qa-11x-self]
 Valida el modelo FINOS CALM y los controles bloqueantes QA-11X en Docker efímero (Rule Zero).
 EOF
 }
@@ -31,6 +32,22 @@ while [ "$#" -gt 0 ]; do
       ARCH_ARG="${1#--arch=}"
       if [ -z "${ARCH_ARG}" ]; then
         printf '❌ [CALM] Falta argumento para --arch=\n' >&2
+        exit 1
+      fi
+      shift
+      ;;
+    --profile)
+      if [ "$#" -lt 2 ] || [ -z "$2" ]; then
+        printf '❌ [CALM] Falta argumento para --profile\n' >&2
+        exit 1
+      fi
+      PROFILE_ARG="$2"
+      shift 2
+      ;;
+    --profile=*)
+      PROFILE_ARG="${1#--profile=}"
+      if [ -z "${PROFILE_ARG}" ]; then
+        printf '❌ [CALM] Falta argumento para --profile=\n' >&2
         exit 1
       fi
       shift
@@ -56,6 +73,14 @@ while [ "$#" -gt 0 ]; do
       ;;
   esac
 done
+
+case "${PROFILE_ARG}" in
+  auto | generic | qa-11x-self) ;;
+  *)
+    printf '❌ [CALM] Perfil no soportado: %s (use auto, generic o qa-11x-self)\n' "${PROFILE_ARG}" >&2
+    exit 1
+    ;;
+esac
 
 run_calm_validation_payload() {
   node - <<'JSEOF'
@@ -285,7 +310,13 @@ for (const rel of rels) {
   }
 }
 
-const isUpstream = fs.existsSync(path.join(root, "scripts", "generar-manifiesto.py"));
+const profileArg = (process.env.CALM_PROFILE || "auto").trim();
+const isUpstream =
+  profileArg === "qa-11x-self"
+    ? true
+    : profileArg === "generic"
+      ? false
+      : fs.existsSync(path.join(root, "scripts", "generar-manifiesto.py"));
 if (isUpstream) {
   for (const reqNode of REQUIRED_NODES) {
     if (!nodeIds.has(reqNode)) errors.push(`[MISSING_REQUIRED_NODE] Falta nodo obligatorio ${reqNode}`);
@@ -410,6 +441,7 @@ JSEOF
 }
 
 export ARCH_INPUT="${ARCH_ARG}"
+export CALM_PROFILE="${PROFILE_ARG}"
 export REPO_ROOT
 
 if [ "${QA_IN_CONTAINER:-0}" = "1" ] || { [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; }; then
@@ -428,6 +460,7 @@ docker run --rm --network none \
   -u "$(id -u):$(id -g)" \
   -e HOME=/tmp \
   -e ARCH_INPUT="${ARCH_ARG}" \
+  -e CALM_PROFILE="${PROFILE_ARG}" \
   -e REPO_ROOT="/workspace" \
   -e QA_CALM_IN_DOCKER="1" \
   -v "${REPO_ROOT}:/workspace:ro" \

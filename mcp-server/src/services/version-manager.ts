@@ -344,40 +344,45 @@ async function fetchManifestVersionFailOpen(
   }
 }
 
+function normalizeLatestVersionOptions(
+  options: Omit<EvaluateUpdateOptions, 'projectPath' | 'homeDir'>
+) {
+  const npmTimeoutMs = options.npmTimeoutMs ?? DEFAULT_NPM_TIMEOUT_MS;
+  const manifestTimeoutMs = Math.min(npmTimeoutMs, 1200);
+  const defaultAllowNetwork =
+    process.env.VITEST !== 'true' && process.env.NODE_ENV !== 'test';
+  return {
+    npmTimeoutMs,
+    manifestTimeoutMs,
+    fetchFn: options.fetchFn ?? fetch,
+    fetcher: options.fetcher ?? new GitHubFetcher({ timeoutMs: manifestTimeoutMs }),
+    runningVer: (options.runningMcpVersion ?? MCP_SERVER_VERSION).trim().replace(/^v/, ''),
+    ttlMs: options.ttlMs ?? DEFAULT_VERSION_TTL_MS,
+    nowMs: options.nowMs ?? Date.now(),
+    allowNetwork: options.allowNetworkCheck ?? defaultAllowNetwork,
+  };
+}
+
 export async function resolveLatestPublishedVersion(
   options: Omit<EvaluateUpdateOptions, 'projectPath' | 'homeDir'> = {}
 ): Promise<string> {
-  const npmTimeoutMs = options.npmTimeoutMs ?? DEFAULT_NPM_TIMEOUT_MS;
-  const manifestTimeoutMs = Math.min(npmTimeoutMs, 1200);
-  const fetchFn = options.fetchFn ?? fetch;
-  const fetcher =
-    options.fetcher ??
-    new GitHubFetcher({
-      timeoutMs: manifestTimeoutMs,
-    });
-  const runningVer = (options.runningMcpVersion ?? MCP_SERVER_VERSION).trim().replace(/^v/, '');
-  const ttlMs = options.ttlMs ?? DEFAULT_VERSION_TTL_MS;
-  const nowMs = options.nowMs ?? Date.now();
-  const defaultAllowNetwork =
-    process.env.VITEST !== 'true' && process.env.NODE_ENV !== 'test';
-  const allowNetwork = options.allowNetworkCheck ?? defaultAllowNetwork;
-
-  const cacheDir = fetcher.getCacheDir();
+  const cfg = normalizeLatestVersionOptions(options);
+  const cacheDir = cfg.fetcher.getCacheDir();
   const cachedManifest = readCachedManifestSafe(cacheDir);
   const checkCache = readLatestCheckCache(cacheDir);
-  let best = pickHigherSemver(runningVer, cachedManifest?.blueprint_version) as string;
+  let best = pickHigherSemver(cfg.runningVer, cachedManifest?.blueprint_version) as string;
   best = pickHigherSemver(best, checkCache?.latest_version) as string;
 
-  const isCacheFresh = checkCache !== null && nowMs - checkCache.checked_at_ms < ttlMs;
-  if (allowNetwork && !isCacheFresh) {
+  const isCacheFresh = checkCache !== null && cfg.nowMs - checkCache.checked_at_ms < cfg.ttlMs;
+  if (cfg.allowNetwork && !isCacheFresh) {
     const [manifestVer, npmVer] = await Promise.all([
-      fetchManifestVersionFailOpen(fetcher, manifestTimeoutMs, options.signal),
-      fetchNpmLatestVersion(fetchFn, npmTimeoutMs, options.signal),
+      fetchManifestVersionFailOpen(cfg.fetcher, cfg.manifestTimeoutMs, options.signal),
+      fetchNpmLatestVersion(cfg.fetchFn, cfg.npmTimeoutMs, options.signal),
     ]);
     const fetchedBest = pickHigherSemver(manifestVer, npmVer);
     if (fetchedBest) {
       best = pickHigherSemver(best, fetchedBest) as string;
-      writeLatestCheckCache(cacheDir, best, nowMs);
+      writeLatestCheckCache(cacheDir, best, cfg.nowMs);
     }
   }
 

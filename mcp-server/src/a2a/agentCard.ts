@@ -6,14 +6,15 @@ import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import { MCP_SERVER_VERSION, MCP_STANDARD_EDITION } from '../services/github-fetcher.js';
 import {
+  DEFAULT_TASK_CAPACITY,
   MAX_TASK_CAPACITY,
   MIN_TASK_CAPACITY,
-  TASK_CAPACITY_EXTENSION_URI as COMPAT_TASK_CAPACITY_URI,
+  TASK_CAPACITY_EXTENSION_URI as CANONICAL_TASK_CAPACITY_URI,
   type GuardLifecycleState,
 } from '../utils/taskStateGuard.js';
 
-export const CANONICAL_TASK_CAPACITY_URI = 'urn:qa-11x:extensions:task-capacity:v1' as const;
-export { COMPAT_TASK_CAPACITY_URI };
+export const COMPAT_TASK_CAPACITY_URI = 'urn:quaia:extensions:task-capacity:v1' as const;
+export { CANONICAL_TASK_CAPACITY_URI, DEFAULT_TASK_CAPACITY };
 export const SUPPORTED_TASK_CAPACITY_URIS = [
   CANONICAL_TASK_CAPACITY_URI,
   COMPAT_TASK_CAPACITY_URI,
@@ -38,7 +39,6 @@ export const DEFAULT_ACTIVE_MODEL = 'local-or-frontier-hybrid' as const;
 export const DEFAULT_AGENT_URL = 'stdio://sinfallas/mcp-qa-11x' as const;
 export const DEFAULT_A2A_PROTOCOL_VERSION = '1.0' as const;
 export const DEFAULT_A2A_PROTOCOL_BINDING = 'JSONRPC' as const;
-export const DEFAULT_TASK_CAPACITY = 4;
 export const DEFAULT_AGENT_CARD_RELATIVE_PATH = '.well-known/agent-card.json' as const;
 export const GIT_CLOSURE_HUMAN_GATE_ID = 'QA-GIT-GATE-01' as const;
 

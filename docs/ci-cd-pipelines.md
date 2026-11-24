@@ -13,7 +13,7 @@ In traditional development workflows, the remote CI/CD pipeline is the first pla
 In Standard 11X we apply **Extreme Shift-Left operated by AI Agents**:
 * **Autonomous Local Execution:** Before a commit is created, the AI agent (Google Antigravity, Claude Code, Cursor, Hermes) runs the ephemeral Docker suite (`Rule Zero`) and the universal certification gate (`./.agents/scripts/certify_task_completion.sh`) locally.
 * **Pre-Push Guaranteed Quality:** When code is pushed to Git, it has already been mathematically validated against the 95% coverage rule, 0 secrets, ORM parity against real PostgreSQL, and Karate Labs BDD scenarios. Remote CI stops being a discovery filter and becomes a simple redundant safeguard (paired with `QA-GIT-GATE-01` human confirmation for remote pushes).
-* **Sovereign Philosophy (RoSGrid Model):** For high-criticality tasks such as package publishing (e.g., the `@sinfallas/mcp-qa-11x` MCP server on npm), the standard forbids delegating master credentials (`NPM_TOKEN`) to shared external runners. The publishing cycle executes locally and sovereignly through audited ephemeral scripts (`scripts/publicar-mcp.sh`).
+* **Sovereign Philosophy (Zero-Delegation Model):** For high-criticality tasks such as package publishing (e.g., the `@sinfallas/mcp-qa-11x` MCP server on npm), the standard forbids delegating master credentials (`NPM_TOKEN`) to shared external runners. The publishing cycle executes locally and sovereignly through audited ephemeral scripts (`scripts/publicar-mcp.sh`).
 
 ---
 

@@ -15,6 +15,7 @@ import {
   hasHelpFlag,
   matchFlagValue,
 } from './cliArgHelpers.js';
+import { renderSubcommandHelpText, resolveCliHelpLang } from './commandCatalog.js';
 import {
   assertValidSkillTarget,
   InstallSkillRuntimeOptions,
@@ -39,18 +40,7 @@ const DEFAULT_TARGET = 'all';
 const RELOAD_NOTICE =
   'Reinicia o recarga el servidor MCP en tu IDE (los procesos stdio activos mantienen en memoria la versión anterior hasta recargar).';
 
-export const UPGRADE_HELP_TEXT = [
-  'Uso: npx -y @sinfallas/mcp-qa-11x upgrade [opciones]',
-  '',
-  'Opciones:',
-  '  --cache-only              Limpia cachés _npx y blueprints sin reinstalar skills',
-  '  --target, -t <env>        Destino de skills para install-skill (por defecto: all)',
-  '  --reconcile               Reconcilia y poda reglas duplicadas en .agents/ al sincronizar',
-  '  --offline                 Omite resincronización remota de skills',
-  '  --dry-run                 Simula limpieza y sincronización sin borrar ni escribir',
-  '  --json                    Emite resultado estructurado en JSON',
-  '  --help, -h                Muestra esta ayuda y sale con código 0',
-].join('\n');
+export const UPGRADE_HELP_TEXT = renderSubcommandHelpText('upgrade', 'en');
 
 export interface UpgradeCliDeps {
   readonly homeDir?: string;
@@ -297,7 +287,10 @@ export async function runUpgradeCli(
   deps: UpgradeCliDeps = {}
 ): Promise<CliCommandOutput> {
   if (hasHelpFlag(args)) {
-    return { exitCode: 0, output: UPGRADE_HELP_TEXT };
+    return {
+      exitCode: 0,
+      output: renderSubcommandHelpText('upgrade', resolveCliHelpLang(args)),
+    };
   }
   try {
     return await executeUpgradeWorkflow(args, deps);

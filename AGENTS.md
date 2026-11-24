@@ -46,11 +46,11 @@ All AI coding assistants and developers in this monorepo MUST enforce Level-11X 
 
 ---
 
-## 4. Automation Scripts in `.agents/scripts/` (22 Gates & Utilities)
+## 4. Automation Scripts in `.agents/scripts/` (30 Gates & Utilities)
 
-> **Surface Inventory:** `10` scripts in `scripts/`, `22` files in `.agents/scripts/` (`21` Python total incl. `scripts/generar-manifiesto.py`), `26` files in `tests/`.
+> **Surface Inventory:** `10` scripts in `scripts/`, `30` files in `.agents/scripts/` (`29` Python total incl. `scripts/generar-manifiesto.py`), `27` files in `tests/`.
 
-`_budgets.py` (single-source budgets incl. `8 KB` root `AGENTS.md` / `1.5 KB` connectors), `checkpoint_ctl.py`, `certify_task_completion.sh` (10-stage gate + Consumer Governance Fast-Path), `bump_version_11x.py`, `sync_governance.py`, `verify_roadmap_consistency.py`, `verify_docs_invariants.py` (upstream vs consumer universal scoping), `verify_alembic_orm_parity.py`, `verify_zero_orphan_vue_components.py`, `verify_no_orphan_api_endpoints.py`, `verify_json_no_duplicate_keys.py`, `inspect_blast_radius.py` (`--git-signals`), `select_tests_by_blast_radius.py`, `verify_topological_health.py` (`.agents/boundaries.json`, `--metrics`), `verify_diff_coverage.py` (`100%` lines / `>= 90%` branches), `track_findings_state.py` (`BREAKER-42`), `generate_pr_verdict.py`, `lint_test_antipatterns.py`, `compact_context_11x.py`, `release_readiness_gate.py`, `audit_pagespeed_insights.py`, `validate_calm_architecture.sh`.
+`_budgets.py` (`8 KB` root `AGENTS.md` / `1.5 KB` connectors / `36 KB` rules cap), `_common.py` (shared ignore dirs, secret/leak patterns, atomic JSON/text writes, `safe.directory`), `checkpoint_ctl.py`, `certify_task_completion.sh` (10-stage gate + ephemeral session), `bump_version_11x.py`, `sync_governance.py`, `verify_roadmap_consistency.py`, `verify_docs_invariants.py` (+ `_docs_invariants_{config,counts,bilingual,catalogs}.py`), `verify_alembic_orm_parity.py`, `verify_zero_orphan_vue_components.py`, `verify_no_orphan_api_endpoints.py`, `verify_json_no_duplicate_keys.py`, `inspect_blast_radius.py`, `select_tests_by_blast_radius.py`, `verify_topological_health.py` (`.agents/boundaries.json`, `--metrics`), `verify_diff_coverage.py`, `track_findings_state.py` (`BREAKER-42`), `generate_pr_verdict.py`, `lint_test_antipatterns.py`, `lint_workflows.py`, `lint_docs_gate.py`, `normalize_kcov_cobertura.py`, `compact_context_11x.py`, `release_readiness_gate.py`, `audit_pagespeed_insights.py`, `validate_calm_architecture.sh`.
 
 ---
 

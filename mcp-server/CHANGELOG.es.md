@@ -8,6 +8,10 @@ Todos los cambios notables en el paquete npm y servidor MCP `@sinfallas/mcp-qa-1
 
 ## [Unreleased]
 
+### Modificado
+- **Descomposición Estructural de God-Modules y Regla ESLint `complexity`:** Modularizados `src/server.ts`, `src/tools/security-auditor.ts`, `src/tools/test-pyramid-auditor.ts`, `src/tools/ephemeral-runner.ts`, `src/integrations/tmsSyncCli.ts` y `src/services/surgical-merger.ts` en submódulos cohesivos preservando el 100% de las exportaciones públicas, y activada la regla `complexity: ['error', 15]` en `eslint.config.mjs`.
+- **Catálogo CLI Declarativo Único (`commandCatalog.ts`), `structuredContent` Unificado y Paridad Operativa:** Generados el enrutamiento seguro, `--help` bilingüe EN/ES (`--lang` / `QA_OUTPUT_LANG`) y `completion` desde un catálogo único de los 12 subcomandos CLI; unificado `structuredContent` en las 19 herramientas MCP; alineados `TaskStateGuard` (capacidad por defecto `4`, URI canónica `urn:qa-11x:extensions:task-capacity:v1` y propagación de `readOnlyHint`/`idempotentHint`), `certify` CLI con `requireLintEvidence: true` por defecto (`--no-require-lint-evidence`), `mcp-config` fijado por defecto (`--latest` opt-in), `doctor` ampliado a `vscode`, `gemini-cli`, `codex` (TOML) y `hermes` (YAML) y ancla `/var` para macOS en `github-fetcher.ts`.
+
 ## [3.5.0] - 2026-11-23
 
 ### Añadido

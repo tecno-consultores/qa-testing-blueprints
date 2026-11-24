@@ -13,7 +13,7 @@ En los flujos tradicionales de desarrollo, el pipeline de CI/CD remoto es el pri
 En el Estándar 11X aplicamos un **Shift-Left Extremo operado por Agentes de IA**:
 * **Ejecución Local Autónoma:** Antes de que un commit sea generado, el agente de IA (Google Antigravity, Claude Code, Cursor, Hermes) ejecuta localmente la suite en Docker efímero (`Rule Zero`) y la compuerta universal de certificación (`./.agents/scripts/certify_task_completion.sh`).
 * **Calidad Garantizada Pre-Push:** Cuando el código se envía a Git, ya ha sido validado matemáticamente contra la regla del 95% de cobertura, 0 secretos, paridad ORM con PostgreSQL real y escenarios BDD de Karate Labs. El CI remoto deja de ser un filtro de descubrimiento para convertirse en una simple salvaguarda redundante (junto a la confirmación humana `QA-GIT-GATE-01` para envíos remotos).
-* **Filosofía Soberana (Modelo RoSGrid):** Para tareas de alta criticidad como la publicación de paquetes (ej. el servidor MCP `@sinfallas/mcp-qa-11x` en npm), el estándar rechaza delegar credenciales maestras (`NPM_TOKEN`) a *runners* externos compartidos. El ciclo de publicación se ejecuta de manera soberana y local mediante scripts efímeros auditados (`scripts/publicar-mcp.sh`).
+* **Filosofía Soberana (Modelo Cero-Delegación):** Para tareas de alta criticidad como la publicación de paquetes (ej. el servidor MCP `@sinfallas/mcp-qa-11x` en npm), el estándar rechaza delegar credenciales maestras (`NPM_TOKEN`) a *runners* externos compartidos. El ciclo de publicación se ejecuta de manera soberana y local mediante scripts efímeros auditados (`scripts/publicar-mcp.sh`).
 
 ---
 

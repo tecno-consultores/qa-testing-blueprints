@@ -34,6 +34,7 @@ export default tseslint.config(
       'sonarjs/publicly-writable-directories': 'off',
       '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/no-misused-promises': 'error',
+      complexity: ['error', 15],
       'sonarjs/cognitive-complexity': ['error', 15],
       'sonarjs/no-duplicate-string': 'warn',
       'max-params': ['error', 4],
@@ -45,6 +46,7 @@ export default tseslint.config(
   {
     files: ['tests/**/*.ts'],
     rules: {
+      complexity: 'off',
       'sonarjs/no-duplicate-string': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
     },

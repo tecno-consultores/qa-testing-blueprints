@@ -7,12 +7,17 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
+import os as os
 import re
 import sys
-import uuid
 from dataclasses import dataclass
 from pathlib import Path
+
+_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
+from _common import atomic_write_text as _atomic_write_text  # noqa: E402
 
 SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$")
 EDITION_RE = re.compile(r"^QA-11X v\d+\.\d+$")
@@ -576,18 +581,6 @@ def _rule_expected(rule: VersionRule, expected: str) -> str:
     if not rule.major_minor_only:
         return expected
     return ".".join(expected.split(".")[:2])
-
-
-def _atomic_write_text(target: Path, content: str) -> None:
-    tmp_path = (
-        target.parent / f".{target.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
-    )
-    try:
-        tmp_path.write_text(content, encoding="utf-8")
-        os.replace(tmp_path, target)
-    except OSError:
-        tmp_path.unlink(missing_ok=True)
-        raise
 
 
 def process_rule(

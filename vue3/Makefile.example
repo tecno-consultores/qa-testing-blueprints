@@ -70,7 +70,7 @@ qa-psi:
 		echo "⚠️ [SKIPPED] No se encontró .agents/scripts/audit_pagespeed_insights.py."; \
 		exit 0; \
 	fi; \
-	docker run --rm -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp -e PAGESPEED_API_KEY -e PSI_URL="$$target_url" -v "$(PROJECT_DIR):/app" -w /app $(PYTHON_QA_IMAGE) python3 .agents/scripts/audit_pagespeed_insights.py
+	docker run --rm --security-opt=no-new-privileges:true -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp -e PAGESPEED_API_KEY -e PSI_URL="$$target_url" -v "$(PROJECT_DIR):/app" -w /app $(PYTHON_QA_IMAGE) python3 .agents/scripts/audit_pagespeed_insights.py
 
 qa-obs: build-ui
 	@echo "📊 Levantando Stack de Observabilidad Frontend..."

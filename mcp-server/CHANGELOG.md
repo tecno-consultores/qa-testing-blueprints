@@ -8,6 +8,10 @@ All notable changes to the `@sinfallas/mcp-qa-11x` npm package and MCP server ar
 
 ## [Unreleased]
 
+### Changed
+- **God-Module Structural Decomposition & ESLint Complexity Enforcement:** Modularized `src/server.ts`, `src/tools/security-auditor.ts`, `src/tools/test-pyramid-auditor.ts`, `src/tools/ephemeral-runner.ts`, `src/integrations/tmsSyncCli.ts`, and `src/services/surgical-merger.ts` into cohesive submodules preserving 100% of public exports, and enabled `complexity: ['error', 15]` in `eslint.config.mjs`.
+- **Single Declarative CLI Catalog (`commandCatalog.ts`), Unified `structuredContent` & Runtime Parity:** Generated safe command routing, bilingual EN/ES `--help` (`--lang` / `QA_OUTPUT_LANG`), and `completion` from a single catalog of the 12 CLI subcommands; unified `structuredContent` across all 19 MCP tools; aligned `TaskStateGuard` default capacity (`4`), canonical URI (`urn:qa-11x:extensions:task-capacity:v1`), and `readOnlyHint`/`idempotentHint` propagation; aligned `certify` CLI `requireLintEvidence: true` default (`--no-require-lint-evidence`), pinned `mcp-config` by default (`--latest` opt-in), expanded `doctor` to inspect `vscode`, `gemini-cli`, `codex` (TOML), and `hermes` (YAML), and added macOS `/var` symlink anchor handling in `github-fetcher.ts`.
+
 ## [3.5.0] - 2026-11-23
 
 ### Added

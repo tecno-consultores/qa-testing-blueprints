@@ -3,6 +3,13 @@
 
 import { pickAt } from '../utils/diagnosticFormatter.js';
 import { type CliCommandOutput, hasHelpFlag, matchFlagValue } from './cliArgHelpers.js';
+import {
+  type CliFlagSpec,
+  getCatalogCompletionFlags,
+  getCatalogCompletionSubcommands,
+  renderSubcommandHelpText,
+  resolveCliHelpLang,
+} from './commandCatalog.js';
 
 export const SUPPORTED_SHELLS = ['fish', 'bash', 'zsh'] as const;
 export type SupportedShell = (typeof SUPPORTED_SHELLS)[number];
@@ -10,199 +17,32 @@ export type SupportedShell = (typeof SUPPORTED_SHELLS)[number];
 const BIN_NAME = 'mcp-qa-11x';
 const ERROR_PREFIX = '❌ [completion]';
 
-interface SubcommandEntry {
-  readonly name: string;
-  readonly summary: string;
+const SUBCOMMANDS = getCatalogCompletionSubcommands();
+const { choiceFlags: FLAG_CHOICES, valueFlags: EXTRA_VALUE_FLAGS, booleanFlags: BOOLEAN_FLAGS } =
+  getCatalogCompletionFlags();
+
+export const COMPLETION_HELP_TEXT = renderSubcommandHelpText('completion', 'en');
+
+function escapeShellSingleQuote(text: string): string {
+  return text.replaceAll("'", "'\\''");
 }
 
-const SUBCOMMANDS: readonly SubcommandEntry[] = [
-  { name: 'quickstart', summary: 'Zero-config 30s QA-11X onboarding' },
-  { name: 'install-skill', summary: 'Install global 11X skills and scripts' },
-  { name: 'install', summary: 'Alias for install-skill' },
-  { name: 'init-agents', summary: 'Create or update AGENTS.md connector' },
-  { name: 'init-agents-md', summary: 'Alias for init-agents' },
-  { name: 'reconcile-agents', summary: 'Deduplicate canonical rules in .agents' },
-  { name: 'tms-sync', summary: 'Traceability sync with Jira/Zephyr/Xray/GitHub' },
-  { name: 'doctor', summary: 'Run QA-11X environment diagnostics' },
-  { name: 'status', summary: 'Show QA-11X governance status' },
-  { name: 'upgrade', summary: 'Upgrade installed 11X skills and rules' },
-  { name: 'cache-clean', summary: 'Clean cached blueprint artifacts' },
-  { name: 'certify', summary: 'Run QA-11X certification gate' },
-  { name: 'audit', summary: 'Run STIG/OWASP security audit' },
-  { name: 'blast-radius', summary: 'Inspect AST blast radius and routing path' },
-  { name: 'mcp-config', summary: 'Generate or install MCP client configuration' },
-  { name: 'completion', summary: 'Generate shell completion script' },
-  { name: 'version', summary: 'Display active MCP server version' },
-  { name: 'help', summary: 'Display CLI or subcommand usage help' },
-];
-
-interface FlagChoiceSpec {
-  readonly long: string;
-  readonly short?: string;
-  readonly values: readonly string[];
-  readonly desc: string;
-  readonly zshMeta: string;
-}
-
-interface SimpleFlagSpec {
-  readonly long: string;
-  readonly short?: string;
-  readonly desc: string;
-}
-
-const FLAG_CHOICES: readonly FlagChoiceSpec[] = [
-  {
-    long: '--tier',
-    short: '-T',
-    values: ['starter', 'standard', 'enterprise'],
-    desc: 'Quickstart gate profile',
-    zshMeta: 'tier',
-  },
-  {
-    long: '--lang',
-    short: '-l',
-    values: ['auto', 'es', 'en'],
-    desc: 'Language policy',
-    zshMeta: 'lang',
-  },
-  {
-    long: '--mode',
-    short: '-m',
-    values: ['security', 'pyramid', 'vibe', 'calm', 'all', 'inventory', 'push-results', 'pull-stories'],
-    desc: 'Audit or TMS synchronization mode',
-    zshMeta: 'mode',
-  },
-  {
-    long: '--format',
-    short: '-f',
-    values: ['text', 'json', 'sarif'],
-    desc: 'Output format',
-    zshMeta: 'format',
-  },
-  {
-    long: '--fail-on',
-    values: ['critical', 'high', 'medium', 'any', 'none'],
-    desc: 'Minimum severity threshold to fail',
-    zshMeta: 'severity',
-  },
-  {
-    long: '--client',
-    short: '-c',
-    values: [
-      'antigravity',
-      'claude-code',
-      'claude-desktop',
-      'cursor',
-      'vscode',
-      'windsurf',
-      'codex',
-      'gemini-cli',
-      'hermes',
-      'all',
-    ],
-    desc: 'MCP client target',
-    zshMeta: 'client',
-  },
-  {
-    long: '--provider',
-    values: ['jira', 'zephyr', 'xray', 'github-issues'],
-    desc: 'TMS provider',
-    zshMeta: 'provider',
-  },
-  {
-    long: '--shell',
-    values: ['fish', 'bash', 'zsh'],
-    desc: 'Target completion shell',
-    zshMeta: 'shell',
-  },
-  {
-    long: '--ci',
-    values: ['github', 'none'],
-    desc: 'CI workflow provider',
-    zshMeta: 'ci',
-  },
-];
-
-const EXTRA_VALUE_FLAGS: readonly SimpleFlagSpec[] = [
-  { long: '--project-path', short: '-p', desc: 'Target project directory' },
-  { long: '--dir', desc: 'Target project directory alias' },
-  { long: '--agents', short: '-a', desc: 'Bridge agent targets' },
-  { long: '--target', short: '-t', desc: 'Skill installation target' },
-  { long: '--symbol', short: '-s', desc: 'Target AST symbol or file' },
-  { long: '--changed-since', desc: 'Git ref for differential blast radius' },
-  { long: '--max-tokens', desc: 'Max token budget for semantic diff' },
-  { long: '--max-items', desc: 'Max dependent items returned' },
-  { long: '--junit-xml', desc: 'Relative JUnit XML path' },
-  { long: '--max-findings', desc: 'Max findings per audit engine' },
-  { long: '--architecture-path', desc: 'Relative FINOS CALM model path' },
-  { long: '--profile', desc: 'FINOS CALM validation profile (auto|generic|qa-11x-self)' },
-  { long: '--target-dir', desc: 'TMS scan target directory' },
-  { long: '--base-url', desc: 'TMS HTTPS base URL' },
-  { long: '--project-key', desc: 'TMS project key' },
-  { long: '--issue-key', desc: 'TMS issue key' },
-  { long: '--test-execution-key', desc: 'Xray test execution key' },
-  { long: '--repo', desc: 'GitHub owner/repo slug' },
-  { long: '--required-keys', desc: 'Required TMS traceability keys' },
-  { long: '--timeout-ms', desc: 'TMS request timeout in ms' },
-  { long: '--scan-workspaces', desc: 'Root directory to scan multiple repositories (reconcile-agents)' },
-];
-
-const BOOLEAN_FLAGS: readonly SimpleFlagSpec[] = [
-  { long: '--init-agents', desc: 'Inject or update AGENTS.md connector' },
-  { long: '--include-scripts', desc: 'Install operational 11X scripts' },
-  { long: '--reconcile', desc: 'Deduplicate canonical rules in .agents/' },
-  { long: '--apply', desc: 'Apply reconciliation changes to disk (reconcile-agents)' },
-  { long: '--prune-bridges', desc: 'Prune redundant standalone bridge files (reconcile-agents)' },
-  { long: '--allow-dirty', desc: 'Allow reconciliation on a dirty git working tree' },
-  { long: '--git-signals', desc: 'Include git history coupling signals (blast-radius)' },
-  { long: '--auto-build', desc: 'Build missing Graphify AST graph' },
-  { long: '--refresh', desc: 'Rebuild Graphify AST graph' },
-  { long: '--print', desc: 'Print MCP config snippet' },
-  { long: '--install', desc: 'Install MCP config snippet safely' },
-  { long: '--pin-version', desc: 'Pin exact npm version in MCP config' },
-  { long: '--offline', desc: 'Skip remote version checks' },
-  { long: '--strict', desc: 'Fail on any SKIPPED gate check' },
-  { long: '--require-lint-evidence', desc: 'Require fresh lint evidence on dirty trees' },
-  { long: '--allow-unmerged-examples', desc: 'Allow .example files in root' },
-  { long: '--release-gate', desc: 'Evaluate GO/NO-GO release gate' },
-  { long: '--sarif', desc: 'Emit SARIF 2.1.0 output' },
-  { long: '--include-examples', desc: 'Include .example templates in security scan' },
-  { long: '--cache-only', desc: 'Clean caches without syncing skills' },
-  { long: '--live', desc: 'Execute live TMS HTTP synchronization' },
-  { long: '--dry-run', desc: 'Simulate without writing to disk' },
-  { long: '--force', desc: 'Force overwrite managed files' },
-  { long: '--json', desc: 'Emit machine-readable JSON output' },
-  { long: '--verbose', desc: 'Include verbose diagnostics with --version' },
-  { long: '--stdio', desc: 'Force JSON-RPC stdio transport' },
-  { long: '--version', short: '-v', desc: 'Print package version' },
-  { long: '--help', short: '-h', desc: 'Show usage help' },
-];
-
-export const COMPLETION_HELP_TEXT = [
-  'Uso: npx -y @sinfallas/mcp-qa-11x completion <fish|bash|zsh>',
-  '   o: npx -y @sinfallas/mcp-qa-11x completion --shell <fish|bash|zsh>',
-  '',
-  'Opciones:',
-  '  --shell <fish|bash|zsh>  Shell objetivo para autocompletado',
-  '  --help, -h               Muestra esta ayuda y sale con código 0',
-].join('\n');
-
-function formatFishSimpleFlag(spec: SimpleFlagSpec, requiresArg: boolean): string {
+function formatFishSimpleFlag(spec: CliFlagSpec, requiresArg: boolean): string {
   const shortPart = spec.short ? ` -s ${spec.short.slice(1)}` : '';
   const argPart = requiresArg ? ' -r' : '';
-  return `complete -c ${BIN_NAME} -l ${spec.long.slice(2)}${shortPart}${argPart} -d '${spec.desc}'`;
+  return `complete -c ${BIN_NAME} -l ${spec.long.slice(2)}${shortPart}${argPart} -d '${escapeShellSingleQuote(spec.desc.en)}'`;
 }
 
 function appendFishEntries(lines: string[]): void {
   for (const sub of SUBCOMMANDS) {
     lines.push(
-      `complete -c ${BIN_NAME} -n '__fish_use_subcommand' -a '${sub.name}' -d '${sub.summary}'`
+      `complete -c ${BIN_NAME} -n '__fish_use_subcommand' -a '${sub.name}' -d '${escapeShellSingleQuote(sub.summary)}'`
     );
   }
   for (const spec of FLAG_CHOICES) {
     const shortPart = spec.short ? ` -s ${spec.short.slice(1)}` : '';
     lines.push(
-      `complete -c ${BIN_NAME} -l ${spec.long.slice(2)}${shortPart} -x -a '${spec.values.join(' ')}' -d '${spec.desc}'`
+      `complete -c ${BIN_NAME} -l ${spec.long.slice(2)}${shortPart} -x -a '${spec.values.join(' ')}' -d '${escapeShellSingleQuote(spec.desc.en)}'`
     );
   }
 }
@@ -282,21 +122,25 @@ function buildBashCompletion(): string {
   ].join('\n');
 }
 
-function formatZshSimpleSpecs(spec: SimpleFlagSpec, valueSuffix: string): string {
-  const lines = [`    '${spec.long}[${spec.desc}]${valueSuffix}'`];
+function formatZshSimpleSpecs(spec: CliFlagSpec, valueSuffix: string): string {
+  const desc = escapeShellSingleQuote(spec.desc.en);
+  const lines = [`    '${spec.long}[${desc}]${valueSuffix}'`];
   if (spec.short) {
-    lines.push(`    '${spec.short}[${spec.desc}]${valueSuffix}'`);
+    lines.push(`    '${spec.short}[${desc}]${valueSuffix}'`);
   }
   return lines.join(' \\\n');
 }
 
 function buildZshCompletion(): string {
-  const subLines = SUBCOMMANDS.map((s) => `    '${s.name}:${s.summary}'`);
+  const subLines = SUBCOMMANDS.map(
+    (s) => `    '${s.name}:${escapeShellSingleQuote(s.summary)}'`
+  );
   const argSpecs = FLAG_CHOICES.map((spec) => {
     const vals = spec.values.join(' ');
-    const lines = [`    '${spec.long}[${spec.desc}]:${spec.zshMeta}:(${vals})'`];
+    const desc = escapeShellSingleQuote(spec.desc.en);
+    const lines = [`    '${spec.long}[${desc}]:${spec.zshMeta}:(${vals})'`];
     if (spec.short) {
-      lines.push(`    '${spec.short}[${spec.desc}]:${spec.zshMeta}:(${vals})'`);
+      lines.push(`    '${spec.short}[${desc}]:${spec.zshMeta}:(${vals})'`);
     }
     return lines.join(' \\\n');
   });
@@ -373,7 +217,10 @@ function isSupportedShell(raw: string): raw is SupportedShell {
 
 export function runCompletionCli(args: readonly string[]): CliCommandOutput {
   if (hasHelpFlag(args)) {
-    return { exitCode: 0, output: COMPLETION_HELP_TEXT };
+    return {
+      exitCode: 0,
+      output: renderSubcommandHelpText('completion', resolveCliHelpLang(args)),
+    };
   }
   try {
     const rawShell = parseShellArg(args);

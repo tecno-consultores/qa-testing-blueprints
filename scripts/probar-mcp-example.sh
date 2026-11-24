@@ -79,7 +79,7 @@ run_example_backend_python_qa() {
     -v "${example_root}:/app:ro" \
     -w /app/backend \
     "${PY_QA_IMAGE}" \
-    sh -c 'ruff check --select E,F,W,I,UP,B,C901,PLR0913 src/ tests/ && ruff format --check src/ tests/ && mypy --strict --cache-dir=/tmp/mypy src/ tests/*.unit.py && if python3 -c "import fastapi, httpx" >/dev/null 2>&1; then PY_BIN=python3; else uv venv -q --system-site-packages /tmp/qa-venv && if [ "${QA_UV_OFFLINE:-}" = "--offline" ]; then uv pip install -q --offline --python /tmp/qa-venv/bin/python fastapi httpx || { echo "❌ Modo --offline sin fastapi/httpx preinstalados ni cache UV (UV_CACHE_DIR)." >&2; exit 1; }; else uv pip install -q --python /tmp/qa-venv/bin/python fastapi httpx; fi && PY_BIN=/tmp/qa-venv/bin/python; fi && "$PY_BIN" -m pytest --import-mode=importlib --cov=src --cov-fail-under=95 --cov-report=term-missing -rs -v tests/*.unit.py'
+    sh -c 'QA_VENV_DIR="${QA_VENV_DIR:-/tmp/qa-venv}"; ruff check --select E,F,W,I,UP,B,C901,PLR0913 src/ tests/ && ruff format --check src/ tests/ && mypy --strict --cache-dir=/tmp/mypy src/ tests/*.unit.py && if python3 -c "import fastapi, httpx" >/dev/null 2>&1; then PY_BIN=python3; else uv venv -q --system-site-packages "$QA_VENV_DIR" && if [ "${QA_UV_OFFLINE:-}" = "--offline" ]; then uv pip install -q --offline --python "$QA_VENV_DIR/bin/python" fastapi httpx || { echo "❌ Modo --offline sin fastapi/httpx preinstalados ni cache UV (UV_CACHE_DIR)." >&2; exit 1; }; else uv pip install -q --python "$QA_VENV_DIR/bin/python" fastapi httpx; fi && PY_BIN="$QA_VENV_DIR/bin/python"; fi && "$PY_BIN" -m pytest --import-mode=importlib --cov=src --cov-fail-under=95 --cov-report=term-missing -rs -v tests/*.unit.py'
 }
 
 PNPM_INSTALL_FLAGS="--frozen-lockfile --prefer-offline --trust-lockfile --silent"
@@ -169,7 +169,7 @@ CLEANROOM_PROJECT="qa_cleanroom_$$"
 cleanup() {
   docker compose -p "${CLEANROOM_PROJECT}" -f "${CLEANROOM_DIR}/mcp-server/docker-compose.qa.yml" down --remove-orphans >/dev/null 2>&1 || true
   rm -rf "${CLEANROOM_DIR}" 2>/dev/null ||
-    docker run --rm -v "${CLEANROOM_DIR}:/clean" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab rm -rf /clean/* /clean/.[!.]* 2>/dev/null || true
+    docker run --rm --network none --security-opt=no-new-privileges:true -v "${CLEANROOM_DIR}:/clean" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab rm -rf /clean/* /clean/.[!.]* 2>/dev/null || true
   rm -rf "${CLEANROOM_DIR}" 2>/dev/null || true
 }
 trap cleanup EXIT

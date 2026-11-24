@@ -17,6 +17,7 @@ services:
       PYTHONPATH: /app/backend/src
     volumes:
       - .:/app
+      - ${QA_UV_CACHE_DIR:-example-uv-cache}:/tmp/uv-cache
 
   pnpm-store-init:
     image: sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60
@@ -54,6 +55,25 @@ services:
       - .:/app
       - example-pnpm-store:/pnpm
 
+  karate-ui:
+    image: sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89
+    profiles:
+      - e2e
+    mem_limit: 2g
+    working_dir: /app/frontend
+    user: "${QA_UID:-1000}:${QA_GID:-1000}"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      HOME: /tmp
+    volumes:
+      - .:/app:ro
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev
+
 volumes:
+  example-uv-cache:
   example-pnpm-store:
     name: mcp_example_pnpm_store

@@ -924,23 +924,33 @@ function splitContentLines(content: string): string[] {
   return content.replace(/\r?\n$/, '').split(/\r?\n/);
 }
 
-function checkSessionCheckpointGovernance(projectPath: string, activeTaskPath: string): string[] {
-  const ckptPath = resolveWithParentFallback(projectPath, '.agents', '.cache', 'session_checkpoint.json');
-  if (!fs.existsSync(ckptPath)) {
-    return [];
-  }
-  const blockers: string[] = [];
+function parseSessionCheckpointDoc(
+  ckptPath: string
+): { readonly ok: true; readonly doc: Record<string, unknown> } | { readonly ok: false; readonly err: string } {
   let rawParsed: unknown;
   try {
     rawParsed = JSON.parse(fs.readFileSync(ckptPath, 'utf8'));
   } catch (err: unknown) {
     reportDebugCatchError('certifyGate.checkSessionCheckpointGovernance', err);
-    return ['.agents/.cache/session_checkpoint.json contiene JSON corrupto o ilegible.'];
+    return { ok: false, err: '.agents/.cache/session_checkpoint.json contiene JSON corrupto o ilegible.' };
   }
   if (!rawParsed || typeof rawParsed !== 'object' || Array.isArray(rawParsed)) {
-    return ['.agents/.cache/session_checkpoint.json debe contener un objeto JSON en la raíz.'];
+    return { ok: false, err: '.agents/.cache/session_checkpoint.json debe contener un objeto JSON en la raíz.' };
   }
-  const parsed = rawParsed as Record<string, unknown>;
+  return { ok: true, doc: rawParsed as Record<string, unknown> };
+}
+
+function checkSessionCheckpointGovernance(projectPath: string, activeTaskPath: string): string[] {
+  const ckptPath = resolveWithParentFallback(projectPath, '.agents', '.cache', 'session_checkpoint.json');
+  if (!fs.existsSync(ckptPath)) {
+    return [];
+  }
+  const parsedRes = parseSessionCheckpointDoc(ckptPath);
+  if (!parsedRes.ok) {
+    return [parsedRes.err];
+  }
+  const parsed = parsedRes.doc;
+  const blockers: string[] = [];
   if (!isValidCheckpointStatus(parsed.status)) {
     blockers.push('.agents/.cache/session_checkpoint.json tiene un status inválido o no textual.');
   }
@@ -1046,6 +1056,17 @@ function resolveGraphNodeFiles(nodes: readonly RawGraphNode[]): Map<string, stri
   return nodeFileMap;
 }
 
+function isSameFileCallEdge(
+  link: RawGraphLink,
+  src: string,
+  tgt: string,
+  nodeFileMap: ReadonlyMap<string, string>
+): boolean {
+  const srcFile = (link.source_file ?? nodeFileMap.get(src) ?? '').replace(/\\/g, '/');
+  const tgtFile = (nodeFileMap.get(tgt) ?? '').replace(/\\/g, '/');
+  return Boolean(srcFile && srcFile === tgtFile);
+}
+
 function collectDependencyAdjacency(
   links: readonly RawGraphLink[],
   nodeFileMap: ReadonlyMap<string, string>
@@ -1058,10 +1079,8 @@ function collectDependencyAdjacency(
     if (!src || !tgt || src === tgt || STRUCTURAL_RELATIONS.has(rel)) {
       continue;
     }
-    if (rel === 'calls') {
-      const srcFile = (link.source_file ?? nodeFileMap.get(src) ?? '').replace(/\\/g, '/');
-      const tgtFile = (nodeFileMap.get(tgt) ?? '').replace(/\\/g, '/');
-      if (srcFile && srcFile === tgtFile) continue;
+    if (rel === 'calls' && isSameFileCallEdge(link, src, tgt, nodeFileMap)) {
+      continue;
     }
     let set = rawAdj.get(src);
     if (!set) {
@@ -1436,6 +1455,31 @@ const ALL_GATE_CHECK_KEYS = [
   'documentation_synced',
 ] as const;
 
+async function buildMissingDirCertifyResult(
+  resolvedPath: string,
+  options?: CertifyGateOptions
+): Promise<CertifyGateResult> {
+  const skippedStatuses = Object.fromEntries(
+    ALL_GATE_CHECK_KEYS.map((key) => [key, GATE_STATUS_SKIPPED])
+  ) as Record<string, GateCheckStatus>;
+  const updateAvailable = await evaluateUpdateStatus({
+    projectPath: resolvedPath,
+    signal: options?.signal,
+    ...options?.updateOptions,
+  });
+  return {
+    gate_passed: false,
+    project_path: resolvedPath,
+    checks: mapCheckStatusesToBooleans(skippedStatuses),
+    check_statuses: skippedStatuses,
+    skipped_checks: [...ALL_GATE_CHECK_KEYS],
+    blockers: [`La ruta del proyecto no existe o no es un directorio: ${resolvedPath}`],
+    upstream_evolution_reminder:
+      'MANDATORY POST-MORTEM CHECK: If this fixed a UAT/prod bug that bypassed tests, present "💡 Oportunidad de Mejora Detectada para el Estándar QA 11X" in the user prompt language and invoke propose_skill_evolution_pr.',
+    update_available: updateAvailable,
+  };
+}
+
 export async function certify11xGate(
   projectPath: string,
   options?: CertifyGateOptions
@@ -1448,25 +1492,7 @@ export async function certify11xGate(
 
   const isExistingDir = fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isDirectory();
   if (!isExistingDir) {
-    const skippedStatuses = Object.fromEntries(
-      ALL_GATE_CHECK_KEYS.map((key) => [key, GATE_STATUS_SKIPPED])
-    ) as Record<string, GateCheckStatus>;
-    const updateAvailable = await evaluateUpdateStatus({
-      projectPath: resolvedPath,
-      signal,
-      ...options?.updateOptions,
-    });
-    return {
-      gate_passed: false,
-      project_path: resolvedPath,
-      checks: mapCheckStatusesToBooleans(skippedStatuses),
-      check_statuses: skippedStatuses,
-      skipped_checks: [...ALL_GATE_CHECK_KEYS],
-      blockers: [`La ruta del proyecto no existe o no es un directorio: ${resolvedPath}`],
-      upstream_evolution_reminder:
-        'MANDATORY POST-MORTEM CHECK: If this fixed a UAT/prod bug that bypassed tests, present "💡 Oportunidad de Mejora Detectada para el Estándar QA 11X" in the user prompt language and invoke propose_skill_evolution_pr.',
-      update_available: updateAvailable,
-    };
+    return buildMissingDirCertifyResult(resolvedPath, options);
   }
 
   const unmerged = checkUnmergedExamples(resolvedPath, options?.allowUnmergedExamples);

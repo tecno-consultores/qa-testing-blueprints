@@ -219,6 +219,7 @@ runs:
         if [ -f ".agents/scripts/select_tests_by_blast_radius.py" ] || [ -f ".agents/scripts/inspect_blast_radius.py" ]; then
           if [ "${CACHE_HIT:-false}" != "true" ] || [ ! -s "graphify-out/graph.json" ]; then
             if ! docker run --rm --network none \
+              --security-opt=no-new-privileges:true \
               -u "$(id -u):$(id -g)" \
               -e HOME=/tmp \
               -e OLLAMA_BASE_URL="" \
@@ -255,6 +256,7 @@ runs:
             SELECT_ARGS+=(--base-ref "HEAD~1")
           fi
           docker run --rm --network none \
+            --security-opt=no-new-privileges:true \
             -u "$(id -u):$(id -g)" \
             -e HOME=/tmp \
             -e PYTHONDONTWRITEBYTECODE=1 \
@@ -275,6 +277,7 @@ runs:
           FIRST_CHANGED="$(head -n 1 "${CHANGED_FILE}")"
           INSPECT_RC=0
           docker run --rm --network none \
+            --security-opt=no-new-privileges:true \
             -u "$(id -u):$(id -g)" \
             -e HOME=/tmp \
             -e PYTHONDONTWRITEBYTECODE=1 \
@@ -329,6 +332,8 @@ runs:
 
         GATE_TMP_DIR="$(mktemp -d "${RUNNER_TEMP:-/tmp}/qa-11x-ci.XXXXXX")"
         chmod 0700 "${GATE_TMP_DIR}"
+        NPM_CACHE_DIR="${GATE_TMP_DIR}/npm-cache"
+        mkdir -p "${NPM_CACHE_DIR}"
         SKIPPED_GATES=0
         FINAL_VERDICT=""
         CERTIFY_LOG=""
@@ -383,6 +388,7 @@ runs:
 
         if [ -f ".qa-11x.json" ]; then
           docker run --rm --network none \
+            --security-opt=no-new-privileges:true \
             -u "$(id -u):$(id -g)" \
             -e HOME=/tmp \
             -e PYTHONDONTWRITEBYTECODE=1 \
@@ -396,6 +402,7 @@ runs:
           ./scripts/verificar-secretos.sh
         else
           docker run --rm --network none \
+            --security-opt=no-new-privileges:true \
             -u "$(id -u):$(id -g)" \
             -e HOME=/tmp \
             -e PYTHONDONTWRITEBYTECODE=1 \
@@ -428,6 +435,7 @@ runs:
           if [ "${BLAST_PLAN_TIER:-pr-targeted}" != "docs-only" ]; then
             if [ -f ".agents/scripts/lint_test_antipatterns.py" ]; then
               ANTI_OUT="$(docker run --rm --network none \
+                --security-opt=no-new-privileges:true \
                 -u "$(id -u):$(id -g)" \
                 -e HOME=/tmp \
                 -e PYTHONDONTWRITEBYTECODE=1 \
@@ -458,10 +466,10 @@ runs:
               if [ "${AUDIT_RC}" -ne 0 ]; then
                 exit "${AUDIT_RC}"
               fi
-            elif command -v docker >/dev/null 2>&1 && docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.5.0 audit --help >/dev/null 2>&1; then
+            elif command -v docker >/dev/null 2>&1 && docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "${NPM_CACHE_DIR}:/tmp/.npm" -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.5.0 audit --help >/dev/null 2>&1; then
               mkdir -p .agents/artifacts
               AUDIT_RC=0
-              docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -e QA_OUTPUT_LANG="${INPUT_LANG}" -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.5.0 audit --mode security --sarif > .agents/artifacts/qa-11x-audit.sarif || AUDIT_RC=$?
+              docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -e QA_OUTPUT_LANG="${INPUT_LANG}" -v "${NPM_CACHE_DIR}:/tmp/.npm" -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.5.0 audit --mode security --sarif > .agents/artifacts/qa-11x-audit.sarif || AUDIT_RC=$?
               if [ -s ".agents/artifacts/qa-11x-audit.sarif" ]; then
                 SARIF_PATH=".agents/artifacts/qa-11x-audit.sarif"
               fi
@@ -479,6 +487,7 @@ runs:
             elif [ -f "package.json" ] && grep -q '"lint"' package.json; then
               LINT_RC=0
               docker run --rm --network none \
+                --security-opt=no-new-privileges:true \
                 -u "$(id -u):$(id -g)" \
                 -e HOME=/tmp \
                 -v "$(pwd):/app" \
@@ -498,6 +507,7 @@ runs:
             echo "ℹ️ [FAST-PATH] Code gates omitted for docs-only blast plan."
             if [ -f ".agents/scripts/sync_governance.py" ] && [ -f "manifest.json" ]; then
               docker run --rm --network none \
+                --security-opt=no-new-privileges:true \
                 -u "$(id -u):$(id -g)" \
                 -e HOME=/tmp \
                 -e PYTHONDONTWRITEBYTECODE=1 \
@@ -508,6 +518,7 @@ runs:
             fi
             if [ -f ".agents/scripts/verify_docs_invariants.py" ]; then
               docker run --rm --network none \
+                --security-opt=no-new-privileges:true \
                 -u "$(id -u):$(id -g)" \
                 -e HOME=/tmp \
                 -e PYTHONDONTWRITEBYTECODE=1 \
@@ -534,14 +545,16 @@ runs:
             ./.agents/scripts/certify_task_completion.sh 2>&1 | tee "${CERTIFY_LOG}"
           elif [ -f "mcp-server/dist/index.js" ]; then
             docker run --rm --network none \
+              --security-opt=no-new-privileges:true \
               -u "$(id -u):$(id -g)" \
               -e HOME=/tmp \
+              -e QA_OUTPUT_LANG="${INPUT_LANG}" \
               -v "$(pwd):/app:ro" \
               -w /app \
               "${INPUT_NODE_IMAGE}" \
               node mcp-server/dist/index.js certify --offline 2>&1 | tee "${CERTIFY_LOG}"
-          elif command -v docker >/dev/null 2>&1 && docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.5.0 certify --help >/dev/null 2>&1; then
-            docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.5.0 certify --offline 2>&1 | tee "${CERTIFY_LOG}"
+          elif command -v docker >/dev/null 2>&1 && docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "${NPM_CACHE_DIR}:/tmp/.npm" -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.5.0 certify --help >/dev/null 2>&1; then
+            docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -e QA_OUTPUT_LANG="${INPUT_LANG}" -v "${NPM_CACHE_DIR}:/tmp/.npm" -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.5.0 certify --offline 2>&1 | tee "${CERTIFY_LOG}"
           else
             echo "⚠️ [SKIPPED] certify_11x_gate unavailable in workspace" | tee "${CERTIFY_LOG}"
             SKIPPED_GATES=$((SKIPPED_GATES + 1))

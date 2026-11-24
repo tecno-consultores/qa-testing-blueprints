@@ -3,115 +3,33 @@
 
 # Mandatory Directive: Security-by-Design & Multi-Layer Testing Guidelines
 
-> **CORE GOVERNANCE DIRECTIVE:**
-> Applies to all AI agents and developers. Any code failing security or testing guidelines must be immediately rejected and refactored.
-> **OUTPUT LANGUAGE & DYNAMIC MIRRORING (Spec 19):** Respond in the **user's prompt language** (unless `AGENTS.md` explicitly pins `--lang es|en`); human docs use EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) here (matching `README.md`/`CHANGELOG.md` in consumer repos), while `.agents/**` remains concise English.
+> **SCOPE:** Non-negotiable DISA ASD STIG V6R5 & OWASP v4.2 baseline for all agents and developers. Deep DDL/code templates live in `.agents/skills/qa-11x-architect/references/02-security-disa-owasp-22.md` and `.agents/skills/qa-11x-devsecops-hardener/references/stig_rls_vault.md`.
 
----
+## 1. Anti-Mock Blindness, DB Parity & Visual Geometry
 
-## 1. Multi-Layer Testing & Anti-Mock Blindness
+1. **ORM vs DB Parity & `AsyncSession` Safety:**
+   - Every ORM model/column/constraint change requires a versioned migration (`revision <= 32` chars for `alembic_version`) validated against a real DB container.
+   - SQLAlchemy 2.0 `AsyncSession`: never read expired ORM attributes after `commit()`/`rollback()` without `await db.refresh(model)` or capturing primitives beforehand.
+   - `MockDbSession` parity: populate `Numeric(p, s)` fixtures with `decimal.Decimal` (never `float`) and validate `JSON`/`JSONB` columns via `json.dumps()` without `default=str`.
+2. **Anti-JSDOM Layout & Multi-Viewport Ergonomics:** JSDOM returns `0x0` bounding boxes. Enforce in-flow layouts (`margin-top: auto`), semantic landmarks (`<footer>` outside `<main>`), and zero horizontal overflow (`scrollWidth <= innerWidth`) across `375x667`, `768x1024`, and `1440x900` in real Playwright/Karate UI browsers.
+3. **Fresh `Idempotency-Key` per Mutation:** Never reuse a static `Idempotency-Key` across sequential mutations against KeyDB/Redis. In Karate BDD, inject `And header Idempotency-Key = java.util.UUID.randomUUID() + ''` unless explicitly testing missing-header `400` or same-scenario replay/`409` conflict.
 
-Unit test isolation using mocks measures quick code execution paths, but introduces severe blind spots if disconnected from reality:
+## 2. Security-by-Design Controls (DISA ASD STIG V6R5 & OWASP v4.2)
 
-1. **ORM vs Database Schema Invariant & AsyncSession Safety:**
-   - **Zero Schema Drift:** Modifying ORM models never alters the database automatically.
-   - **Mandatory Migrations:** Any new model, table, constraint, or column type change requires an immediate versioned migration script with `revision` ID `<= 32` characters (`VARCHAR(32)` limit in `alembic_version`).
-   - **Real Database Engine Verification:** Always verify tables, column types, and indices in a real database container (e.g. PostgreSQL). Never assume passing mocks guarantee SQL syntax execution.
-   - **SQLAlchemy 2.0 `AsyncSession` `MissingGreenlet` Prevention:** After `await db.commit()` or `await db.rollback()`, ORM attributes expire by default. Never access ORM model attributes (`model.id`, `model.email`) after commit/rollback without `await db.refresh(model)` or capturing primitive variables beforehand.
-   - **SQLAlchemy `JSON`/`JSONB` Serialization & `Numeric(p, s)` `Decimal` Parity in `MockDbSession`:** In unit tests using mock database sessions (`MockDbSession`), `add()` / `flush()` / `commit()` MUST validate all SQLAlchemy `JSON`/`JSONB` columns (such as `AuditLog.before_state` and `AuditLog.after_state`) by passing them through `json.dumps()` **without `default=str`** (matching the default PostgreSQL `asyncpg` dialect serializer), and ORM `Numeric(p, s)` attributes MUST be populated in fixtures with `decimal.Decimal` instances (never `float`) so `TypeError: Object of type Decimal is not JSON serializable` (as well as raw `UUID` or `datetime` serialization failures) are caught in unit tests before reaching production.
-2. **Visual Geometry, Multi-Viewport Ergonomics & Anti-JSDOM Testing:**
-   - JSDOM does NOT calculate CSS Flexbox/Grid layouts, element coordinates, or viewport bounding boxes (always returns `0x0`).
-   - Prevent overlapping elements (e.g. fixed footers collapsing over forms, modals hidden behind navbars) by enforcing in-flow layouts (`margin-top: auto` inside `<main>`), validating DOM hierarchy, and inspecting real browser viewports (`375x667` mobile, `768x1024` tablet, `1440x900` desktop) with zero horizontal scroll (`scrollWidth <= innerWidth`) in Karate UI or Playwright.
-3. **Trimodal Ground-Truth Fixtures, 3-Phase Temporal Lifecycle, Cross-Module Propagation & Sequential Idempotency:**
-   - When integrating external APIs or hardware, test against 3 raw fixtures:
-     - **Fixture A (Virgin / Unconfigured):** Must assert negative invariant (`active=False`, `status="NOT_CONFIGURED"`).
-     - **Fixture B (Nominal Configured):** Must assert positive invariant (`active=True`, nominal telemetry).
-     - **Fixture C (Degraded / Unsupported):** Must assert graceful degradation without unhandled 500 errors.
-   - **Cross-Module State Propagation (Zero Intermediate Silo Mocks):** Mutations in Module A (`POST`/`PUT`/`PATCH`/`DELETE`) must be verified by querying Consumer Module B `GET` endpoints and stores against the real test database without intermediate mocks.
-   - **3-Phase Temporal Lifecycle Assertion:** Time-bounded entities (`starts_at`/`ends_at`, 60s Safe Mode rollback, 30s Step-Up tokens, leases) must be tested across Phase 1 (`t < starts_at`, `Programada`), Phase 2 (`starts_at <= t <= ends_at`, `En Curso` / `Activa` with live scheduler), and Phase 3 (`t > ends_at` or Cancelled, nominal state restored).
-   - **Fresh `Idempotency-Key` per Mutation in Tests & Dynamic UUID in Karate Labs BDD:** Never reuse a static `Idempotency-Key` UUID across distinct sequential `POST`/`PUT`/`PATCH`/`DELETE` test steps against real KeyDB/Redis, as the idempotency cache will replay the first response or fail with `409 Conflict` / `422` and mask subsequent assertions. In Karate Labs BDD (`api_test.feature`), every mutable request (`POST`, `PUT`, `PATCH`, `DELETE`) against endpoints enforcing `IdempotencyMiddleware` MUST inject `And header Idempotency-Key = java.util.UUID.randomUUID() + ''` (with only two exceptions: (a) scenarios explicitly asserting `400 Bad Request` when the header is omitted, or (b) scenarios storing a local `* def idemKey = java.util.UUID.randomUUID() + ''` to test idempotent replay or `409` payload mismatch within the same scenario).
-
----
-
-## 2. Security-by-Design Directives
-
-Apply these non-negotiable security directives before writing any code:
-
-1. **Multi-Tenant Isolation & Row-Level Security (RLS Multi-Transaction Persistence):**
-   - Every multi-tenant table MUST include a tenant foreign key (`tenant_id UUID NOT NULL`).
-   - Database migrations MUST enforce RLS policies: `ENABLE ROW LEVEL SECURITY;` and `FORCE ROW LEVEL SECURITY;` (audited in PostgreSQL 15–17+ via `pg_catalog.pg_class.relforcerowsecurity` joined with `pg_catalog.pg_namespace`, NEVER nonexistent `pg_tables.forcerowsecurity`, `QA-PG17-RLS`). Never connect the application using a PostgreSQL superuser or a role with `BYPASSRLS`; provision a dedicated role with `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS`.
-   - Because `SET LOCAL app.current_tenant_id` expires at the first `await db.commit()`, store `(tenant_id, is_superadmin)` in `session.sync_session.info` and register an `@event.listens_for(AsyncSession.sync_session_class, "after_begin")` listener that automatically re-executes `SET LOCAL` whenever a subsequent transaction begins on the same session (e.g. writing an audit log after committing an entity).
-   - Use scoped `SECURITY DEFINER` SQL functions (`SET search_path = public`) for pre-authentication lookups (e.g. tenant `slug` resolution at login or bootstrap status count) instead of weakening RLS `USING` policies.
-2. **Strict SSRF Prevention:**
-   - Any user-supplied URL or host IP must pass strict validation (trimming trailing dots, rejecting embedded credentials, resolving DNS first, banning redirects without re-validation, and pinning resolved IPs on outbound transports against DNS rebinding TOCTOU).
-   - Reject any non-public address (`not ip.is_global or ip.is_multicast or ip.is_unspecified`, unwrapping `ip.ipv4_mapped`), blocking loopback (`127.0.0.0/8`, `::1`, `localhost`), RFC 1918 private ranges, RFC 6598 CGNAT (`100.64.0.0/10`), link-local (`169.254.0.0/16`, `fe80::/10`), multicast, and internal container hostnames (`*-db`, `*-redis`, `*-api`).
-3. **Zero Plaintext Secrets & Cryptographic Vault:**
-   - Passwords and private API keys must NEVER be stored in plaintext. Encrypt sensitive fields with AES-256-GCM.
-   - User credentials must use Argon2id. Symmetric keys must be ephemeral or securely bound to master vault keys.
-4. **Idempotency for Mutating Operations:**
-   - All state-mutating requests (`POST`, `PUT`, `PATCH`, `DELETE`) should support or require an `Idempotency-Key` header, managed via in-memory cache (KeyDB / Redis) with composite namespacing (`idemp:{tenant_id}:{user_id}:{key}`).
-5. **CSRF & Hardened Session Cookies:**
-   - Session cookies: `HttpOnly; Secure; SameSite=Strict; Path=/`.
-   - Mutation requests from browsers require CSRF token validation (`X-CSRF-Token` HMAC-SHA256). Exclude M2M calls utilizing `Authorization: Bearer` headers per OWASP guidelines.
-6. **Mass Assignment Prevention:**
-   - Enforce `model_config = ConfigDict(extra="forbid")` in all input Pydantic models. Strictly decouple input DTOs from ORM models.
-7. **Cross-Site WebSocket Hijacking (CSWSH) Defense:**
-   - Verify `Origin` header before executing `await ws.accept()`. Close with code `4403` on unlisted origins.
-8. **Information Disclosure Prevention:**
-   - Sanitize 422 `RequestValidationError` responses in production (`APP_ENV=production`) returning generic messages while logging details to container stdout.
-   - Hide Swagger / ReDoc / OpenAPI schemas in production (`docs_url=None`, `redoc_url=None`, `openapi_url=None`).
-9. **Front-End XSS & Prototype Pollution Defense:**
-   - Compulsory HTML escaping (`escapeHtml`) on dynamic DOM inputs.
-   - Sanitize objects against `__proto__`, `constructor`, `prototype`, and instantiate safe records via `Object.create(null)`.
-10. **Concurrency Grace Period in Refresh Tokens:**
-    - Provide 5s leeway on token family rotations to prevent accidental session revocation across multi-tab requests.
-11. **Shift-Left Lockfile & CycloneDX SBOM Governance:**
-    - Manage dependencies with strict lockfiles (`uv.lock`, `pnpm-lock.yaml`). Upgrade transitive CVEs via selective package commands (`uv lock --upgrade-package`, `pnpm update`).
-    - Generate CycloneDX Software & Cryptography Bills of Materials (SBOM/CBOM, ECMA-424) and cryptographically verify/sign artifacts before release (`APSC-DV-001430`, `APSC-DV-003140`, `OWASP 4.3.3 SFL`).
-12. **Session Concurrency, Role-Tiered Timeouts & Logoff Purge (DISA STIG & OWASP 4.3.7):**
-    - Enforce maximum concurrent session limits per user (`APSC-DV-000010`) and alert on concurrent logons from distinct workstations/IPs (`APSC-DV-003360`).
-    - Terminate idle sessions after **15 minutes** for standard users (`APSC-DV-000070`) and **10 minutes** for privileged/admin users (`APSC-DV-000080`), plus absolute session lifetime limits (`OWASP SM-8, SM-21`).
-    - Regenerate session IDs via FIPS 140-3 CSPRNG upon authentication, privilege elevation, or TLS transition (`APSC-DV-002250..002290`). Never recycle session IDs.
-    - Purge all client storage (`localStorage`, `sessionStorage`, `CacheStorage`, `IndexedDB`, in-memory state) and cookies on logoff (`APSC-DV-000060`, `APSC-DV-002240`), display explicit logoff confirmation (`APSC-DV-000100`), and revoke all active sessions immediately when an account is disabled, deleted, or changes credentials (`APSC-DV-001800`).
-13. **Account Lockout, Constant-Time Auth & Account Lifecycle (DISA STIG & OWASP 4.3.7):**
-    - Lock accounts after **3 consecutive invalid logon attempts within 15 minutes** (`APSC-DV-000530`) and enforce constant-time credential verification (dummy Argon2id hash verify on unknown users) to prevent user enumeration (`OWASP A-19, A-20`).
-    - When local passwords are used: require >= 15 chars (`APSC-DV-001680`), multi-class complexity, 8-char diff on change (`APSC-DV-001730`), 5-generation history (`APSC-DV-001780`), and zero security questions (`OWASP P-6`).
-    - Auto-disable temporary accounts after **72 hours** (`APSC-DV-000300`) and inactive accounts after **35 days** (`APSC-DV-000320`). Display last successful/failed logon timestamp upon login (`APSC-DV-000580`). Require Step-Up re-authentication before sensitive operations (`APSC-DV-001470`) and mTLS/PKI path validation (`CRL`/`OCSP` cache) for service-to-service calls (`APSC-DV-001640`, `APSC-DV-001850`).
-14. **Input Canonicalization, XML/XXE, Safe Deserialization & File Magic-Bytes (DISA STIG & OWASP 4.3.5, 4.3.6):**
-    - Normalize UTF-8 inputs (`NFKC` via Python `unicodedata.normalize("NFKC", ...)` or PHP `\Normalizer::normalize(..., \Normalizer::FORM_KC)`) before validation (`APSC-DV-002520`, `OWASP CEC-5`) and strip/reject ASCII control characters in headers.
-    - Disable XML DTDs and external entities (`resolve_entities=False`, `no_network=True`, `defusedxml`, or PHP `LIBXML_NONET`) (`APSC-DV-002390`, `APSC-DV-002550`). Enforce signature, timestamp, and `OneTimeUse` validation on SAML/WS-Security assertions (`APSC-DV-000160..000270`).
-    - Prohibit unsafe deserializers (`pickle`, `yaml.load`, PHP `unserialize` without `['allowed_classes' => false]`, `eval`) and direct OS shell execution (`shell=True`, `os.system`, PHP `shell_exec`/`exec`/`passthru`/`system`) (`APSC-DV-002510`, `OWASP VSD 1-6`).
-    - Validate uploaded files via magic-byte signatures (`finfo_file` / `FILEINFO_MIME_TYPE` in PHP), store outside web root with `noexec`, and reference files via allowlisted index maps rather than raw paths (`APSC-DV-002485`, `APSC-DV-002960`, `OWASP FV 1-9`).
-15. **Tamper-Proof Security Logging, Log Injection Defense, 75% Storage Alert & Semantic Audit Integrity (DISA STIG & OWASP 4.3.10):**
-    - Log auth, account lifecycle (`APSC-DV-000330..000430`), session lifecycle (`APSC-DV-000620..000660`), privilege changes/commands (`APSC-DV-000730..000900`), and startup/shutdown (`APSC-DV-000950`) with UTC timestamps (1s/ms granularity), source/dest IPs, user/process ID, outcome, and `trace_id`.
-    - Sanitize CR/LF (`\r`, `\n`) and HTML control chars to prevent Log Injection (`OWASP SL-4, SLD-2`), and never log plaintext passwords, tokens, session IDs, or PII (`APSC-DV-000650`).
-    - Protect audit logs with HMAC/SHA-256 chains (`APSC-DV-001350`), centralize log off-loading (`APSC-DV-001070`), and alert administrators when audit storage reaches **75% capacity** (`APSC-DV-001090`) or on audit failure (`APSC-DV-001100`). **Deterministic WORM Hash-Chain Serialization:** Never order hash-chained `audit_logs` (`prev_record_hash`) solely by `created_at DESC` (vulnerable to microsecond clock ties and concurrent race conditions); pair a monotonic `BIGINT` sequence (`seq_num DEFAULT nextval(...)`) with `SELECT pg_advisory_xact_lock(hashtext(tenant_key))`, track the latest hash in-memory on the session (`session.sync_session.info["_in_tx_audit_hashes"]`, cleared on `after_transaction_end`), and call `await session.flush()` after each `write_audit_log()` entry.
-    - **Prohibition of Blind Audit Mocks & Anti-Raw UUID Invariant:** Never replace `write_audit_log` (or equivalent audit functions) with an empty `AsyncMock` without asserting its received arguments (`assert_called_once` / `call_args`), while allowing direct unit tests of the real `write_audit_log` function that verify `record_sha256_hash` and `prev_record_hash`. Audit and UI event feed tests MUST explicitly verify that human-visible identity fields (`actor_username`, `resource_display_name`) resolve to human-readable names and **NEVER** match a raw UUID v4 (`/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i`, e.g. never pass `actor_username=claims.get("sub")` when `sub` is a UUID). UI event classifiers MUST map each category to its true semantic badge (`CAÍDA`, `MANTENIMIENTO`, `RESPALDO`, `SEGURIDAD`, `OPERACIÓN`) without generic `else` clauses assigning domain-specific badges to unrelated events.
-16. **FIPS 140-3 Crypto Agility, Memory Zeroization & DB Export Scrubbing (DISA STIG & OWASP 4.3.4, 4.3.9):**
-    - Use FIPS 140-2/140-3 validated modules with crypto-agile interfaces (`APSC-DV-002010..002040`, `OWASP CP-5`), disable TLS/HTTP compression (anti-CRIME/BREACH), zeroize secrets in memory at function exit (`APSC-DV-002590`, `OWASP MM 1-9`), and scrub credentials/PII from database exports (`APSC-DV-003310`).
-17. **HTTP Security Headers (OSHP), Fail-Secure State & Threat Modeling as Code (DISA STIG & OWASP 4.2, 5.4.4, 7.8):**
-    - Enforce `Strict-Transport-Security`, `Content-Security-Policy`, `Referrer-Policy`, `Cache-Control: no-store` on sensitive endpoints, and suppress server/framework version banners (`OWASP SC 8-11`, `OSHP`).
-    - Fail to a secure state (deny by default) on startup/abort/config failure (`APSC-DV-002310`, `OWASP AC-10`), verify security function integrity on startup/every 30 days (`APSC-DV-002770`), mitigate OWASP API Security Top 10 (2023) (`BOLA`, `BOPLA`, `BFLA`, anti-data-mining `APSC-DV-000450`), and maintain programmatic Threat Models (`pytm` / `Threat Dragon`, `APSC-DV-003230`).
-    - **Service-Layer RBAC Defense (Anti-`Depends()` Bypass) & MCP Approval Gate (`OWASP API5:2023 BFLA`, `APSC-DV-000460`):** In FastAPI, `Depends(require_roles(...))` decorators only execute when invoked through the HTTP router. If an internal JSON-RPC/MCP dispatcher, background worker, or WebSocket handler invokes a controller or service function directly in Python, `Depends()` is bypassed. Never rely exclusively on HTTP router `Depends()` for authorization on mutating operations: explicitly validate `claims["role"]` at the beginning of the service function, route mutating MCP tools through an explicit approval workflow (`ApprovalRequest` with `AWAITING_APPROVAL` status), and test direct service/MCP invocations with unprivileged roles to certify `403` / `PermissionError` rejection.
-18. **Multi-Step Pre-Auth & Ephemeral Challenge Continuity Hardening (`SEC-16`, `APSC-DV-000530`, `APSC-DV-002270`, `OWASP ASVS V2.8`):**
-    - Multi-step unauthenticated challenge ceremonies (`mfa_enrollment_required`, `mfa_challenge`, `password_change_required`, WebAuthn) MUST issue opaque CSPRNG `challenge_id` tokens (`>= 128-bit`, e.g. `secrets.token_urlsafe(32)`) strictly in JSON bodies or custom headers (never URL query strings) and validate `Origin` / `Sec-Fetch-Site` on pre-auth `POST` endpoints.
-    - Enforce atomic single-use consumption in KeyDB/Redis (`GETDEL` or Lua script) or composite `idemp:preauth:{challenge_id}:{key}` scoping, strict `TTL <= 300s` (5m), and immediate challenge purge upon reaching `3–5` invalid verification attempts (`APSC-DV-000530`), sharing an explicit `PREAUTH_PUBLIC_ROUTES` allowlist symmetrically across backend `CSRF`/`Idempotency` middlewares and frontend `401` interceptors.
-19. **Non-Root Ephemeral Container UID & Bind-Mount Alignment (`QA-COV-01` & Node `UID 10001`):**
-    - In Python ephemeral containers, inject `-e COVERAGE_FILE=/tmp/.coverage` and `-e UV_CACHE_DIR=/tmp/uv-cache` with `-u "$(id -u):$(id -g)"` so non-root runners (`UID 1001` on GitHub Actions / `UID 1000` locally) never hit SQLite/cache permission errors.
-    - In Node.js/Frontend ephemeral containers (`sinfallas/base-node-ionic:26`, hardened to default `uid=10001`), ALWAYS pass `-u "$(id -u):$(id -g)"` (and `user: "${QA_UID:-1000}:${QA_GID:-1000}"`), set `HOME: /tmp` + `pnpm_config_store_dir: /pnpm/store` (`pnpm` v12+ ignores `npm_config_*`), and initialize named `pnpm-store:/pnpm` volumes via a `pnpm-store-init` one-shot container (`chmod -R a+rwX /pnpm` unlocking pre-seeded `/pnpm/store/v11/files/*`) so neither `node_modules/.pnpm` on the host bind mount nor `/pnpm/store` fails with `ERR_PNPM_PACKAGE_MANAGER_CREATE_SLOT_DIR` (`Permission denied, os error 13`) or falls back to polluting `/app/.pnpm-store`.
-
----
+1. **Multi-Tenant PostgreSQL 15–17+ RLS (`QA-PG17-RLS`):** Every tenant table requires `tenant_id UUID NOT NULL`, `ENABLE ROW LEVEL SECURITY`, and `FORCE ROW LEVEL SECURITY` (audited via `pg_catalog.pg_class.relforcerowsecurity`, NEVER nonexistent `pg_tables.forcerowsecurity`). Connect exclusively as a `NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS` role. Persist `(tenant_id, is_superadmin)` in `session.sync_session.info` with an `after_begin` listener re-applying `SET LOCAL` across commits. Use `SECURITY DEFINER` functions (`SET search_path = public`) for pre-auth lookups.
+2. **Strict Anti-SSRF:** Trim trailing dots, reject embedded credentials, resolve DNS first, ban unvalidated redirects, pin resolved IPs against DNS rebinding TOCTOU, and block non-public IPs (`not ip.is_global or ip.is_multicast or ip.is_unspecified`, unwrapping `ip.ipv4_mapped`), loopback, RFC 1918, CGNAT (`100.64.0.0/10`), link-local (`169.254.0.0/16`, `fe80::/10`), and internal container hostnames.
+3. **Zero Plaintext Secrets, FIPS 140-3 & Memory Zeroization:** Encrypt secrets with AES-256-GCM; hash passwords with Argon2id (offloaded from async event loops); use FIPS-validated crypto-agile providers (`APSC-DV-002010..002040`, `OWASP CP-5`), disable TLS/HTTP compression, zeroize mutable secret buffers on exit (`APSC-DV-002590`), and scrub PII/secrets from DB exports (`APSC-DV-003310`).
+4. **Idempotency & CSRF/Cookies:** Namespace idempotency keys (`idemp:{tenant_id}:{user_id}:{key}`) in KeyDB/Redis. Cookies MUST set `HttpOnly; Secure; SameSite=Strict; Path=/`. Browser mutations require HMAC-SHA256 `X-CSRF-Token` (excluding `Authorization: Bearer` M2M calls).
+5. **Mass Assignment, CSWSH & Disclosure:** Enforce `ConfigDict(extra="forbid")` on input DTOs. Validate WebSocket `Origin` before `accept()` (close `4403` on mismatch). Sanitize production `422` errors (`APP_ENV=production`) and disable `/docs`, `/redoc`, `/openapi.json` in production.
+6. **XSS & Prototype Pollution:** Escape/sanitize dynamic HTML (`DOMPurify.sanitize` / `escapeHtml`). Block `__proto__`, `constructor`, `prototype`, and use `Object.create(null)` / `Object.hasOwn` / `Map`.
+7. **Session Lifecycle, Concurrency & Lockout:** Provide 5s refresh-token rotation grace; enforce max concurrent sessions (`APSC-DV-000010`) and distinct-IP alerts (`APSC-DV-003360`); idle timeouts **15m standard** (`APSC-DV-000070`) / **10m admin** (`APSC-DV-000080`) + absolute lifetime (`OWASP SM-8, SM-21`); CSPRNG session ID regeneration (`APSC-DV-002250..002290`); full client storage/cookie purge & confirmation on logoff (`APSC-DV-000060, 000100, 002240`); immediate revocation on disable/credential change (`APSC-DV-001800`). Lock after **3 invalid logons in 15m** (`APSC-DV-000530`) with constant-time dummy Argon2id verification (`OWASP A-19, A-20`), `>= 15`-char passwords (`APSC-DV-001680`), 8-char diff (`APSC-DV-001730`), 5-gen history (`APSC-DV-001780`), 72h temp / 35d inactive auto-disable (`APSC-DV-000300, 000320`), last-logon display (`APSC-DV-000580`), Step-Up re-auth (`APSC-DV-001470`), and mTLS/CRL/OCSP (`APSC-DV-001640, 001850`).
+8. **Input Canonicalization, Anti-XXE, Deserialization & Uploads:** Normalize UTF-8 (`NFKC`, `APSC-DV-002520`, `OWASP CEC-5`); strip ASCII control chars; disable XML DTD/external entities (`defusedxml` / `LIBXML_NONET`, `APSC-DV-002390, 002550`) and enforce SAML `OneTimeUse` (`APSC-DV-000160..000270`); ban unsafe deserializers/shells (`pickle`, `yaml.load`, `eval`, `shell=True`, PHP `shell_exec`, `APSC-DV-002510`); validate uploads via magic-bytes outside web root with `noexec` (`APSC-DV-002485, 002960`).
+9. **WORM Audit Hash-Chains & Semantic Audit Integrity:** Log auth/account/session/privilege/lifecycle events with UTC timestamps, IPs, actor, outcome, and `trace_id` (`APSC-DV-000330..000950`). Strip CR/LF (`OWASP SL-4`) and never log secrets/PII (`APSC-DV-000650`). Alert at **75% storage** (`APSC-DV-001090`) or audit failure (`APSC-DV-001100`). Serialize WORM HMAC/SHA-256 chains (`APSC-DV-001350`) using monotonic `seq_num` + `pg_advisory_xact_lock(hashtext(tenant_key))` + `session.sync_session.info["_in_tx_audit_hashes"]` cleared on `after_transaction_end` + `await session.flush()`. Assert audit call arguments (no blind `AsyncMock()`), verify `actor_username`/`resource_display_name` never match raw UUID v4, and ban catch-all `else` UI event badge mappers.
+10. **Service-Layer RBAC, OSHP, SBOM & Fail-Secure:** Enforce `Strict-Transport-Security`, `Content-Security-Policy`, `Referrer-Policy`, `Cache-Control: no-store`, banner suppression (`OSHP`), deny-by-default fail-secure state (`APSC-DV-002310`), 30-day integrity checks (`APSC-DV-002770`), OWASP API Top 10 (`BOLA`/`BOPLA`/`BFLA`, `APSC-DV-000450`), Threat Models (`APSC-DV-003230`), lockfiles + CycloneDX SBOM/CBOM (`APSC-DV-001430, 003140`). Validate `claims["role"]` inside service functions (anti-`Depends()` bypass, `APSC-DV-000460`) and route mutating MCP tools through `ApprovalRequest` (`AWAITING_APPROVAL`).
+11. **Multi-Step Pre-Auth Continuity (`SEC-16`):** Issue CSPRNG `challenge_id` (`>= 128-bit`) in JSON bodies/headers only, validate `Origin`/`Sec-Fetch-Site`, consume atomically (`GETDEL`/Lua) with `TTL <= 300s` and `3–5` attempt lockout, and share `PREAUTH_PUBLIC_ROUTES` symmetrically across backend middlewares and frontend `401` interceptors.
+12. **Non-Root Docker UID & Bind-Mounts (`QA-COV-01`, Node `UID 10001`):** Pass `--security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp` everywhere. Python: `-e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache`. Node (`sinfallas/base-node-ionic:26`): `pnpm_config_store_dir=/pnpm/store` with `pnpm-store-init` volume ownership.
 
 ## 3. Pre-Commit Security Checklist
-
-Before committing code:
-- [ ] New/modified ORM models have matching migration scripts verified in real DB?
-- [ ] Inbound network handlers tolerate proxy NAT and validate against SSRF?
-- [ ] Mass assignment blocked with `extra="forbid"` and BOLA/BOPLA/BFLA checks enforced?
-- [ ] Inputs canonicalized (`NFKC`), XML external entities disabled, and logs sanitized against CR/LF injection & secret leaks?
-- [ ] Session idle/absolute timeouts, concurrency limits, and full storage purge on logoff verified?
-- [ ] Zero missing imports and type safety verified via ephemeral Docker static analysis (`make qa-lint`: `ruff check`, `mypy --strict --cache-dir=/tmp/mypy`, `vue-tsc --noEmit` / `tsc --noEmit`)?
-- [ ] Added Karate Labs API and/or UI BDD scenarios?
-- [ ] Executed secret scanning (`./scripts/verificar-secretos.sh`) with 0 leaks detected?
-- [ ] Executed IaC and dependency scan (`./scripts/auditar-infra.sh`) with 0 High/Critical findings?
-- [ ] Reviewed security guidelines in `docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`?
+- [ ] Migrations verified against real DB; zero SSRF/Mass Assignment/BOLA/BFLA/XXE/CR-LF/XSS gaps.
+- [ ] Static checks (`make qa-lint`), `./scripts/verificar-secretos.sh`, and `./scripts/auditar-infra.sh` pass with 0 High/Critical findings.
+- [ ] Reviewed `docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.md`.

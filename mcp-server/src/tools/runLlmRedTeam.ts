@@ -1010,5 +1010,6 @@ export async function handleRunLlmRedTeam(
         text: result.summary,
       },
     ],
+    structuredContent: JSON.parse(JSON.stringify(result)) as Record<string, unknown>,
   };
 }

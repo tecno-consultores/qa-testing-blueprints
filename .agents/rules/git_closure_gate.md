@@ -3,21 +3,11 @@
 
 # 🔒 Human-Confirmed Remote Push & Release Closure Gate (`QA-GIT-GATE-01`)
 
-> **CORE GOVERNANCE DIRECTIVE:**
-> Applies to all AI coding agents (Google Antigravity, Claude Code, Hermes Agent, Cursor, Windsurf, Codex) and automated workflows.
-> **OUTPUT LANGUAGE & DYNAMIC MIRRORING (Spec 19):** Respond in the **user's prompt language** (unless `AGENTS.md` explicitly pins `--lang es|en`); human docs use EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) here (matching `README.md`/`CHANGELOG.md` in consumer repos), while `.agents/**` remains concise English.
+## 1. Local Certified Commit Boundary (`QA-GIT-GATE-01`)
+1. Every verified task (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`) MUST stop at a clean, certified local `git commit` after passing `./.agents/scripts/certify_task_completion.sh`, `make lint-docs`, `make lint-workflows`, and applicable ephemeral Docker suites.
+2. Once local `git commit` succeeds and `git status -s` is clean, report the commit hash and verification telemetry without mutating any remote reference.
 
----
-
-## 1. Human-Confirmed Remote Push Gate (`QA-GIT-GATE-01`)
-1. **Local Certified Commit Boundary:** Every verified task (`DOCS_ONLY`, `MICRO_CHANGE`, or `FULL_11X`) MUST conclude at a clean, certified local `git commit` only after passing all applicable Level-11X verification gates (`./.agents/scripts/certify_task_completion.sh`, `make lint-docs`, `make lint-workflows`, and ephemeral Docker test suites).
-2. **Post-Commit Halt Invariant:** Once the local `git commit` succeeds and workspace hygiene is verified (`git status -s`), the AI agent MUST stop and report the local commit hash and verification telemetry without mutating any remote reference.
-
----
-
-## 2. Zero Blind Remote Mutation & `ApprovalRequest` Alignment
-1. **Strict Remote Prohibition:** Automatic `git push`, `git push --force`, `git push --force-with-lease`, remote branch deletion, tag pushing (`git push --tags`), or artifact/registry publishing (`npm publish`, `docker push`, `gh release create`) at task closure is **STRICTLY FORBIDDEN**.
-2. **Explicit Unlock Conditions:** Remote publication is permitted ONLY when at least one of the following holds:
-   - The human operator **explicitly authorizes** the remote push or publication in the **current active prompt** (prior-turn approvals never carry over automatically).
-   - A formal **Release Readiness Gate (`GO`)** has been explicitly approved by the human operator for the target version/tag.
-3. **Mutating Tool Governance Parity (`ApprovalRequest` `AWAITING_APPROVAL`):** Remote repositories and package registries are shared, externally visible state boundaries. Treating every remote push/publish operation as `AWAITING_APPROVAL` enforces 1:1 security parity with Service-Layer RBAC and state-mutating MCP tool execution (`DISA ASD STIG V6R5` / Zero-Trust Change Control).
+## 2. Zero Blind Remote Mutation & `ApprovalRequest` Parity
+1. **Strictly Forbidden:** Automatic `git push`, `--force`/`--force-with-lease`, remote branch deletion, tag push (`git push --tags`), or registry publishing (`npm publish`, `docker push`, `gh release create`).
+2. **Unlock Conditions:** Permitted ONLY when the human operator **explicitly authorizes** the push/publish in the **current active prompt** (prior-turn approvals never carry over) OR explicitly approves a Release Readiness Gate (`GO`) for the target tag/version.
+3. **Zero-Trust Parity:** Treating every remote push/publish as `ApprovalRequest` (`AWAITING_APPROVAL`) preserves 1:1 DISA ASD STIG V6R5 parity with Service-Layer RBAC and mutating MCP tools.

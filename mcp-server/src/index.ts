@@ -17,15 +17,25 @@ import {
   getDeclaredSurfaceCounts,
   getRegisteredServerSurface,
   getServerDispatcherRegistry,
+  getToolExecutionHints,
   wrapReadResourceDispatcher,
   type RawGenericHandler,
 } from './server.js';
 import { guardToolCallInput, type PromptGuardOptions } from './security/promptGuard.js';
 import { resolveSubcommandHelpText, runCli } from './cli.js';
-import { SUPPORTED_AGENT_IDS } from './tools/initOrAppendAgentsMd.js';
+import {
+  type HelpLang,
+  renderRootHelpText,
+  resolveCliHelpLang,
+} from './cli/commandCatalog.js';
 import { GitHubFetcher, MCP_SERVER_VERSION } from './services/github-fetcher.js';
 import { syncGlobalSkillsInBackground } from './services/version-manager.js';
-import { TaskGuardError, TaskStateGuard, type ExecuteTaskOptions } from './utils/taskStateGuard.js';
+import {
+  DEFAULT_TASK_CAPACITY,
+  TaskGuardError,
+  TaskStateGuard,
+  type ExecuteTaskOptions,
+} from './utils/taskStateGuard.js';
 import { formatFailVerboseReport } from './utils/diagnosticFormatter.js';
 
 export { getServerDispatcherRegistry, type RawGenericHandler } from './server.js';
@@ -33,7 +43,6 @@ export { getServerDispatcherRegistry, type RawGenericHandler } from './server.js
 const STDIO_MODE = 'stdio' as const;
 const STDIO_FORCED_MODE = 'stdio-forced' as const;
 const CONTENT_TYPE_TEXT = 'text' as const;
-const V2_TASK_CAPACITY = 8;
 const V2_TOOL_TIMEOUT_MS = 60_000;
 const V2_HEAVY_TRANSFER_TIMEOUT_MS = 185_000;
 const EPHEMERAL_QA_MIN_TIMEOUT_MS = 1_000;
@@ -62,12 +71,12 @@ type CoreDispatchResult =
   | { readonly handled: true; readonly outcome: CliDispatchOutcome }
   | { readonly handled: false };
 
-function dispatchSingleCoreArg(arg1: string): CoreDispatchResult {
+function dispatchSingleCoreArg(arg1: string, args: readonly string[]): CoreDispatchResult {
   if (arg1 === '--stdio') {
     return { handled: true, outcome: STDIO_FORCED_MODE };
   }
   if (isRootHelpToken(arg1)) {
-    console.log(CLI_HELP_TEXT);
+    console.log(getCliHelpText(DEFAULT_SURFACE_COUNTS, resolveCliHelpLang(args)));
     return { handled: true, outcome: 0 };
   }
   return { handled: false };
@@ -81,7 +90,7 @@ function dispatchCoreFlag(
     return { handled: true, outcome: STDIO_MODE };
   }
   if (args.length === 1) {
-    return dispatchSingleCoreArg(arg1);
+    return dispatchSingleCoreArg(arg1, args);
   }
   return { handled: false };
 }
@@ -93,7 +102,7 @@ async function tryDispatchSubcommandHelp(
   if (!isRootHelpToken(arg1) || args.length !== 2) {
     return false;
   }
-  const subHelp = await resolveSubcommandHelpText(args[1] ?? '');
+  const subHelp = await resolveSubcommandHelpText(args[1] ?? '', resolveCliHelpLang(args));
   if (subHelp === null) {
     return false;
   }
@@ -161,99 +170,11 @@ function formatSurfaceSummary(counts: McpSurfaceCounts): string {
 const DEFAULT_SURFACE_COUNTS: McpSurfaceCounts = getDeclaredSurfaceCounts();
 
 /** Formats CLI help text using declared MCP surface counts without eager server instantiation. */
-export function getCliHelpText(counts: McpSurfaceCounts = DEFAULT_SURFACE_COUNTS): string {
-  return `
-@sinfallas/mcp-qa-11x v${MCP_SERVER_VERSION} — Official MCP Server & Skill Installer for QA Testing Blueprints
-
-Usage:
-  npx -y @sinfallas/mcp-qa-11x@latest quickstart [dir] [--tier starter|standard|enterprise] [--lang en|es] [--dry-run]
-                                                     Detects stack & scaffolds QA-11X in <30s
-  npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile
-                                                     Installs skills, scripts, and AGENTS.md connector
-  npx -y @sinfallas/mcp-qa-11x@latest init-agents                                   Injects or updates QA 11X connector in AGENTS.md
-  npx -y @sinfallas/mcp-qa-11x@latest reconcile-agents                             Reconciles and deduplicates rules in .agents/
-  npx -y @sinfallas/mcp-qa-11x@latest tms-sync --mode <mode> [options]              Syncs Jira/Zephyr/Xray/GitHub Issues traceability
-  npx -y @sinfallas/mcp-qa-11x@latest doctor [dir] [--offline] [--json]            Inspects active version, npx cache, skills & Docker
-  npx -y @sinfallas/mcp-qa-11x@latest upgrade [--cache-only] [--dry-run] [--json]  Surgically cleans mcp-qa-11x caches & syncs skills
-  npx -y @sinfallas/mcp-qa-11x@latest certify [dir] [--strict] [--release-gate]    Runs 10-check 11X gate & release readiness verdict
-  npx -y @sinfallas/mcp-qa-11x@latest audit [dir] [--mode security] [--sarif]      Audits security, pyramid, vibe & CALM deterministically
-  npx -y @sinfallas/mcp-qa-11x@latest blast-radius [symbol] [--changed-since ref]  Inspects AST impact radius & proportional PR routing
-  npx -y @sinfallas/mcp-qa-11x@latest mcp-config --client <id> [--install]         Prints or merges IDE/CLI mcpServers config safely
-  npx -y @sinfallas/mcp-qa-11x@latest completion <fish|bash|zsh>                    Emits native shell autocompletion script
-  npx -y @sinfallas/mcp-qa-11x@latest [--stdio]                                     Starts the MCP server over stdio (${formatSurfaceSummary(counts)})
-  npx -y @sinfallas/mcp-qa-11x@latest --version [--verbose|--json]                 Displays active package version (or offline diagnostics)
-  npx -y @sinfallas/mcp-qa-11x@latest --help                                        Displays this help message
-
-Options for quickstart:
-  --tier, -T <level>       starter (default) | standard | enterprise
-  --lang, -l <mode>        auto (default) | en | es
-  --agents, -a <target>    auto | all | CSV (${SUPPORTED_AGENT_IDS.length} supported agents)
-  --ci <provider>          github (default) | none
-  --dry-run                Simulates quickstart without modifying files
-  --force                  Overwrites customized CI/task files
-  --json                   Emits machine-readable JSON output
-
-Options for install-skill (alias: install):
-  --target, -t <env>       auto (default) | workspace | antigravity | claude | cursor | windsurf | codex | hermes | all
-  --project-path, -p <dir> Target project directory path (default: cwd)
-  --lang, -l <mode>        auto (default) | es | en — output language policy injected into AGENTS.md
-  --agents, -a <target>    Optional Thin-Repo bridges (auto | all | CSV)
-  --include-scripts        Installs operational scripts and common files into the current workspace
-  --init-agents            Injects or updates the QA 11X connector block into AGENTS.md
-  --reconcile              Performs deduplication and domain isolation in .agents/ before sync
-  --dry-run                Shows installation plan without writing files to disk
-
-Options for init-agents (alias: init-agents-md):
-  --project-path, -p <dir> Target project directory path (default: cwd)
-  --lang, -l <mode>        auto (default) | es | en — output language policy injected into AGENTS.md
-  --agents, -a <target>    Optional Thin-Repo bridges (auto | all | CSV)
-  --dry-run                Simulates operation without writing changes to disk
-
-Options for reconcile-agents:
-  --project-path, -p <dir> Target project directory path (default: cwd)
-  --dry-run                Simulates operation without writing changes to disk
-
-Options for tms-sync:
-  --mode <mode>            inventory | push-results | pull-stories
-  --provider <id>          jira | zephyr | xray | github-issues
-  --target-dir <dir> / --junit-xml <path> / --base-url <url> / --project-key <key> / --dry-run | --live | --json
-
-Options for doctor (alias: status):
-  --project-path, -p <dir> Target project directory (default: cwd)
-  --offline                Skips remote npm/GitHub version lookup
-  --json                   Emits structured JSON diagnostics
-
-Options for upgrade (alias: cache-clean):
-  --cache-only             Cleans _npx and blueprint caches without syncing skills
-  --target, -t <env>       Skill destination target (default: all)
-  --reconcile              Reconciles .agents/ duplicates during skill sync
-  --offline / --dry-run / --json
-
-Options for certify:
-  --project-path, -p <dir> Target project directory (default: cwd)
-  --strict                 Fails with exitCode=20 if any check is SKIPPED
-  --require-lint-evidence  Requires fresh lint evidence on dirty trees
-  --allow-unmerged-examples / --release-gate / --junit-xml <path> / --offline / --json
-
-Options for audit:
-  --project-path, -p <dir> / --mode, -m <security|pyramid|vibe|calm|all> / --format, -f <text|json|sarif>
-  --json / --sarif / --fail-on <critical|high|medium|any|none> / --include-examples / --max-findings <n> / --architecture-path <rel>
-
-Options for blast-radius:
-  --symbol, -s <symbol> / --project-path, -p <dir> / --changed-since <ref> / --auto-build / --refresh
-  --max-tokens <n> / --max-items <n> / --json
-
-Options for mcp-config:
-  --client, -c <id|all>    antigravity | claude-code | claude-desktop | cursor | vscode | windsurf | codex | gemini-cli | hermes | all
-  --print | --install / --pin-version / --dry-run / --json
-
-Options for completion:
-  <fish|bash|zsh>          Or --shell <fish|bash|zsh>
-
-Help & Version:
-  help [subcommand]        Displays global help or contextual help for a specific subcommand
-  --version, -v | version  Prints version, or runs offline doctor with --json / --verbose
-`;
+export function getCliHelpText(
+  counts: McpSurfaceCounts = DEFAULT_SURFACE_COUNTS,
+  lang: HelpLang = 'en'
+): string {
+  return renderRootHelpText({ lang, counts });
 }
 
 /** Formats interactive TTY guard notice using live registered MCP surface counts. */
@@ -329,6 +250,12 @@ export function resolveToolExecutionOptions(
   const args =
     typeof rawArgs === 'object' && rawArgs !== null ? (rawArgs as Record<string, unknown>) : {};
   const taskId = `${toolName}-${startedAt}-${randomUUID().slice(0, 8)}`;
+  const hints = getToolExecutionHints(toolName);
+  const baseOptions: ExecuteTaskOptions = {
+    taskId,
+    readOnly: hints.readOnly,
+    idempotent: hints.idempotent,
+  };
 
   if (toolName === 'run_ephemeral_qa') {
     const rawSeconds = resolvePositiveFiniteTimeout(args.timeout_seconds) ?? EPHEMERAL_QA_DEFAULT_SECS;
@@ -336,29 +263,29 @@ export function resolveToolExecutionOptions(
       Math.max(rawSeconds * 1000, EPHEMERAL_QA_MIN_TIMEOUT_MS),
       EPHEMERAL_QA_MAX_TIMEOUT_MS
     );
-    return { taskId, timeoutMs: clampedMs };
+    return { ...baseOptions, timeoutMs: clampedMs };
   }
 
   if (DYNAMIC_LIVE_TOOL_NAMES.has(toolName)) {
     const explicitTimeoutMs = resolvePositiveFiniteTimeout(args.timeoutMs);
     if (explicitTimeoutMs !== undefined) {
       return {
-        taskId,
+        ...baseOptions,
         timeoutMs: Math.min(Math.max(explicitTimeoutMs, EPHEMERAL_QA_MIN_TIMEOUT_MS), 600_000),
       };
     }
     const isLiveTms = toolName === 'sync_enterprise_tms' && args.dryRun === false;
     if (args.mode === 'live' || isLiveTms) {
-      return { taskId, timeoutMs: V2_HEAVY_TRANSFER_TIMEOUT_MS };
+      return { ...baseOptions, timeoutMs: V2_HEAVY_TRANSFER_TIMEOUT_MS };
     }
-    return { taskId };
+    return baseOptions;
   }
 
   if (HEAVY_TRANSFER_TOOL_NAMES.has(toolName)) {
-    return { taskId, profile: 'heavy_transfer' };
+    return { ...baseOptions, profile: 'heavy_transfer' };
   }
 
-  return { taskId };
+  return baseOptions;
 }
 
 function buildAbortAwareExtra(extra: unknown, taskSignal: AbortSignal): unknown {
@@ -421,7 +348,7 @@ export function attachPromptGuard(mcpServer: McpServer, options?: AttachGuardOpt
   const taskGuard =
     options?.taskGuard ??
     new TaskStateGuard({
-      capacity: V2_TASK_CAPACITY,
+      capacity: DEFAULT_TASK_CAPACITY,
       defaultTimeoutMs: V2_TOOL_TIMEOUT_MS,
       heavyTransferTimeoutMs: V2_HEAVY_TRANSFER_TIMEOUT_MS,
     });

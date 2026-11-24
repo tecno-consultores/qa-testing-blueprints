@@ -160,6 +160,12 @@ def _run_validator_inprocess(
     return rc, captured.out + captured.err
 
 
+def _copy_helper_modules(dst_scripts: Path) -> None:
+    for helper in AGENTS_SCRIPTS_DIR.glob("_*.py"):
+        if helper.is_file():
+            shutil.copy2(helper, dst_scripts / helper.name)
+
+
 def _run_validator_cli(script_name: str, target_root: Path) -> tuple[int, str]:
     if script_name == "sync_governance.py":
         cmd = [
@@ -178,6 +184,7 @@ def _run_validator_cli(script_name: str, target_root: Path) -> tuple[int, str]:
     else:
         dst_scripts = target_root / ".agents" / "scripts"
         dst_scripts.mkdir(parents=True, exist_ok=True)
+        _copy_helper_modules(dst_scripts)
         dst_script = dst_scripts / script_name
         shutil.copy2(AGENTS_SCRIPTS_DIR / script_name, dst_script)
         cmd = [sys.executable, str(dst_script)]

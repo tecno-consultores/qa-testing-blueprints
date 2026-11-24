@@ -738,7 +738,7 @@ async def set_tenant(session: AsyncSession, tid: str):
 from src.main import create_app
 
 def test_smoke():
-    os.environ["ROSGRID_ENV"] = "production"
+    os.environ["APP_ENV"] = "production"
     app = create_app()
     assert app.docs_url is None
 `
@@ -757,21 +757,21 @@ docker exec api pytest tests/contracts/
     expect(res.findings.some((f) => f.rule_id === 'QA-SMOKE-01')).toBe(true);
     expect(res.findings.some((f) => f.rule_id === 'SEC-15')).toBe(true);
 
-    // Corregir ambos archivos sincronizando settings.ROSGRID_ENV y propagando -e ROSGRID_ADMIN_PASSWORD="${LOCAL_ADMIN_PASS}"
+    // Corregir ambos archivos sincronizando settings.APP_ENV y propagando -e APP_ADMIN_PASSWORD="${LOCAL_ADMIN_PASS}"
     fs.writeFileSync(
       path.join(testsDir, 'test_production_boot_smoke.py'),
       `import os
 from src.main import create_app, settings
 
 def test_smoke():
-    prev = settings.ROSGRID_ENV
+    prev = settings.APP_ENV
     try:
-        os.environ["ROSGRID_ENV"] = "production"
-        settings.ROSGRID_ENV = "production"
+        os.environ["APP_ENV"] = "production"
+        settings.APP_ENV = "production"
         app = create_app()
         assert app.docs_url is None
     finally:
-        settings.ROSGRID_ENV = prev
+        settings.APP_ENV = prev
 `
     );
 
@@ -781,7 +781,7 @@ def test_smoke():
 LOCAL_ADMIN_PASS="$(openssl rand -base64 24)"
 export JWT_SECRET_KEY="$(openssl rand -hex 32)"
 docker compose up -d
-docker exec -e ROSGRID_ADMIN_PASSWORD="\${LOCAL_ADMIN_PASS}" api pytest tests/contracts/
+docker exec -e APP_ADMIN_PASSWORD="\${LOCAL_ADMIN_PASS}" api pytest tests/contracts/
 `
     );
 

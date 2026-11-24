@@ -12,6 +12,7 @@ import {
   matchFlagValue,
   resolveCliProjectPath,
 } from './cliArgHelpers.js';
+import { renderSubcommandHelpText, resolveCliHelpLang } from './commandCatalog.js';
 
 export type BlastRoutingPath = 'DOCS_ONLY' | 'MICRO_CHANGE' | 'FULL_11X';
 
@@ -22,21 +23,7 @@ export interface BlastRadiusCliDeps {
 
 const CMD_PREFIX = '❌ [blast-radius]';
 
-export const BLAST_RADIUS_HELP_TEXT = [
-  'Uso: npx -y @sinfallas/mcp-qa-11x blast-radius [symbol] [opciones]',
-  '',
-  'Opciones:',
-  '  --symbol, -s <symbol>     Símbolo o archivo objetivo para auditar radio de explosión AST',
-  '  --project-path, -p <dir>  Directorio del proyecto destino (por defecto: cwd)',
-  '  --changed-since <ref>     Referencia Git para evaluar diff semántico y ruta recomendada',
-  '  --git-signals             Mina historia Git (-M --numstat) para hotspots, co-cambio y bus-factor',
-  '  --auto-build              Construye graphify-out/graph.json si no existe',
-  '  --refresh                 Reconstruye el grafo AST antes de inspeccionar',
-  '  --max-tokens <n>          Presupuesto máximo de tokens para el diff semántico',
-  '  --max-items <n>           Máximo de dependientes/pruebas listados',
-  '  --json                    Emite salida estructurada JSON con recommended_path',
-  '  --help, -h                Muestra esta ayuda y sale con código 0',
-].join('\n');
+export const BLAST_RADIUS_HELP_TEXT = renderSubcommandHelpText('blast-radius', 'en');
 
 interface BlastCliParseState {
   symbol?: string;
@@ -235,7 +222,10 @@ export async function runBlastRadiusCli(
   deps: BlastRadiusCliDeps = {}
 ): Promise<CliCommandOutput> {
   if (hasHelpFlag(args)) {
-    return { exitCode: 0, output: BLAST_RADIUS_HELP_TEXT };
+    return {
+      exitCode: 0,
+      output: renderSubcommandHelpText('blast-radius', resolveCliHelpLang(args)),
+    };
   }
   try {
     const parsed = parseBlastRadiusArgs(args);

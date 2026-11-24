@@ -12,12 +12,25 @@ import os
 import re
 import subprocess
 import sys
-import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType
 from typing import Any
+
+_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
+from _common import (  # noqa: E402
+    SECRET_PATTERNS as SECRET_PATTERNS,
+)
+from _common import (  # noqa: E402
+    atomic_write_text as _common_atomic_write_text,
+)
+from _common import (  # noqa: E402
+    build_git_command,
+)
 
 
 def _load_budgets_module() -> ModuleType:
@@ -58,27 +71,6 @@ GLOB_DIRECTIVE_RE = re.compile(
 )
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 WS_COLLAPSE_RE = re.compile(r"[\r\n\t]+")
-SECRET_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"\b(Bearer|Basic)\s+[^\s\"']+", re.IGNORECASE), r"\1 [REDACTED]"),
-    (re.compile(r"(://[^/\s:@]+:)[^/\s@]+(@)"), r"\1[REDACTED]\2"),
-    (
-        re.compile(
-            r"\b(token|access_token|api_key|apikey|secret|password|passwd)=[^\s\"'&]+",
-            re.IGNORECASE,
-        ),
-        r"\1=[REDACTED]",
-    ),
-    (
-        re.compile(
-            r"(--(?:token|api-key|apikey|secret|password|passwd))\s+[^\s\"']+",
-            re.IGNORECASE,
-        ),
-        r"\1 [REDACTED]",
-    ),
-    (re.compile(r"\b(?:ghp|gho|ghs|npm)_[A-Za-z0-9]{16,}\b"), "[REDACTED]"),
-    (re.compile(r"\bsk-[A-Za-z0-9_-]{12,}\b"), "[REDACTED]"),
-    (re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "[REDACTED]"),
-)
 NOISE_GIT_PREFIXES = (
     ".agents/.cache/",
     ".agents/ACTIVE_TASK.md",
@@ -248,28 +240,13 @@ def _validate_workspace_paths(raw_workspace: str) -> Path:
 
 
 def _atomic_write_text(target: Path, content: str, mode: int) -> None:
-    target.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = (
-        target.parent / f".{target.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
-    )
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
-    fd = os.open(tmp_path, flags, mode)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(content)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.chmod(tmp_path, mode)
-        os.replace(tmp_path, target)
-    except OSError:
-        tmp_path.unlink(missing_ok=True)
-        raise
+    _common_atomic_write_text(target, content, mode=mode, fsync=True)
 
 
 def _run_git(workspace: Path, args: list[str]) -> tuple[int, str]:
     try:
         res = subprocess.run(
-            ["git", "-c", "core.quotePath=false", "-C", str(workspace), *args],
+            build_git_command(workspace, *args),
             capture_output=True,
             text=True,
             shell=False,

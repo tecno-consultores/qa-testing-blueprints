@@ -23,6 +23,7 @@ import {
   resolveCliProjectPath,
   resolveComparablePath,
 } from './cliArgHelpers.js';
+import { renderSubcommandHelpText, resolveCliHelpLang } from './commandCatalog.js';
 import type { AgentsTargetSpec, Manifest, ManifestFileEntry, OutputLanguageMode } from '../types.js';
 
 const EXCLUDED_COMMON_SCRIPT_PATHS = new Set([
@@ -52,20 +53,7 @@ const CODEX_DIR_NAME = '.codex';
 const WINDSURF_REL_DIR = path.join('.codeium', 'windsurf');
 const UTF8 = 'utf-8';
 
-export const INSTALL_SKILL_HELP_TEXT = [
-  'Uso: npx -y @sinfallas/mcp-qa-11x install-skill [opciones]',
-  '',
-  'Opciones:',
-  '  --target, -t <env>       auto (default) | workspace | antigravity | claude | cursor | windsurf | codex | hermes | all',
-  '  --project-path, --dir, -p <dir>  Directorio del proyecto destino (por defecto: cwd)',
-  '  --lang, -l <auto|es|en>  Política de idioma inyectada al usar --init-agents (default: auto)',
-  '  --agents, -a <spec>      Puentes opcionales al usar --init-agents (auto | all | CSV de 28 agentes)',
-  '  --include-scripts        Instala scripts operacionales (.agents/scripts, .agents/schemas y comunes)',
-  '  --init-agents            Ejecuta init-agents en el proyecto tras instalar skills globales',
-  '  --reconcile              Reconcilia y poda reglas duplicadas en .agents/ antes de sincronizar',
-  '  --dry-run                Muestra el plan de instalación sin escribir archivos en disco',
-  '  --help, -h               Muestra esta ayuda y sale con código 0',
-].join('\n');
+export const INSTALL_SKILL_HELP_TEXT = renderSubcommandHelpText('install-skill', 'en');
 
 interface InstallSkillCliOptions {
   targetArg: string;
@@ -691,7 +679,7 @@ export async function runInstallSkillCli(
 ): Promise<void> {
   const log = runtimeOptions?.log ?? console.log;
   if (hasHelpFlag(args)) {
-    log(INSTALL_SKILL_HELP_TEXT);
+    log(renderSubcommandHelpText('install-skill', resolveCliHelpLang(args)));
     return;
   }
 

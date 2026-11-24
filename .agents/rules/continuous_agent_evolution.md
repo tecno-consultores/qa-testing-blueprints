@@ -3,41 +3,20 @@
 
 # Continuous Agent & System Prompt Evolution Directive
 
-> **CORE GOVERNANCE DIRECTIVE:**
-> Applies to all AI coding agents (Google Antigravity, Claude Code, Hermes Agent, Cursor) and human developers.
-> **OUTPUT LANGUAGE & DYNAMIC MIRRORING (Spec 19):** Respond in the **user's prompt language** (unless `AGENTS.md` explicitly pins `--lang es|en`); human docs use EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) here (matching `README.md`/`CHANGELOG.md` in consumer repos), while `.agents/**` remains concise English.
+> **SCOPE:** Mandates proactive 3-layer Dual-Consumer evolution and Thin-Repo governance separation.
 
----
+## 1. Autonomous Evolution Mandate & QA-Escape Post-Mortem
 
-## 1. The Autonomous Evolution Mandate & Mandatory QA-Escape Post-Mortem Trigger
+Whenever an AI agent detects or fixes a UAT/production escape (despite `>= 95%` unit coverage), recurring friction, security/test gap, token-economy improvement, or missing automation gate, it MUST act proactively:
+- **In Consumer Projects:** Include **`💡 Oportunidad de Mejora Detectada para el Estándar QA 11X (qa-testing-blueprints)`** in the response explaining the escape and domain-agnostic rule, and invoke/offer `propose_skill_evolution_pr` covering all 3 Dual-Consumer layers (`target_blueprint_file`, `target_mcp_component`, `target_human_doc_file` + `proposed_human_doc_summary`).
+- **Inside `qa-testing-blueprints`:** Every promoted rule MUST simultaneously update: (1) `.agents/{skills,rules}/` (concise technical English), (2) `mcp-server/` or `.agents/scripts/` (executable enforcement), and (3) bilingual human manuals (`docs/01..05_*.{md,es.md}`, `SECURITY.{md,es.md}`, `CHANGELOG.{md,es.md}`) plus `manifest.json` (`make sync-governance`).
 
-Whenever an AI agent detects or resolves:
-1. **A UAT, integration, or production bug that escaped existing automated tests** (even when unit coverage was `>= 95%`, e.g., mock blindness, siloed endpoints, missing temporal phases, or UI state desync),
-2. A recurring pattern or repetitive operational friction,
-3. An edge case or security/architectural gap not covered by current `.agents/rules/` or skills,
-4. An opportunity to optimize context token consumption (~35% reduction in rules and prompts),
-5. A missing automation script or verification gate in `.agents/scripts/`,
+## 2. Evolution Guardrails & Thin-Repo Consumer Separation
 
-the AI agent is **strictly authorized and mandated** to act **PROACTIVELY without waiting for the user to ask or suggest it**:
-- **Mandatory Proactive User Notification & Dual-Consumer Upstream Proposal (Consumer Projects):** Before closing the task, the agent MUST explicitly include a section in its response titled **`💡 Oportunidad de Mejora Detectada para el Estándar QA 11X (qa-testing-blueprints)`**, explaining why the previous test suite missed the bug, formulating the generalized domain-agnostic rule, and invoking (or offering to invoke) the MCP tool **`propose_skill_evolution_pr`** covering all 3 Dual-Consumer layers (`target_blueprint_file` for AI skills/rules, `target_mcp_component` for executable MCP/script enforcement, and `target_human_doc_file` + `proposed_human_doc_summary` for human engineers in `docs/01..05_*.{md,es.md}` / `SECURITY.{md,es.md}`).
-- **Direct Dual-Consumer Update (Inside `qa-testing-blueprints`):** When working directly inside the `qa-testing-blueprints` repository, EVERY promoted rule or QA/security invariant MUST simultaneously update: (1) `.agents/skills/` or `.agents/rules/` (concise technical English), (2) `mcp-server/` or `.agents/scripts/` (automated enforcement), and (3) human-readable bilingual manuals (`*.md` + `*.es.md`: `docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.{md,es.md}`, `docs/04_GUIA_DESARROLLO_SEGURO_Y_MITIGACION_DE_VULNERABILIDADES.{md,es.md}`, `docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.{md,es.md}`, `SECURITY.{md,es.md}`, `CHANGELOG.{md,es.md}`), plus `manifest.json` (`verify_docs_invariants.py` blocks commits with missing human-doc parity).
-
----
-
-## 2. Guardrails for Agent Modifications & Consumer Project Anti-Collision Protocol
-
-When updating `.agents/`:
-1. **Never relax quality thresholds:** Coverage must stay `>= 95%`, zero secrets, zero schema drift.
-2. **Preserve Linguistic Architecture (Spec 19):** Agent directives in `rules/` and `skills/` must remain in high-density technical English. Interact in the user's prompt language and maintain bilingual human docs under English Canonical (`*.md`) + 1:1 Spanish Mirror (`*.es.md`).
-3. **Validate Automation Scripts:** Any new or modified Python or Bash script in `.agents/scripts/` must be executable (`chmod +x`), pass `ruff`, `mypy --strict`, `ShellCheck`, and `shfmt` inside ephemeral Docker (`Rule Zero`), and be referenced in `certify_task_completion.sh` if it acts as a gate.
-4. **Log the Evolution:** Document changes made to `.agents/` in `CHANGELOG.{md,es.md}` under `## [Unreleased]`.
-5. **Thin-Repo Governance & Anti-Collision Rule for Consumer Projects (e.g. `my-service`):**
-   - The 8 canonical files in `.agents/rules/` (`mandatory_qa_pyramid_and_doc_sync.md`, `secure_development_and_testing_guidelines.md`, `frontend_parity_and_closure.md`, `continuous_agent_evolution.md`, `anti_regression_and_side_effects_guardrail.md`, `ground_truth_fixtures_and_negative_invariants.md`, `active_task_and_planning_resilience.md`, `git_closure_gate.md`) and the 11 modular skills in `.agents/skills/` are **Global Canonical Assets** owned by `qa-testing-blueprints` and consumed from the user's global agent configuration (`~/.gemini/config/skills/`, `~/.claude/skills/`, `~/.cursor/skills/`, `~/.hermes/skills/`, `~/.codeium/windsurf/skills/`, `~/.codex/skills/`, `~/.gemini/GEMINI.md`) installed via `install-skill` with `--target <auto|workspace|antigravity|claude|cursor|windsurf|codex|hermes|all>`.
-   - When working inside a downstream consumer project, AI agents MUST NOT duplicate the 8 canonical `.agents/rules/*.md` files or the 11 modular skills inside `<project>/.agents/` (`reconcile-agents` automatically backs up and prunes local copies after extracting any custom domain sections), and MUST NOT store promoted global directives inside `.agents/rules/domain_*_rules.md`. Consumer maintenance commits modifying only `QA-11X` governance files (`AGENTS.md`, `.agents/`, `.gitignore`, bridges) qualify for the `certify_task_completion.sh` Governance Maintenance Fast-Path.
-   - Instead:
-     - **Universal QA/Security discoveries** must be generalized and proposed upstream via `propose_skill_evolution_pr` (and removed from local duplicates once promoted to `qa-testing-blueprints`).
-     - **Project-specific domain rules** (e.g. vendor CLI protocols, specific business tables, or domain workflows) MUST be placed exclusively in `AGENTS.md` (outside the `<!-- QA_11X_MCP_CONNECTOR_START --> ... <!-- QA_11X_MCP_CONNECTOR_END -->` block) or in dedicated domain-prefixed files `.agents/rules/domain_<project>_*.md`.
-6. **3-Tier Progressive Disclosure & Anti-Duplication Invariant (`AGENTS.md` ↔ `.agents/rules/` ↔ `SKILL.md`):**
-   - **Tier 1 (`AGENTS.md` / `GEMINI.md` Connector):** Keep the always-on connector block ultra-compact (`< 35 lines`) as a routing index.
-   - **Tier 2 (`SKILL.md`):** Keep `qa-11x-architect/SKILL.md <= 12 KB` (`12,288 B`), `tactical-patterns-11x/SKILL.md <= 2.5 KB` (`2,560 B`), and all other `SKILL.md` + `references/*.md` `< 20 KB` (`20,480 B`) by summarizing laws and referencing `.agents/rules/*.md` and `references/*.md` rather than duplicating multi-paragraph explanations verbatim.
-   - **Tier 3 (`references/*.md` & `.agents/rules/*.md`):** Load deep stack references and domain rules strictly on-demand (one at a time, only when modifying that specific stack or domain).
+1. **Never Relax Thresholds:** Keep coverage `>= 95%`, zero secrets, zero schema drift, and Spec 19 linguistic architecture (English concise `.agents/**`, EN+ES human mirrors).
+2. **Validate Scripts:** Every executable script in `.agents/scripts/` requires `chmod +x` and clean `ruff` (`CC <= 5`), `mypy --strict`, `ShellCheck`, and `shfmt` in ephemeral Docker (`Rule Zero`).
+3. **Thin-Repo Anti-Collision:** The 8 canonical `.agents/rules/*.md` files and 11 `.agents/skills/` modules are **Global Canonical Assets** installed globally via `install-skill --target <auto|workspace|antigravity|claude|cursor|windsurf|codex|hermes|all>`. Downstream consumer repos MUST NOT duplicate them locally or paste promoted global rules into `.agents/rules/domain_*_rules.md` (`reconcile-agents` backs up and prunes duplicates). Keep consumer-only domain rules in `AGENTS.md` (outside `<!-- QA_11X_MCP_CONNECTOR_START --> ... <!-- QA_11X_MCP_CONNECTOR_END -->`) or `.agents/rules/domain_<project>_*.md`. Governance-only consumer commits use the `certify_task_completion.sh` Fast-Path.
+4. **3-Tier Progressive Disclosure & Budgets (`_budgets.py`):**
+   - **Tier 1:** Root `AGENTS.md <= 8 KB`; project/global connectors `<= 1.5 KB` (`< 35` lines).
+   - **Tier 2:** `qa-11x-architect/SKILL.md <= 12 KB`, `tactical-patterns-11x/SKILL.md <= 2.5 KB`, other `SKILL.md < 20 KB`.
+   - **Tier 3:** Total `.agents/rules/*.md <= 36 KB`; load `references/*.md` strictly on demand without verbatim duplication.

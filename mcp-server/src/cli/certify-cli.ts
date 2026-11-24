@@ -17,6 +17,7 @@ import {
   matchFlagValue,
   resolveCliProjectPath,
 } from './cliArgHelpers.js';
+import { renderSubcommandHelpText, resolveCliHelpLang } from './commandCatalog.js';
 
 const PREFIX_ERROR = '❌ [certify]';
 const STRICT_SKIPPED_PREFIX = 'STRICT_SKIPPED_CHECK:';
@@ -24,26 +25,14 @@ const FLAG_PROJECT_PATH = '--project-path';
 const FLAG_PROJECT_PATH_SHORT = '-p';
 const FLAG_STRICT = '--strict';
 const FLAG_REQUIRE_LINT = '--require-lint-evidence';
+const FLAG_NO_REQUIRE_LINT = '--no-require-lint-evidence';
 const FLAG_ALLOW_EXAMPLES = '--allow-unmerged-examples';
 const FLAG_RELEASE_GATE = '--release-gate';
 const FLAG_JUNIT_XML = '--junit-xml';
 const FLAG_OFFLINE = '--offline';
 const FLAG_JSON = '--json';
 
-export const CERTIFY_HELP_TEXT = [
-  'Uso: npx -y @sinfallas/mcp-qa-11x certify [dir] [opciones]',
-  '',
-  'Opciones:',
-  '  --project-path, -p <dir>  Directorio del proyecto a certificar (por defecto: cwd)',
-  '  --strict                  Falla con exitCode=20 si alguna verificación queda en SKIPPED',
-  '  --require-lint-evidence   Exige evidencia reciente de lint si hay código sucio',
-  '  --allow-unmerged-examples Omite verificación de archivos .example sin fusionar',
-  '  --release-gate            Evalúa además compuerta Release Readiness (exitCode=30 en NO_GO; requiere --junit-xml)',
-  '  --junit-xml <path>        Ruta relativa de reporte JUnit XML requerida por --release-gate',
-  '  --offline                 Omite consulta remota de actualizaciones',
-  '  --json                    Emite resultado estructurado en JSON',
-  '  --help, -h                Muestra esta ayuda y sale con código 0',
-].join('\n');
+export const CERTIFY_HELP_TEXT = renderSubcommandHelpText('certify', 'en');
 
 export interface CertifyCliDeps {
   readonly cwd?: string;
@@ -68,6 +57,9 @@ const CERTIFY_BOOL_FLAGS: Readonly<Record<string, (state: ParsedCertifyArgs) => 
   },
   [FLAG_REQUIRE_LINT]: (state) => {
     state.requireLintEvidence = true;
+  },
+  [FLAG_NO_REQUIRE_LINT]: (state) => {
+    state.requireLintEvidence = false;
   },
   [FLAG_ALLOW_EXAMPLES]: (state) => {
     state.allowUnmergedExamples = true;
@@ -132,7 +124,7 @@ function parseCertifyArgs(args: readonly string[]): ParsedCertifyArgs {
   const state: ParsedCertifyArgs = {
     rawDir: undefined,
     strict: false,
-    requireLintEvidence: false,
+    requireLintEvidence: true,
     allowUnmergedExamples: false,
     releaseGate: false,
     junitXmlPath: undefined,
@@ -199,7 +191,10 @@ export async function runCertifyCli(
   deps: CertifyCliDeps = {}
 ): Promise<CliCommandOutput> {
   if (hasHelpFlag(args)) {
-    return { exitCode: 0, output: CERTIFY_HELP_TEXT };
+    return {
+      exitCode: 0,
+      output: renderSubcommandHelpText('certify', resolveCliHelpLang(args)),
+    };
   }
   try {
     const parsed = parseCertifyArgs(args);

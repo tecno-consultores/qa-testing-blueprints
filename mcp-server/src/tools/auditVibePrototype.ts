@@ -932,34 +932,11 @@ function buildSecurityErrorResult(
   };
 }
 
-export function auditVibePrototype(
-  args: AuditVibePrototypeArgs = {},
-  options: AuditVibePrototypeOptions = {},
-): AuditVibePrototypeResult {
-  const dryRun = args.dryRun ?? true;
-  const maxLines = args.maxLines ?? DEFAULT_MAX_LINES;
-  const workspaceRoot = options.workspaceRoot ?? args.workspaceRoot ?? process.cwd();
-  const rawTarget = args.targetDir ?? '.';
-
-  if (!Number.isFinite(maxLines) || maxLines <= 0) {
-    return buildSecurityErrorResult(
-      rawTarget,
-      dryRun,
-      new Error(`maxLines inválido: ${String(maxLines)}`),
-    );
-  }
-
-  let targetReal: string;
-  let emitDir: string | undefined;
-  try {
-    targetReal = resolveContainedTargetDir(rawTarget, workspaceRoot);
-    if (args.remediationSubdir !== undefined) {
-      emitDir = resolveContainedSubdir(args.remediationSubdir, targetReal);
-    }
-  } catch (err: unknown) {
-    return buildSecurityErrorResult(rawTarget, dryRun, err);
-  }
-
+function scanPrototypeFiles(
+  targetReal: string,
+  emitDir: string | undefined,
+  maxLines: number
+): { readonly findings: VibeFinding[]; readonly envKeys: Set<string> } {
   const findings: VibeFinding[] = [];
   const envKeys = new Set<string>();
   const gitignorePatterns = readGitignorePatterns(targetReal);
@@ -988,6 +965,38 @@ export function auditVibePrototype(
       message: 'Cero archivos de prueba detectados; exigir >= 95% cobertura en Docker no-root',
     });
   }
+  return { findings, envKeys };
+}
+
+export function auditVibePrototype(
+  args: AuditVibePrototypeArgs = {},
+  options: AuditVibePrototypeOptions = {},
+): AuditVibePrototypeResult {
+  const dryRun = args.dryRun ?? true;
+  const maxLines = args.maxLines ?? DEFAULT_MAX_LINES;
+  const workspaceRoot = options.workspaceRoot ?? args.workspaceRoot ?? process.cwd();
+  const rawTarget = args.targetDir ?? '.';
+
+  if (!Number.isFinite(maxLines) || maxLines <= 0) {
+    return buildSecurityErrorResult(
+      rawTarget,
+      dryRun,
+      new Error(`maxLines inválido: ${String(maxLines)}`),
+    );
+  }
+
+  let targetReal: string;
+  let emitDir: string | undefined;
+  try {
+    targetReal = resolveContainedTargetDir(rawTarget, workspaceRoot);
+    if (args.remediationSubdir !== undefined) {
+      emitDir = resolveContainedSubdir(args.remediationSubdir, targetReal);
+    }
+  } catch (err: unknown) {
+    return buildSecurityErrorResult(rawTarget, dryRun, err);
+  }
+
+  const { findings, envKeys } = scanPrototypeFiles(targetReal, emitDir, maxLines);
 
   const { counts, score, verdict } = computeSummary(findings);
   const emitted =
@@ -1038,5 +1047,6 @@ export function handleAuditVibePrototype(
   return {
     isError,
     content: [{ type: 'text', text: result.summary }],
+    structuredContent: JSON.parse(JSON.stringify(result)) as Record<string, unknown>,
   };
 }
