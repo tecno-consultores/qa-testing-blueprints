@@ -1,8 +1,8 @@
-# 🛡️ Cuadro de Mando de Aseguramiento de Calidad (TESTING.es.md) — Estándar Corporativo `QA-11X v3.5` (`v3.5.0`)
+# 🛡️ Cuadro de Mando de Aseguramiento de Calidad (TESTING.es.md) — Estándar Corporativo `QA-11X v3.6` (`v3.6.0`)
 
 > 🌐 **Idioma:** [🇺🇸 English (Canonical)](TESTING.md) · **Español (Espejo 1:1)**
 
-Este documento constituye la bitácora viva y certificación del estándar de calidad Nivel 11X (`v3.5.0`) para los blueprints del repositorio `qa-testing-blueprints` (**10 stacks hidratables** `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue` + `architecture/` + `mcp-server/` = **12 entornos de matriz**). Todos los ecosistemas incluidos son evaluados bajo la **Regla Cero** (Rule Zero): ejecución estricta y 100% aislada en contenedores Docker efímeros con salida **Pass-Quiet / Fail-Verbose** (telemetría de 1 línea con métricas en éxito y traza completa en fallo para optimizar la ventana de contexto de los agentes IA).
+Este documento constituye la bitácora viva y certificación del estándar de calidad Nivel 11X (`v3.6.0`) para los blueprints del repositorio `qa-testing-blueprints` (**10 stacks hidratables** `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue` + `architecture/` + `mcp-server/` = **12 entornos de matriz**). Todos los ecosistemas incluidos son evaluados bajo la **Regla Cero** (Rule Zero): ejecución estricta y 100% aislada en contenedores Docker efímeros con salida **Pass-Quiet / Fail-Verbose** (telemetría de 1 línea con métricas en éxito y traza completa en fallo para optimizar la ventana de contexto de los agentes IA).
 
 ---
 
@@ -168,9 +168,9 @@ Alcance: **10 stacks hidratables** (`python`, `fastapi`, `node-backend`, `vue3`,
   make qa-all        # Suite completa 11X
   ```
 
-### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x` `v3.5.0`)
+### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x` `v3.6.0`)
 * **Imagen Base:** `sinfallas/base-node-ionic:26` (Tags disponibles: `22`, `24`, `26` y `latest`)
-* **Métricas 11X Certificadas (`v3.5.0` / `QA-11X v3.5`):**
+* **Métricas 11X Certificadas (`v3.6.0` / `QA-11X v3.6`):**
   * **Sentencias (Statements):** `99.87%` (`>= 95.0%`)
   * **Ramas (Branches):** `97.32%` global (`src/resources` `98.42%`, `src/cli` `98.18%`, `surgical-merger.ts` `99.05%`)
   * **Funciones (Functions):** `99.89%` (`>= 95.0%`)

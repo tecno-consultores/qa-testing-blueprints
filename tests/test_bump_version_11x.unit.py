@@ -567,3 +567,18 @@ def test_mcp_readme_agent_card_comma_version_drift_detected_and_synced(
     assert mod.run_rules(tmp_path, rules, "3.5.0", False) == ([], 0)
     assert "`v3.5.0`" in (mcp_dir / "README.md").read_text(encoding="utf-8")
     assert "`v3.5.0`" in (mcp_dir / "README.es.md").read_text(encoding="utf-8")
+
+
+def test_atomic_write_text_preserves_existing_executable_mode(tmp_path: Path) -> None:
+    """Preserva el bit ejecutable (0o755) al reescribir scripts existentes."""
+    mod = _load_mod()
+    script = tmp_path / "run.sh"
+    script.write_text("#!/usr/bin/env bash\necho old\n", encoding="utf-8")
+    script.chmod(0o755)
+
+    mod._atomic_write_text(script, "#!/usr/bin/env bash\necho new\n")
+    assert (script.stat().st_mode & 0o777) == 0o755
+
+    explicit = tmp_path / "secret.txt"
+    mod._atomic_write_text(explicit, "token", mode=0o600)
+    assert (explicit.stat().st_mode & 0o777) == 0o600

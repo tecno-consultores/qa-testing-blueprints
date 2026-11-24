@@ -23,7 +23,7 @@ export const SUPPORTED_TASK_CAPACITY_URIS = [
 export const DEFAULT_AGENT_NAME = 'qa-11x-mcp-agent' as const;
 export const DEFAULT_AGENT_VERSION: string = MCP_SERVER_VERSION;
 
-/** Derives the QA-11X standard edition label (e.g. 'QA-11X v3.5') from a SemVer string. */
+/** Derives the QA-11X standard edition label (e.g. 'QA-11X v3.6') from a SemVer string. */
 export function deriveStandardVersion(serverVersion?: string): string {
   if (serverVersion === undefined || serverVersion === MCP_SERVER_VERSION) {
     return MCP_STANDARD_EDITION;

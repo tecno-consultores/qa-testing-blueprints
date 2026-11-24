@@ -8,9 +8,14 @@ All notable changes to the `@sinfallas/mcp-qa-11x` npm package and MCP server ar
 
 ## [Unreleased]
 
+## [3.6.0] - 2026-11-24
+
 ### Changed
 - **God-Module Structural Decomposition & ESLint Complexity Enforcement:** Modularized `src/server.ts`, `src/tools/security-auditor.ts`, `src/tools/test-pyramid-auditor.ts`, `src/tools/ephemeral-runner.ts`, `src/integrations/tmsSyncCli.ts`, and `src/services/surgical-merger.ts` into cohesive submodules preserving 100% of public exports, and enabled `complexity: ['error', 15]` in `eslint.config.mjs`.
-- **Single Declarative CLI Catalog (`commandCatalog.ts`), Unified `structuredContent` & Runtime Parity:** Generated safe command routing, bilingual EN/ES `--help` (`--lang` / `QA_OUTPUT_LANG`), and `completion` from a single catalog of the 12 CLI subcommands; unified `structuredContent` across all 19 MCP tools; aligned `TaskStateGuard` default capacity (`4`), canonical URI (`urn:qa-11x:extensions:task-capacity:v1`), and `readOnlyHint`/`idempotentHint` propagation; aligned `certify` CLI `requireLintEvidence: true` default (`--no-require-lint-evidence`), pinned `mcp-config` by default (`--latest` opt-in), expanded `doctor` to inspect `vscode`, `gemini-cli`, `codex` (TOML), and `hermes` (YAML), and added macOS `/var` symlink anchor handling in `github-fetcher.ts`.
+- **Single Declarative CLI Catalog (`commandCatalog.ts`), Unified `structuredContent` & Runtime Parity:** Generated safe command routing, bilingual EN/ES `--help` (`--lang` / `QA_OUTPUT_LANG`), and `completion` from a single catalog of the 12 CLI subcommands; unified `structuredContent` across all 19 MCP tools (including error, PromptGuard block, and `-32602` validation paths); aligned `TaskStateGuard` default capacity (`4`), canonical URI (`urn:qa-11x:extensions:task-capacity:v1`), and `readOnlyHint`/`idempotentHint` propagation; aligned `certify` CLI `requireLintEvidence: true` default (`--no-require-lint-evidence`), pinned `mcp-config` by default (`--latest` opt-in), expanded `doctor` to inspect `vscode`, `gemini-cli`, `codex` (TOML), and `hermes` (YAML), and added macOS `/var` symlink anchor handling in `github-fetcher.ts`.
+
+### Fixed
+- **CLI Help, TOML/YAML Pinning Diagnostics, Line-Scoped SSR Pragmas & Example Stack:** Fixed `tms-sync --help` exit code and leading `--lang` help routing; stripped TOML/YAML `#` comments, table headers, and key prefixes in `doctor.ts` pinning checks; scoped `qa-ssr-hydration-ok` pragmas in `dockerPlaywrightSsrRules.ts` so inline pragmas never leak to the next unannotated line; hardened `mcp-server/example/` (`example/frontend` Vue/ESLint/Vitest, `uv-cache-init` and Maven Karate `qa-bdd-ui`); and verified `760/760` Vitest tests (`44` suites, `99.87%` lines) + `100.00%` differential coverage.
 
 ## [3.5.0] - 2026-11-23
 

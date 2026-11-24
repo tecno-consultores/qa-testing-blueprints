@@ -45,6 +45,7 @@
 | **Hito 26** | `QA-11X v3.1` (`3.1.0`) — Flight Recorder Atómico, `tactical-patterns-11x`, Hidratación 10 Stacks y Endurecimiento Fail-Closed | [`AGENTS.md`](AGENTS.md) + [`TESTING.es.md`](TESTING.es.md) | ✅ Completado | `100%` |
 | **Hito 27** | `v3.2.0` (`QA-11X v3.2`) — Remediación Integral 99/99 Hallazgos, 12 Subcomandos CLI, Anotaciones MCP 2026, A2A v1.0 y 100% Diff Coverage | [`CHANGELOG.es.md`](CHANGELOG.es.md) + [`TESTING.es.md`](TESTING.es.md) | ✅ Completado | `100%` |
 | **Hito 28** | `v3.5.0` (`QA-11X v3.5`) — Fronteras AST Declarativas/Inestabilidad, Señales Git Longitudinales, SDD/EARS (`10` Refs) y `.claude-plugin/` | [`CHANGELOG.es.md`](CHANGELOG.es.md) + [`TESTING.es.md`](TESTING.es.md) | ✅ Completado | `100%` |
+| **Hito 29** | `v3.6.0` (`QA-11X v3.6`) — Remediación de Auditoría Integral, Modularización de Monolitos, Economía de Tokens, Endurecimiento CI y 100% Diff Coverage | [`CHANGELOG.es.md`](CHANGELOG.es.md) + [`TESTING.es.md`](TESTING.es.md) | ✅ Completado | `100%` |
 
 ---
 
@@ -381,3 +382,13 @@
 - [x] **28.1.** Implementar `.agents/boundaries.json` declarativo (`layers`, `independence`, `forbidden` con guardia fail-closed de `0` nodos) e Inestabilidad de Martin (`--metrics`, `compute_module_instability`) en [`.agents/scripts/verify_topological_health.py`](.agents/scripts/verify_topological_health.py), más minería longitudinal `--git-signals` en [`.agents/scripts/inspect_blast_radius.py`](.agents/scripts/inspect_blast_radius.py) y `mcp-server` (`src/utils/git-signals.ts`, `include_git_signals`, CLI `--git-signals`).
 - [x] **28.2.** Añadir [`10-sdd-ears-traceability.md`](.agents/skills/qa-11x-architect/references/10-sdd-ears-traceability.md) (`10` referencias de `qa-11x-architect` dentro de `<= 12,288 B`), actualizar `qa-11x-vibe-rescue`, `graphify-ast-navigator` y `active_task_and_planning_resilience.md`, endurecer esquema estricto de frontmatter Agent Skills + validador de rutas `references/`, y publicar [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) + [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json).
 - [x] **28.3.** Rotar la versión del monorepo atómicamente a `3.5.0` (`QA-11X v3.5`) vía `bump_version_11x.py` + `sync_governance.py`, sincronizar documentación bilingüe 1:1, certificar `10/10` (`certify_task_completion.sh --strict`) con `100%` de cobertura diferencial y cerrar en `git commit` local (`QA-GIT-GATE-01`).
+
+---
+
+## ✅ Hito 29: `v3.6.0` (`QA-11X v3.6`) — Remediación de Auditoría Integral, Modularización de Monolitos, Economía de Tokens y Endurecimiento CI
+**Referencia Obligatoria:** [`CHANGELOG.es.md`](CHANGELOG.es.md), [`TESTING.es.md`](TESTING.es.md) y [`AGENTS.md`](AGENTS.md)
+
+### Tareas de Implementación:
+- [x] **29.1.** Remediar todos los hallazgos `CRITICAL`, `HIGH` y `MEDIUM` de la auditoría integral en los stacks (`ai-evals`, `python`, `node-backend`, `php`, `fastapi`, `vue3`, `react-frontend`, `mobile-appium`, `mcp-server/example`), seguridad/parsers MCP, scripts de gobernanza y CI/Docker (`--security-opt=no-new-privileges:true`, cero `container_name:` fijos y digests `@sha256` fijados).
+- [x] **29.2.** Modularizar los 7 monolitos (`server.ts`, `security-auditor.ts`, `test-pyramid-auditor.ts`, `ephemeral-runner.ts`, `tmsSyncCli.ts`, `surgical-merger.ts`, `verify_docs_invariants.py`), extraer `.agents/scripts/_common.py` y los scripts Python del `Makefile`, compactar `.agents/rules/*.md` un 57.8%, introducir el catálogo declarativo `commandCatalog.ts` + `structuredContent` unificado y elevar la fidelidad del Meta-QA.
+- [x] **29.3.** Cerrar el `100.00%` de cobertura diferencial en líneas (`verify_diff_coverage.py`), rotar atómicamente el monorepo y el paquete npm a `3.6.0` (`QA-11X v3.6`), sincronizar documentación bilingüe 1:1 + `manifest.json` SHA-256 + grafos Graphify AST, certificar `certify_task_completion.sh` y publicar `@sinfallas/mcp-qa-11x@3.6.0`.

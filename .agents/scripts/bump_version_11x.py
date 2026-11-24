@@ -638,7 +638,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--check", action="store_true", help="Verify version parity only"
     )
     parser.add_argument("--set", dest="set_version", help="Target SemVer X.Y.Z")
-    parser.add_argument("--edition", help="Target edition e.g. 'QA-11X v3.5'")
+    parser.add_argument("--edition", help="Target edition e.g. 'QA-11X v3.6'")
     parser.add_argument("--dry-run", action="store_true", help="Do not write files")
     return parser.parse_args(argv)
 

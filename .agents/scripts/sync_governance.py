@@ -57,7 +57,7 @@ from _common import (  # noqa: E402
 )
 
 SCHEMA_VERSION = "1.0.0"
-DEFAULT_BLUEPRINT_VERSION = "3.5.0"
+DEFAULT_BLUEPRINT_VERSION = "3.6.0"
 REPOSITORY = "tecno-consultores/qa-testing-blueprints"
 DEFAULT_BRANCH = "main"
 RAW_BASE_URL = f"https://raw.githubusercontent.com/{REPOSITORY}/{DEFAULT_BRANCH}"

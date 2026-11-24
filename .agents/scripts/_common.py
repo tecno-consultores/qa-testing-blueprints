@@ -8,6 +8,7 @@ import errno
 import json
 import os
 import re
+import stat
 import sys
 import uuid
 from pathlib import Path
@@ -113,6 +114,16 @@ def _safe_chmod(path: Path, mode: int | None) -> None:
             raise
 
 
+def _resolve_target_mode(target: Path, mode: int | None) -> tuple[int, int | None]:
+    if mode is not None:
+        return mode, mode
+    try:
+        existing = stat.S_IMODE(target.stat().st_mode)
+    except OSError:
+        return 0o644, None
+    return existing, existing
+
+
 def atomic_write_text(
     target: Path,
     content: str,
@@ -124,7 +135,7 @@ def atomic_write_text(
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp_name = f".{target.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp"
     tmp_path = target.parent / tmp_name
-    open_mode = 0o644 if mode is None else mode
+    open_mode, final_mode = _resolve_target_mode(target, mode)
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
     fd = os.open(tmp_path, flags, open_mode)
     try:
@@ -133,9 +144,9 @@ def atomic_write_text(
             handle.flush()
             if fsync:
                 os.fsync(handle.fileno())
-        _safe_chmod(tmp_path, mode)
+        _safe_chmod(tmp_path, final_mode)
         os.replace(tmp_path, target)
-        _safe_chmod(target, mode)
+        _safe_chmod(target, final_mode)
     except OSError:
         tmp_path.unlink(missing_ok=True)
         raise

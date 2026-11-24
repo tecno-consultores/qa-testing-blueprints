@@ -45,6 +45,7 @@
 | **Milestone 26** | `QA-11X v3.1` (`3.1.0`) — Atomic Flight Recorder, `tactical-patterns-11x`, 10-Stack Hydration & Fail-Closed Hardening | [`AGENTS.md`](AGENTS.md) + [`TESTING.md`](TESTING.md) | ✅ Completed | `100%` |
 | **Milestone 27** | `v3.2.0` (`QA-11X v3.2`) — 99/99 Forensic Audit Remediation, 12 CLI Subcommands, MCP 2026 Annotations, A2A v1.0 & 100% Diff Coverage | [`CHANGELOG.md`](CHANGELOG.md) + [`TESTING.md`](TESTING.md) | ✅ Completed | `100%` |
 | **Milestone 28** | `v3.5.0` (`QA-11X v3.5`) — Declarative AST Boundaries/Instability, Longitudinal Git Signals, SDD/EARS (`10` Refs) & `.claude-plugin/` | [`CHANGELOG.md`](CHANGELOG.md) + [`TESTING.md`](TESTING.md) | ✅ Completed | `100%` |
+| **Milestone 29** | `v3.6.0` (`QA-11X v3.6`) — Integral Audit Remediation, God-Module Modularization, Token Economy, CI Hardening & 100% Diff Coverage | [`CHANGELOG.md`](CHANGELOG.md) + [`TESTING.md`](TESTING.md) | ✅ Completed | `100%` |
 
 ---
 
@@ -381,3 +382,13 @@
 - [x] **28.1.** Implement declarative `.agents/boundaries.json` (`layers`, `independence`, `forbidden` with fail-closed `0`-node guard) and Martin Instability (`--metrics`, `compute_module_instability`) in [`.agents/scripts/verify_topological_health.py`](.agents/scripts/verify_topological_health.py) plus `--git-signals` longitudinal mining in [`.agents/scripts/inspect_blast_radius.py`](.agents/scripts/inspect_blast_radius.py) and `mcp-server` (`src/utils/git-signals.ts`, `include_git_signals`, CLI `--git-signals`).
 - [x] **28.2.** Add [`10-sdd-ears-traceability.md`](.agents/skills/qa-11x-architect/references/10-sdd-ears-traceability.md) (`qa-11x-architect` `10` references within `<= 12,288 B`), update `qa-11x-vibe-rescue`, `graphify-ast-navigator`, and `active_task_and_planning_resilience.md`, harden strict Agent Skills frontmatter + backtick reference checks, and publish [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) + [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json).
 - [x] **28.3.** Rotate monorepo version atomically to `3.5.0` (`QA-11X v3.5`) via `bump_version_11x.py` + `sync_governance.py`, sync 1:1 bilingual docs, certify `10/10` (`certify_task_completion.sh --strict`) with `100%` differential coverage, and conclude at local `git commit` (`QA-GIT-GATE-01`).
+
+---
+
+## ✅ Milestone 29: `v3.6.0` (`QA-11X v3.6`) — Integral Audit Remediation, God-Module Modularization, Token Economy & CI Hardening
+**Mandatory Reference:** [`CHANGELOG.md`](CHANGELOG.md), [`TESTING.md`](TESTING.md), and [`AGENTS.md`](AGENTS.md)
+
+### Implementation Tasks:
+- [x] **29.1.** Remediate all `CRITICAL`, `HIGH`, and `MEDIUM` integral audit findings across stacks (`ai-evals`, `python`, `node-backend`, `php`, `fastapi`, `vue3`, `react-frontend`, `mobile-appium`, `mcp-server/example`), MCP security/parsers, governance scripts, and CI/Docker (`--security-opt=no-new-privileges:true`, zero fixed `container_name:`, pinned `@sha256` digests).
+- [x] **29.2.** Modularize the 7 god-modules (`server.ts`, `security-auditor.ts`, `test-pyramid-auditor.ts`, `ephemeral-runner.ts`, `tmsSyncCli.ts`, `surgical-merger.ts`, `verify_docs_invariants.py`), extract `.agents/scripts/_common.py` and Makefile Python scripts, compact `.agents/rules/*.md` by 57.8%, introduce single declarative `commandCatalog.ts` + unified `structuredContent`, and upgrade Meta-QA fidelity.
+- [x] **29.3.** Close `100.00%` differential line coverage (`verify_diff_coverage.py`), rotate monorepo and npm package atomically to `3.6.0` (`QA-11X v3.6`), synchronize 1:1 bilingual documentation + SHA-256 `manifest.json` + Graphify AST graphs, certify `certify_task_completion.sh`, and publish `@sinfallas/mcp-qa-11x@3.6.0`.

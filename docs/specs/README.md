@@ -2,7 +2,7 @@
 
 # 📐 Technical Specifications Index (ADRs & Specs `01..20`)
 
-Central bilingual index of all **20 technical specifications** governing **QA Testing Blueprints (`QA-11X v3.5`)**. Under the policy established in Spec 19 (§3, Rule 4), **Specs `01..18` are archived historical Spanish ADRs** preserved as immutable point-in-time records, while v3.0+ specifications (`19..20+`) and operational documentation follow the **English-Primary (`*.md`) + 1:1 Spanish Mirror (`*.es.md`)** architecture.
+Central bilingual index of all **20 technical specifications** governing **QA Testing Blueprints (`QA-11X v3.6`)**. Under the policy established in Spec 19 (§3, Rule 4), **Specs `01..18` are archived historical Spanish ADRs** preserved as immutable point-in-time records, while v3.0+ specifications (`19..20+`) and operational documentation follow the **English-Primary (`*.md`) + 1:1 Spanish Mirror (`*.es.md`)** architecture.
 
 ---
 
