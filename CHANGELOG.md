@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Fixed
+* **Aligned `AI_MASTER_PROMPT.{md,es.md}` with `AGENTS.md` & `v3.7.0`:** Clarified its on-demand role (`blueprint://core/philosophy`) vs auto-loaded `AGENTS.md` + `.agents/rules/`, resolved the `<footer>` semantic landmark contradiction (in-flow outside `<main>`), and synced `QA-DOCKER-LOOP-01` serialized Docker guardrails (`manifest.json` SHA-256 updated).
+
 ---
 
 ## [3.7.0] - 2026-11-25

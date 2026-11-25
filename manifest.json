@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.7.0",
-  "generated_at_utc": "2026-11-25T04:21:47Z",
+  "generated_at_utc": "2026-11-25T08:40:19Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -1637,15 +1637,15 @@
       "path": "AI_MASTER_PROMPT.es.md",
       "target_name": "AI_MASTER_PROMPT.es.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "7c31e3c25e5c92d7faba5f15f166de5b3882d2b159909c9ec0430761ee47f538",
-      "size_bytes": 17110
+      "sha256": "63da675979a5b9a5ebde5feab264d73f255725e2d5cac209657e03b6039303ad",
+      "size_bytes": 18185
     },
     {
       "path": "AI_MASTER_PROMPT.md",
       "target_name": "AI_MASTER_PROMPT.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "6c5afb4ef28c5be2014d1fcf5acc04c4007fd97a9f80ef8f4e6dd18c36b4eb2d",
-      "size_bytes": 15973
+      "sha256": "9a8f406aa3e204259579417653e203aa908ef5eb004e646fb4afe276365a28c9",
+      "size_bytes": 16996
     },
     {
       "path": "SECURITY.es.md",

@@ -97,6 +97,7 @@ REQUIRED_MASTER_TOKENS: tuple[str, ...] = (
     "ACTIVE_TASK.md",
     "QA-TEST-SYNC-01",
     "AES-256-GCM",
+    "QA-DOCKER-LOOP-01",
 )
 REQUIRED_SKILL_CONTRACTS: Mapping[str, tuple[str, ...]] = {
     "qa-11x-architect": ("QA-GIT-GATE-01", "ACTIVE_TASK.md", "make certify"),
@@ -721,6 +722,12 @@ def test_offline_master_prompt_and_skills_contracts(tmp_path: Path) -> None:
     assert report.master_prompt_valid
     assert report.all_budgets_ok
     assert report.violations == ()
+    en_master = (REPO_ROOT / "AI_MASTER_PROMPT.md").read_text(encoding="utf-8")
+    es_master = (REPO_ROOT / "AI_MASTER_PROMPT.es.md").read_text(encoding="utf-8")
+    assert "blueprint://core/philosophy" in en_master
+    assert "blueprint://core/philosophy" in es_master
+    assert "inside `<main>`" not in en_master
+    assert "dentro de `<main>`" not in es_master
 
     broken_repo = tmp_path / "broken_repo"
     skill_dir = broken_repo / ".agents" / "skills" / "qa-11x-architect"
