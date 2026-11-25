@@ -2473,7 +2473,7 @@ describe('Tools and Resources Integration Suite', () => {
         expect(secMeta?.uri).toBe('blueprint://security/disa-owasp-22');
         expect(secMeta?.description).toContain('22 DISA ASD STIG V6R5');
         expect(secMeta?.description).toContain('OWASP Developer Guide v4.2 reference controls');
-        expect(secMeta?.description).toContain('+ 36 static scanner rules');
+        expect(secMeta?.description).toContain('+ 37 static scanner rules');
       } finally {
         await client.close();
         await server.close();

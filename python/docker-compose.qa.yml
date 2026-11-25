@@ -6,6 +6,10 @@ services:
     image: sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
     pull_policy: if_not_present
     mem_limit: 256m
+    restart: "no"
+    cpus: "${QA_INIT_CPU_LIMIT:-1.0}"
+    pids_limit: 64
+    network_mode: none
     user: "0:0"
     security_opt:
       - no-new-privileges:true
@@ -18,6 +22,9 @@ services:
     hostname: python_qa_backend
     pull_policy: if_not_present
     mem_limit: 2g
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 256
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
     security_opt:
       - no-new-privileges:true
@@ -44,6 +51,9 @@ services:
     hostname: python_prometheus
     pull_policy: if_not_present
     mem_limit: 512m
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 256
     security_opt:
       - no-new-privileges:true
     profiles:
@@ -84,6 +94,9 @@ services:
     hostname: python_pushgateway
     pull_policy: if_not_present
     mem_limit: 512m
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 256
     security_opt:
       - no-new-privileges:true
     profiles:
@@ -96,6 +109,9 @@ services:
     hostname: python-api
     pull_policy: if_not_present
     mem_limit: 1g
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 256
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
     security_opt:
       - no-new-privileges:true
@@ -195,6 +211,9 @@ services:
     hostname: python_k6_smoke
     pull_policy: if_not_present
     mem_limit: 512m
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 256
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
     read_only: true
     cap_drop:
@@ -224,6 +243,9 @@ services:
     hostname: python_profiler
     pull_policy: if_not_present
     mem_limit: 1g
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 256
     user: "0:0"
     pid: "service:python-api"
     cap_drop:

@@ -118,12 +118,96 @@ AWK
     \( -name node_modules -o -name .git -o -name dist -o -name .venv -o -name vendor -o -name target -o -name graphify-out -o -name tests -o -name test -o -name __tests__ \) -prune \
     -o -type f \( -name 'Makefile' -o -name 'Makefile.example' \) -print0 2>/dev/null)
 
+  local awk_loop_compose=""
+  local awk_loop_script=""
+  local -a cmp_files=()
+  local -a sh_files=()
+
+  read -r -d '' awk_loop_compose <<'AWK' || true
+{
+  lines[NR] = $0
+  if (NR <= 5 && index($0, "qa-docker-loop-ok") > 0) {
+    skip_file = 1
+  }
+}
+END {
+  if (skip_file) exit 0
+  bad = 0
+  prev = ""
+  for (i = 1; i <= NR; i++) {
+    line = lines[i]
+    trimmed = line
+    sub(/^[[:space:]]+/, "", trimmed)
+    if (trimmed != "" && substr(trimmed, 1, 1) != "#" &&
+      index(line, "qa-docker-loop-ok") == 0 &&
+      index(prev, "qa-docker-loop-ok") == 0 &&
+      line ~ /^[[:space:]]*restart[[:space:]]*:[[:space:]]*["\047]?(always|unless-stopped|on-failure)["\047]?[[:space:]]*(#.*)?$/) {
+      printf "❌ [QA-DOCKER-LOOP-01] %s:%d: Política restart ilimitada en manifiesto QA/test/deploy (use restart: \"no\").\n", file, i
+      bad = 1
+    }
+    prev = line
+  }
+  exit bad
+}
+AWK
+
+  read -r -d '' awk_loop_script <<'AWK' || true
+{
+  lines[NR] = $0
+  if (NR <= 5 && index($0, "qa-docker-loop-ok") > 0) {
+    skip_file = 1
+  }
+}
+END {
+  if (skip_file) exit 0
+  bad = 0
+  prev = ""
+  for (i = 1; i <= NR; i++) {
+    line = lines[i]
+    trimmed = line
+    sub(/^[[:space:]]+/, "", trimmed)
+    if (trimmed != "" && substr(trimmed, 1, 1) != "#" &&
+      index(line, "qa-docker-loop-ok") == 0 &&
+      index(prev, "qa-docker-loop-ok") == 0 &&
+      line ~ /docker[[:space:]-]+compose[[:space:]]+([^#]*[[:space:]])?up[[:space:]].*--wait([[:space:]]|$)/ &&
+      line !~ /--wait-timeout/) {
+      printf "❌ [QA-DOCKER-LOOP-01] %s:%d: docker compose up --wait sin --wait-timeout.\n", file, i
+      bad = 1
+    }
+    prev = line
+  }
+  exit bad
+}
+AWK
+
+  mapfile -d '' -t cmp_files < <(find "${REPO_ROOT}" -maxdepth 4 \
+    \( -name node_modules -o -name .git -o -name dist -o -name .venv -o -name vendor -o -name target -o -name graphify-out -o -name tests -o -name test -o -name __tests__ \) -prune \
+    -o -type f \( -name 'docker-compose.qa*.yml' -o -name 'docker-compose.test*.yml' -o -name 'docker-compose.deploy*.yml' -o -name 'compose.qa*.yml' -o -name 'compose.test*.yml' -o -name 'compose.deploy*.yml' \) -print0 2>/dev/null)
+  for cmp_file in "${cmp_files[@]}"; do
+    rel="${cmp_file#"${REPO_ROOT}/"}"
+    if ! out="$(awk -v file="${rel}" "${awk_loop_compose}" "${cmp_file}")"; then
+      printf '%s\n' "${out}" >&2
+      found_err=1
+    fi
+  done
+
+  mapfile -d '' -t sh_files < <(find "${REPO_ROOT}" -maxdepth 4 \
+    \( -name node_modules -o -name .git -o -name dist -o -name .venv -o -name vendor -o -name target -o -name graphify-out -o -name tests -o -name test -o -name __tests__ \) -prune \
+    -o -type f \( -name 'deploy*.sh' -o -name 'ci*.sh' -o -name 'probar-*.sh' -o -name 'release*.sh' \) -print0 2>/dev/null)
+  for sh_file in "${sh_files[@]}"; do
+    rel="${sh_file#"${REPO_ROOT}/"}"
+    if ! out="$(awk -v file="${rel}" "${awk_loop_script}" "${sh_file}")"; then
+      printf '%s\n' "${out}" >&2
+      found_err=1
+    fi
+  done
+
   return "${found_err}"
 }
 
 audit_ci_and_submakefiles || exit 1
 if [ "${STATIC_ONLY}" = true ]; then
-  echo "✔ [IaC Static] Reglas QA-CI-ESCAPE-01 y QA-MAKE-CURDIR-01 verificadas sin hallazgos."
+  echo "✔ [IaC Static] Reglas QA-CI-ESCAPE-01, QA-MAKE-CURDIR-01 y QA-DOCKER-LOOP-01 verificadas sin hallazgos."
   exit 0
 fi
 

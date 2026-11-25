@@ -3,6 +3,10 @@ services:
   uv-cache-init:
     image: sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
     mem_limit: 256m
+    restart: "no"
+    cpus: "${QA_INIT_CPU_LIMIT:-1.0}"
+    pids_limit: 64
+    network_mode: none
     user: "0:0"
     security_opt:
       - no-new-privileges:true
@@ -18,6 +22,9 @@ services:
   qa-backend:
     image: sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
     mem_limit: 2g
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 256
     working_dir: /app/backend
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
     depends_on:
@@ -40,6 +47,10 @@ services:
   pnpm-store-init:
     image: sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60
     mem_limit: 256m
+    restart: "no"
+    cpus: "${QA_INIT_CPU_LIMIT:-1.0}"
+    pids_limit: 64
+    network_mode: none
     user: "0:0"
     security_opt:
       - no-new-privileges:true
@@ -55,6 +66,9 @@ services:
   qa-frontend:
     image: sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60
     mem_limit: 2g
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 512
     working_dir: /app/frontend
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
     depends_on:
@@ -78,6 +92,9 @@ services:
     profiles:
       - e2e
     mem_limit: 2g
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 512
     security_opt:
       - no-new-privileges:true
     cap_drop:

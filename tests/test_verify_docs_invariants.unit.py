@@ -367,7 +367,7 @@ class TestVerifyDocsInvariants(unittest.TestCase):
         self.assertEqual(counts.blueprints, 10)
         self.assertEqual(counts.calm_controls, 7)
         self.assertEqual(counts.ref_controls, 22)
-        self.assertEqual(counts.scanner_rules, 36)
+        self.assertEqual(counts.scanner_rules, 37)
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -414,13 +414,13 @@ class TestVerifyDocsInvariants(unittest.TestCase):
             (root / "docs" / "specs").mkdir(parents=True, exist_ok=True)
 
             # Casos válidos sin falsos positivos (sub-skills, 22 reference controls,
-            # 31+5=36, 12 environments, 10 stacks)
+            # 32+5=37, 12 environments, 10 stacks)
             (root / "README.md").write_text(
                 "# OK\n"
                 "Loads 10 specialized sub-skills and 9 sub-skills with "
                 "SHA-256 skills.\n"
                 "Enforces 22 reference controls, 22 controls, "
-                "31+5=36 scanner rules.\n"
+                "32+5=37 scanner rules.\n"
                 "Covers 12 environments, 7 controls (CALM), 10 stacks, "
                 "Top 5 blueprints.\n"
                 "Historical: `18` MCP tools and `12` MCP resources, "

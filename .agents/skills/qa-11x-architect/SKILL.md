@@ -29,7 +29,7 @@ Classify every task first. **NEVER auto-run `git push`** (`QA-GIT-GATE-01` — s
 3. `audit_test_pyramid_gaps` — 13-layer audit + config.
 4. `fetch_blueprint_bundle` — SHA-256 index (`include_content:false`).
 5. `bootstrap_or_merge_11x` — surgical `.example` merge.
-6. `audit_security_stig_owasp` — 36 static scanner rules (`SEC-01..16`, `SEC-CI-ACTION-REF`, `SEC-WS-PUBSUB-01`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-MYPY-01`, `QA-PG17-RLS`, `QA-SMOKE-01`, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `QA-STRYKER-CFG-01`, `UI-11X-01..03`).
+6. `audit_security_stig_owasp` — 37 static scanner rules (`SEC-01..16`, `SEC-CI-ACTION-REF`, `SEC-WS-PUBSUB-01`, `QA-KARATE-IDEMP`, `QA-COV-01`, `QA-MYPY-01`, `QA-PG17-RLS`, `QA-SMOKE-01`, `QA-HEALTH-01`, `QA-CLI-TTY-01`, `QA-DOCKER-TTY-01`, `QA-DOCKER-LOOP-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `QA-STRYKER-CFG-01`, `UI-11X-01..03`).
 7. `run_ephemeral_qa` — `lint|unit|migration|integration|ci|parity|orphans|contracts|bdd|mutation|dast|e2e|perf|chaos|profile|all` (`sinfallas/*`, `.qa-evidence.json`).
 8. `clean_workspace_11x` — rootless purge (keeps `mcp-server/dist`, `graphify-out/`).
 9. `certify_11x_gate` — 10/10 gate (lint evidence, orphans, manifest, security).
@@ -58,7 +58,7 @@ Classify every task first. **NEVER auto-run `git push`** (`QA-GIT-GATE-01` — s
   4. **Anti-JSDOM & Dual Refresh:** Ban `position: fixed` footers (`UI-11X-01`); pair WebSocket/timers (`clearInterval` on unmount) with **`[ 🔄 Refrescar ]`** (`?refresh=true`).
   5. **Surgical Merge & Thin-Repo:** Merge `.example` safely; zero local duplication of global skills/rules.
   6. **Proportional BDD, Zero Orphans & `QA-TEST-SYNC-01`:** Dynamic `Idempotency-Key` UUIDs (`QA-KARATE-IDEMP`); `0` orphan UI/API endpoints; update affected unit/integration/BATS/Karate `.feature` tests on code, schema, skill, or `manifest.json` edits.
-  7. **22 STIG V6R5 & OWASP v4.2 Controls (vs 36 Scanner Rules):** RLS `NOBYPASSRLS` + `after_begin` (`QA-PG17-RLS`), WORM `seq_num` + `pg_advisory_xact_lock`, Service-Layer RBAC + `ApprovalRequest`, AES-256-GCM Vault, anti-SSRF, `NFKC`, anti-XXE, OSHP, Argon2id lockout, CycloneDX SBOM, SHA-40 Actions (`SEC-CI-ACTION-REF`) (`qa-11x-devsecops-hardener`).
+  7. **22 STIG V6R5 & OWASP v4.2 Controls (vs 37 Scanner Rules):** RLS `NOBYPASSRLS` + `after_begin` (`QA-PG17-RLS`), WORM `seq_num` + `pg_advisory_xact_lock`, Service-Layer RBAC + `ApprovalRequest`, AES-256-GCM Vault, anti-SSRF, `NFKC`, anti-XXE, OSHP, Argon2id lockout, CycloneDX SBOM, SHA-40 Actions (`SEC-CI-ACTION-REF`) (`qa-11x-devsecops-hardener`).
   8. **RED Pre-Chaos:** Expose `/metrics` (`trace_id`) prior to load/chaos profiles.
   9. **Trimodal & 3-Phase Clock:** Test Virgin/Nominal/Degraded across all 3 clock phases; run `inspect_ast_blast_radius` pre-edit and refresh AST post-edit.
   10. **Closure & `QA-GIT-GATE-01`:** Keep `.agents/ACTIVE_TASK.md <= 40L`, run `make sync-governance` + `make certify` (`certify_task_completion.sh` writes `.agents/.cache/qa-11x-last-failure.json` on fail), commit locally without `git push`, and invoke `propose_skill_evolution_pr` on QA escapes.
@@ -102,7 +102,7 @@ Hydrate specialized sub-skills **strictly on demand** by domain (zero eager load
 ## 4. On-Demand References (`references/01..10.md`)
 
 - [`references/01-core-13-layers.md`](references/01-core-13-layers.md) — 13 QA layers, Anti-Mock, Anti-JSDOM, Trimodal.
-- [`references/02-security-disa-owasp-22.md`](references/02-security-disa-owasp-22.md) — 22 DISA/OWASP ref controls (vs 36 scanner rules) & `SEC-16`.
+- [`references/02-security-disa-owasp-22.md`](references/02-security-disa-owasp-22.md) — 22 DISA/OWASP ref controls (vs 37 scanner rules) & `SEC-16`.
 - [`references/03-stack-python-fastapi.md`](references/03-stack-python-fastapi.md) — Python 3.15 / FastAPI (`uv`, PG17, KeyDB).
 - [`references/04-stack-node-vue-react.md`](references/04-stack-node-vue-react.md) — Node, Vue 3, React, Vitest, Playwright `v1.52.0-noble`.
 - [`references/05-stack-bash-devops.md`](references/05-stack-bash-devops.md) — Bash, ShellCheck, shfmt, BATS, `kcov >= 95%`.

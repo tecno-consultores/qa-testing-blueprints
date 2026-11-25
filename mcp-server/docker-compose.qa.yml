@@ -3,6 +3,10 @@ services:
     image: sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60
     pull_policy: if_not_present
     mem_limit: 256m
+    restart: "no"
+    cpus: "${QA_INIT_CPU_LIMIT:-1.0}"
+    pids_limit: 64
+    network_mode: none
     user: "0:0"
     security_opt:
       - no-new-privileges:true
@@ -20,6 +24,9 @@ services:
     hostname: mcp_qa_server
     pull_policy: if_not_present
     mem_limit: 4g
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 512
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
     security_opt:
       - no-new-privileges:true
@@ -47,6 +54,9 @@ services:
     hostname: mcp_karate
     pull_policy: if_not_present
     mem_limit: 2g
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 512
     security_opt:
       - no-new-privileges:true
     cap_drop:

@@ -261,6 +261,12 @@ La integración entre aplicaciones SPA (Vue 3, React) y APIs REST/WebSockets (Fa
 - **Mitigación:**
   - Encapsular todo canal del broker con el inquilino autenticado (`ws:${tenant_id}:events` / `f"ws:{tenant_id}:events"`), validar la pertenencia al inquilino en servidor, usar un vigilante desacoplado `ws.receive()` y garantizar `await pubsub.aclose()` dentro de `finally:` (`SEC-WS-PUBSUB-01`, eximible con `# sec-ws-pubsub-ok`).
 
+### 4.33. Contención Anti-CrashLoop, Serialización Docker QA y Anti-Fan-Out de Subagentes (`QA-DOCKER-LOOP-01` — `DISA APSC-DV-002310` y `Contención Host Regla Cero`)
+- **Riesgo:** Políticas de reinicio ilimitadas (`restart: always`, `unless-stopped`, `on-failure` sin tope) en manifiestos QA/test/deploy, fan-out paralelo de `docker run` desde subagentes sin `--network none` ni límites de CPU/RAM/PIDs, `docker compose up --wait` sin `--wait-timeout`, `docker compose build` multi-servicio en paralelo o scripts `deploy*.sh` que omiten desmontar `docker-compose.qa.yml` provocan CrashLoops, tormentas de interfaces `veth*` en `NetworkManager`/`tailscaled`, agotamiento de RAM y apagados térmicos ACPI por hardware.
+- **Mitigación:**
+  - Exigir `restart: "no"`, `cpus: "${QA_CPU_LIMIT:-2.0}"`, `mem_limit` y `pids_limit` (`64` init / `256` estándar / `512` navegador/JVM) en `docker-compose.qa.yml` (con `network_mode: none` en servicios init offline), `--wait-timeout 60` en `up -d --wait`, `COMPOSE_PARALLEL_LIMIT=1`, `--rm --restart=no` en `docker run` y limpieza dual `trap ... EXIT INT TERM` (auditado estáticamente mediante `QA-DOCKER-LOOP-01` en `audit_security_stig_owasp` y `scripts/auditar-infra.sh`, eximible con `# qa-docker-loop-ok`).
+  - Serializar la ejecución QA en Docker dentro de `run_ephemeral_qa` (lockfile FIFO atómico `QA_MAX_CONCURRENT_CONTAINERS=1`, guardrails pasivos Linux de RAM `< 12%` y temperatura `>= 85°C`, auto-remediación de CrashLoops del workspace con bloqueo *fail-fast* ante CrashLoops externos y teardown garantizado tras timeout/abort de `make`), barrer contenedores `restarting` en `limpieza.sh` / `clean_workspace_11x` / `qa-11x doctor` y prohibir fan-out paralelo de `docker run` desde subagentes `/teamwork`.
+
 ---
 
 ## 5. Auditoría Preventiva de Vulnerabilidades y Seguridad Shift-Left

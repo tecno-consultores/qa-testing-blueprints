@@ -7,6 +7,9 @@ services:
     image: grafana/k6:2.4.0@sha256:d41bb79cd8de5a7ad619b53570e3712633e8bff0937010a5c6c57a4747e7a276
     pull_policy: if_not_present
     mem_limit: 512m
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 256
     profiles:
       - k6
       - load

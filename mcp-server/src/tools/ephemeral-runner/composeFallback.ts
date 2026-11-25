@@ -317,6 +317,7 @@ export interface ExecCommandInput {
   readonly cwd: string;
   readonly timeoutMs: number;
   readonly signal?: AbortSignal;
+  readonly env?: NodeJS.ProcessEnv;
 }
 
 function resolveExecErrorExitCode(errWithCode: NodeJS.ErrnoException & {
@@ -339,7 +340,7 @@ function resolveExecErrorExitCode(errWithCode: NodeJS.ErrnoException & {
 }
 
 export function execCommand(input: ExecCommandInput): Promise<ExecCommandOutcome> {
-  const { executor, binary, args, cwd, timeoutMs, signal } = input;
+  const { executor, binary, args, cwd, timeoutMs, signal, env } = input;
   if (signal?.aborted) {
     return Promise.resolve({
       exitCode: 124,
@@ -358,6 +359,7 @@ export function execCommand(input: ExecCommandInput): Promise<ExecCommandOutcome
         timeout: timeoutMs,
         shell: false,
         maxBuffer: MAX_EXEC_BUFFER_BYTES,
+        ...(env ? { env } : {}),
         ...(signal ? { signal } : {}),
       },
       (error, stdout, stderr) => {

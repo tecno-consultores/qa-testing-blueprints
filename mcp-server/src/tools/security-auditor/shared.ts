@@ -53,6 +53,14 @@ export const QA_DOCKER_TTY_NO_TTY_REMEDIATION =
   'Agregar -T (--no-TTY) a docker compose run en pipelines CI=true y scripts de despliegue/CI para impedir la asignación de pseudo-TTY (NoDefaultValueProvided).';
 export const QA_DOCKER_TTY_WRANGLER_REMEDIATION =
   'Precrear /app/.wrangler en el Dockerfile, montarlo como tmpfs con mode=1777,noexec,nosuid,nodev y pasar --force en wrangler pages project create y wrangler pages deploy.';
+export const QA_DOCKER_LOOP_01_RULE = 'QA-DOCKER-LOOP-01';
+export const QA_DOCKER_LOOP_01_REF =
+  'APSC-DV-002310 / Rule Zero Anti-CrashLoop, Serialized Docker & Resource Containment';
+export const QA_DOCKER_LOOP_OK_PRAGMA = 'qa-docker-loop-ok';
+export const QA_DOCKER_LOOP_COMPOSE_REMEDIATION =
+  'Usar restart: "no" (u omitirlo) en archivos docker-compose.qa*.yml / test*.yml / deploy*.yml (o restart: "on-failure:3" acotado en despliegues), evitando CrashLoops infinitos que saturan CPU/RAM/NetworkManager (o eximir con # qa-docker-loop-ok).';
+export const QA_DOCKER_LOOP_SCRIPT_REMEDIATION =
+  'Añadir --rm y --restart=no a docker run, --wait-timeout 60 a docker compose up --wait, COMPOSE_PARALLEL_LIMIT=1 (o build secuencial) en builds multi-servicio, y desmontar docker-compose.qa.yml en trap EXIT INT TERM (o eximir con # qa-docker-loop-ok).';
 export const COMPOSE_VALUE_FLAGS = new Set([
   '-f',
   '--file',

@@ -248,3 +248,25 @@ make qa-drivers
 # Levantar el puente W3C Appium apuntando al ADB del host vía ADB_SERVER_SOCKET=tcp:host.docker.internal:5037:
 make qa-bridge
 ```
+
+---
+
+## 15. Apagados Térmicos, Saturación de RAM y Tormentas `veth*` en `NetworkManager` / `tailscaled` (`QA-DOCKER-LOOP-01`)
+
+**Síntoma:**
+La CPU sube al 100 %, la RAM alcanza 95–100 %, `NetworkManager` registra miles de eventos `new Veth device`, `tailscaled` repite `LinkChange: major, rebinding` o el kernel Linux dispara `HARDWARE PROTECTION shutdown (Temperature too high)`.
+
+**¿Por qué sucede?**
+1. Múltiples subagentes IA en paralelo (p. ej. `/teamwork` o varias ventanas del IDE) lanzan `docker run` ad-hoc de QA (`pytest`, `mutmut`, `vitest`) al mismo tiempo sin límites (`--cpus`, `--memory`, `--pids-limit`) ni `--network none`.
+2. Contenedores con `restart: always` / `unless-stopped` entrando en CrashLoop infinito, o procesos `make`/`docker run` cancelados que dejan contenedores vivos en `dockerd`.
+
+**La Solución:**
+1. Canalizar toda ejecución Docker QA por `run_ephemeral_qa` (aplica cola FIFO `QA_MAX_CONCURRENT_CONTAINERS=1`, guardrails pasivos Linux de temperatura `< 85 °C` y RAM disponible `>= 12 %`, auto-remediación de CrashLoops del workspace y teardown garantizado tras timeout/abort).
+2. Ejecutar `qa-11x doctor` para detectar contenedores en `restarting`, redes `br-*` huérfanas, temperatura/RAM y estado de `NetworkManager`.
+3. En hosts Linux con `NetworkManager` + `tailscaled`, configurar una sola vez el descarte de interfaces virtuales de Docker:
+```ini
+# /etc/NetworkManager/conf.d/99-unmanaged-docker.conf
+[keyfile]
+unmanaged-devices=interface-name:veth*;interface-name:docker0;interface-name:br-*
+```
+4. Prohibir fan-out paralelo de `docker run` en subagentes y exigir `restart: "no"`, `cpus`, `mem_limit`, `pids_limit` y `network_mode: none` / `--network none` en tareas offline (`QA-DOCKER-LOOP-01`).

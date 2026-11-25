@@ -7,6 +7,10 @@ services:
     image: ${PHP_IMAGE:-sinfallas/basephpcomposer:8.5@sha256:56ff6d2dbf8b13833555b56ddc517bf520506b669c235026bb23224b212f0208}
     pull_policy: if_not_present
     mem_limit: 256m
+    restart: "no"
+    cpus: "${QA_INIT_CPU_LIMIT:-1.0}"
+    pids_limit: 64
+    network_mode: none
     user: "0:0"
     security_opt:
       - no-new-privileges:true
@@ -18,6 +22,9 @@ services:
     image: postgres:17-alpine@sha256:d3244e8ce3f165ee3c93d9c4a4b1d0fe48b3a89e2287b717fdcbbde92d405065
     pull_policy: if_not_present
     mem_limit: 1g
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 256
     profiles:
       - integration
       - load
@@ -43,6 +50,9 @@ services:
     image: eqalpha/keydb@sha256:6537505c42355ca1f571276bddf83f5b750f760f07b2a185a676481791e388ac
     pull_policy: if_not_present
     mem_limit: 512m
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 256
     user: "999:999"
     profiles:
       - integration
@@ -67,6 +77,9 @@ services:
     image: ${PHP_IMAGE:-sinfallas/basephpcomposer:8.5@sha256:56ff6d2dbf8b13833555b56ddc517bf520506b669c235026bb23224b212f0208}
     pull_policy: if_not_present
     mem_limit: 2g
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 256
     working_dir: /var/www
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
     security_opt:
@@ -93,6 +106,9 @@ services:
     hostname: php_qa_api
     pull_policy: if_not_present
     mem_limit: 2g
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 256
     profiles:
       - integration
       - load
@@ -132,6 +148,9 @@ services:
     image: sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89
     pull_policy: if_not_present
     mem_limit: 2g
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 512
     profiles:
       - integration
     security_opt:
@@ -149,6 +168,9 @@ services:
     image: zaproxy/zap-stable:2.15.0@sha256:8dc78e39fafc3281ac2cf54eab05c3ea02721a1ea58f1c135f981a57f4e218b1
     pull_policy: if_not_present
     mem_limit: 2g
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 512
     profiles:
       - integration
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
@@ -170,6 +192,9 @@ services:
     image: prom/prometheus:v2.55.1@sha256:2659f4c2ebb718e7695cb9b25ffa7d6be64db013daba13e05c875451cf51b0d3
     pull_policy: if_not_present
     mem_limit: 512m
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 256
     security_opt:
       - no-new-privileges:true
     profiles:
@@ -204,6 +229,9 @@ services:
     image: grafana/k6:2.4.0@sha256:d41bb79cd8de5a7ad619b53570e3712633e8bff0937010a5c6c57a4747e7a276
     pull_policy: if_not_present
     mem_limit: 512m
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 256
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
     read_only: true
     cap_drop:
@@ -233,6 +261,9 @@ services:
     image: gaiaadm/pumba:0.10.1@sha256:07f89803f5ce89d2ae0bf0b67d0fc3e094324626afd2e2402bcd9dc62ff409f5
     pull_policy: if_not_present
     mem_limit: 512m
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 256
     security_opt:
       - no-new-privileges:true
     profiles:

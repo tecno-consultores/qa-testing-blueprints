@@ -7,6 +7,10 @@ services:
     image: sinfallas/base-mobile-appium:26@sha256:1bb9e70613a786008fe06c418a557aeaa5fe7c62b3db29a26b4e0ce86d3c6728
     pull_policy: if_not_present
     mem_limit: 256m
+    restart: "no"
+    cpus: "${QA_INIT_CPU_LIMIT:-1.0}"
+    pids_limit: 64
+    network_mode: none
     user: "0:0"
     security_opt:
       - no-new-privileges:true
@@ -19,6 +23,9 @@ services:
     hostname: mobile_qa_runner
     pull_policy: if_not_present
     mem_limit: 4g
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 512
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
     security_opt:
       - no-new-privileges:true
@@ -48,6 +55,9 @@ services:
     hostname: mobile_appium_bridge
     pull_policy: if_not_present
     mem_limit: 4g
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 512
     profiles:
       - appium-live
     user: "${QA_UID:-1000}:${QA_GID:-1000}"

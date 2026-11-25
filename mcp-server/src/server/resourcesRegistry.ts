@@ -69,7 +69,7 @@ export function registerCoreResources(server: McpServer, resources: BlueprintRes
     'blueprint://security/disa-owasp-22',
     {
       description:
-        'Catalog of 22 DISA ASD STIG V6R5 and OWASP Developer Guide v4.2 reference controls + 36 static scanner rules.',
+        'Catalog of 22 DISA ASD STIG V6R5 and OWASP Developer Guide v4.2 reference controls + 37 static scanner rules.',
       mimeType: MARKDOWN_MIME_TYPE,
     },
     async (uri) =>

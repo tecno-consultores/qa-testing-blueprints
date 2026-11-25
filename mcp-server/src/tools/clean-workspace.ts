@@ -7,6 +7,10 @@ import { execFileSync } from 'node:child_process';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { CleanWorkspaceResult } from '../types.js';
 import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
+import {
+  isWorkspaceScopedContainer,
+  parseRestartingContainers,
+} from './ephemeral-runner/dockerGuardrails.js';
 
 export const ALPINE_FALLBACK_IMAGE =
   'alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab';
@@ -368,9 +372,77 @@ function executeTargetDeletion(
   return { removed, dockerFallbackUsed };
 }
 
+export interface DockerContainerCleanOutcome {
+  readonly found: string[];
+  readonly removed: string[];
+}
+
 export interface CleanWorkspaceDeps {
   readonly fallbackExecutor?: (baseDir: string, targets: string[]) => boolean;
   readonly targetRemover?: (baseDir: string, relPath: string) => { removed: boolean };
+  readonly dockerContainerCleaner?: (
+    resolvedPath: string,
+    dryRun: boolean
+  ) => DockerContainerCleanOutcome;
+  readonly execFileSyncFn?: typeof execFileSync;
+}
+
+function listWorkspaceContainers(
+  resolvedPath: string,
+  execSyncFn: typeof execFileSync
+): Array<{ id: string; label: string; status: string }> {
+  try {
+    const raw = execSyncFn(
+      'docker',
+      [
+        'ps',
+        '-a',
+        '--filter',
+        'status=restarting',
+        '--filter',
+        'status=exited',
+        '--filter',
+        'status=dead',
+        '--format',
+        '{{.ID}}|{{.Names}}|{{.State}}|{{.Label "com.docker.compose.project.working_dir"}}',
+      ],
+      { timeout: 2000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
+    );
+    return parseRestartingContainers(String(raw))
+      .filter((c) => isWorkspaceScopedContainer(c.workingDir, resolvedPath))
+      .map((c) => ({ id: c.id, label: `${c.name}(${c.id})`, status: c.image }));
+  } catch (err: unknown) {
+    reportDebugCatchError('cleanWorkspace.listWorkspaceContainers', err);
+    return [];
+  }
+}
+
+function defaultCleanWorkspaceContainers(
+  resolvedPath: string,
+  dryRun: boolean,
+  execSyncFn: typeof execFileSync = execFileSync
+): DockerContainerCleanOutcome {
+  const candidates = listWorkspaceContainers(resolvedPath, execSyncFn);
+  const found = candidates.map((c) => c.label);
+  if (dryRun || candidates.length === 0) {
+    return { found, removed: [] };
+  }
+  const removed: string[] = [];
+  for (const item of candidates) {
+    try {
+      if (item.status === 'restarting') {
+        execSyncFn('docker', ['update', '--restart=no', item.id], {
+          timeout: 2000,
+          stdio: 'ignore',
+        });
+      }
+      execSyncFn('docker', ['rm', '-fv', item.id], { timeout: 3000, stdio: 'ignore' });
+      removed.push(item.label);
+    } catch (err: unknown) {
+      reportDebugCatchError('cleanWorkspace.removeWorkspaceContainer', err);
+    }
+  }
+  return { found, removed };
 }
 
 export function cleanWorkspace11x(
@@ -390,7 +462,7 @@ function executeCleanWorkspace11x(
   deepPrune = false,
   deps: CleanWorkspaceDeps = {}
 ): CleanWorkspaceResult {
-  const { fallbackExecutor, targetRemover } = deps;
+  const { fallbackExecutor, targetRemover, dockerContainerCleaner, execFileSyncFn } = deps;
   const resolvedPath = resolveSafeProjectPath(projectPathInput);
 
   if (!fs.existsSync(resolvedPath)) {
@@ -419,6 +491,10 @@ function executeCleanWorkspace11x(
     dockerFallbackUsed = outcome.dockerFallbackUsed;
   }
 
+  const containerOutcome = dockerContainerCleaner
+    ? dockerContainerCleaner(resolvedPath, dryRun)
+    : defaultCleanWorkspaceContainers(resolvedPath, dryRun, execFileSyncFn);
+
   const recommendedCommand = deepPrune ? './scripts/limpieza.sh --deep' : './scripts/limpieza.sh';
 
   return {
@@ -427,6 +503,12 @@ function executeCleanWorkspace11x(
     deep_prune: deepPrune,
     found_targets: allFoundTargets,
     removed_targets: removedTargets,
+    ...(containerOutcome.found.length > 0
+      ? {
+          found_containers: containerOutcome.found,
+          removed_containers: containerOutcome.removed,
+        }
+      : {}),
     docker_fallback_used: dockerFallbackUsed,
     recommended_command: recommendedCommand,
   };

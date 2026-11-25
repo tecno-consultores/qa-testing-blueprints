@@ -32,7 +32,7 @@
 21. [Patrón 21: Mitigación de OWASP API Security Top 10 (2023), Anti-Data-Mining y Consumo Seguro de APIs](#patrón-21-mitigación-de-owasp-api-security-top-10-2023-anti-data-mining-y-consumo-seguro-de-apis)
 22. [Patrón 22: Cadena de Suministro (CycloneDX SBOM/CBOM), Firma de Artefactos y Threat Modeling como Código](#patrón-22-cadena-de-suministro-cyclonedx-sbomcbom-firma-de-artefactos-y-threat-modeling-como-código)
 
-### 🧭 Mapa de Trazabilidad con el Auditor Estático (`audit_security_stig_owasp` — 36 Reglas: `SEC-01`..`SEC-16`, `QA-*`, `UI-11X-*`)
+### 🧭 Mapa de Trazabilidad con el Auditor Estático (`audit_security_stig_owasp` — 37 Reglas: `SEC-01`..`SEC-16`, `QA-*`, `UI-11X-*`)
 
 | Regla MCP | Control / Vector Mitigado | Patrón Humano de Referencia |
 | :--- | :--- | :--- |
@@ -72,6 +72,7 @@
 | `QA-SSR-HYDRATION-01` | Ramificación DOM pre-hidratación (`v-if` o expresiones JSX/TSX fuera de `useEffect` sobre `localStorage`/`dataset.theme`) en apps SSR/SSG o ausencia de barrido Playwright dual `'light'`/`'dark'` con guardia `console`/`pageerror` (`/hydration/i`) | `docs/02` §7 y `SECURITY.es.md` §4.30 |
 | `QA-STRYKER-CFG-01` | Ausencia de `"ignoreStatic": true`, exclusiones `!src/**/*.{unit,spec,test}.*` en `mutate` o `"concurrency" > 4` excesivo en `stryker.conf.json(.example)` provocando OOM en contenedores (con shim `/tmp/qa-bin/ps` en `Makefile.example`) | `docs/02` §8 y `SECURITY.es.md` §4.31 |
 | `SEC-WS-PUBSUB-01` | Canales PubSub Redis/KeyDB en WebSockets sin aislamiento por `tenant_id` u omisión de `pubsub.aclose()`/`close()` garantizado en `finally:` agotando el pool en suites E2E | Patrón 1 y `SECURITY.es.md` §4.32 |
+| `QA-DOCKER-LOOP-01` | Políticas ilimitadas `restart: always|unless-stopped|on-failure` en Compose QA/test/deploy, `docker run` sin `--rm`, `up --wait` sin `--wait-timeout`, `compose build` paralelo sin `COMPOSE_PARALLEL_LIMIT=1` o `deploy*.sh` sin teardown de `docker-compose.qa.yml` | `docs/02` §5.1 y `SECURITY.es.md` §4.33 |
 
 ---
 

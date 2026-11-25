@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+* **Docker Anti-Saturation Guardrails, FIFO Serialization & Static Rule #37 (`QA-DOCKER-LOOP-01`):**
+  * Added `mcp-server/src/tools/ephemeral-runner/dockerGuardrails.ts` and wired it into `run_ephemeral_qa`: cross-process atomic FIFO slot lock (`QA_MAX_CONCURRENT_CONTAINERS=1`, stale-PID recovery, `COMPOSE_PARALLEL_LIMIT=1`), passive Linux RAM (`< 12%`) and thermal (`>= 85°C` or `< 12°C` from ACPI critical) guardrails (`exit_code = 75` exempt from `BREAKER-42`), pre-flight CrashLoop detection (auto-stops workspace `restarting` containers; fails fast with safe commands on foreign-project CrashLoops), and guaranteed Compose teardown on `make` timeout/abort.
+  * Added static rule #37 `QA-DOCKER-LOOP-01` in `mcp-server/src/tools/security-auditor/dockerLoopRules.ts` and `scripts/auditar-infra.sh` flagging unbounded `restart:` policies in QA/test/deploy Compose files, `docker run` without `--rm` or with unbounded `--restart`, `docker compose up --wait` without `--wait-timeout`, multi-service parallel `docker compose build` without `COMPOSE_PARALLEL_LIMIT=1`, and `deploy*.sh` scripts missing `docker-compose.qa.yml` teardown.
+  * Upgraded `scripts/limpieza.sh` and `clean_workspace_11x` to detect/remediate workspace `restarting` containers and orphan Compose networks, and added `docker_health` telemetry (`dockerHealthProbe.ts`) to `qa-11x doctor` (CrashLoop containers, orphan `br-*` count, Linux `NetworkManager` `unmanaged-devices` check, and passive temperature/RAM warnings).
+  * Hardened all 13 `docker-compose.qa.yml` manifests (`restart: "no"`, `cpus`, `pids_limit`, `network_mode: none` on offline init services), added `--wait-timeout 60` across all 7 `*/Makefile.example` templates, and synced thin connectors (`agents-connector.ts`), skills (`qa-11x-docker-certifier`, `qa-11x-systematic-debugging`, `qa-11x-architect`), `_docs_invariants_config.py` (`EXPECTED_SCANNER_RULES = 37`), and bilingual docs (`SECURITY`, `docs/02`, `docs/04`, `docs/05`, `docs/docker-troubleshooting`, `TESTING`).
+
 ---
 
 ## [3.6.0] - 2026-11-24

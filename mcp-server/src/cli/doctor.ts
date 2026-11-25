@@ -42,6 +42,7 @@ import {
   resolveComparablePath,
 } from './cliArgHelpers.js';
 import { renderSubcommandHelpText, resolveCliHelpLang } from './commandCatalog.js';
+import { type DockerHostHealth, probeDockerHostHealth } from './dockerHealthProbe.js';
 
 const PREFIX_ERROR = '❌ [doctor]';
 const UTF8_ENCODING = 'utf-8';
@@ -87,6 +88,7 @@ export interface DoctorCliDeps {
   readonly fetcher?: GitHubFetcher;
   readonly fetchFn?: typeof fetch;
   readonly dockerProbeFn?: () => string | null;
+  readonly dockerHealthProbeFn?: () => DockerHostHealth;
 }
 
 export interface GlobalConnectorHealth extends ConnectorInspectionResult {
@@ -112,6 +114,7 @@ export interface DoctorReport {
   readonly ide_config_warnings: readonly string[];
   readonly stamp_drift_warnings: readonly string[];
   readonly docker_version: string | null;
+  readonly docker_health?: DockerHostHealth;
   readonly graphify_graph_present: boolean;
   readonly project_inspection: ProjectAuditResult;
 }
@@ -471,7 +474,11 @@ function appendDoctorConnectorAndIdeLines(lines: string[], report: DoctorReport)
   for (const cfg of report.ide_mcp_configs) {
     lines.push(`    - ${cfg.client}: ${formatIdeMcpStatus(cfg)} (${cfg.path})`);
   }
-  for (const warn of [...report.ide_config_warnings, ...report.stamp_drift_warnings]) {
+  for (const warn of [
+    ...report.ide_config_warnings,
+    ...report.stamp_drift_warnings,
+    ...(report.docker_health?.warnings ?? []),
+  ]) {
     lines.push(`  ⚠️ ${warn}`);
   }
 }
@@ -536,6 +543,19 @@ async function buildHomeDoctorProjectInspection(
   };
 }
 
+function resolveDoctorDockerHealth(
+  deps: DoctorCliDeps,
+  dockerVersion: string | null
+): DockerHostHealth | undefined {
+  if (deps.dockerHealthProbeFn !== undefined) {
+    return deps.dockerHealthProbeFn();
+  }
+  if (dockerVersion !== null && deps.dockerProbeFn === undefined) {
+    return probeDockerHostHealth();
+  }
+  return undefined;
+}
+
 async function buildDoctorReport(
   parsed: ParsedDoctorArgs,
   deps: DoctorCliDeps
@@ -567,6 +587,9 @@ async function buildDoctorReport(
     ? null
     : inspectDelimitedConnector(path.join(projectPath, 'AGENTS.md'), PROJECT_CONNECTOR_MAX_BYTES);
 
+  const dockerVersion = dockerProbeFn();
+  const dockerHealth = resolveDoctorDockerHealth(deps, dockerVersion);
+
   return {
     mcp_version: MCP_SERVER_VERSION,
     node_version: process.version,
@@ -585,7 +608,8 @@ async function buildDoctorReport(
     ide_mcp_configs: ideConfigs,
     ide_config_warnings: collectIdeConfigWarnings(homeDir, ideConfigs),
     stamp_drift_warnings: collectStampDriftWarnings(skillDirs, projectPath, inHomeMode),
-    docker_version: dockerProbeFn(),
+    docker_version: dockerVersion,
+    ...(dockerHealth ? { docker_health: dockerHealth } : {}),
     graphify_graph_present:
       !inHomeMode && fs.existsSync(path.join(projectPath, 'graphify-out', 'graph.json')),
     project_inspection: projectInspection,

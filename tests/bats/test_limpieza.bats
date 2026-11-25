@@ -363,3 +363,38 @@ EOF
   assert_output --partial "Opción no reconocida"
   [ -f "${ws}/junit.xml" ]
 }
+
+@test "limpieza.sh: frena contenedores en restarting con update --restart=no y poda redes huerfanas del proyecto" {
+  local ws="${BATS_TEST_TMPDIR}/limp_restart_ws"
+  local bin_dir="${BATS_TEST_TMPDIR}/limp_restart_bin"
+  local log_file="${BATS_TEST_TMPDIR}/limp_restart.log"
+  local fake_home="${BATS_TEST_TMPDIR}/limp_restart_home"
+  mkdir -p "${ws}/scripts" "${bin_dir}" "${fake_home}"
+  cp "${CLEAN_SCRIPT}" "${ws}/scripts/limpieza.sh"
+  chmod +x "${ws}/scripts/limpieza.sh"
+
+  cat >"${bin_dir}/docker" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >>"${log_file}"
+case "\$1" in
+  ps) printf 'cid_loop\n' ;;
+  inspect) printf '%s|proj_loop|restarting\n' "${ws}" ;;
+  network)
+    if [[ "\$2" == "ls" ]]; then printf 'net_orphan_1\n'; fi
+    ;;
+esac
+exit 0
+EOF
+  chmod +x "${bin_dir}/docker"
+
+  run env HOME="${fake_home}" TMPDIR="${BATS_TEST_TMPDIR}" PATH="${bin_dir}:/usr/bin:/bin" LC_ALL=C "${ws}/scripts/limpieza.sh" --quiet
+  assert_success
+  run grep -F "status=restarting" "${log_file}"
+  assert_success
+  run grep -F "update --restart=no cid_loop" "${log_file}"
+  assert_success
+  run grep -F "rm -fv cid_loop" "${log_file}"
+  assert_success
+  run grep -F "network rm net_orphan_1" "${log_file}"
+  assert_success
+}

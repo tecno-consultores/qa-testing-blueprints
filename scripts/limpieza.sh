@@ -104,22 +104,31 @@ if command -v docker >/dev/null 2>&1; then
     )
   done
 
-  while IFS= read -r cid; do
+  mapfile -t cleanup_cids < <(docker ps -aq --filter status=restarting --filter status=exited --filter status=created --filter status=dead 2>/dev/null || true)
+  for cid in "${cleanup_cids[@]}"; do
     [ -n "${cid}" ] || continue
-    meta="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}|{{index .Config.Labels "com.docker.compose.project"}}' "${cid}" 2>/dev/null || true)"
-    IFS='|' read -r wdir proj <<EOF
+    meta="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}|{{index .Config.Labels "com.docker.compose.project"}}|{{.State.Status}}' "${cid}" 2>/dev/null || true)"
+    IFS='|' read -r wdir proj cstatus <<EOF
 ${meta}
 EOF
     case "${wdir}" in
       "" | "<no value>") continue ;;
       "${REPO_ROOT}"* | "${HOME}/.cache/qa_mcp_cleanroom_"* | /tmp/qa_mcp_cleanroom_* | "${TMPDIR:-/tmp}/qa_mcp_cleanroom_"* | /tmp/qa-11x-* | "${TMPDIR:-/tmp}/qa-11x-"* | /tmp/qa11x-* | "${TMPDIR:-/tmp}/qa11x-"*)
+        if [ "${cstatus}" = "restarting" ]; then
+          docker update --restart=no "${cid}" >/dev/null 2>&1 || true
+        fi
         docker rm -fv "${cid}" >/dev/null 2>&1 || true
         if [ -n "${proj}" ] && [ "${proj}" != "<no value>" ]; then
           docker network rm "${proj}_default" >/dev/null 2>&1 || true
+          mapfile -t proj_nets < <(docker network ls -q --filter "label=com.docker.compose.project=${proj}" 2>/dev/null || true)
+          for net_id in "${proj_nets[@]}"; do
+            [ -n "${net_id}" ] || continue
+            docker network rm "${net_id}" >/dev/null 2>&1 || true
+          done
         fi
         ;;
     esac
-  done < <(docker ps -aq --filter status=exited --filter status=created --filter status=dead 2>/dev/null || true)
+  done
 fi
 
 # 2. Purga determinista de restos efímeros en caché del usuario y directorios temporales

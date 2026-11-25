@@ -36,7 +36,7 @@ qa-profile:
 	@echo "🔥 [11X] Capturando Flamegraph py-spy sobre proceso Python (reports/flamegraph.svg)..."
 	@mkdir -p "$(PROJECT_DIR)/reports"
 	@sh -c 'set -eu; trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" --profile profile down -v --remove-orphans >/dev/null 2>&1 || true" EXIT; \
-		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile profile up -d --wait python-api; \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile profile up -d --wait --wait-timeout 60 python-api; \
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile profile run --rm -T profiler'
 
 qa-sbom:
@@ -51,12 +51,12 @@ qa-load:
 		echo "ℹ️  [11X] Sin API_BASE_URL ni PYTHON_HTTP_CMD; validando contra stub HTTP python-api..." >&2; \
 	fi
 	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" --profile load down -v >/dev/null 2>&1 || true" EXIT; \
-		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile load up -d --wait python-api && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile load up -d --wait --wait-timeout 60 python-api && \
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile load run --rm -T -u "$(QA_UID):$(QA_GID)" k6-smoke'
 
 qa-observability:
 	@echo "📈 [11X] Levantando observabilidad (Prometheus + Pushgateway)..."
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile observability up -d --wait
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile observability up -d --wait --wait-timeout 60
 
 qa-all: qa-lint qa-unit qa-mutation
 	@echo "✅ Pipeline QA Python Standalone completado."

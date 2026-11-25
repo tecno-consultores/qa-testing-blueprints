@@ -8,6 +8,13 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### Añadido
+* **Guardrails Anti-Saturación Docker, Serialización FIFO y Regla Estática #37 (`QA-DOCKER-LOOP-01`):**
+  * Añadido `mcp-server/src/tools/ephemeral-runner/dockerGuardrails.ts` e integrado en `run_ephemeral_qa`: semáforo FIFO atómico entre procesos/ventanas (`QA_MAX_CONCURRENT_CONTAINERS=1`, recuperación de PID muerto, `COMPOSE_PARALLEL_LIMIT=1`), sondas pasivas Linux de RAM (`< 12%`) y temperatura (`>= 85°C` o `< 12°C` del umbral crítico ACPI, `exit_code = 75` exento de `BREAKER-42`), pre-flight anti-CrashLoop (auto-detiene contenedores `restarting` del workspace; bloquea *fail-fast* reportando IDs ante CrashLoops ajenos) y teardown Compose garantizado ante timeout/abort de `make`.
+  * Añadida la regla estática #37 `QA-DOCKER-LOOP-01` en `mcp-server/src/tools/security-auditor/dockerLoopRules.ts` y `scripts/auditar-infra.sh` para detectar políticas `restart:` ilimitadas en Compose QA/test/deploy, `docker run` sin `--rm` o con `--restart` ilimitado, `docker compose up --wait` sin `--wait-timeout`, `docker compose build` paralelo sin `COMPOSE_PARALLEL_LIMIT=1` y scripts `deploy*.sh` sin limpieza de `docker-compose.qa.yml`.
+  * Actualizados `scripts/limpieza.sh` y `clean_workspace_11x` para barrer contenedores `restarting` y redes Compose huérfanas del proyecto, y añadida telemetría `docker_health` (`dockerHealthProbe.ts`) en `qa-11x doctor` (contenedores en CrashLoop, conteo de redes `br-*`, verificación `NetworkManager` `unmanaged-devices` en Linux y alertas pasivas de temperatura/RAM).
+  * Endurecidos los 13 manifiestos `docker-compose.qa.yml` (`restart: "no"`, `cpus`, `pids_limit`, `network_mode: none` en servicios init offline), añadido `--wait-timeout 60` en los 7 `*/Makefile.example`, y sincronizados los conectores Thin-Client (`agents-connector.ts`), skills (`qa-11x-docker-certifier`, `qa-11x-systematic-debugging`, `qa-11x-architect`), `_docs_invariants_config.py` (`EXPECTED_SCANNER_RULES = 37`) y documentación bilingüe (`SECURITY`, `docs/02`, `docs/04`, `docs/05`, `docs/docker-troubleshooting`, `TESTING`).
+
 ---
 
 ## [3.6.0] - 2026-11-24

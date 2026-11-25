@@ -8,6 +8,21 @@ import { assertNoSymlinkSegments } from '../../security/pathRealResolver.js';
 import { resolveSafeChildPath } from '../../services/github-fetcher.js';
 import type { QaExecutionResult } from '../../types.js';
 
+export interface DockerGuardrailDeps {
+  readonly enabled?: boolean;
+  readonly lockDir?: string;
+  readonly maxConcurrent?: number;
+  readonly maxTempC?: number;
+  readonly minFreeMemPct?: number;
+  readonly pollIntervalMs?: number;
+  readonly platform?: NodeJS.Platform;
+  readonly meminfoPath?: string;
+  readonly thermalBaseDir?: string;
+  readonly isPidAliveFn?: (pid: number) => boolean;
+  readonly execFileSyncFn?: typeof execFileSync;
+  readonly sleepFn?: (ms: number) => Promise<void>;
+}
+
 export const MAX_EXEC_BUFFER_BYTES = 20 * 1024 * 1024;
 export const COMPOSE_QA_FILE = 'docker-compose.qa.yml';
 export const DOCKER_BINARY = 'docker';
@@ -190,6 +205,7 @@ export interface RunEphemeralQaOptions {
   execFileSyncFn?: typeof execFileSync;
   skipIfDocsOnly?: boolean;
   signal?: AbortSignal;
+  guardrails?: DockerGuardrailDeps;
 }
 
 export interface ParsedTarget {

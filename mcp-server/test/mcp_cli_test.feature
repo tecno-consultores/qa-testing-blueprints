@@ -1063,7 +1063,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert secAuditor.contains('extractPythonTestBlocks')
     * assert secAuditor.contains('isUncheckedSupervisorWindow')
     * def serverTs = readModule(repoRoot + '/mcp-server/src/server.ts')
-    * assert serverTs.contains('22 DISA ASD STIG V6R5 / OWASP v4.2 reference controls + 36 static scanner rules')
+    * assert serverTs.contains('22 DISA ASD STIG V6R5 / OWASP v4.2 reference controls + 37 static scanner rules')
     * assert serverTs.contains('QA-SSR-HYDRATION-01')
     * assert serverTs.contains('QA-STRYKER-CFG-01')
     * assert serverTs.contains('SEC-WS-PUBSUB-01')
@@ -1413,20 +1413,20 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
 
     * def serverTs43 = readModule(mcpRoot + '/src/server.ts')
     * assert serverTs43.contains('getRegisteredServerSurface')
-    * assert serverTs43.contains('22 DISA ASD STIG V6R5 / OWASP v4.2 reference controls + 36 static scanner rules')
+    * assert serverTs43.contains('22 DISA ASD STIG V6R5 / OWASP v4.2 reference controls + 37 static scanner rules')
 
     * def agentCardTs43 = karate.readAsString(mcpRoot + '/src/a2a/agentCard.ts')
     * assert agentCardTs43.contains('deriveStandardVersion')
     * assert !agentCardTs43.contains("DEFAULT_STANDARD_VERSION = 'QA-11X v3.0'")
 
     * def mcpReadmeEn43 = karate.readAsString(mcpRoot + '/README.md')
-    * assert mcpReadmeEn43.contains('22 DISA ASD STIG V6R5 / OWASP v4.2 reference controls + 36 static scanner rules')
+    * assert mcpReadmeEn43.contains('22 DISA ASD STIG V6R5 / OWASP v4.2 reference controls + 37 static scanner rules')
     * assert mcpReadmeEn43.contains('16 QA stages')
     * assert mcpReadmeEn43.contains('mutation`, `dast`, `e2e`, `perf`, `chaos`, `profile`, `all`')
     * assert mcpReadmeEn43.contains('`mobile-appium`, `ai-evals`, and `vibe-rescue`')
 
     * def mcpReadmeEs43 = karate.readAsString(mcpRoot + '/README.es.md')
-    * assert mcpReadmeEs43.contains('22 controles de referencia DISA ASD STIG V6R5 / OWASP v4.2 + 36 reglas del escáner estático')
+    * assert mcpReadmeEs43.contains('22 controles de referencia DISA ASD STIG V6R5 / OWASP v4.2 + 37 reglas del escáner estático')
     * assert mcpReadmeEs43.contains('16 etapas QA')
     * assert mcpReadmeEs43.contains('mutation`, `dast`, `e2e`, `perf`, `chaos`, `profile`, `all`')
     * assert mcpReadmeEs43.contains('`mobile-appium`, `ai-evals` y `vibe-rescue`')
@@ -1821,6 +1821,27 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match pluginJson52.skills == './.agents/skills'
     * def marketplaceJson52 = read(repoRoot + '/.claude-plugin/marketplace.json')
     * match marketplaceJson52.name == 'tecno-consultores-qa-11x'
+
+  Scenario: 53. Contrato QA-DOCKER-LOOP-01 — Guardrails en run_ephemeral_qa, regla #37, saneamiento restarting/redes y telemetría docker_health en doctor
+    * def secAud53 = readModule(mcpRoot + '/src/tools/security-auditor.ts')
+    * assert secAud53.contains('QA-DOCKER-LOOP-01')
+    * assert secAud53.contains('checkQaDockerLoop01Containment')
+    * def runner53 = readModule(mcpRoot + '/src/tools/ephemeral-runner.ts')
+    * assert runner53.contains('acquireDockerSlotLock')
+    * assert runner53.contains('evaluateHostThermalAndMemoryGuard')
+    * assert runner53.contains('inspectAndRemediateCrashLoops')
+    * assert runner53.contains('teardownWorkspaceComposeOnAbort')
+    * assert runner53.contains('COMPOSE_PARALLEL_LIMIT')
+    * def doctor53 = karate.readAsString(mcpRoot + '/src/cli/doctor.ts')
+    * assert doctor53.contains('docker_health')
+    * def clean53 = karate.readAsString(mcpRoot + '/src/tools/clean-workspace.ts')
+    * assert clean53.contains('found_containers')
+    * def audInfra53 = karate.readAsString(repoRoot + '/scripts/auditar-infra.sh')
+    * assert audInfra53.contains('QA-DOCKER-LOOP-01')
+    * def limpieza53 = karate.readAsString(repoRoot + '/scripts/limpieza.sh')
+    * assert limpieza53.contains('status=restarting')
+    * assert limpieza53.contains('docker update --restart=no')
+
 
 
 

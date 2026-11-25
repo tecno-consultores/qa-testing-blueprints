@@ -8,6 +8,9 @@ services:
     hostname: vibe_rescue_qa
     pull_policy: if_not_present
     mem_limit: 1g
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 256
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
     environment:
       TZ: 'America/Caracas'

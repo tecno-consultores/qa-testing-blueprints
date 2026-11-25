@@ -217,7 +217,7 @@ function shellSeparatorLength(text: string, idx: number): number {
   return 0;
 }
 
-function splitShellTokens(text: string): string[] {
+export function splitShellTokens(text: string): string[] {
   const tokens: string[] = [];
   let current = '';
   let i = 0;
@@ -243,7 +243,7 @@ function splitShellTokens(text: string): string[] {
   return tokens;
 }
 
-function advanceComposeSubcommand(tokens: string[], afterComposeIdx: number): number {
+export function advanceComposeSubcommand(tokens: string[], afterComposeIdx: number): number {
   let idx = afterComposeIdx;
   while (idx < tokens.length && tokens[idx] !== ';') {
     const tok = pickAt(tokens, idx);
@@ -282,7 +282,7 @@ function hasComposeRunMissingNoTty(commandText: string): boolean {
   return false;
 }
 
-function isTargetComposeRunnerFile(relPath: string, lines: string[]): boolean {
+export function isTargetComposeRunnerFile(relPath: string, lines: string[]): boolean {
   if (isGithubWorkflowOrActionFile(relPath)) return true;
   const norm = relPath.replace(/\\/g, '/');
   if (!norm.endsWith('.sh') && !norm.endsWith('.bash')) return false;

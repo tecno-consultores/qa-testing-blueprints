@@ -261,8 +261,27 @@ Deterministic non-interactive Cloudflare Pages deployments under `read_only: tru
              --force
    ```
 
-3. **`deploy.sh` (disable pseudo-TTY; `QA-GIT-GATE-01` remote mutation gate):**
+3. **`deploy.sh` (serialized build, dual-compose cleanup, bounded `docker run`, disable pseudo-TTY; `QA-DOCKER-TTY-01`, `QA-DOCKER-LOOP-01` & `QA-GIT-GATE-01`):**
    ```bash
+   export COMPOSE_PARALLEL_LIMIT=1
+   LOCK_FILE="${XDG_RUNTIME_DIR:-/tmp}/qa-11x-docker.lock"
+   exec 9>"${LOCK_FILE}"
+   flock -x 9
+
+   BUILD_CID="pages-build-$$"
+   cleanup() {
+     docker rm -f "${BUILD_CID}" >/dev/null 2>&1 || true
+     docker compose -f docker-compose.deploy.yml down --remove-orphans >/dev/null 2>&1 || true
+     docker compose -f docker-compose.qa.yml --profile "*" down --remove-orphans >/dev/null 2>&1 || true
+   }
+   trap cleanup EXIT INT TERM
+
+   for svc in preview qa-gate deploy; do
+     docker compose -f docker-compose.deploy.yml build "${svc}"
+   done
+   docker compose -f docker-compose.deploy.yml up -d --wait --wait-timeout 60 preview
+   docker compose -f docker-compose.deploy.yml run --rm -T -u "$(id -u):$(id -g)" qa-gate
+   docker compose -f docker-compose.deploy.yml down --remove-orphans
    # Requires explicit human operator confirmation or GO Release Gate (QA-GIT-GATE-01)
    docker compose -f docker-compose.deploy.yml run --rm -T --no-deps -u "$(id -u):$(id -g)" deploy
    ```

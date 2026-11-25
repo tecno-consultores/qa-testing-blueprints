@@ -118,8 +118,8 @@
       "name": "qa-11x-architect",
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-architect/SKILL.md",
-      "size_bytes": 12024,
-      "sha256": "a77825f24d789e01aa1a1108982a9407fdfce9a8a3d87b0a2cd36ce62706b1e0",
+      "size_bytes": 12045,
+      "sha256": "cdc17a6c7bf42da27cdc4d2d4ec23a06987a7c3b1bad28f68e23579485a43623",
       "description": "Master QA 11X & DevSecOps Architect (qa-testing-blueprints v3.6+). Use whenever the user asks to initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md."
     },
     {
@@ -136,8 +136,8 @@
       "name": "qa-11x-systematic-debugging",
       "path": ".agents/skills/qa-11x-systematic-debugging/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-systematic-debugging/SKILL.md",
-      "size_bytes": 11076,
-      "sha256": "aa158cb80a9077796ec0392a7619b79c814a0447bb5c633040554ca61a26b4ea",
+      "size_bytes": 11409,
+      "sha256": "1e89ccc3a49883cac114166158d4021d7ce434bdd427c45e5001c372a53add7b",
       "description": "Mandatory 4-phase deterministic root-cause debugging sub-skill for Standard 11X. Use before applying any bug fix, test repair, regression patch, or runtime troubleshooting to isolate root causes via Docker Rule Zero reproduction, Graphify AST blast-radius tracing, single-hypothesis testing, and RED-to-GREEN locks."
     },
     {
@@ -172,8 +172,8 @@
       "name": "qa-11x-docker-certifier",
       "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-docker-certifier/SKILL.md",
-      "size_bytes": 10395,
-      "sha256": "4afb5bb749a9dd1f35a2928862bd1dd76ebcc6c94b9962b86278bbd72984c142",
+      "size_bytes": 12984,
+      "sha256": "fcf8874c1715ccb72a3c718402ce4c7acb178881069ff999a08e0efb8b081b04",
       "description": "QA 11X Corporate Standard certifier in ephemeral Docker containers. Enforces Rule Zero (zero host executions on Ubuntu/macOS/Windows), Cyclomatic/Cognitive Complexity Grade A, unit test coverage >= 95%, mutation testing, WCAG 2.1 AA accessibility, Lighthouse CI, and silent mode RAM conservation."
     },
     {

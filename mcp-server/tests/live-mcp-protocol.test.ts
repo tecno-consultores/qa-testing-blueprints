@@ -278,7 +278,7 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
       expect(toolsList.tools).toHaveLength(runtimeCounts.tools);
       const secTool = toolsList.tools.find((t) => t.name === 'audit_security_stig_owasp');
       expect(secTool?.description).toContain(
-        '22 DISA ASD STIG V6R5 / OWASP v4.2 reference controls + 36 static scanner rules'
+        '22 DISA ASD STIG V6R5 / OWASP v4.2 reference controls + 37 static scanner rules'
       );
 
       for (const v2ToolName of [

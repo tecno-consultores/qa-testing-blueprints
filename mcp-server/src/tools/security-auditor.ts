@@ -38,6 +38,7 @@ import {
   checkQaCliTty01InteractiveHangGuard, checkQaDockerTty01NonInteractiveAndReadOnly,
   checkQaHealth01SupervisorTaskExit,
 } from './security-auditor/ttyAndDockerRules.js';
+import { checkQaDockerLoop01Containment } from './security-auditor/dockerLoopRules.js';
 
 export { isNonHttpNodeCliEntry, type AuditSecurityOptions };
 
@@ -99,6 +100,7 @@ function scanSingleFile(
     ...checkQaHealth01SupervisorTaskExit(effectiveRel, lines),
     ...checkQaCliTty01InteractiveHangGuard(effectiveRel, lines),
     ...checkQaDockerTty01NonInteractiveAndReadOnly(effectiveRel, lines),
+    ...checkQaDockerLoop01Containment(effectiveRel, lines),
     ...checkQaKarateStaticIdempotency(effectiveRel, lines),
     ...checkUi11x01VisualGeometry(effectiveRel, lines),
     ...checkUi11x02DualRefreshAndSemanticElse(effectiveRel, lines),

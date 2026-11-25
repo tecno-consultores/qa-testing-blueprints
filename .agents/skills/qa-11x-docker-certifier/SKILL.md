@@ -64,3 +64,20 @@ This skill governs all tests, linters, audits, and cleanups in projects implemen
    - **Sub-Makefile `CURDIR` Boundary (`QA-MAKE-CURDIR-01`):** In subdirectory `Makefile`s (`*/Makefile`, `*/Makefile.example`) invoked via `$(MAKE) -C <subdir>`, NEVER reference Make's inherited `$(PWD)` / `${PWD}` (which retains the caller's parent `PWD` and mounts `..`); always use `$(CURDIR)` (e.g., `HOST_PWD ?= $(CURDIR)`, exempt via `# qa-make-curdir-ok`).
    - **SDK Transport & Lockfile Image Parity (`QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-HEALTH-01`):** Protocol servers must test real in-process SDK client transports; Dockerfiles must install dependencies from lockfiles (`uv sync --frozen --no-dev`, `uv export --frozen --no-dev`, `pnpm install --frozen-lockfile`, `npm ci`) and smoke-test built images (`import <app>`, `id -u != 0`, `401`). `QA-HEALTH-01` scopes probes exclusively to `HEALTHCHECK`/`healthcheck:` blocks, and `certify_11x_gate` exempts deployment env templates (`env.example`, `.env*.example`).
    - Never dump thousands of raw terminal lines into the LLM context; report concise JSON/table metrics.
+
+---
+
+## 4. Serialized Docker Execution, Anti-Subagent Fan-Out & CrashLoop Containment (`QA-DOCKER-LOOP-01`)
+
+To prevent host RAM exhaustion (OOM/swap thrashing), `veth*` storms on Linux `NetworkManager`/`tailscaled`, and ACPI thermal shutdowns:
+
+1. **Serialize Heavy QA Containers (`QA_MAX_CONCURRENT_CONTAINERS=1`):**
+   - Run heavy QA workloads (`pytest`, `mypy`, `uv sync`, `vitest`, `mutmut`, `stryker`, `playwright`, `docker compose build`) **one at a time** via `run_ephemeral_qa` (which enforces an atomic FIFO host slot lock, passive Linux RAM `< 12%` / thermal `>= 85°C` guardrails, and pre-flight CrashLoop detection).
+   - **Subagents & `/teamwork` Anti-Fan-Out:** Parallel subagents may read and edit disjoint files concurrently, but **MUST NEVER** spawn concurrent ad-hoc `docker run` QA suites (`pytest`/`mutmut`/`vitest`) against the same workspace. Only the coordinator (or the serialized `run_ephemeral_qa` queue) executes Docker QA validation.
+2. **Bounded, Self-Cleaning Container Invocations (`QA-DOCKER-LOOP-01`):**
+   - **FORBIDDEN in `docker-compose.{qa,test,deploy}*.yml`:** `restart: always`, `restart: unless-stopped`, or unbounded `restart: on-failure`. Enforce `restart: "no"`, `cpus: "${QA_CPU_LIMIT:-2.0}"`, `mem_limit`, and `pids_limit` (`64` init / `256` standard / `512` Playwright/JVM/Appium), plus `network_mode: none` on offline init services.
+   - **Ad-hoc `docker run` Contract:** Always pass `--rm --restart=no --init --cpus=2 --memory=2g --pids-limit=256 --security-opt=no-new-privileges:true`, a deterministic `--name`, and `--network none` for every offline lint/unit/chown/script invocation (eliminates `veth*` churn). Never run floating `:latest` tags when a pinned stack image exists.
+   - **Deploy/CI Scripts (`deploy*.sh`, `ci*.sh`):** Export `COMPOSE_PARALLEL_LIMIT=1` (or build services sequentially), pass `--wait-timeout 60` on every `docker compose up -d --wait`, and register `trap cleanup EXIT INT TERM` tearing down **both** `docker-compose.deploy.yml` and `docker-compose.qa.yml` (plus any named `docker run` container).
+3. **CrashLoop & Orphan Scope Hygiene:**
+   - Never run a blind global `docker rm -f $(docker ps -aq)` autonomously. Auto-stop only workspace-scoped `restarting` containers (`docker update --restart=no <id> && docker rm -fv <id>`); if foreign-project CrashLoops are detected, fail fast and report exact IDs to the operator.
+   - On Linux hosts running `NetworkManager` + `tailscaled`, verify `qa-11x doctor` reports `network_manager_unmanaged_ok: true` (`/etc/NetworkManager/conf.d/99-unmanaged-docker.conf`).

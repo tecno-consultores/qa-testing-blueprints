@@ -116,6 +116,40 @@ EOF
   assert_output --partial "backend/Makefile:1"
 }
 
+@test "auditar-infra.sh --static-only (Degradado QA-DOCKER-LOOP-01): falla ante restart: always y up --wait sin --wait-timeout" {
+  cat >"${FAKE_ROOT}/docker-compose.qa.yml" <<'EOF'
+services:
+  api:
+    image: alpine:3.21
+    restart: always
+EOF
+  cat >"${FAKE_ROOT}/deploy.sh" <<'EOF'
+#!/usr/bin/env bash
+docker compose -f docker-compose.deploy.yml up -d --wait preview
+EOF
+
+  run env PATH="${FAKE_BIN}" LC_ALL=C bash "${FAKE_ROOT}/scripts/auditar-infra.sh" --static-only
+  assert_failure 1
+  assert_output --partial "QA-DOCKER-LOOP-01"
+  assert_output --partial "docker-compose.qa.yml:4"
+  assert_output --partial "deploy.sh:2"
+
+  cat >"${FAKE_ROOT}/docker-compose.qa.yml" <<'EOF'
+# qa-docker-loop-ok
+services:
+  api:
+    restart: always
+EOF
+  cat >"${FAKE_ROOT}/deploy.sh" <<'EOF'
+#!/usr/bin/env bash
+docker compose -f docker-compose.deploy.yml up -d --wait --wait-timeout 60 preview
+EOF
+
+  run env PATH="${FAKE_BIN}" LC_ALL=C bash "${FAKE_ROOT}/scripts/auditar-infra.sh" --static-only
+  assert_success
+  assert_output --partial "QA-DOCKER-LOOP-01"
+}
+
 @test "auditar-infra.sh --static-only (Repo real): verifica los workflows y sub-Makefiles reales de qa-testing-blueprints" {
   run env LC_ALL=C bash "${AUDIT_SCRIPT}" --static-only
   assert_success

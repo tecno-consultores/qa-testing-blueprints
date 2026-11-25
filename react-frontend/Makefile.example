@@ -15,7 +15,7 @@ build-ui:
 	@mkdir -p "$(PROJECT_DIR)/dist"
 	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm --silent run build"
 	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" down --remove-orphans >/dev/null 2>&1 || true" ERR INT TERM; \
-		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" up -d --wait ui-prod'
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" up -d --wait --wait-timeout 60 ui-prod'
 
 qa-lint:
 	@echo "🔍 Ejecutando Auditoría de CVEs, Linter, Types y Formateo (React/TS)..."
@@ -41,19 +41,19 @@ qa-mutation:
 qa-perf: build-ui
 	@echo "⚡ Ejecutando Auditoría de Rendimiento (Lighthouse CI)..."
 	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" down --remove-orphans >/dev/null 2>&1 || true" EXIT; \
-		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" up -d --wait ui-prod && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" up -d --wait --wait-timeout 60 ui-prod && \
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp $(E2E_SERVICE) bash -c "export CHROME_PATH=\$$(ls -d /ms-playwright/chromium-*/chrome-linux/chrome 2>/dev/null | head -n 1) && if [ -x ./node_modules/.bin/lhci ]; then ./node_modules/.bin/lhci autorun --config=lighthouserc.cjs; elif command -v pnpm >/dev/null 2>&1; then pnpm install --silent && pnpm run test:perf; else corepack pnpm install --silent && corepack pnpm run test:perf; fi"'
 
 qa-e2e: build-ui
 	@echo "🎭 Ejecutando Regresión Visual y E2E (Playwright)..."
 	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" down --remove-orphans >/dev/null 2>&1 || true" EXIT; \
-		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" up -d --wait ui-prod && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" up -d --wait --wait-timeout 60 ui-prod && \
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp $(E2E_SERVICE) bash -c "if [ -x ./node_modules/.bin/playwright ]; then ./node_modules/.bin/playwright test; elif command -v pnpm >/dev/null 2>&1; then pnpm install --silent && pnpm exec playwright test; else corepack pnpm install --silent && corepack pnpm exec playwright test; fi"'
 
 qa-bdd: build-ui
 	@echo "📚 Ejecutando Pruebas de Aceptación BDD (Karate Contratos HTTP/OSHP/SSG sobre Nginx)..."
 	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" down --remove-orphans >/dev/null 2>&1 || true" EXIT; \
-		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" up -d --wait ui-prod && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" up -d --wait --wait-timeout 60 ui-prod && \
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T karatelabs mvn -B clean test'
 
 qa-psi:
@@ -71,7 +71,7 @@ qa-psi:
 
 qa-obs: build-ui
 	@echo "📊 Levantando Stack de Observabilidad Frontend..."
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile observability up -d --wait prometheus nginx-exporter
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile observability up -d --wait --wait-timeout 60 prometheus nginx-exporter
 
 qa-all: qa-lint qa-orphans qa-unit qa-mutation qa-perf qa-e2e qa-bdd
 	@echo "✅ Pipeline QA Frontend (React 11X) completado."

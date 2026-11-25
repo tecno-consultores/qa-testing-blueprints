@@ -29,6 +29,12 @@ import {
   type RecipeResolutionResult, type RunEphemeralQaOptions,
 } from './ephemeral-runner/coverageHarvest.js';
 import {
+  acquireDockerSlotLock,
+  EXIT_TEMPFAIL,
+  runPreFlightDockerGuards,
+  teardownWorkspaceComposeOnAbort,
+} from './ephemeral-runner/dockerGuardrails.js';
+import {
   expandMakefileVariables, hasUnquotedShellSyntax, resolveMakefileDockerRecipes,
   tokenizeCommandArgs, type ResolveMakefileRecursionOptions,
 } from './ephemeral-runner/makefileParser.js';
@@ -80,6 +86,7 @@ async function executeDockerFallbackSequence(
         cwd: resolvedPath,
         timeoutMs: Math.max(1000, rawRemainingMs),
         signal,
+        env: { ...process.env, COMPOSE_PARALLEL_LIMIT: '1' },
       });
       if (res.stdout) stdoutChunks.push(res.stdout);
       const errChunk = res.stderr || (res.exitCode !== 0 ? res.errorMessage : '');
@@ -147,7 +154,7 @@ function applyStageTrackingAndEvidence(
   parsed: QaExecutionResult,
   execFileSyncFn?: typeof execFileSync
 ): QaExecutionResult {
-  if (fs.existsSync(resolvedPath)) {
+  if (fs.existsSync(resolvedPath) && parsed.exit_code !== EXIT_TEMPFAIL) {
     const findings = extractStageFindings(parsed);
     const breaker = recordQaStageFindingsState(resolvedPath, stage, findings, {
       maxStreak: DEFAULT_BREAKER_MAX_STREAK,
@@ -358,27 +365,52 @@ function buildDocsOnlySkippedResult(stage: string): QaExecutionResult {
   };
 }
 
-export async function runEphemeralQa(
-  projectPath: string,
+function shouldEnforceDockerGuards(options?: RunEphemeralQaOptions): boolean {
+  if (options?.guardrails?.enabled !== undefined) {
+    return options.guardrails.enabled;
+  }
+  return !options?.execFileFn && process.env.QA_DISABLE_DOCKER_GUARDS !== '1';
+}
+
+function buildGuardBlockedResult(
   stage: string,
-  timeoutSeconds = 300,
-  options?: RunEphemeralQaOptions
-): Promise<QaExecutionResult> {
-  const resolvedPath = resolveSafeProjectPath(projectPath);
+  summary: string,
+  exitCode: number
+): QaExecutionResult {
+  const result = buildStructuredFailureResult({
+    stage,
+    testName: `qa-${stage}:docker-guardrail`,
+    errorSummary: summary,
+    tailLog: summary,
+  });
+  result.exit_code = exitCode;
+  return result;
+}
+
+function prependGuardNotes(result: QaExecutionResult, notes: readonly string[]): QaExecutionResult {
+  if (notes.length === 0) return result;
+  return {
+    ...result,
+    tail_log: `${notes.join('\n')}\n${result.tail_log}`.trim(),
+  };
+}
+
+interface CoreStageExecInput {
+  readonly resolvedPath: string;
+  readonly stage: string;
+  readonly timeoutSeconds: number;
+  readonly startTime: number;
+  readonly executor: typeof execFile;
+  readonly options?: RunEphemeralQaOptions;
+}
+
+async function executeQaStageCore(input: CoreStageExecInput): Promise<QaExecutionResult> {
+  const { resolvedPath, stage, timeoutSeconds, startTime, executor, options } = input;
   const execFileSyncFn = options?.execFileSyncFn;
   const signal = options?.signal;
-
-  if (options?.skipIfDocsOnly && isDocsOnlyWorkspaceChange(resolvedPath, execFileSyncFn)) {
-    return buildDocsOnlySkippedResult(stage);
-  }
-
   const makefilePath = path.join(resolvedPath, 'Makefile');
-  const executor = options?.execFileFn || execFile;
   const target = `qa-${stage}`;
-  const startTime = Date.now();
   const timeoutMs = timeoutSeconds * 1000;
-
-  assertNoSymlinkSegments(resolvedPath, '.agents');
 
   if (!fs.existsSync(makefilePath)) {
     return runMissingMakefileFallback({
@@ -401,6 +433,7 @@ export async function runEphemeralQa(
     cwd: resolvedPath,
     timeoutMs,
     signal,
+    env: { ...process.env, COMPOSE_PARALLEL_LIMIT: '1' },
   });
   if (makeRes.errorCode === 'ENOENT') {
     return runMakeEnoentFallback({
@@ -415,6 +448,10 @@ export async function runEphemeralQa(
     });
   }
 
+  if (makeRes.exitCode === 124 || signal?.aborted) {
+    await teardownWorkspaceComposeOnAbort(executor, resolvedPath);
+  }
+
   harvestCoverageForStage(resolvedPath, stage);
 
   const durationMs = Date.now() - startTime;
@@ -426,5 +463,68 @@ export async function runEphemeralQa(
     parsed.status = STATUS_FAILED;
     parsed.tail_log = `[TIMEOUT] La ejecución de 'make ${target}' excedió el límite configurado de ${timeoutSeconds}s.\n${parsed.tail_log}`;
   }
-  return applyStageTrackingAndEvidence(resolvedPath, stage, parsed, options?.execFileSyncFn);
+  return applyStageTrackingAndEvidence(resolvedPath, stage, parsed, execFileSyncFn);
+}
+
+export async function runEphemeralQa(
+  projectPath: string,
+  stage: string,
+  timeoutSeconds = 300,
+  options?: RunEphemeralQaOptions
+): Promise<QaExecutionResult> {
+  const resolvedPath = resolveSafeProjectPath(projectPath);
+  const execFileSyncFn = options?.execFileSyncFn;
+  const signal = options?.signal;
+
+  if (options?.skipIfDocsOnly && isDocsOnlyWorkspaceChange(resolvedPath, execFileSyncFn)) {
+    return buildDocsOnlySkippedResult(stage);
+  }
+
+  const executor = options?.execFileFn || execFile;
+  const startTime = Date.now();
+  const timeoutMs = timeoutSeconds * 1000;
+
+  assertNoSymlinkSegments(resolvedPath, '.agents');
+
+  if (!shouldEnforceDockerGuards(options)) {
+    return executeQaStageCore({ resolvedPath, stage, timeoutSeconds, startTime, executor, options });
+  }
+
+  const preFlight = runPreFlightDockerGuards(resolvedPath, options?.guardrails);
+  if (preFlight.blocked) {
+    return buildGuardBlockedResult(
+      stage,
+      preFlight.summary ?? 'Guardrail Docker activo: ejecución pospuesta.',
+      preFlight.exitCode
+    );
+  }
+
+  const slot = await acquireDockerSlotLock({
+    resolvedPath,
+    stage,
+    timeoutMs,
+    signal,
+    deps: options?.guardrails,
+  });
+  if (!slot) {
+    return buildGuardBlockedResult(
+      stage,
+      `[TIMEOUT] La cola serializada Docker QA (${stage}) excedió el límite de espera de ${timeoutSeconds}s.`,
+      124
+    );
+  }
+
+  try {
+    const result = await executeQaStageCore({
+      resolvedPath,
+      stage,
+      timeoutSeconds,
+      startTime,
+      executor,
+      options,
+    });
+    return prependGuardNotes(result, preFlight.notes);
+  } finally {
+    slot.release();
+  }
 }

@@ -231,6 +231,8 @@ export interface CleanWorkspaceResult {
   deep_prune: boolean;
   found_targets: string[];
   removed_targets: string[];
+  found_containers?: string[];
+  removed_containers?: string[];
   docker_fallback_used: boolean;
   recommended_command: string;
 }

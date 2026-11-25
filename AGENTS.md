@@ -26,13 +26,13 @@ All AI coding assistants and developers in this monorepo MUST enforce Level-11X 
 
 ## 2. Rule Zero: Ephemeral Docker Execution
 
-**NEVER** execute tests, migrations, compilers, or linters directly on host OS (`Ubuntu`/`macOS`/`Windows`). Execute exclusively in non-root ephemeral Docker containers (`Makefile` / `docker-compose.qa.yml` / `run_ephemeral_qa`).
+**NEVER** execute tests, migrations, compilers, or linters directly on host OS (`Ubuntu`/`macOS`/`Windows`). Execute exclusively in non-root ephemeral Docker containers (`Makefile` / `docker-compose.qa.yml` / `run_ephemeral_qa`) **serialized 1 container at a time** (`QA_MAX_CONCURRENT_CONTAINERS=1`; no parallel subagent `/teamwork` `docker run` fan-out; pass `--rm --restart=no --network none` on offline commands; `QA-DOCKER-LOOP-01`).
 
 ---
 
 ## 3. Skills Catalog in `.agents/skills/` (11 Modular Skills)
 
-1. `qa-11x-architect` (`<= 12 KB` + 10 references): Master pyramid (13 layers), 10 laws, 11 UAT rules, 22 STIG/OWASP controls, 36 static scanner rules, Token Economy + Objective Critique.
+1. `qa-11x-architect` (`<= 12 KB` + 10 references): Master pyramid (13 layers), 10 laws, 11 UAT rules, 22 STIG/OWASP controls, 37 static scanner rules, Token Economy + Objective Critique.
 2. `qa-11x-docker-certifier`: Ephemeral Docker QA (`>= 95%` coverage, SonarJS, Karate, Stryker/Mutmut).
 3. `docker-trivy-keydb-hardening`: Container hardening (Trivy HIGH/CRITICAL = 0), KeyDB, non-root runtime.
 4. `graphify-ast-navigator`: Bidirectional AST Knowledge Graph navigation & layer boundary enforcement.

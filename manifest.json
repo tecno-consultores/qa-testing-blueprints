@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.6.0",
-  "generated_at_utc": "2026-11-24T20:50:56Z",
+  "generated_at_utc": "2026-11-25T03:55:46Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -31,8 +31,8 @@
           "path": "ai-evals/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "49bf50b80cdf2bf0e68c0e674facdb4fe1d1e44d21cfd38b49221f483d0211c0",
-          "size_bytes": 2316
+          "sha256": "3df6c32f0e64391c7c26247aa9a12513a3faadd31723272401ac385f842396da",
+          "size_bytes": 2458
         },
         {
           "path": "ai-evals/gitignore.example",
@@ -117,8 +117,8 @@
           "path": "bash-scripts/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "3fbb7eff65f03865739f75497d33d4e1d1c8b3c9584f92a36be8c8a69035b16d",
-          "size_bytes": 2094
+          "sha256": "8cf576bef47cfe2d75d8acace57129dc69df6aa2f75471123f20fec55f8fd368",
+          "size_bytes": 2307
         },
         {
           "path": "bash-scripts/gitignore.example",
@@ -154,15 +154,15 @@
           "path": "fastapi/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "6e696783367907f754ac0e420594242cc7086a9e38653d8536808829e6f5e55e",
-          "size_bytes": 8467
+          "sha256": "f1e24e7ce90f164306de15d6595d51408901209dbaf62ffffeaaf7469c44aa1f",
+          "size_bytes": 8611
         },
         {
           "path": "fastapi/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "85ac7484d0c0386a9e2b40fcf48a7632476dd31d2d1b144ef9d1ca0cfdb4ea83",
-          "size_bytes": 10481
+          "sha256": "2ba0b3e41fa9ccf374bc022faf8f5140f3b27b2d61417b432bb3da24a91ff707",
+          "size_bytes": 11360
         },
         {
           "path": "fastapi/gitignore.example",
@@ -268,15 +268,15 @@
           "path": "mobile-appium/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "42860592f36fc49d587c56d2b95b1ae710e18b2b149c29fc2c4bf6b4cf6573e5",
-          "size_bytes": 5023
+          "sha256": "fa36e1d0f1bee5d9bc45973a6da544e5e9ed89f1503e96809b486785047d4fcf",
+          "size_bytes": 5059
         },
         {
           "path": "mobile-appium/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "9e33645fc793696b575635791fb3e413464dca576ab83ee23104c69180d1fe77",
-          "size_bytes": 2735
+          "sha256": "89df79ccd41a494f21442246c4795905a7b65ea0dd6c9b29cffa89a21372fa21",
+          "size_bytes": 2975
         },
         {
           "path": "mobile-appium/eslint.config.mjs.example",
@@ -368,8 +368,8 @@
           "path": "node-backend/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "6f8c188f5c97e2743bc752246bbb92c4ac4f2ce8c858b830e87eb55cb422bd97",
-          "size_bytes": 4467
+          "sha256": "ebca33f8a88b219b91418cbe904658352018f774475d7ef02e6472bd14268c7d",
+          "size_bytes": 4539
         },
         {
           "path": "node-backend/artillery.yml.example",
@@ -382,8 +382,8 @@
           "path": "node-backend/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "4c672502f124bb965a80df010c06a39ffffc71af88873eccb01e228f8eb3de40",
-          "size_bytes": 6209
+          "sha256": "b8484538e99dafc75b7d03ccc746e7dbaa9868540bfdc59ea7c55c535e212072",
+          "size_bytes": 6804
         },
         {
           "path": "node-backend/eslint.config.mjs.example",
@@ -503,8 +503,8 @@
           "path": "php/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "98083f2b821ced08df3e31dc1270e95d1af4a536b020289243e6b518fc2057c5",
-          "size_bytes": 8320
+          "sha256": "6695d5dacf576618af3a041c8bf7ba02ca52948a070105175edacf2af864e929",
+          "size_bytes": 8428
         },
         {
           "path": "php/composer.json.example",
@@ -517,8 +517,8 @@
           "path": "php/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "5d465beebdbbe1aaeb447f401b830194185baafc04c5271ba01d94a6281623d5",
-          "size_bytes": 8371
+          "sha256": "251e1432690e70b91d681aad7d7d86f8518acfd862ad649be0a0dfb702a618e6",
+          "size_bytes": 9108
         },
         {
           "path": "php/gitignore.example",
@@ -610,15 +610,15 @@
           "path": "python/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "500c49a9e57bfccba3f2487f3e14370c27325d1377f5f443779a5eca5a1eb942",
-          "size_bytes": 4111
+          "sha256": "ef0e7a2a13214fb5a05e1dd5795dc45edafa4563021892dc2861567506f3db20",
+          "size_bytes": 4165
         },
         {
           "path": "python/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "113a6d1027f648a82c6c9a92db5a9b66516116ffc8ea898a1240f798a1293e81",
-          "size_bytes": 8768
+          "sha256": "c8b31bc15c64669bdf80e43819dd9fe73a7ce3fcb76726f9d241c8443e8cb696",
+          "size_bytes": 9292
         },
         {
           "path": "python/gitignore.example",
@@ -689,15 +689,15 @@
           "path": "react-frontend/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "a00de9462994731d39f82eac6ac7da2db7ab51b0732b85b5b27c797b55d230bd",
-          "size_bytes": 7083
+          "sha256": "f9cc624769220e5f314497829cd2fc5c3a189f3a4ea57fd7b5217b90265bfa3e",
+          "size_bytes": 7173
         },
         {
           "path": "react-frontend/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "3af4e61f745009451bf78b95f0193863fef55b5bb9da46df4000f07071bbb6d9",
-          "size_bytes": 5122
+          "sha256": "7122de8d51b487e825792259e1ed591bccd9281455316e81e5eb9f48bdd8c452",
+          "size_bytes": 5646
         },
         {
           "path": "react-frontend/e2e/accessibility.e2e.ts",
@@ -859,8 +859,8 @@
           "path": "vibe-rescue/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "cfe02c00a39386308fb7c9fe527ba25f04dfcc639f7db958d04502a568663c39",
-          "size_bytes": 1098
+          "sha256": "6b697afc1a04bb2bc0989f54be791387e3c4118f082d0942f3055ab806143f65",
+          "size_bytes": 1169
         },
         {
           "path": "vibe-rescue/gitignore.example",
@@ -917,15 +917,15 @@
           "path": "vue3/Makefile.example",
           "target_name": "Makefile",
           "merge_strategy": "surgical_merge",
-          "sha256": "3016acb9a6de2ea38eebe55ada496ca72e7f9289035fce02f15b66be31e46511",
-          "size_bytes": 7291
+          "sha256": "7dd85452139ebb9c4c191d3ecb54c87e12b0ad8f40fa686a8b0a8184f2a39f8f",
+          "size_bytes": 7381
         },
         {
           "path": "vue3/docker-compose.qa.yml",
           "target_name": "docker-compose.qa.yml",
           "merge_strategy": "copy_if_missing_or_update_qa",
-          "sha256": "d900b7dfd6f265e791d0f9373313a6c2e090c442a4c04a46f7ca0b1924c58d7a",
-          "size_bytes": 5096
+          "sha256": "b403358c88fe8a6e977a97ab492ef2b082443b4f8692ebc329c2a060d85600b0",
+          "size_bytes": 5620
         },
         {
           "path": "vue3/e2e/accessibility.e2e.ts",
@@ -1089,8 +1089,8 @@
       "path": "scripts/auditar-infra.sh",
       "target_name": "scripts/auditar-infra.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "0dde2ee103713b8e994bcbb85ad9c0ccbd1ff10f105c3d116085efbec1b1353a",
-      "size_bytes": 9085
+      "sha256": "978e7d42e7412808356a2ee604ada22cb2e64da59e694644876e2187500b15cf",
+      "size_bytes": 12057
     },
     {
       "path": "scripts/auditar-pagespeed.sh",
@@ -1110,8 +1110,8 @@
       "path": "scripts/limpieza.sh",
       "target_name": "scripts/limpieza.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "48cdd18307251c86422d27e5e375238e274ac21ff9dfb94679ab34cbf8193bbb",
-      "size_bytes": 15894
+      "sha256": "29dcd9cd20f88f8adbb72d8dcfbc3bccdbc9ccbbb6e335754e8a2200338afdad",
+      "size_bytes": 16411
     },
     {
       "path": "scripts/verificar-secretos.sh",
@@ -1133,7 +1133,7 @@
       "path": ".agents/README.md",
       "target_name": ".agents/README.md",
       "merge_strategy": "copy_if_missing",
-      "sha256": "4c0a0c17d323022479e0f031e06db6c03b8bd6569577005e30f7730b695f21a0",
+      "sha256": "b7210ff138c23c0688e35bc8907ebc5f8b7778e756af781eb19f41f6f31d9c90",
       "size_bytes": 13267
     },
     {
@@ -1231,7 +1231,7 @@
       "path": ".agents/scripts/_docs_invariants_config.py",
       "target_name": ".agents/scripts/_docs_invariants_config.py",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "49e8a12b2adf4704c273c833edc22ad926646e1d49a0db7792e83c59fdab835f",
+      "sha256": "f309895de0d3836d14ce35eae42685200f78c064ec60c43b3d8caf828193089f",
       "size_bytes": 19872
     },
     {
@@ -1427,8 +1427,8 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "a77825f24d789e01aa1a1108982a9407fdfce9a8a3d87b0a2cd36ce62706b1e0",
-      "size_bytes": 12024
+      "sha256": "cdc17a6c7bf42da27cdc4d2d4ec23a06987a7c3b1bad28f68e23579485a43623",
+      "size_bytes": 12045
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
@@ -1455,8 +1455,8 @@
       "path": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
       "target_name": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "a7da11723d79eea5d643bc1df5f870ca69447859e0fe1919fb686a1e59f19aee",
-      "size_bytes": 18806
+      "sha256": "9ced390f8173e61e249947754a8a1bc6fd2d596d17e665473edc3bb4f8c5aadc",
+      "size_bytes": 19719
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/05-stack-bash-devops.md",
@@ -1518,8 +1518,8 @@
       "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "target_name": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "4afb5bb749a9dd1f35a2928862bd1dd76ebcc6c94b9962b86278bbd72984c142",
-      "size_bytes": 10395
+      "sha256": "fcf8874c1715ccb72a3c718402ce4c7acb178881069ff999a08e0efb8b081b04",
+      "size_bytes": 12984
     },
     {
       "path": ".agents/skills/qa-11x-llm-evaluator/SKILL.md",
@@ -1539,8 +1539,8 @@
       "path": ".agents/skills/qa-11x-systematic-debugging/SKILL.md",
       "target_name": ".agents/skills/qa-11x-systematic-debugging/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "aa158cb80a9077796ec0392a7619b79c814a0447bb5c633040554ca61a26b4ea",
-      "size_bytes": 11076
+      "sha256": "1e89ccc3a49883cac114166158d4021d7ce434bdd427c45e5001c372a53add7b",
+      "size_bytes": 11409
     },
     {
       "path": ".agents/skills/qa-11x-vibe-rescue/SKILL.md",
@@ -1630,8 +1630,8 @@
       "path": "AGENTS.md",
       "target_name": "AGENTS.md",
       "merge_strategy": "surgical_merge",
-      "sha256": "33dffba121ff7bdec8536e0c364b2b7bbe3d908eddf166dd61d23f89f1b3b00b",
-      "size_bytes": 7247
+      "sha256": "00784d18fd3b5851f36b0a9d7ec4072f8e7013c33b0299d2974f11d70cd17337",
+      "size_bytes": 7456
     },
     {
       "path": "AI_MASTER_PROMPT.es.md",
@@ -1651,15 +1651,15 @@
       "path": "SECURITY.es.md",
       "target_name": "SECURITY.es.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "eaef17c64d78b9748163744e3763ccf824957695edf30545fd53d5d5007958ce",
-      "size_bytes": 38077
+      "sha256": "139f91a17ec73a2429938663afa806dc61046dfe7d1eb83d2a5e084a0936acbb",
+      "size_bytes": 39848
     },
     {
       "path": "SECURITY.md",
       "target_name": "SECURITY.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "b6ebca37b3e1f9494ace329504f2928be45344a434fec056474779f89099a94a",
-      "size_bytes": 34617
+      "sha256": "8b38c7e61b0a4704d32c5a69969a223fd56a80dd7b3269118e93c6f6e176134a",
+      "size_bytes": 36310
     },
     {
       "path": "catalogs/agenticskills-submission.md",
@@ -1679,7 +1679,7 @@
       "path": "catalogs/skillsllm-manifest.json",
       "target_name": "catalogs/skillsllm-manifest.json",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "79e87e6da94c1d1cac58ea266657c9c1fd72a1fa372bc4455b2f7883040e51a8",
+      "sha256": "d6e01def1bc3faa353741f06f2fb23c5f3d0c1fe49c644f5e51a832ab8a6952c",
       "size_bytes": 11952
     },
     {

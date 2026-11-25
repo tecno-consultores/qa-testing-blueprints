@@ -7,6 +7,9 @@ services:
     hostname: bash_qa_env
     pull_policy: if_not_present
     mem_limit: 1g
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 256
     user: "${QA_UID:-1000}:${QA_GID:-1000}"
     environment:
       TZ: 'America/Caracas'
@@ -27,6 +30,9 @@ services:
     hostname: bash_pushgateway
     pull_policy: if_not_present
     mem_limit: 512m
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 256
     security_opt:
       - no-new-privileges:true
     profiles:
@@ -39,6 +45,9 @@ services:
     hostname: bash_prometheus
     pull_policy: if_not_present
     mem_limit: 512m
+    restart: "no"
+    cpus: "${QA_CPU_LIMIT:-2.0}"
+    pids_limit: 256
     security_opt:
       - no-new-privileges:true
     profiles:
