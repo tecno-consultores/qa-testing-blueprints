@@ -1190,12 +1190,18 @@ PY
   [ ! -e "${p_home}/.gemini/antigravity/skills/qa-11x-architect/retired-obsolete.md" ]
   run grep -F "strictly in **English**" "${p_home}/.gemini/GEMINI.md"
   assert_success
+  run grep -F "serialized 1 container at a time" "${p_home}/.gemini/GEMINI.md"
+  assert_success
   run grep -F "Conector Global Thin-Client QA 11X" "${p_home}/.claude/CLAUDE.md"
+  assert_success
+  run grep -F "en serie 1 contenedor a la vez" "${p_home}/.claude/CLAUDE.md"
   assert_success
 
   run env QA_BLUEPRINTS_LOCAL_PATH="${p_repo}" HOME="${p_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace --init-agents --lang=es
   assert_success
   run grep -F "strictly in **Spanish**" "${p_ws}/AGENTS.md"
+  assert_success
+  run grep -F "serialized 1 container at a time" "${p_ws}/AGENTS.md"
   assert_success
 
   run env QA_BLUEPRINTS_LOCAL_PATH="${p_repo}" HOME="${p_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace --include-scripts --lang=auto

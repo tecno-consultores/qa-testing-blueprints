@@ -10,6 +10,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+## [3.8.1] - 2026-11-25
+
+### Fixed
+* **Auto-Update Connector Parity (`scripts/install-skill.sh` ↔ `agents-connector.ts`):** Synchronized all 4 embedded Thin-Client connector templates (`es`/`en`/`auto` global connectors and project `AGENTS.md`) in `scripts/install-skill.sh` with `mcp-server/src/services/agents-connector.ts` (`QA-DOCKER-LOOP-01` serialized single-container Docker guardrails, `<= 1,536 B`), eliminating flip-flop drift between Zero-Clone Bash updates and MCP startup auto-sync (`syncExistingGlobalConnectors`), backed by regression parity checks in BATS, Pytest, and Karate BDD.
+* **Governance & Evolution Tool Exposure in `--toolset auto` (`toolsetFilter.ts`):** Extended `detectAutoExtensionTools` in `mcp-server/src/server/toolsetFilter.ts` so workspaces with QA-11X governance markers (`.agents`, `AGENTS.md`, or `.qa-11x.json`) automatically expose `init_or_append_agents_md`, `reconcile_agents_governance`, and `propose_skill_evolution_pr` under `--toolset auto` (preserving the 8-tool `core` and 19-tool `full` profiles).
+
+### Changed
+* **Global Patch Release Rotation to `3.8.1` (`QA-11X v3.8`):** Synchronized SemVer `3.8.1` across manifests, bilingual guides, stack templates, `.claude-plugin/{plugin,marketplace}.json`, catalogs, SHA-256 `manifest.json`, and `@sinfallas/mcp-qa-11x@3.8.1`.
+
+---
+
 ## [3.8.0] - 2026-11-25
 
 ### Added

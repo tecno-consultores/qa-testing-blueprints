@@ -440,13 +440,16 @@ describe('Companion MCPs, Federated SARIF, Rule Zero Blocker, expect_red & --too
     expect(autoAllowed?.has('run_llm_red_team')).toBe(true);
     expect(autoAllowed?.has('evaluate_release_gate')).toBe(true);
     expect(autoAllowed?.has('sync_enterprise_tms')).toBe(true);
+    expect(autoAllowed?.has('init_or_append_agents_md')).toBe(true);
+    expect(autoAllowed?.has('reconcile_agents_governance')).toBe(true);
+    expect(autoAllowed?.has('propose_skill_evolution_pr')).toBe(true);
 
     const coreServer = createConfiguredMcpServer({ toolset: 'core', projectPath: projDir });
     expect(coreServer.counts.tools).toBe(8);
     expect(coreServer.counts.resources).toBe(13);
 
     const autoServer = createConfiguredMcpServer({ toolset: 'auto', projectPath: projDir });
-    expect(autoServer.counts.tools).toBe(14);
+    expect(autoServer.counts.tools).toBe(17);
 
     const fullServer = createConfiguredMcpServer({ toolset: 'full', projectPath: projDir });
     expect(fullServer.counts.tools).toBe(19);
@@ -496,6 +499,21 @@ describe('Companion MCPs, Federated SARIF, Rule Zero Blocker, expect_red & --too
     const markerTools = resolveAllowedToolNames('auto', pkgProj);
     expect(markerTools?.has('audit_vibe_prototype')).toBe(true);
     expect(markerTools?.has('evaluate_agent_trajectory')).toBe(true);
+    expect(markerTools?.has('propose_skill_evolution_pr')).toBe(false);
+
+    const pyOnlyProj = path.join(tmpRoot, 'py-deepeval-only');
+    writeText(path.join(pyOnlyProj, 'pyproject.toml'), 'dependencies = ["deepeval"]\n');
+    writeText(path.join(pyOnlyProj, 'AGENTS.md'), '# Agents\n');
+    const pyOnlyTools = resolveAllowedToolNames('auto', pyOnlyProj);
+    expect(pyOnlyTools?.has('evaluate_agent_trajectory')).toBe(true);
+    expect(pyOnlyTools?.has('propose_skill_evolution_pr')).toBe(true);
+    expect(pyOnlyTools?.has('reconcile_agents_governance')).toBe(true);
+    expect(pyOnlyTools?.has('init_or_append_agents_md')).toBe(true);
+
+    const agentsDirProj = path.join(tmpRoot, 'agents-dir-only');
+    fs.mkdirSync(path.join(agentsDirProj, '.agents'), { recursive: true });
+    const agentsDirTools = resolveAllowedToolNames('auto', agentsDirProj);
+    expect(agentsDirTools?.has('propose_skill_evolution_pr')).toBe(true);
 
     const unreadableMarkers = path.join(tmpRoot, 'unreadable-markers');
     fs.mkdirSync(path.join(unreadableMarkers, 'package.json'), { recursive: true });

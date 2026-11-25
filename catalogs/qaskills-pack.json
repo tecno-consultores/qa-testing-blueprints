@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "pack_id": "qa-11x-enterprise-pack",
   "name": "QA Testing Blueprints (QA-11X v3.8)",
-  "version": "3.8.0",
+  "version": "3.8.1",
   "standard_edition": "QA-11X v3.8",
   "license": "MIT",
   "author": "Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)",

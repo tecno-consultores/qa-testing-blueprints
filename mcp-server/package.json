@@ -1,6 +1,6 @@
 {
   "name": "@sinfallas/mcp-qa-11x",
-  "version": "3.8.0",
+  "version": "3.8.1",
   "description": "Official MCP Server & Thin-Repo Skill Installer for QA Testing Blueprints (QA-11X v3.8: 19 Tools, 13 Resources, AI Evals, FINOS CALM, Screenplay & DevSecOps)",
   "keywords": [
     "mcp",

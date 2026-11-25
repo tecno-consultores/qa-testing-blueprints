@@ -8,6 +8,11 @@ All notable changes to the `@sinfallas/mcp-qa-11x` npm package and MCP server ar
 
 ## [Unreleased]
 
+## [3.8.1] - 2026-11-25
+
+### Fixed
+- **Governance & Evolution Tool Exposure in `--toolset auto` (`toolsetFilter.ts`):** Extended `detectAutoExtensionTools` in `src/server/toolsetFilter.ts` to expose `init_or_append_agents_md`, `reconcile_agents_governance`, and `propose_skill_evolution_pr` automatically whenever `.agents`, `AGENTS.md`, or `.qa-11x.json` exists in the workspace (preserving `core` = `8` tools and `full` = `19` tools), aligned with `scripts/install-skill.sh` connector parity and `v3.8.1` manifest hashes.
+
 ## [3.8.0] - 2026-11-25
 
 ### Added

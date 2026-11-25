@@ -147,7 +147,7 @@ const CANONICAL_CALM_FIXTURE: CalmDoc = {
     {
       'qa-11x': {
         standard: 'QA-11X v3.8',
-        version: '3.8.0',
+        version: '3.8.1',
         topology: 'zero-infra',
         owner: 'Tecno Consultores',
       },

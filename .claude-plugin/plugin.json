@@ -1,7 +1,7 @@
 {
   "name": "qa-11x",
   "displayName": "QA Testing Blueprints (QA-11X v3.8)",
-  "version": "3.8.0",
+  "version": "3.8.1",
   "description": "Enterprise QA & DevSecOps Standard (QA-11X v3.8): 11 Modular Skills & @sinfallas/mcp-qa-11x MCP Server (DISA STIG V6R5, OWASP v4.2, Graphify AST, Screenplay & FINOS CALM).",
   "author": {
     "name": "Jesus Palencia (Tecno Consultores)",
@@ -13,7 +13,7 @@
   "mcpServers": {
     "qa-11x": {
       "command": "npx",
-      "args": ["-y", "@sinfallas/mcp-qa-11x@3.8.0", "--stdio"]
+      "args": ["-y", "@sinfallas/mcp-qa-11x@3.8.1", "--stdio"]
     }
   }
 }

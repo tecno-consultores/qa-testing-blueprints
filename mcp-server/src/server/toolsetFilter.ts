@@ -54,24 +54,27 @@ function safeReadPyprojectText(projectDir: string): string {
   }
 }
 
+function hasAnyWorkspacePath(projectDir: string, relPaths: readonly string[]): boolean {
+  return relPaths.some((relPath) => fs.existsSync(path.join(projectDir, relPath)));
+}
+
+function hasGovernanceMarkers(projectDir: string): boolean {
+  return hasAnyWorkspacePath(projectDir, ['.agents', 'AGENTS.md', '.qa-11x.json']);
+}
+
 function detectAutoExtensionTools(projectDir: string): string[] {
   const extra: string[] = [];
   const pkgText = safeReadPkgText(projectDir);
   const pyText = safeReadPyprojectText(projectDir);
 
-  if (
-    fs.existsSync(path.join(projectDir, '.bolt')) ||
-    fs.existsSync(path.join(projectDir, '.lovable')) ||
-    pkgText.includes('lovable-tagger')
-  ) {
+  if (hasAnyWorkspacePath(projectDir, ['.bolt', '.lovable']) || pkgText.includes('lovable-tagger')) {
     extra.push('audit_vibe_prototype');
   }
   if (fs.existsSync(path.join(projectDir, 'architecture'))) {
     extra.push('validate_calm_architecture');
   }
   if (
-    fs.existsSync(path.join(projectDir, 'ai-evals')) ||
-    fs.existsSync(path.join(projectDir, 'promptfooconfig.yaml')) ||
+    hasAnyWorkspacePath(projectDir, ['ai-evals', 'promptfooconfig.yaml']) ||
     pkgText.includes('promptfoo') ||
     pyText.includes('deepeval')
   ) {
@@ -79,6 +82,13 @@ function detectAutoExtensionTools(projectDir: string): string[] {
   }
   if (fs.existsSync(path.join(projectDir, '.qa-11x.json'))) {
     extra.push('evaluate_release_gate', 'sync_enterprise_tms');
+  }
+  if (hasGovernanceMarkers(projectDir)) {
+    extra.push(
+      'init_or_append_agents_md',
+      'reconcile_agents_governance',
+      'propose_skill_evolution_pr'
+    );
   }
   return extra;
 }

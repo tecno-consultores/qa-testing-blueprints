@@ -8,6 +8,11 @@ Todos los cambios notables en el paquete npm y servidor MCP `@sinfallas/mcp-qa-1
 
 ## [Unreleased]
 
+## [3.8.1] - 2026-11-25
+
+### Corregido
+- **Exposición de Herramientas de Gobernanza y Evolución en `--toolset auto` (`toolsetFilter.ts`):** Ampliado `detectAutoExtensionTools` en `src/server/toolsetFilter.ts` para exponer automáticamente `init_or_append_agents_md`, `reconcile_agents_governance` y `propose_skill_evolution_pr` cuando existe `.agents`, `AGENTS.md` o `.qa-11x.json` en el workspace (preservando `core` = `8` tools y `full` = `19` tools), alineado con la paridad de conectores de `scripts/install-skill.sh` y los hashes SHA-256 de `v3.8.1`.
+
 ## [3.8.0] - 2026-11-25
 
 ### Añadido

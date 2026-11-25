@@ -540,6 +540,8 @@ class TestInstallSkill(unittest.TestCase):
         ):
             conn_text = (home / rel_conn).read_text(encoding="utf-8")
             self.assertIn("Conector Global Thin-Client QA 11X", conn_text)
+            self.assertIn("en serie 1 contenedor a la vez", conn_text)
+            self.assertIn("--rm --restart=no --network none", conn_text)
             start = conn_text.index("<!-- QA_11X_MCP_CONNECTOR_START -->")
             end = conn_text.index("<!-- QA_11X_MCP_CONNECTOR_END -->") + len(
                 "<!-- QA_11X_MCP_CONNECTOR_END -->"
@@ -548,6 +550,20 @@ class TestInstallSkill(unittest.TestCase):
 
         agents_text = (ws / "AGENTS.md").read_text(encoding="utf-8")
         self.assertIn("strictly in **Spanish**", agents_text)
+        self.assertIn("serialized 1 container at a time", agents_text)
+        self.assertIn("--rm --restart=no --network none", agents_text)
+
+        # Paridad de directivas QA-DOCKER-LOOP-01 entre install-skill.sh y agents-connector.ts
+        connector_ts = (
+            REPO_ROOT / "mcp-server" / "src" / "services" / "agents-connector.ts"
+        ).read_text(encoding="utf-8")
+        installer_sh = INSTALL_SCRIPT.read_text(encoding="utf-8")
+        for clause in (
+            "serialized 1 container at a time; zero parallel subagent `docker run`; `--rm --restart=no --network none` offline",
+            "en serie 1 contenedor a la vez; sin `docker run` paralelo en subagentes; `--rm --restart=no --network none` offline",
+        ):
+            self.assertIn(clause, connector_ts)
+            self.assertIn(clause, installer_sh)
 
         # Omitir --lang en 2da corrida debe preservar idioma español
         res_pres = subprocess.run(

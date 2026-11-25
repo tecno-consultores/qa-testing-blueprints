@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
-  "blueprint_version": "3.8.0",
-  "generated_at_utc": "2026-11-25T15:21:38Z",
+  "blueprint_version": "3.8.1",
+  "generated_at_utc": "2026-11-25T18:13:37Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -1259,7 +1259,7 @@
       "path": ".agents/scripts/certify_task_completion.sh",
       "target_name": ".agents/scripts/certify_task_completion.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "04fce00992c0e88c6c38de7c9f8fad50f8dfa3830b845183abb0ffa72902e778",
+      "sha256": "f8482bfdcefc7d05a14c43cd563237e4dca00894c8c4e114baa1358606b60a2a",
       "size_bytes": 32677
     },
     {
@@ -1336,7 +1336,7 @@
       "path": ".agents/scripts/sync_governance.py",
       "target_name": ".agents/scripts/sync_governance.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "75c39308d18f152a1ff5ff7c7698de1b11d95017bfd35985f817c070d18eca8a",
+      "sha256": "2982bec508fbaf6f99a8c1f1522d23337c02abc8b66b8c2f6267830044db4cbf",
       "size_bytes": 44676
     },
     {
@@ -1427,7 +1427,7 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "f591186c97b2fcd8704f5583e733d552f060c82c10ea1c2b431b5fc973f534e9",
+      "sha256": "3df59b0bdd6291523cb6876b57a8c8b7c8b640fee27197c5e09e8a0f834a11c4",
       "size_bytes": 11934
     },
     {
@@ -1665,36 +1665,36 @@
       "path": "catalogs/agenticskills-submission.md",
       "target_name": "catalogs/agenticskills-submission.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "5f3872085bd1a4ebb1217c645876f251ca297ba5f0d71e6c7221828485239bb0",
+      "sha256": "9225140569925b9d6bc310935872f58108bbcf150e5a11ee2fa9c670846cf534",
       "size_bytes": 16678
     },
     {
       "path": "catalogs/qaskills-pack.json",
       "target_name": "catalogs/qaskills-pack.json",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "850018adab66489d574f12fd4698639d0a1a4404c886e1108d2bf18a553bcd78",
+      "sha256": "160ad199d017e13647e1fa08acb3bd2fa40bb22b127cf2fa437d6f624dc20759",
       "size_bytes": 7023
     },
     {
       "path": "catalogs/skillsllm-manifest.json",
       "target_name": "catalogs/skillsllm-manifest.json",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "baa0498379180498a374226981e027d8b1613ac7a0198ef8aeeab7f4430bdb7c",
+      "sha256": "c1de8645e29b0fc5b04bee44ad77a5f240877a4dff4a0dc57931f4db00d401b9",
       "size_bytes": 11156
     },
     {
       "path": "llms.txt",
       "target_name": "llms.txt",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "e2ef51ac488f95b84519a1f2d99bab311a4081ff8b5f52854a827dac623f829a",
+      "sha256": "c5642a44b50efc4e18738c45fbee87248fa66bb687b59e1fbb8d932cee490a44",
       "size_bytes": 18399
     },
     {
       "path": "scripts/install-skill.sh",
       "target_name": "scripts/install-skill.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "2a44bde1937598321d34fe72ab4322287b4453309a0e9a3e8943e0b44c091261",
-      "size_bytes": 38202
+      "sha256": "9134e011d0cf45e8113498ef47fda934057ef116f22f0f9b1db204fd98766dde",
+      "size_bytes": 38588
     }
   ]
 }
