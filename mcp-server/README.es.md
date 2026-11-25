@@ -9,7 +9,7 @@
 [![Node.js >=24](https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/LICENSE)
 
-Servidor oficial **Model Context Protocol (MCP)** e instalador CLI de fricción cero para [**QA Testing Blueprints (QA-11X v3.6 — v3.6.0)**](https://github.com/tecno-consultores/qa-testing-blueprints).
+Servidor oficial **Model Context Protocol (MCP)** e instalador CLI de fricción cero para [**QA Testing Blueprints (QA-11X v3.7 — v3.7.0)**](https://github.com/tecno-consultores/qa-testing-blueprints).
 
 Diseñado para que agentes de programación IA (**Google Antigravity**, **Claude Code / Desktop**, **Cursor**, **Windsurf**, **OpenAI Codex CLI**, **VS Code Copilot**, **Hermes Agent** y **28 agentes**) adopten QA-11X en **< 30 segundos**, ejecuten **19 herramientas MCP**, consulten **13 recursos criptográficos `blueprint://*`** (11 URIs estáticas + 2 plantillas URI) y apliquen **Regla Cero Docker**, **DISA ASD STIG V6R5**, **OWASP v4.2**, **FINOS CALM** y **AI Evals Dual-Mode** sin clonar el repositorio completo.
 
@@ -85,12 +85,13 @@ Consulta la matriz completa de 28 clientes en [`docs/agent-setup.es.md`](https:/
 
 ---
 
-## 🛡️ Escudo de Seguridad y Resiliencia Operativa (v3.6.0)
+## 🛡️ Escudo de Seguridad y Resiliencia Operativa (v3.7.0)
 
 * **Interceptor `promptGuard` *Fail-Closed*:** Protege `tools/call` en las 19 herramientas con canonicalización `NFKC`, purga zero-width / Trojan Source, bloqueo de inyección de prompts y evasiones `QA-GIT-GATE-01` (`git push` / `npm publish`), y redacción PII/secretos antes de despachar cualquier handler.
 * **Confinamiento de Rutas `SEC-PATH-01` (`QA11X_WORKSPACE_ROOTS`):** Valida `project_path`, `workspaceRoot` y `targetDir` mediante `resolveSafeProjectPath`, bloqueando traversal (`..`), bytes NUL, symlinks fuera de raíces permitidas, rutas críticas del sistema (`/`, `/etc`, `/usr`, ...), `$HOME` y `os.tmpdir()` raíz. Configure `QA11X_WORKSPACE_ROOTS` (rutas separadas por delimitador de PATH) para autorizar workspaces adicionales fuera de `process.cwd()`.
+* **Guardrails Anti-Saturación Docker y CrashLoop (`QA-DOCKER-LOOP-01`):** `run_ephemeral_qa` impone un semáforo FIFO atómico entre procesos (`QA_MAX_CONCURRENT_CONTAINERS=1`, `COMPOSE_PARALLEL_LIMIT=1`), guardias pasivas Linux de RAM (`< 12%`) y temperatura ACPI (`>= 85°C`) con `exit_code = 75` (exento de `BREAKER-42`), detección pre-flight de CrashLoops (detiene automáticamente contenedores `restarting` del workspace; falla rápido en proyectos ajenos) y desmontaje Compose garantizado ante timeout/aborto. `qa-11x doctor` reporta `docker_health` (CrashLoops, redes bridge personalizadas, regla `veth*` de NetworkManager, temp/RAM).
 * **`TaskStateGuard` y Reportes `Fail-Verbose`:** Limita concurrencia de tareas MCP, aísla timeouts (`60s` estándar / `>= 180s` transferencias pesadas), limpia artefactos truncados de `0 bytes`, acota el auto-sync TTY (`< 5s` fail-open hacia `stderr`) y formatea trazas `Fail-Verbose` sanitizadas compatibles con Allure (`diagnosticFormatter.ts`).
-* **LLMs Locales y A2A Agent Card (`@sinfallas/mcp-qa-11x/agent-card`):** Compatible con evaluadores air-gapped **Ollama / vLLM** y expone el subpath export ESM público `@sinfallas/mcp-qa-11x/agent-card` (`package.json#exports` -> `dist/a2a/agentCard.js`, implementado en [`src/a2a/agentCard.ts`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/src/a2a/agentCard.ts), `v3.6.0`) como **módulo de librería programático** (no expuesto como herramienta ni recurso MCP público sobre `stdio`).
+* **LLMs Locales y A2A Agent Card (`@sinfallas/mcp-qa-11x/agent-card`):** Compatible con evaluadores air-gapped **Ollama / vLLM** y expone el subpath export ESM público `@sinfallas/mcp-qa-11x/agent-card` (`package.json#exports` -> `dist/a2a/agentCard.js`, implementado en [`src/a2a/agentCard.ts`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/src/a2a/agentCard.ts), `v3.7.0`) como **módulo de librería programático** (no expuesto como herramienta ni recurso MCP público sobre `stdio`).
 
 ---
 
@@ -101,15 +102,15 @@ Lideradas por `qa-11x-architect` (`< 12 KB`), cargando 10 sub-skills especializa
 
 ---
 
-## 🛠️ Herramientas Expuestas en el Servidor MCP (19 herramientas — v3.6)
+## 🛠️ Herramientas Expuestas en el Servidor MCP (19 herramientas — v3.7)
 
 1. **`inspect_project_config`:** Inspecciona señales de stack (`pyproject.toml`, `package.json`, `composer.json`), `docker-compose.qa.yml`, estado de la pirámide y grafos Graphify AST.
 2. **`fetch_blueprint_bundle`:** Descarga plantillas solicitadas desde GitHub/espejo local validando su suma SHA-256 contra `manifest.json`.
 3. **`bootstrap_or_merge_11x`:** Genera o fusiona configuraciones `.example`, Dockerfiles, Makefile y workflows de forma segura respaldando en `.11x-backup` (`dry_run` es `true` por defecto; pase `dry_run: false` para aplicar escrituras).
 4. **`inspect_ast_blast_radius`:** Inspección AST bidireccional y diferencial (`declaring_files`, invocadores, callees, `changed_since_ref` y nivel de riesgo `LOW`/`MEDIUM`/`HIGH`) con reconstrucción Graphify (`auto_build_if_missing`).
-5. **`clean_workspace_11x`:** Limpia artefactos Docker/caché pertenecientes a `root` mediante contenedor efímero Alpine sin usar `sudo`.
+5. **`clean_workspace_11x`:** Limpia artefactos Docker/caché pertenecientes a `root` mediante contenedor efímero Alpine sin usar `sudo`, detiene contenedores `status=restarting` del workspace (`found_containers`/`removed_containers`) y poda redes Compose huérfanas.
 6. **`audit_security_stig_owasp`:** Analiza archivos sobre **22 controles de referencia DISA ASD STIG V6R5 / OWASP v4.2 + 37 reglas del escáner estático** (`SEC-01..SEC-16`, `SEC-CI-ACTION-REF`, `SEC-WS-PUBSUB-01`, `QA-*`, `QA-DOCKER-LOOP-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `QA-STRYKER-CFG-01`, `UI-11X-01..03`) con límite configurable `max_findings` y auditoría opcional de plantillas `.example` mediante `include_examples: true`.
-7. **`run_ephemeral_qa`:** Ejecuta cualquiera de las **16 etapas QA** (`lint`, `unit`, `migration`, `integration`, `ci`, `parity`, `orphans`, `contracts`, `bdd`, `mutation`, `dast`, `e2e`, `perf`, `chaos`, `profile`, `all`) dentro de Docker efímero (`Regla Cero`), respetando vía rápida `DOCS_ONLY`.
+7. **`run_ephemeral_qa`:** Ejecuta cualquiera de las **16 etapas QA** (`lint`, `unit`, `migration`, `integration`, `ci`, `parity`, `orphans`, `contracts`, `bdd`, `mutation`, `dast`, `e2e`, `perf`, `chaos`, `profile`, `all`) dentro de Docker efímero serializado (`Regla Cero`, `QA_MAX_CONCURRENT_CONTAINERS=1`, `COMPOSE_PARALLEL_LIMIT=1`), imponiendo guardias térmicas/RAM (`exit_code=75`), pre-flight CrashLoop, desmontaje Compose ante aborto y vía rápida `DOCS_ONLY`.
 8. **`certify_11x_gate`:** Ejecuta la compuerta de 10 verificaciones QA-11X (`.example` sin fusionar, secretos, integridad JSON, UI/API huérfanos, paridad ORM/Alembic, topología AST, evidencia lint, STIG/OWASP, docs/manifiesto/roadmap) más verificación de actualizaciones, modo `strict` y opción `allow_unmerged_examples`.
 9. **`audit_test_pyramid_gaps`:** Audita proyectos frente a las 13 capas de la pirámide 11X (`L01`–`L13`), detectando vacíos en las 3 fases temporales y refresco dual.
 10. **`init_or_append_agents_md`:** Inyecta o actualiza idempotentemente el bloque conector en `AGENTS.md` / reglas de IDE mediante marcadores HTML (`dry_run` es `true` por defecto; pase `dry_run: false` para aplicar escrituras).
@@ -125,7 +126,7 @@ Lideradas por `qa-11x-architect` (`< 12 KB`), cargando 10 sub-skills especializa
 
 ---
 
-## 📚 Recursos Expuestos en el Servidor MCP (13 recursos: 11 URIs estáticas + 2 plantillas URI — v3.6)
+## 📚 Recursos Expuestos en el Servidor MCP (13 recursos: 11 URIs estáticas + 2 plantillas URI — v3.7)
 
 > **Desglose de Superficie:** **11 URIs estáticas** devueltas por `resources/list` + **2 plantillas URI** (`blueprint://{stack}/readme`, `blueprint://ui/refactoring-ui/{topic}`) devueltas por `resources/templates/list`.
 

@@ -46,6 +46,7 @@
 | **Hito 27** | `v3.2.0` (`QA-11X v3.2`) — Remediación Integral 99/99 Hallazgos, 12 Subcomandos CLI, Anotaciones MCP 2026, A2A v1.0 y 100% Diff Coverage | [`CHANGELOG.es.md`](CHANGELOG.es.md) + [`TESTING.es.md`](TESTING.es.md) | ✅ Completado | `100%` |
 | **Hito 28** | `v3.5.0` (`QA-11X v3.5`) — Fronteras AST Declarativas/Inestabilidad, Señales Git Longitudinales, SDD/EARS (`10` Refs) y `.claude-plugin/` | [`CHANGELOG.es.md`](CHANGELOG.es.md) + [`TESTING.es.md`](TESTING.es.md) | ✅ Completado | `100%` |
 | **Hito 29** | `v3.6.0` (`QA-11X v3.6`) — Remediación de Auditoría Integral, Modularización de Monolitos, Economía de Tokens, Endurecimiento CI y 100% Diff Coverage | [`CHANGELOG.es.md`](CHANGELOG.es.md) + [`TESTING.es.md`](TESTING.es.md) | ✅ Completado | `100%` |
+| **Hito 30** | `v3.7.0` (`QA-11X v3.7`) — Guardrails Anti-Saturación Docker, Candado FIFO, Protección Térmica/RAM/CrashLoop y Regla Estática #37 (`QA-DOCKER-LOOP-01`) | [`SECURITY.es.md`](SECURITY.es.md) §4.33 + [`docs/docker-troubleshooting.es.md`](docs/docker-troubleshooting.es.md) §15 | ✅ Completado | `100%` |
 
 ---
 
@@ -392,3 +393,13 @@
 - [x] **29.1.** Remediar todos los hallazgos `CRITICAL`, `HIGH` y `MEDIUM` de la auditoría integral en los stacks (`ai-evals`, `python`, `node-backend`, `php`, `fastapi`, `vue3`, `react-frontend`, `mobile-appium`, `mcp-server/example`), seguridad/parsers MCP, scripts de gobernanza y CI/Docker (`--security-opt=no-new-privileges:true`, cero `container_name:` fijos y digests `@sha256` fijados).
 - [x] **29.2.** Modularizar los 7 monolitos (`server.ts`, `security-auditor.ts`, `test-pyramid-auditor.ts`, `ephemeral-runner.ts`, `tmsSyncCli.ts`, `surgical-merger.ts`, `verify_docs_invariants.py`), extraer `.agents/scripts/_common.py` y los scripts Python del `Makefile`, compactar `.agents/rules/*.md` un 57.8%, introducir el catálogo declarativo `commandCatalog.ts` + `structuredContent` unificado y elevar la fidelidad del Meta-QA.
 - [x] **29.3.** Cerrar el `100.00%` de cobertura diferencial en líneas (`verify_diff_coverage.py`), rotar atómicamente el monorepo y el paquete npm a `3.6.0` (`QA-11X v3.6`), sincronizar documentación bilingüe 1:1 + `manifest.json` SHA-256 + grafos Graphify AST, certificar `certify_task_completion.sh` y publicar `@sinfallas/mcp-qa-11x@3.6.0`.
+
+---
+
+## ✅ Hito 30: `v3.7.0` (`QA-11X v3.7`) — Guardrails Anti-Saturación Docker, Serialización FIFO y `QA-DOCKER-LOOP-01` (#37)
+**Referencia Obligatoria:** [`SECURITY.es.md`](SECURITY.es.md) §4.33, [`docs/docker-troubleshooting.es.md`](docs/docker-troubleshooting.es.md) §15 y [`CHANGELOG.es.md`](CHANGELOG.es.md)
+
+### Tareas de Implementación:
+- [x] **30.1.** Implementar candado FIFO atómico entre procesos (`QA_MAX_CONCURRENT_CONTAINERS=1`, `COMPOSE_PARALLEL_LIMIT=1`), guardias pasivas Linux de RAM/temperatura ACPI (`exit_code = 75` exento de `BREAKER-42`), detección/remediación pre-flight de CrashLoops y desmontaje Compose garantizado ante aborto en [`dockerGuardrails.ts`](mcp-server/src/tools/ephemeral-runner/dockerGuardrails.ts) + `run_ephemeral_qa`, y eliminar la fuga de contenedores `sleep 600` en subshells de [`.agents/scripts/certify_task_completion.sh`](.agents/scripts/certify_task_completion.sh).
+- [x] **30.2.** Añadir la regla estática #37 `QA-DOCKER-LOOP-01` en [`dockerLoopRules.ts`](mcp-server/src/tools/security-auditor/dockerLoopRules.ts) y [`scripts/auditar-infra.sh`](scripts/auditar-infra.sh), actualizar [`scripts/limpieza.sh`](scripts/limpieza.sh) + `clean_workspace_11x` para contenedores `status=restarting` y redes Compose huérfanas, añadir `docker_health` (`dockerHealthProbe.ts`) en `qa-11x doctor` y endurecer los 13 `docker-compose.qa.yml` + 7 `*/Makefile.example`.
+- [x] **30.3.** Sincronizar skills, reglas, conectores Thin-Client (`<= 1,536 B`), catálogos, `llms.txt`, manuales bilingües (`EN` + `ES`), `manifest.json` SHA-256 y grafos Graphify AST; certificar `100.00%` de cobertura diferencial en Vitest (`777`), Pytest (`340`), BATS (`115`), Karate BDD (`53`), Clean-Room E2E y compuerta `10/10` bajo la versión `3.7.0` (`QA-11X v3.7`).

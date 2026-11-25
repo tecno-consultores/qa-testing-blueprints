@@ -1,8 +1,8 @@
 {
   "name": "qa-11x",
-  "displayName": "QA Testing Blueprints (QA-11X v3.6)",
-  "version": "3.6.0",
-  "description": "Enterprise QA & DevSecOps Standard (QA-11X v3.6): 11 Modular Skills & @sinfallas/mcp-qa-11x MCP Server (DISA STIG V6R5, OWASP v4.2, Graphify AST, Screenplay & FINOS CALM).",
+  "displayName": "QA Testing Blueprints (QA-11X v3.7)",
+  "version": "3.7.0",
+  "description": "Enterprise QA & DevSecOps Standard (QA-11X v3.7): 11 Modular Skills & @sinfallas/mcp-qa-11x MCP Server (DISA STIG V6R5, OWASP v4.2, Graphify AST, Screenplay & FINOS CALM).",
   "author": {
     "name": "Jesus Palencia (Tecno Consultores)",
     "email": "sinfallas@gmail.com"
@@ -13,7 +13,7 @@
   "mcpServers": {
     "qa-11x": {
       "command": "npx",
-      "args": ["-y", "@sinfallas/mcp-qa-11x@3.6.0", "--stdio"]
+      "args": ["-y", "@sinfallas/mcp-qa-11x@3.7.0", "--stdio"]
     }
   }
 }

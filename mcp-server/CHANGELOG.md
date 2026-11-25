@@ -8,6 +8,12 @@ All notable changes to the `@sinfallas/mcp-qa-11x` npm package and MCP server ar
 
 ## [Unreleased]
 
+## [3.7.0] - 2026-11-25
+
+### Added
+- **Docker Anti-Saturation Guardrails (`dockerGuardrails.ts`) in `run_ephemeral_qa`:** Added cross-process atomic FIFO slot lock (`QA_MAX_CONCURRENT_CONTAINERS=1`, stale-PID recovery, `COMPOSE_PARALLEL_LIMIT=1`), passive Linux RAM (`< 12%`) and thermal (`>= 85°C` or `< 12°C` from ACPI critical) guards returning `exit_code = 75` (`EX_TEMPFAIL`, exempt from `BREAKER-42`), pre-flight CrashLoop detection (auto-remediating workspace `restarting` containers while failing fast with safe commands on foreign containers), and guaranteed Compose teardown on `make` timeout/abort.
+- **Static Scanner Rule #37 (`QA-DOCKER-LOOP-01`) & Enriched `clean_workspace_11x` / `doctor`:** Added `src/tools/security-auditor/dockerLoopRules.ts` (flagging unbounded `restart:` in QA/test/deploy Compose files, `docker run` without `--rm`/unbounded `--restart`, `docker compose up --wait` without `--wait-timeout`, parallel multi-service `docker compose build` without `COMPOSE_PARALLEL_LIMIT=1`, and `deploy*.sh` missing `docker-compose.qa.yml` teardown, with `# qa-docker-loop-ok` pragma); upgraded `clean_workspace_11x` with workspace `restarting` container remediation (`found_containers`/`removed_containers`); added `docker_health` telemetry (`src/cli/dockerHealthProbe.ts`) to `doctor`; updated `agents-connector.ts` thin connectors (`<= 1,536 B`), tool/CLI descriptions (`coreToolsRegistry.ts`, `commandCatalog.ts`), `tests/docker-guardrails.unit.ts` (17 tests, `777` Vitest total, `99.87%` lines), Karate Scenario `53`, and Clean-Room E2E (`run-example-e2e.mjs`).
+
 ## [3.6.0] - 2026-11-24
 
 ### Changed

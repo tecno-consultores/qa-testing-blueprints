@@ -2459,7 +2459,7 @@ describe('Tools and Resources Integration Suite', () => {
       }
     });
 
-    it('F9.4: blueprint://security/disa-owasp-22 mantiene URI y usa terminología D3 (+ 36 static scanner rules)', async () => {
+    it('F9.4: blueprint://security/disa-owasp-22 mantiene URI y usa terminología D3 (+ 37 static scanner rules)', async () => {
       const server = createMcpServer({ fetcher, merger });
       const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
       const client = new Client({ name: 'f94-security-meta-client', version: '1.0.0' });
@@ -2474,6 +2474,11 @@ describe('Tools and Resources Integration Suite', () => {
         expect(secMeta?.description).toContain('22 DISA ASD STIG V6R5');
         expect(secMeta?.description).toContain('OWASP Developer Guide v4.2 reference controls');
         expect(secMeta?.description).toContain('+ 37 static scanner rules');
+        const listToolsRes = await client.listTools();
+        const runnerTool = listToolsRes.tools.find((t) => t.name === 'run_ephemeral_qa');
+        const cleanTool = listToolsRes.tools.find((t) => t.name === 'clean_workspace_11x');
+        expect(runnerTool?.description).toContain('QA_MAX_CONCURRENT_CONTAINERS=1');
+        expect(cleanTool?.description).toContain('found_containers');
       } finally {
         await client.close();
         await server.close();

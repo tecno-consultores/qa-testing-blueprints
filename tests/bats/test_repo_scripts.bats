@@ -2186,8 +2186,11 @@ EOF
   cd "${sess_ws}"
   run env QA11X_DOCKERENV_PATH="${BATS_TEST_TMPDIR}/nonexistent_dockerenv" PATH="${sess_bin}:/usr/bin:/bin" LC_ALL=C bash "${sess_ws}/.agents/scripts/certify_task_completion.sh"
   assert_success
-  run grep -F "run --rm --network none --security-opt=no-new-privileges:true -d" "${docker_log}"
+  run grep -F "run --rm --network none --security-opt=no-new-privileges:true -d --restart=no" "${docker_log}"
   assert_success
+  run bash -c 'grep -c " -d " "$1"' _ "${docker_log}"
+  assert_success
+  assert_output "1"
   run grep -F "exec deadbeef1234 python3" "${docker_log}"
   assert_success
   run grep -F "exec -i deadbeef1234 python3" "${docker_log}"

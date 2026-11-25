@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 //
-// Arnés End-to-End (E2E) sobre stdio real para @sinfallas/mcp-qa-11x v3.6.0.
+// Arnés End-to-End (E2E) sobre stdio real para @sinfallas/mcp-qa-11x v3.7.0.
 // Conecta un cliente MCP oficial (@modelcontextprotocol/sdk) contra el binario
 // compilado dist/index.js y certifica empíricamente los 13 recursos, las 19 tools
 // (en escenarios negativos y limpios) y los 12 subcomandos CLI sobre una copia
@@ -361,9 +361,11 @@ async function verifyAllNineteenTools(client, ctx) {
   );
   logStep('Tool 5/19 audit_test_pyramid_gaps: 13 capas evaluadas y detección real de vista .vue huérfana');
 
-  // 6. audit_security_stig_owasp (inyección de defectos reales UI-11X-01 + QA-KARATE-IDEMP y limpieza posterior)
+  // 6. audit_security_stig_owasp (inyección de defectos reales UI-11X-01 + QA-KARATE-IDEMP + QA-DOCKER-LOOP-01 y limpieza posterior)
   const badVueFooter = path.join(projectDir, 'frontend', 'src', 'views', 'FloatingFooterBad.vue');
   const badFeature = path.join(projectDir, 'backend', 'test', 'bad_static_uuid.feature');
+  const badComposeLoop = path.join(projectDir, 'docker-compose.qa.loopbad.yml');
+  const badDeployLoop = path.join(projectDir, 'deploy.loopbad.sh');
   fs.writeFileSync(
     badVueFooter,
     '<template><footer class="fixed bottom-0">x</footer></template>\n',
@@ -374,24 +376,37 @@ async function verifyAllNineteenTools(client, ctx) {
     "Feature: Bad\n  Scenario: Static\n    Given path '/api/v1/devices'\n    And header Idempotency-Key = '550e8400-e29b-41d4-a716-446655440000'\n    When method post\n",
     'utf8'
   );
+  fs.writeFileSync(
+    badComposeLoop,
+    'services:\n  api:\n    image: alpine:3.21\n    restart: always\n',
+    'utf8'
+  );
+  fs.writeFileSync(
+    badDeployLoop,
+    '#!/usr/bin/env bash\ndocker compose -f docker-compose.deploy.yml up -d --wait preview\n',
+    'utf8'
+  );
   const secFailing = await callJsonTool(client, 'audit_security_stig_owasp', {
     project_path: projectDir,
     max_findings: 50,
   });
-  assert.equal(secFailing.passed, false, 'Debió reprobar ante vulnerabilidad HIGH QA-KARATE-IDEMP');
+  assert.equal(secFailing.passed, false, 'Debió reprobar ante vulnerabilidad HIGH QA-KARATE-IDEMP / QA-DOCKER-LOOP-01');
   const detectedRules = new Set(secFailing.findings.map((f) => f.rule_id));
   assert.ok(detectedRules.has('UI-11X-01'), 'No detectó footer position: fixed (UI-11X-01)');
   assert.ok(detectedRules.has('QA-KARATE-IDEMP'), 'No detectó UUID estático en Karate (QA-KARATE-IDEMP)');
+  assert.ok(detectedRules.has('QA-DOCKER-LOOP-01'), 'No detectó restart: always / up --wait sin timeout (QA-DOCKER-LOOP-01)');
 
   fs.rmSync(badVueFooter, { force: true });
   fs.rmSync(badFeature, { force: true });
+  fs.rmSync(badComposeLoop, { force: true });
+  fs.rmSync(badDeployLoop, { force: true });
   const secClean = await callJsonTool(client, 'audit_security_stig_owasp', {
     project_path: projectDir,
     max_findings: 50,
   });
   assert.equal(secClean.passed, true, `Hallazgos inesperados en proyecto limpio: ${JSON.stringify(secClean.findings)}`);
   assert.equal(secClean.findings.length, 0, `Hallazgo residual: ${JSON.stringify(secClean.findings)}`);
-  logStep('Tool 6/19 audit_security_stig_owasp: cacería real de UI-11X-01 + QA-KARATE-IDEMP y certificación 0 hallazgos');
+  logStep('Tool 6/19 audit_security_stig_owasp: cacería real de UI-11X-01 + QA-KARATE-IDEMP + QA-DOCKER-LOOP-01 y certificación 0 hallazgos');
 
   // 7. clean_workspace_11x (creación de residuos efímeros -> dry_run -> borrado real preservando graph.json)
   const covResidue = path.join(projectDir, '.coverage');
@@ -407,6 +422,10 @@ async function verifyAllNineteenTools(client, ctx) {
     dry_run: true,
   });
   assert.ok(cleanDry.found_targets.length >= 3);
+  assert.ok(
+    cleanDry.found_containers === undefined || Array.isArray(cleanDry.found_containers),
+    'clean_workspace_11x found_containers debe ser opcional o arreglo'
+  );
   assert.equal(fs.existsSync(covResidue), true);
 
   const cleanExec = await callJsonTool(client, 'clean_workspace_11x', {
@@ -414,6 +433,10 @@ async function verifyAllNineteenTools(client, ctx) {
     dry_run: false,
   });
   assert.ok(cleanExec.removed_targets.length >= 3);
+  assert.ok(
+    cleanExec.removed_containers === undefined || Array.isArray(cleanExec.removed_containers),
+    'clean_workspace_11x removed_containers debe ser opcional o arreglo'
+  );
   assert.equal(fs.existsSync(covResidue), false);
   assert.equal(fs.existsSync(eslintResidue), false);
   assert.equal(fs.existsSync(pytestCacheDir), false);
@@ -800,6 +823,10 @@ async function verifyCliAndBackgroundAutoSync(ctx) {
     })
   );
   assert.equal(doctorJson.mcp_version, expectedVersion);
+  if (doctorJson.docker_version !== null) {
+    assert.ok(doctorJson.docker_health && Array.isArray(doctorJson.docker_health.restarting_containers));
+    assert.equal(typeof doctorJson.docker_health.orphan_bridge_networks, 'number');
+  }
 
   const upgradeJson = JSON.parse(
     execFileSync(process.execPath, [DIST_INDEX_JS, 'upgrade', '--dry-run', '--json'], {

@@ -400,8 +400,8 @@ export const CLI_COMMAND_CATALOG: readonly CliSubcommandSpec[] = [
     aliases: ['status'],
     usageArgs: USAGE_DIR_OPTIONS,
     summary: {
-      en: 'Inspect active binary, npx caches, global skills, IDE configs & Docker (alias: status)',
-      es: 'Inspecciona binario activo, cachés npx, skills globales, configs IDE y Docker (alias: status)',
+      en: 'Inspect active binary, npx caches, global skills, IDE configs & Docker health (CrashLoops, bridge nets, NM veth*, temp/RAM; alias: status)',
+      es: 'Inspecciona binario activo, cachés npx, skills globales, configs IDE y salud Docker (CrashLoops, redes bridge, NM veth*, temp/RAM; alias: status)',
     },
     flags: [COMMON_PROJECT_FLAG, COMMON_OFFLINE_FLAG, COMMON_JSON_FLAG, COMMON_HELP_FLAG],
   },
@@ -506,8 +506,8 @@ export const CLI_COMMAND_CATALOG: readonly CliSubcommandSpec[] = [
     aliases: [],
     usageArgs: USAGE_DIR_OPTIONS,
     summary: {
-      en: 'Static Zero-LLM audit (security|pyramid|vibe|calm|all) with text/json/sarif output',
-      es: 'Auditoría estática Zero-LLM (security|pyramid|vibe|calm|all) en formato text/json/sarif',
+      en: 'Static Zero-LLM audit (security 37 rules incl. QA-DOCKER-LOOP-01 | pyramid | vibe | calm | all) with text/json/sarif output',
+      es: 'Auditoría estática Zero-LLM (security 37 reglas incl. QA-DOCKER-LOOP-01 | pyramid | vibe | calm | all) en formato text/json/sarif',
     },
     flags: [
       COMMON_PROJECT_FLAG,

@@ -1,6 +1,6 @@
 > 🌐 **Idioma:** [🇺🇸 English (Canonical)](RESOURCES.md) · **Español (Espejo 1:1)**
 
-# 📚 Catálogo Maestro de Recursos y Artefactos (`QA-11X v3.6`)
+# 📚 Catálogo Maestro de Recursos y Artefactos (`QA-11X v3.7`)
 
 Índice corporativo verificado de portadas, skills modulares, reglas activas, blueprints por stack, gobernanza ejecutable, imágenes Docker `sinfallas/*` y referencias normativas de **QA Testing Blueprints**.
 
@@ -11,7 +11,7 @@
 * **`README.md`:** Portada primaria *English-First* con `quickstart` en 30 segundos, niveles progresivos (`starter` / `standard` / `enterprise`), matriz de 15 columnas × 12 entornos de pruebas, matriz Docker y escudo AI Evals.
 * **[`README.es.md`](README.es.md):** Espejo 1:1 en español con la matriz completa de herramientas y puntos de entrada bilingües.
 * **[`.github/actions/qa-11x-pr-check/action.yml`](.github/actions/qa-11x-pr-check/action.yml):** Composite Action endurecida para Pull Requests con selección por Blast Radius AST y perfiles progresivos.
-* **[`mcp-server/README.es.md`](mcp-server/README.es.md) (`mcp-server/README.md`):** Documentación oficial bilingüe del paquete npm `@sinfallas/mcp-qa-11x` v3.6.0 (**19 herramientas**, **13 recursos** públicos incluyendo `session_flight_recorder` + `blueprint://skills/tactical-patterns-11x` en **v3.1**, y 12 subcomandos CLI: `quickstart`, `install-skill`, `init-agents`, `reconcile-agents`, `tms-sync`, `doctor`, `upgrade`, `certify`, `audit`, `blast-radius`, `mcp-config`, `completion`, protegidos con `promptGuard` y `TaskStateGuard`).
+* **[`mcp-server/README.es.md`](mcp-server/README.es.md) (`mcp-server/README.md`):** Documentación oficial bilingüe del paquete npm `@sinfallas/mcp-qa-11x` v3.7.0 (**19 herramientas**, **13 recursos** públicos incluyendo `session_flight_recorder` + `blueprint://skills/tactical-patterns-11x` en **v3.1**, y 12 subcomandos CLI: `quickstart`, `install-skill`, `init-agents`, `reconcile-agents`, `tms-sync`, `doctor`, `upgrade`, `certify`, `audit`, `blast-radius`, `mcp-config`, `completion`, protegidos con `promptGuard` y `TaskStateGuard`).
 * **[`llms.txt`](llms.txt) y Catálogos Globales (`catalogs/` y `.claude-plugin/`):** Índice GEO para LLMs/agentes ([`llms.txt`](llms.txt)), manifiestos nativos de plugin Claude Code ([`.claude-plugin/plugin.json`](.claude-plugin/plugin.json), [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json)), junto a los descriptores canónicos [`catalogs/qaskills-pack.json`](catalogs/qaskills-pack.json) (QASkills.sh), [`catalogs/skillsllm-manifest.json`](catalogs/skillsllm-manifest.json) (SkillsLLM.com) y [`catalogs/agenticskills-submission.md`](catalogs/agenticskills-submission.md) (AgenticSkills.io).
 * **[`docs/agent-setup.es.md`](docs/agent-setup.es.md) (`docs/agent-setup.md`):** Guías paso a paso para configurar 28 agentes y clientes MCP (`Antigravity`, `Claude Code`, `Cursor`, `Windsurf`, `Codex`, `Copilot`, `Hermes`, `Zed`, `JetBrains`, etc.).
 * **[`AI_MASTER_PROMPT.es.md`](AI_MASTER_PROMPT.es.md) (`AI_MASTER_PROMPT.md`):** Prompt maestro de adopción integral para agentes autónomos y su espejo 1:1 en español.

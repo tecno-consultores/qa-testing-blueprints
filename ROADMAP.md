@@ -46,6 +46,7 @@
 | **Milestone 27** | `v3.2.0` (`QA-11X v3.2`) — 99/99 Forensic Audit Remediation, 12 CLI Subcommands, MCP 2026 Annotations, A2A v1.0 & 100% Diff Coverage | [`CHANGELOG.md`](CHANGELOG.md) + [`TESTING.md`](TESTING.md) | ✅ Completed | `100%` |
 | **Milestone 28** | `v3.5.0` (`QA-11X v3.5`) — Declarative AST Boundaries/Instability, Longitudinal Git Signals, SDD/EARS (`10` Refs) & `.claude-plugin/` | [`CHANGELOG.md`](CHANGELOG.md) + [`TESTING.md`](TESTING.md) | ✅ Completed | `100%` |
 | **Milestone 29** | `v3.6.0` (`QA-11X v3.6`) — Integral Audit Remediation, God-Module Modularization, Token Economy, CI Hardening & 100% Diff Coverage | [`CHANGELOG.md`](CHANGELOG.md) + [`TESTING.md`](TESTING.md) | ✅ Completed | `100%` |
+| **Milestone 30** | `v3.7.0` (`QA-11X v3.7`) — Docker Anti-Saturation Guardrails, FIFO Slot Lock, Thermal/RAM/CrashLoop Protection & Static Rule #37 (`QA-DOCKER-LOOP-01`) | [`SECURITY.md`](SECURITY.md) §4.33 + [`docs/docker-troubleshooting.md`](docs/docker-troubleshooting.md) §15 | ✅ Completed | `100%` |
 
 ---
 
@@ -392,3 +393,13 @@
 - [x] **29.1.** Remediate all `CRITICAL`, `HIGH`, and `MEDIUM` integral audit findings across stacks (`ai-evals`, `python`, `node-backend`, `php`, `fastapi`, `vue3`, `react-frontend`, `mobile-appium`, `mcp-server/example`), MCP security/parsers, governance scripts, and CI/Docker (`--security-opt=no-new-privileges:true`, zero fixed `container_name:`, pinned `@sha256` digests).
 - [x] **29.2.** Modularize the 7 god-modules (`server.ts`, `security-auditor.ts`, `test-pyramid-auditor.ts`, `ephemeral-runner.ts`, `tmsSyncCli.ts`, `surgical-merger.ts`, `verify_docs_invariants.py`), extract `.agents/scripts/_common.py` and Makefile Python scripts, compact `.agents/rules/*.md` by 57.8%, introduce single declarative `commandCatalog.ts` + unified `structuredContent`, and upgrade Meta-QA fidelity.
 - [x] **29.3.** Close `100.00%` differential line coverage (`verify_diff_coverage.py`), rotate monorepo and npm package atomically to `3.6.0` (`QA-11X v3.6`), synchronize 1:1 bilingual documentation + SHA-256 `manifest.json` + Graphify AST graphs, certify `certify_task_completion.sh`, and publish `@sinfallas/mcp-qa-11x@3.6.0`.
+
+---
+
+## ✅ Milestone 30: `v3.7.0` (`QA-11X v3.7`) — Docker Anti-Saturation Guardrails, FIFO Serialization & `QA-DOCKER-LOOP-01` (#37)
+**Mandatory Reference:** [`SECURITY.md`](SECURITY.md) §4.33, [`docs/docker-troubleshooting.md`](docs/docker-troubleshooting.md) §15, and [`CHANGELOG.md`](CHANGELOG.md)
+
+### Implementation Tasks:
+- [x] **30.1.** Implement cross-process FIFO Docker slot lock (`QA_MAX_CONCURRENT_CONTAINERS=1`, `COMPOSE_PARALLEL_LIMIT=1`), passive Linux RAM/ACPI thermal guards (`exit_code = 75` exempt from `BREAKER-42`), pre-flight CrashLoop detection/remediation, and guaranteed Compose abort teardown in [`dockerGuardrails.ts`](mcp-server/src/tools/ephemeral-runner/dockerGuardrails.ts) + `run_ephemeral_qa`, plus fix subshell `sleep 600` session container leaks in [`.agents/scripts/certify_task_completion.sh`](.agents/scripts/certify_task_completion.sh).
+- [x] **30.2.** Add static auditor rule #37 `QA-DOCKER-LOOP-01` in [`dockerLoopRules.ts`](mcp-server/src/tools/security-auditor/dockerLoopRules.ts) and [`scripts/auditar-infra.sh`](scripts/auditar-infra.sh), upgrade [`scripts/limpieza.sh`](scripts/limpieza.sh) + `clean_workspace_11x` for `status=restarting` containers and orphan Compose networks, add `docker_health` (`dockerHealthProbe.ts`) to `qa-11x doctor`, and harden all 13 `docker-compose.qa.yml` + 7 `*/Makefile.example` templates.
+- [x] **30.3.** Synchronize Dual-Consumer skills, rules, thin connectors (`<= 1,536 B`), catalogs, `llms.txt`, bilingual manuals (`EN` + `ES`), `manifest.json` SHA-256, and Graphify AST graphs; certify `100.00%` differential coverage across Vitest (`777`), Pytest (`340`), BATS (`115`), Karate BDD (`53`), Clean-Room E2E, and `10/10` gate under release `3.7.0` (`QA-11X v3.7`).

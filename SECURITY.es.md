@@ -16,12 +16,13 @@ Dado que este repositorio actúa como la plantilla arquitectónica y base de con
 
 | Versión | Estado de Soporte | Requisitos de Infraestructura |
 | :--- | :--- | :--- |
-| **`3.6.x` (`main` / Activa)** | ✅ Soporte Activo | Docker 26+, PostgreSQL 17, KeyDB Multi-Hilo |
-| **`3.5.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.6.x` (`actualización recomendada`) |
-| **`3.3.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.6.x` (`actualización recomendada`) |
-| **`3.2.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.6.x` (`actualización recomendada`) |
-| **`3.1.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.6.x` (`actualización recomendada`) |
-| **`3.0.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.6.x` (`actualización recomendada`) |
+| **`3.7.x` (`main` / Activa)** | ✅ Soporte Activo | Docker 26+, PostgreSQL 17, KeyDB Multi-Hilo |
+| **`3.6.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.7.x` (`actualización recomendada`) |
+| **`3.5.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.7.x` (`actualización recomendada`) |
+| **`3.3.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.7.x` (`actualización recomendada`) |
+| **`3.2.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.7.x` (`actualización recomendada`) |
+| **`3.1.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.7.x` (`actualización recomendada`) |
+| **`3.0.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.7.x` (`actualización recomendada`) |
 | **`<= 2.x`** | ❌ No Soportado | Versiones descontinuadas |
 
 ---

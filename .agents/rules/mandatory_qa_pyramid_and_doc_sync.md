@@ -25,7 +25,7 @@ Any change in source code, MCP tools, scripts, catalogs, or `.agents/{skills,rul
 
 ## 2. Rule Zero & 3-Path Execution (`DOCS_ONLY` / `MICRO_CHANGE` / `FULL_11X`)
 
-- **Rule Zero:** NEVER run tests, migrations, linters, or builds directly on the host OS. Execute exclusively inside non-root ephemeral Docker containers (`Makefile`, `docker-compose.qa.yml`, `run_ephemeral_qa`).
+- **Rule Zero:** NEVER run tests, migrations, linters, or builds directly on the host OS. Execute exclusively inside non-root ephemeral Docker containers (`Makefile`, `docker-compose.qa.yml`, `run_ephemeral_qa`) serialized 1 container at a time (`QA_MAX_CONCURRENT_CONTAINERS=1`, `COMPOSE_PARALLEL_LIMIT=1`, `--rm --restart=no`, `QA-DOCKER-LOOP-01`).
 - **`DOCS_ONLY`** (human `*.{md,es.md}` / `docs/` only; excludes `.agents/{skills,rules,schemas}/`): Skip Docker test suites and AST rebuilds; run `make sync-governance` (if manifest-tracked), `make lint-docs`, and `./.agents/scripts/certify_task_completion.sh`, then commit locally (`QA-GIT-GATE-01`).
 - **`MICRO_CHANGE`** (`<= 3` files, `0` API/ORM changes, `LOW < 5` AST callers): 3-line inline plan, `inspect_blast_radius.py`, co-evolve tests (`QA-TEST-SYNC-01`), run stack Docker QA, refresh stack AST, sync `CHANGELOG.{md,es.md}`, run `certify_task_completion.sh`, commit locally (`QA-GIT-GATE-01`).
 - **`FULL_11X`** (`> 3` files, new routes/views, ORM/migrations, security, or `MEDIUM`/`HIGH`/`CRITICAL` blast radius): Full 11-step protocol (`/plan`, `checkpoint_ctl.py` / `session_flight_recorder`, full Docker pyramid, bilingual docs/specs/CHANGELOG/TESTING/ROADMAP sync, AST refresh, 10/10 certification, `CERTIFIED_CLEAN`, local commit under `QA-GIT-GATE-01`).

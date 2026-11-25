@@ -116,12 +116,21 @@ EOF
   assert_output --partial "backend/Makefile:1"
 }
 
-@test "auditar-infra.sh --static-only (Degradado QA-DOCKER-LOOP-01): falla ante restart: always y up --wait sin --wait-timeout" {
+@test "auditar-infra.sh --static-only (Degradado QA-DOCKER-LOOP-01): falla ante restart ilimitado y up --wait sin --wait-timeout y respeta acotado/pragma" {
   cat >"${FAKE_ROOT}/docker-compose.qa.yml" <<'EOF'
 services:
   api:
     image: alpine:3.21
     restart: always
+  worker:
+    image: alpine:3.21
+    restart: unless-stopped
+  batch:
+    image: alpine:3.21
+    restart: on-failure
+  bounded:
+    image: alpine:3.21
+    restart: "on-failure:3"
 EOF
   cat >"${FAKE_ROOT}/deploy.sh" <<'EOF'
 #!/usr/bin/env bash
@@ -132,13 +141,18 @@ EOF
   assert_failure 1
   assert_output --partial "QA-DOCKER-LOOP-01"
   assert_output --partial "docker-compose.qa.yml:4"
+  assert_output --partial "docker-compose.qa.yml:7"
+  assert_output --partial "docker-compose.qa.yml:10"
+  refute_output --partial "docker-compose.qa.yml:13"
   assert_output --partial "deploy.sh:2"
 
   cat >"${FAKE_ROOT}/docker-compose.qa.yml" <<'EOF'
-# qa-docker-loop-ok
 services:
   api:
+    # qa-docker-loop-ok
     restart: always
+  safe:
+    restart: "no"
 EOF
   cat >"${FAKE_ROOT}/deploy.sh" <<'EOF'
 #!/usr/bin/env bash

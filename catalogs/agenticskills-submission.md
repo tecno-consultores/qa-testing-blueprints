@@ -1,12 +1,12 @@
-# AgenticSkills.io Submission Package — QA Testing Blueprints (`QA-11X v3.6`, `v3.6.0`)
+# AgenticSkills.io Submission Package — QA Testing Blueprints (`QA-11X v3.7`, `v3.7.0`)
 
 Structured submission bundle ready for `https://agenticskills.io/submit` and `https://agenticskills.io/submit?type=mcp`. Every skill path, MCP tool name, `blueprint://*` URI, and blueprint directory matches the verified repository state.
 
 ---
 
-## Section 1 — MCP Server Submission (`@sinfallas/mcp-qa-11x` v3.6.0)
+## Section 1 — MCP Server Submission (`@sinfallas/mcp-qa-11x` v3.7.0)
 
-* **Package Name:** `@sinfallas/mcp-qa-11x` (`v3.6.0`, `QA-11X v3.6` architecture)
+* **Package Name:** `@sinfallas/mcp-qa-11x` (`v3.7.0`, `QA-11X v3.7` architecture)
 * **License:** `MIT` (Zero-Infra enterprise adoption without copyleft or AGPL-3.0 licensing constraints)
 * **Repository:** `https://github.com/tecno-consultores/qa-testing-blueprints`
 * **NPX Launch Command:** `npx -y @sinfallas/mcp-qa-11x@latest`
@@ -23,9 +23,9 @@ Structured submission bundle ready for `https://agenticskills.io/submit` and `ht
 | 2 | `fetch_blueprint_bundle` | Fetches stack blueprints verified against `manifest.json` SHA-256 |
 | 3 | `bootstrap_or_merge_11x` | Surgically scaffolds or merges `.example` QA configs with `.11x-backup` |
 | 4 | `inspect_ast_blast_radius` | Bidirectional Graphify AST lookup (`declaring_files`, callers, callees) |
-| 5 | `clean_workspace_11x` | Purges transient test/Docker artifacts safely without host `sudo` |
-| 6 | `audit_security_stig_owasp` | Static scan across 36 static scanner rules (`SEC-01..QA-STRYKER-CFG-01`, `SEC-WS-PUBSUB-01`, `UI-11X-01..03`) backing the 22 DISA ASD STIG V6R5 + OWASP v4.2 reference controls |
-| 7 | `run_ephemeral_qa` | Runs QA stages inside non-root ephemeral Docker (`Rule Zero`) |
+| 5 | `clean_workspace_11x` | Purges transient test/Docker artifacts, workspace `status=restarting` CrashLoop containers (`found_containers`/`removed_containers`), and orphan Compose networks without host `sudo` |
+| 6 | `audit_security_stig_owasp` | Static scan across 37 static scanner rules (`SEC-01..QA-STRYKER-CFG-01`, `QA-DOCKER-LOOP-01`, `SEC-WS-PUBSUB-01`, `UI-11X-01..03`) backing the 22 DISA ASD STIG V6R5 + OWASP v4.2 reference controls |
+| 7 | `run_ephemeral_qa` | Runs QA stages inside non-root ephemeral Docker (`Rule Zero`) with FIFO slot lock (`QA_MAX_CONCURRENT_CONTAINERS=1`), thermal/RAM guard (`exit_code=75`), CrashLoop pre-flight, and Compose abort teardown |
 | 8 | `certify_11x_gate` | Runs the 10-stage 11X gate with `Fail-Verbose` Allure diagnostics |
 | 9 | `audit_test_pyramid_gaps` | Audits project coverage across the 13 QA-11X pyramid layers |
 | 10 | `init_or_append_agents_md` | Idempotently injects thin `AGENTS.md` / IDE connector blocks |
@@ -45,7 +45,7 @@ Structured submission bundle ready for `https://agenticskills.io/submit` and `ht
 | :--- | :--- | :--- | :--- |
 | 1 | `blueprint://manifest` | `application/json` | SHA-256 index (`manifest.json`) across all stacks |
 | 2 | `blueprint://core/philosophy` | `text/markdown` | 13-layer pyramid philosophy, Rule Zero, 10 Laws, 11 UAT rules |
-| 3 | `blueprint://security/disa-owasp-22` | `text/markdown` | 22 canonical DISA ASD STIG V6R5 & OWASP v4.2 reference controls (backed by 36 static scanner rules) |
+| 3 | `blueprint://security/disa-owasp-22` | `text/markdown` | 22 canonical DISA ASD STIG V6R5 & OWASP v4.2 reference controls (backed by 37 static scanner rules) |
 | 4 | `blueprint://database/postgres-rls-worm` | `text/markdown` | PostgreSQL 17 multi-transaction RLS + WORM `seq_num` chain |
 | 5 | `blueprint://{stack}/readme` | `text/markdown` | Operational QA guides across all 10 stack blueprints |
 | 6 | `blueprint://ui/refactoring-ui/{topic}` | `text/markdown` | UI hierarchy, OKLCH WCAG 2.1 AA, and Anti-JSDOM geometry guides |
@@ -126,7 +126,7 @@ Structured submission bundle ready for `https://agenticskills.io/submit` and `ht
 
 ## Section 3 — Workflow Bundle (`QA-11X Zero-Infra Agentic Quality Gate`)
 
-Combines **Knowledge** (the 11 modular `SKILL.md` files under `< 20 KB`) with **Access** (all 19 tools — 12 v1 + 6 v2.0 + v3.1 `session_flight_recorder` — and 13 `blueprint://*` resources — including v3.1 `blueprint://skills/tactical-patterns-11x` — in `@sinfallas/mcp-qa-11x` v3.6.0) into a deterministic, auditable engineering workflow:
+Combines **Knowledge** (the 11 modular `SKILL.md` files under `< 20 KB`) with **Access** (all 19 tools — 12 v1 + 6 v2.0 + v3.1 `session_flight_recorder` — and 13 `blueprint://*` resources — including v3.1 `blueprint://skills/tactical-patterns-11x` — in `@sinfallas/mcp-qa-11x` v3.7.0) into a deterministic, auditable engineering workflow:
 
 1. **Onboard (`30s`):** Run `npx -y @sinfallas/mcp-qa-11x@latest quickstart` to detect stack/vibe markers, generate `.qa-11x.json`, inject the `AGENTS.md` connector across 28 AI agents, and scaffold PR-aware CI.
 2. **Route & Inspect (`Knowledge + AST`):** Load `qa-11x-architect` and `graphify-ast-navigator`, then call `inspect_project_config` and `inspect_ast_blast_radius` before modifying code.

@@ -46,18 +46,26 @@ SKIPPED_COUNT=0
 FAIL_COUNT=0
 PY_SESSION_CID=""
 PY_SESSION_TRIED=0
+PY_SESSION_CID_FILE="${GATE_TMP_DIR}/py_session.cid"
+PY_SESSION_CIDS_LOG="${GATE_TMP_DIR}/py_session.cids"
 
 ensure_py_session() {
+  if [ -z "${PY_SESSION_CID}" ] && [ -s "${PY_SESSION_CID_FILE}" ]; then
+    PY_SESSION_CID="$(head -n 1 "${PY_SESSION_CID_FILE}" 2>/dev/null || true)"
+  fi
   if [ -n "${PY_SESSION_CID}" ] || [ "${PY_SESSION_TRIED}" -eq 1 ]; then
     return 0
   fi
   PY_SESSION_TRIED=1
   local cid
   cid="$(docker run --rm --network none --security-opt=no-new-privileges:true -d \
+    --restart=no --cpus=2 --memory=2g --pids-limit=256 \
     -u "$(id -u):$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 \
     -v "${REPO_ROOT}:/app" -w /app "${PY_DOCKER_IMAGE}" sleep 600 2>/dev/null | head -n 1 || true)"
   if [[ "${cid}" =~ ^[0-9a-f]{12,64}$ ]]; then
     PY_SESSION_CID="${cid}"
+    printf '%s\n' "${cid}" >"${PY_SESSION_CID_FILE}"
+    printf '%s\n' "${cid}" >>"${PY_SESSION_CIDS_LOG}"
   fi
 }
 
@@ -159,14 +167,19 @@ cleanup_certify_tmp() {
       --cmd "certify_task_completion" --rc "${final_rc}" \
       --summary "${summary}" >/dev/null 2>&1 || true
   fi
-  if [ -n "${PY_SESSION_CID:-}" ]; then
-    docker rm -f "${PY_SESSION_CID}" >/dev/null 2>&1 || true
+  if [ -s "${PY_SESSION_CIDS_LOG}" ]; then
+    local -a session_cids=()
+    mapfile -t session_cids <"${PY_SESSION_CIDS_LOG}"
+    local scid
+    for scid in "${session_cids[@]}"; do
+      [ -n "${scid}" ] && docker rm -f "${scid}" >/dev/null 2>&1 || true
+    done
     PY_SESSION_CID=""
   fi
   rm -rf "${GATE_TMP_DIR}" 2>/dev/null || true
   exit "${final_rc}"
 }
-trap cleanup_certify_tmp EXIT
+trap cleanup_certify_tmp EXIT INT TERM
 
 sanitize_shell_text() {
   local raw="$1"
@@ -343,7 +356,7 @@ payload = {
     "attachments": [],
     "labels": [
         {"name": "agent", "value": os.environ.get("QA_AGENT_NAME", "qa-11x-certifier")},
-        {"name": "agent_version", "value": os.environ.get("QA_AGENT_VERSION", "3.6.0")},
+        {"name": "agent_version", "value": os.environ.get("QA_AGENT_VERSION", "3.7.0")},
         {"name": "environment", "value": os.environ.get("QA_ENVIRONMENT", "docker-ephemeral")},
     ],
 }

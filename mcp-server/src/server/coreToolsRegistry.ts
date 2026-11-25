@@ -141,7 +141,7 @@ export function registerCoreAnalysisTools(
     'clean_workspace_11x',
     {
       description:
-        'Audits or executes workspace sanitation, removing transient test artifacts and Docker cache residues (dry_run default).',
+        'Audits or executes workspace sanitation, removing transient test artifacts, Docker cache residues, workspace status=restarting CrashLoop containers (found_containers/removed_containers), and orphan Compose networks (dry_run default).',
       inputSchema: CleanWorkspaceInputSchema,
       annotations: getToolAnnotations('clean_workspace_11x'),
     },
@@ -178,7 +178,7 @@ export function registerQaGovernanceTools(server: McpServer, fetcher: GitHubFetc
     'run_ephemeral_qa',
     {
       description:
-        'Safely runs a Makefile QA target (lint, unit, bdd, e2e, perf, chaos, profile, all) inside ephemeral Docker containers (Rule Zero), parsing logs for extreme token economy.',
+        'Safely runs a Makefile QA target (lint, unit, bdd, e2e, perf, chaos, profile, all) inside ephemeral Docker containers (Rule Zero) with atomic cross-process FIFO slot serialization (QA_MAX_CONCURRENT_CONTAINERS=1, COMPOSE_PARALLEL_LIMIT=1), passive Linux RAM/thermal guards (exit_code=75 exempt from BREAKER-42), pre-flight CrashLoop detection/remediation, guaranteed Compose teardown on timeout/abort, and token-saving log parsers.',
       inputSchema: RunEphemeralQaInputSchema,
       annotations: getToolAnnotations('run_ephemeral_qa'),
     },

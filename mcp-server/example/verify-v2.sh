@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
-# Verificador Clean-Room del tarball v3.6.0 de @sinfallas/mcp-qa-11x fuera del monorepo.
+# Verificador Clean-Room del tarball v3.7.0 de @sinfallas/mcp-qa-11x fuera del monorepo.
 
 LC_ALL=C
 set -euo pipefail
