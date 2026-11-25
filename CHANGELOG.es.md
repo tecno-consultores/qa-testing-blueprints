@@ -8,6 +8,10 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+---
+
+## [3.8.0] - 2026-11-25
+
 ### Añadido
 * **Bloqueo Duro `Rule Zero` de Docker, Detección de *Companion MCPs*, Ingestión SARIF Federada, Compuertas `Superpowers` y `--toolset`:**
   * Convertida la disponibilidad de Docker Engine en bloqueante duro en `qa-11x doctor` (`exitCode = 1`, `docker_daemon_ok: false`, bloqueante `[RULE-ZERO]` si falla `docker info`) y añadido el ejecutor SARIF en contenedores efímeros no-root serializados (`externalScannerRunner.ts` bajo `QA_MAX_CONCURRENT_CONTAINERS=1`, `--rm --restart=no --network none`) junto con la exigencia explícita de Docker en toda la documentación bilingüe EN/ES.
@@ -15,7 +19,10 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
   * Cerrada la brecha `verification-before-completion` en `qa-evidence.ts` y `certify-gate.ts` (`require_unit_evidence: true` junto a `require_lint_evidence: true` sobre código sucio), añadido `expect_red` (sello TDD `RED -> GREEN` exento de rachas `BREAKER-42`) en `run_ephemeral_qa`, añadido `--toolset core|auto|full` (`QA_11X_TOOLSET`) y aplicados frontmatters CSO (*Trigger-Only*), filtro Pre-Plan YAGNI + Revisión Cruzada en 2 Etapas (`0` Docker) y escenarios de presión anti-atajos en `.agents/`.
 
 ### Corregido
-* **Alineación de `AI_MASTER_PROMPT.{md,es.md}` con `AGENTS.md` y `v3.7.0`:** Aclarado su rol bajo demanda (`blueprint://core/philosophy`) frente a `AGENTS.md` + `.agents/rules/` autocargados, corregida la contradicción de landmark semántico `<footer>` (en flujo fuera de `<main>`) y sincronizados los guardrails de serialización Docker `QA-DOCKER-LOOP-01` (hashes SHA-256 en `manifest.json` actualizados).
+* **Alineación de `AI_MASTER_PROMPT.{md,es.md}` con `AGENTS.md` y Montaje `mobile-appium` en `pre-commit`:** Aclarado el rol bajo demanda de `AI_MASTER_PROMPT` (`blueprint://core/philosophy`) frente a `AGENTS.md` + `.agents/rules/` autocargados, corregida la contradicción de landmark semántico `<footer>` (en flujo fuera de `<main>`) y montado `mobile-appium:/mobile-appium:ro` en `lefthook.yml` e `instalar-hooks.sh` para que `typecheck` en `pre-commit` valide `mobileBlueprint.test.ts` sin errores.
+
+### Modificado
+* **Rotación Global de Versión a `3.8.0` (`QA-11X v3.8`):** Sincronizados `standard_edition` (`QA-11X v3.8`), SemVer `3.8.0`, guías bilingües (`README`, `ROADMAP` Hito 31, `RESOURCES`, `FAQ`, `TESTING`, `SECURITY`, `CHANGELOG`, `docs/*`), plantillas de stacks (`package.json.example`), `.claude-plugin/{plugin,marketplace}.json`, hashes SHA-256 en `manifest.json` / `catalogs/*` y `@sinfallas/mcp-qa-11x@3.8.0`.
 
 ---
 

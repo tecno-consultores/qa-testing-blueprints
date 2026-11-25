@@ -6,7 +6,7 @@ description: >-
   controls, running ephemeral Docker QA, or certifying tasks before local commit.
 ---
 
-# Master QA-11X v3.7 Routing Orchestrator (`qa-11x-architect`)
+# Master QA-11X v3.8 Routing Orchestrator (`qa-11x-architect`)
 
 > **OUTPUT LANGUAGE & DYNAMIC MIRRORING:** Respond in **user's prompt language** (unless `AGENTS.md` fixes it); docs/commits match `README.md`/`CHANGELOG.md` (Spec 19; `.agents/**` English).
 
@@ -22,7 +22,7 @@ Classify every task first. **NEVER auto-run `git push`** (`QA-GIT-GATE-01` — s
 - **`MICRO_CHANGE` (`<= 3` files, `< 5` callers, `0` routes/ORM):** 3-line plan -> `inspect_ast_blast_radius` -> sync unit/BDD (`QA-TEST-SYNC-01`) + stack QA (`run_ephemeral_qa`) -> AST refresh -> `CHANGELOG.md` -> `certify_11x_gate` -> local `git commit`.
 - **`FULL_11X` (`> 3` files, new API/UI, ORM, security, or `MED`/`HIGH` blast):** 11-step flow (`/plan`, `session_flight_recorder` -> `ACTIVE_TASK.md <= 40L`, full pyramid + `QA-TEST-SYNC-01`, docs, AST, `certify_11x_gate` 10/10, local `git commit`).
 
-### 1.1. MCP Server `qa-11x` (`@sinfallas/mcp-qa-11x` v3.7.0 — 19 Tools + 13 Resources)
+### 1.1. MCP Server `qa-11x` (`@sinfallas/mcp-qa-11x` v3.8.0 — 19 Tools + 13 Resources)
 1. `inspect_ast_blast_radius` — Code Q&A & pre-edit impact.
 2. `inspect_project_config` — stack, drift, `update_available`.
 3. `audit_test_pyramid_gaps` — 13-layer audit + config.
@@ -81,7 +81,7 @@ Classify every task first. **NEVER auto-run `git push`** (`QA-GIT-GATE-01` — s
 
 ---
 
-## 3. Progressive Hydration Matrix of Modular Sub-Skills (v3.7)
+## 3. Progressive Hydration Matrix of Modular Sub-Skills (v3.8)
 
 Hydrate specialized sub-skills **strictly on demand** by domain (zero eager loading):
 

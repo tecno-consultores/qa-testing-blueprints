@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+---
+
+## [3.8.0] - 2026-11-25
+
 ### Added
 * **Mandatory Docker `Rule Zero` Blocker, Companion MCP Discovery, Federated SARIF, `Superpowers` Gates & `--toolset`:**
   * Enforced active Docker Engine as a hard blocker in `qa-11x doctor` (`exitCode = 1`, `docker_daemon_ok: false`, `[RULE-ZERO]` blocker when `docker info` fails) and added serialized non-root ephemeral Docker SARIF execution (`externalScannerRunner.ts` under `QA_MAX_CONCURRENT_CONTAINERS=1`, `--rm --restart=no --network none`) plus mandatory Docker prerequisites across all EN/ES canonical documentation.
@@ -15,7 +19,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   * Closed the `verification-before-completion` gap in `qa-evidence.ts` and `certify-gate.ts` (`require_unit_evidence: true` alongside `require_lint_evidence: true` on dirty code trees), added `expect_red` (`RED -> GREEN` TDD stamp exempt from `BREAKER-42` streaks) in `run_ephemeral_qa`, added `--toolset core|auto|full` (`QA_11X_TOOLSET`), and applied CSO trigger-only `description:` frontmatters, Pre-Plan YAGNI + 2-Stage Clean-Context Subagent Review (`0` Docker), and anti-rationalization pressure evals across `.agents/`.
 
 ### Fixed
-* **Aligned `AI_MASTER_PROMPT.{md,es.md}` with `AGENTS.md` & `v3.7.0`:** Clarified its on-demand role (`blueprint://core/philosophy`) vs auto-loaded `AGENTS.md` + `.agents/rules/`, resolved the `<footer>` semantic landmark contradiction (in-flow outside `<main>`), and synced `QA-DOCKER-LOOP-01` serialized Docker guardrails (`manifest.json` SHA-256 updated).
+* **Aligned `AI_MASTER_PROMPT.{md,es.md}` with `AGENTS.md` & Pre-Commit `mobile-appium` Mount:** Clarified `AI_MASTER_PROMPT` on-demand role (`blueprint://core/philosophy`) vs auto-loaded `AGENTS.md` + `.agents/rules/`, resolved the `<footer>` semantic landmark contradiction (in-flow outside `<main>`), and mounted `mobile-appium:/mobile-appium:ro` in `lefthook.yml` and `instalar-hooks.sh` `pre-commit` so `mcp-server` `typecheck` validates `mobileBlueprint.test.ts` cleanly.
+
+### Changed
+* **Global Release Rotation to `3.8.0` (`QA-11X v3.8`):** Synchronized `standard_edition` (`QA-11X v3.8`), SemVer `3.8.0`, bilingual guides (`README`, `ROADMAP` Milestone 31, `RESOURCES`, `FAQ`, `TESTING`, `SECURITY`, `CHANGELOG`, `docs/*`), stack templates (`package.json.example`), `.claude-plugin/{plugin,marketplace}.json`, SHA-256 `manifest.json` / `catalogs/*`, and `@sinfallas/mcp-qa-11x@3.8.0`.
 
 ---
 

@@ -2,7 +2,7 @@
 
 # Arquitectura del Ecosistema de Pruebas (Modelo C4)
 
-Este documento describe gráficamente cómo interactúan las herramientas, contenedores y redes dentro de **QA Testing Blueprints (`QA-11X v3.7`)**. Utilizamos una adaptación del Modelo C4 orientada a infraestructura efímera para ilustrar el aislamiento estricto de nuestras pruebas a lo largo de **10 stacks hidratables + `architecture/` + `mcp-server/` (= 12 entornos de matriz)**, incluyendo las capas de Seguridad Dinámica (DAST), Ingeniería del Caos, Mobile W3C Bridge (`sinfallas/base-mobile-appium:26`) y Observabilidad (Nivel 11X).
+Este documento describe gráficamente cómo interactúan las herramientas, contenedores y redes dentro de **QA Testing Blueprints (`QA-11X v3.8`)**. Utilizamos una adaptación del Modelo C4 orientada a infraestructura efímera para ilustrar el aislamiento estricto de nuestras pruebas a lo largo de **10 stacks hidratables + `architecture/` + `mcp-server/` (= 12 entornos de matriz)**, incluyendo las capas de Seguridad Dinámica (DAST), Ingeniería del Caos, Mobile W3C Bridge (`sinfallas/base-mobile-appium:26`) y Observabilidad (Nivel 11X).
 
 ---
 
@@ -13,7 +13,7 @@ Muestra el panorama general: cómo los desarrolladores humanos y los agentes de 
 flowchart TD
     Human["Desarrollador / QA Staff"]
     Agent["Agente de IA (Antigravity, Claude, Cursor, Hermes)"]
-    MCP["Servidor MCP Node.js/TS (@sinfallas/mcp-qa-11x v3.7.0)"]
+    MCP["Servidor MCP Node.js/TS (@sinfallas/mcp-qa-11x v3.8.0)"]
     Skill["Skills Zero-Clone (11 Skills Modulares < 20 KB)"]
     Gate["Compuerta de Certificación 11X (certify_task_completion.sh - 10 Etapas)"]
     QA["QA Testing Blueprints (10 Stacks Hidratables + architecture/ + mcp-server/ = 12 Entornos de Matriz / Docker Efímero)"]

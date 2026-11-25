@@ -8,8 +8,8 @@
   "plugins": [
     {
       "name": "qa-11x",
-      "version": "3.7.0",
-      "description": "Enterprise QA & DevSecOps Standard (QA-11X v3.7): 11 Modular Skills & @sinfallas/mcp-qa-11x MCP Server.",
+      "version": "3.8.0",
+      "description": "Enterprise QA & DevSecOps Standard (QA-11X v3.8): 11 Modular Skills & @sinfallas/mcp-qa-11x MCP Server.",
       "author": {
         "name": "Jesus Palencia (Tecno Consultores)"
       },

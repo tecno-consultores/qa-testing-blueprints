@@ -47,6 +47,7 @@
 | **Milestone 28** | `v3.5.0` (`QA-11X v3.5`) — Declarative AST Boundaries/Instability, Longitudinal Git Signals, SDD/EARS (`10` Refs) & `.claude-plugin/` | [`CHANGELOG.md`](CHANGELOG.md) + [`TESTING.md`](TESTING.md) | ✅ Completed | `100%` |
 | **Milestone 29** | `v3.6.0` (`QA-11X v3.6`) — Integral Audit Remediation, God-Module Modularization, Token Economy, CI Hardening & 100% Diff Coverage | [`CHANGELOG.md`](CHANGELOG.md) + [`TESTING.md`](TESTING.md) | ✅ Completed | `100%` |
 | **Milestone 30** | `v3.7.0` (`QA-11X v3.7`) — Docker Anti-Saturation Guardrails, FIFO Slot Lock, Thermal/RAM/CrashLoop Protection & Static Rule #37 (`QA-DOCKER-LOOP-01`) | [`SECURITY.md`](SECURITY.md) §4.33 + [`docs/docker-troubleshooting.md`](docs/docker-troubleshooting.md) §15 | ✅ Completed | `100%` |
+| **Milestone 31** | `v3.8.0` (`QA-11X v3.8`) — Hard `Rule Zero` Doctor, Companion MCP Discovery, Federated SARIF 2.1.0, Dual `lint`+`unit` Evidence, `expect_red`, `--toolset` & CSO Skills | [`CHANGELOG.md`](CHANGELOG.md) + [`TESTING.md`](TESTING.md) | ✅ Completed | `100%` |
 
 ---
 
@@ -403,3 +404,13 @@
 - [x] **30.1.** Implement cross-process FIFO Docker slot lock (`QA_MAX_CONCURRENT_CONTAINERS=1`, `COMPOSE_PARALLEL_LIMIT=1`), passive Linux RAM/ACPI thermal guards (`exit_code = 75` exempt from `BREAKER-42`), pre-flight CrashLoop detection/remediation, and guaranteed Compose abort teardown in [`dockerGuardrails.ts`](mcp-server/src/tools/ephemeral-runner/dockerGuardrails.ts) + `run_ephemeral_qa`, plus fix subshell `sleep 600` session container leaks in [`.agents/scripts/certify_task_completion.sh`](.agents/scripts/certify_task_completion.sh).
 - [x] **30.2.** Add static auditor rule #37 `QA-DOCKER-LOOP-01` in [`dockerLoopRules.ts`](mcp-server/src/tools/security-auditor/dockerLoopRules.ts) and [`scripts/auditar-infra.sh`](scripts/auditar-infra.sh), upgrade [`scripts/limpieza.sh`](scripts/limpieza.sh) + `clean_workspace_11x` for `status=restarting` containers and orphan Compose networks, add `docker_health` (`dockerHealthProbe.ts`) to `qa-11x doctor`, and harden all 13 `docker-compose.qa.yml` + 7 `*/Makefile.example` templates.
 - [x] **30.3.** Synchronize Dual-Consumer skills, rules, thin connectors (`<= 1,536 B`), catalogs, `llms.txt`, bilingual manuals (`EN` + `ES`), `manifest.json` SHA-256, and Graphify AST graphs; certify `100.00%` differential coverage across Vitest (`777`), Pytest (`340`), BATS (`115`), Karate BDD (`53`), Clean-Room E2E, and `10/10` gate under release `3.7.0` (`QA-11X v3.7`).
+
+---
+
+## ✅ Milestone 31: `v3.8.0` (`QA-11X v3.8`) — Hard `Rule Zero` Doctor, Companion MCPs, Federated SARIF 2.1.0, `expect_red`, `--toolset` & CSO Skills
+**Mandatory Reference:** [`CHANGELOG.md`](CHANGELOG.md), [`TESTING.md`](TESTING.md), and [`docs/ai-integration.md`](docs/ai-integration.md)
+
+### Implementation Tasks:
+- [x] **31.1.** Enforce active Docker Engine as a hard blocker in [`doctor.ts`](mcp-server/src/cli/doctor.ts) (`exitCode = 1`, `docker_daemon_ok: false`, `[RULE-ZERO]`) and add serialized non-root offline Docker SARIF execution (`externalScannerRunner.ts`, `QA_MAX_CONCURRENT_CONTAINERS=1`), Companion MCP auto-discovery (`companionMcpDetector.ts`), hardened SARIF 2.1.0 ingestion (`sarifIngester.ts`), finding `confidence`, and audited `qa-11x-ignore` suppressions (`fp-check`).
+- [x] **31.2.** Enforce dual fresh `lint` + `unit` evidence on dirty code trees in [`certify-gate.ts`](mcp-server/src/tools/certify-gate.ts) + [`qa-evidence.ts`](mcp-server/src/services/qa-evidence.ts), add TDD `expect_red` stamp (`RED -> GREEN`, exempt from `BREAKER-42`) in [`ephemeral-runner.ts`](mcp-server/src/tools/ephemeral-runner.ts), add `--toolset core|auto|full` (`toolsetFilter.ts`), and adopt CSO trigger-only skill frontmatters, 2-stage clean-context read-only review (`0` Docker), and anti-rationalization pressure evals across `.agents/` and `tests/evals/`.
+- [x] **31.3.** Fix `mobile-appium:/mobile-appium:ro` pre-commit mount in `lefthook.yml` and `instalar-hooks.sh`, rotate monorepo and `@sinfallas/mcp-qa-11x` atomically to `3.8.0` (`QA-11X v3.8`), sync 1:1 EN/ES docs + `manifest.json` SHA-256 + Graphify AST graphs, and certify Vitest (`784`, `99.85%` lines, `100.00%` diff lines), Karate BDD (`54`), Pytest, BATS, Clean-Room E2E, and `certify_task_completion.sh`.

@@ -2,7 +2,7 @@
 
 # Filosofía de Calidad (QA Philosophy)
 
-Este documento expone los principios de ingeniería y las decisiones estratégicas que fundamentan el ecosistema `qa-testing-blueprints` (`QA-11X v3.7`).
+Este documento expone los principios de ingeniería y las decisiones estratégicas que fundamentan el ecosistema `qa-testing-blueprints` (`QA-11X v3.8`).
 
 ## 1. La Cobertura del 95% es un Piso, no una Meta
 Exigir un 95% de cobertura en `kcov`, `Vitest`, `PCOV` o `pytest` no es una métrica de vanidad, es una barrera de contención contra regresiones silenciosas. Obligamos a estructurar pruebas para los bloques `catch` y ramas lógicas oscuras.
@@ -14,7 +14,7 @@ Herramientas como `Stryker`, `Infection` y `mutmut` atacan nuestras propias prue
 El mayor enemigo de la CI es el estado persistente. Ejecutar los comandos encapsulados en los `Makefiles` (ej. `make qa-all`) garantiza que el entorno nazca sin estado, evalúe el código en un vacío absoluto, purgue la memoria y se destruya de forma segura.
 
 ## 4. Diseño Orientado a Inteligencia Artificial (AI-First)
-El lenguaje imperativo de nuestras guías acota el universo de herramientas de la IA estrictamente a las imágenes certificadas `sinfallas/*` a lo largo de **10 stacks hidratables + `architecture/` + `mcp-server/` (= 12 entornos de matriz)** (incluyendo `sinfallas/base-mobile-appium:26`) y a las **19 herramientas MCP / 13 recursos** expuestos por `@sinfallas/mcp-qa-11x` v3.7.0, garantizando que el código generado encaje perfectamente sin alucinaciones.
+El lenguaje imperativo de nuestras guías acota el universo de herramientas de la IA estrictamente a las imágenes certificadas `sinfallas/*` a lo largo de **10 stacks hidratables + `architecture/` + `mcp-server/` (= 12 entornos de matriz)** (incluyendo `sinfallas/base-mobile-appium:26`) y a las **19 herramientas MCP / 13 recursos** expuestos por `@sinfallas/mcp-qa-11x` v3.8.0, garantizando que el código generado encaje perfectamente sin alucinaciones.
 
 ## 5. Prevención de Deuda Técnica (Complejidad y Rendimiento)
 No basta con que el código funcione, debe ser escalable y eficiente. Se han incorporado herramientas como `radon` (Python) y `eslint-plugin-sonarjs` (JS/TS) para analizar estáticamente la complejidad ciclomática y cognitiva. Complementamos esto con `py-spy` y `clinic.js` para auditar perfiles de CPU y memoria desde adentro del contenedor, interceptando cuellos de botella antes de los picos de carga externos.

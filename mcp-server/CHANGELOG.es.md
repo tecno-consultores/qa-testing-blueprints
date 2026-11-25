@@ -8,8 +8,10 @@ Todos los cambios notables en el paquete npm y servidor MCP `@sinfallas/mcp-qa-1
 
 ## [Unreleased]
 
+## [3.8.0] - 2026-11-25
+
 ### Añadido
-- **Bloqueo Duro `Rule Zero` de Docker, Detección de *Companion MCPs*, Ingestión SARIF Federada, Compuertas `Superpowers` y `--toolset`:** Exigido Docker Engine activo en `doctor` (`exitCode = 1`, `docker_daemon_ok: false`, bloqueante `[RULE-ZERO]` si falla `docker info`); añadidos `externalScannerRunner.ts` (ejecución SARIF no-root `--rm --restart=no --network none` bajo `QA_MAX_CONCURRENT_CONTAINERS=1`), `companionMcpDetector.ts`, `sarifIngester.ts`, certeza `confidence` + supresiones auditables `qa-11x-ignore <REGLA>: <motivo>`, evidencia fresca dual `lint`+`unit` en `certify_11x_gate` (`--require-unit-evidence`), sello TDD `expect_red` en `run_ephemeral_qa` y `--toolset core|auto|full` (`QA_11X_TOOLSET`).
+- **Bloqueo Duro `Rule Zero` de Docker, Detección de *Companion MCPs*, Ingestión SARIF Federada, Compuertas `Superpowers` y `--toolset`:** Exigido Docker Engine activo en `doctor` (`exitCode = 1`, `docker_daemon_ok: false`, bloqueante `[RULE-ZERO]` si falla `docker info`); añadidos `externalScannerRunner.ts` (ejecución SARIF no-root `--rm --restart=no --network none` bajo `QA_MAX_CONCURRENT_CONTAINERS=1`), `companionMcpDetector.ts`, `sarifIngester.ts`, certeza `confidence` + supresiones auditables `qa-11x-ignore <REGLA>: <motivo>`, evidencia fresca dual `lint`+`unit` en `certify_11x_gate` (`--require-unit-evidence`), sello TDD `expect_red` en `run_ephemeral_qa` y `--toolset core|auto|full` (`QA_11X_TOOLSET`); certificadas `784/784` pruebas Vitest (`46` suites, `99.85%` líneas, `97.15%` ramas), Escenario Karate `54` y E2E Clean-Room (`13` Resources + `19` Tools + `12` CLI).
 
 ## [3.7.0] - 2026-11-25
 
