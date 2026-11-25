@@ -397,6 +397,10 @@ describe('Companion MCPs, Federated SARIF, Rule Zero Blocker, expect_red & --too
     writeText(path.join(projDir, 'TESTING.md'), '# Testing\nCoverage >= 95%\n');
     writeText(path.join(projDir, 'CHANGELOG.md'), '# Changelog\n\n## [Unreleased]\n- Item\n');
     writeText(path.join(projDir, '.npmrc'), 'ignore-scripts=true\n');
+    writeText(
+      path.join(projDir, 'graphify-out', 'graph.json'),
+      JSON.stringify({ nodes: [{ id: 'src/app.ts', source_file: 'src/app.ts' }], links: [] })
+    );
     const cliOptOut = await runCertifyCli(
       [projDir, '--no-require-lint-evidence', '--no-require-unit-evidence', '--offline', '--json'],
       { cwd: projDir, homeDir }
@@ -445,11 +449,11 @@ describe('Companion MCPs, Federated SARIF, Rule Zero Blocker, expect_red & --too
     expect(autoAllowed?.has('propose_skill_evolution_pr')).toBe(true);
 
     const coreServer = createConfiguredMcpServer({ toolset: 'core', projectPath: projDir });
-    expect(coreServer.counts.tools).toBe(8);
+    expect(coreServer.counts.tools).toBe(9);
     expect(coreServer.counts.resources).toBe(13);
 
     const autoServer = createConfiguredMcpServer({ toolset: 'auto', projectPath: projDir });
-    expect(autoServer.counts.tools).toBe(17);
+    expect(autoServer.counts.tools).toBe(18);
 
     const fullServer = createConfiguredMcpServer({ toolset: 'full', projectPath: projDir });
     expect(fullServer.counts.tools).toBe(19);

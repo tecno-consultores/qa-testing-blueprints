@@ -57,7 +57,7 @@ from _common import (  # noqa: E402
 )
 
 SCHEMA_VERSION = "1.0.0"
-DEFAULT_BLUEPRINT_VERSION = "3.8.1"
+DEFAULT_BLUEPRINT_VERSION = "3.9.0"
 REPOSITORY = "tecno-consultores/qa-testing-blueprints"
 DEFAULT_BRANCH = "main"
 RAW_BASE_URL = f"https://raw.githubusercontent.com/{REPOSITORY}/{DEFAULT_BRANCH}"
@@ -143,6 +143,7 @@ COMMON_FILE_PATHS: tuple[str, ...] = (
     "lefthook.yml",
     "scripts/auditar-infra.sh",
     "scripts/auditar-pagespeed.sh",
+    "scripts/audit-edge.sh.example",
     "scripts/verificar-secretos.sh",
     "scripts/actualizar-grafos-graphify.sh",
     "scripts/generar-sbom-cyclonedx.sh",
@@ -304,6 +305,8 @@ def classify_stack_file(rel_path_in_stack: Path) -> tuple[str, str]:
 def classify_common_file(rel_path: str) -> tuple[str, str]:
     """Clasifica un archivo común en (target_name, merge_strategy)."""
     filename = Path(rel_path).name
+    if filename.endswith(".sh.example"):
+        return rel_path[: -len(".example")], "copy_if_missing"
     if filename in (".trivy.yaml", ".env.example", "instalar-hooks.sh", "lefthook.yml"):
         return rel_path, "copy_if_missing"
     if filename.endswith(".sh"):

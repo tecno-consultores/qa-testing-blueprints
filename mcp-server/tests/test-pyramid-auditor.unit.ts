@@ -468,6 +468,50 @@ services:
       'utf-8'
     );
 
+    // Meta-gates 11X (Grafo AST, Gobernanza Thin-Client, CI/Hooks y CALM)
+    fs.mkdirSync(path.join(projectDir, 'graphify-out'), { recursive: true });
+    fs.writeFileSync(
+      path.join(projectDir, 'graphify-out', 'graph.json'),
+      JSON.stringify({ nodes: [{ id: 'src/metrics.py', source_file: 'src/metrics.py' }], links: [] }),
+      'utf-8'
+    );
+    fs.mkdirSync(path.join(projectDir, 'scripts'), { recursive: true });
+    fs.writeFileSync(
+      path.join(projectDir, 'scripts', 'actualizar-grafos-graphify.sh'),
+      '#!/usr/bin/env bash\nexit 0\n',
+      'utf-8'
+    );
+    fs.writeFileSync(
+      path.join(projectDir, 'test', 'test_actualizar-grafos-graphify.bats'),
+      '@test "graphify" { run true; }\n',
+      'utf-8'
+    );
+    fs.mkdirSync(path.join(projectDir, '.agents'), { recursive: true });
+    fs.writeFileSync(
+      path.join(projectDir, 'AGENTS.md'),
+      '<!-- QA_11X_MCP_CONNECTOR_START -->\n# Agents\n<!-- QA_11X_MCP_CONNECTOR_END -->\n',
+      'utf-8'
+    );
+    fs.writeFileSync(path.join(projectDir, '.qa-11x.json'), '{"tier":"enterprise"}\n', 'utf-8');
+    fs.writeFileSync(path.join(projectDir, '.agents', 'ACTIVE_TASK.md'), '# Active Task\n', 'utf-8');
+    fs.writeFileSync(
+      path.join(projectDir, '.gitignore'),
+      [
+        '.agents/ACTIVE_TASK.md',
+        '.agents/.cache/',
+        '.agents/backups/',
+        '.agents/proposals/',
+        'graphify-out/',
+        '*.11x-backup',
+      ].join('\n') + '\n',
+      'utf-8'
+    );
+    fs.writeFileSync(path.join(projectDir, 'lefthook.yml'), 'pre-commit:\n  commands: {}\n', 'utf-8');
+    fs.mkdirSync(path.join(projectDir, '.github', 'workflows'), { recursive: true });
+    fs.writeFileSync(path.join(projectDir, '.github', 'workflows', 'qa-11x-pr.yml'), 'name: QA\n', 'utf-8');
+    fs.mkdirSync(path.join(projectDir, 'architecture'), { recursive: true });
+    fs.writeFileSync(path.join(projectDir, 'architecture', 'qa-11x.calm.json'), '{"nodes":[]}\n', 'utf-8');
+
     const result = await auditTestPyramidGaps(projectDir, 'fastapi');
 
     expect(result.pyramid_score_pct).toBe(100);

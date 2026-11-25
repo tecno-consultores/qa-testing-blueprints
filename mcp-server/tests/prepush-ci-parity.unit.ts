@@ -35,6 +35,12 @@ describe('Paridad Pre-Push 1:1 con CI (QA Evidence, Stages integration/ci, Dynam
     fs.writeFileSync(path.join(dir, 'CHANGELOG.md'), '# Changelog\n\n## [Unreleased]\n- Update\n', 'utf8');
     fs.writeFileSync(path.join(dir, '.npmrc'), 'ignore-scripts=true\n', 'utf8');
     fs.writeFileSync(path.join(dir, 'Makefile'), 'qa-lint:\n\t@echo ok\n', 'utf8');
+    fs.mkdirSync(path.join(dir, 'graphify-out'), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, 'graphify-out', 'graph.json'),
+      JSON.stringify({ nodes: [{ id: 'src/service.ts', source_file: 'src/service.ts' }], links: [] }),
+      'utf8'
+    );
   }
 
   it('acepta los nuevos stages migration, integration y ci en RunEphemeralQaInputSchema y require_lint_evidence en CertifyGateInputSchema', () => {

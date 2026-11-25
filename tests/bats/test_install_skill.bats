@@ -1213,3 +1213,36 @@ PY
   assert_success
   [ -f "${p_ws}/scripts/limpieza.sh.11x-incoming" ]
 }
+
+@test "install-skill.sh: soporte OpenCode first-class (--target opencode, --target auto y conector ~/.config/opencode/AGENTS.md)" {
+  local oc_repo="${BATS_TEST_TMPDIR}/oc_repo"
+  local oc_ws="${BATS_TEST_TMPDIR}/oc_ws"
+  local oc_home="${BATS_TEST_TMPDIR}/oc_home"
+  mkdir -p "${oc_repo}/.agents/skills/qa-11x-architect" "${oc_ws}" "${oc_home}"
+  printf '# Architect OpenCode\n' >"${oc_repo}/.agents/skills/qa-11x-architect/SKILL.md"
+  local s_sha
+  s_sha="$(sha256sum "${oc_repo}/.agents/skills/qa-11x-architect/SKILL.md" | awk '{print $1}')"
+  cat >"${oc_repo}/manifest.json" <<JSON
+{
+  "blueprint_version": "3.9.0",
+  "agent_governance_files": [
+    {"path": ".agents/skills/qa-11x-architect/SKILL.md", "sha256": "${s_sha}", "size_bytes": 21}
+  ],
+  "common_files": []
+}
+JSON
+
+  cd "${oc_ws}"
+  run env QA_BLUEPRINTS_LOCAL_PATH="${oc_repo}" HOME="${oc_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target opencode --lang en
+  assert_success
+  [ -f "${oc_home}/.config/opencode/skills/qa-11x-architect/SKILL.md" ]
+  [ -f "${oc_home}/.config/opencode/AGENTS.md" ]
+  run grep -F "QA_11X_MCP_CONNECTOR_START" "${oc_home}/.config/opencode/AGENTS.md"
+  assert_success
+
+  # Auto-detección de ~/.config/opencode en --target auto
+  rm -rf "${oc_home}/.config/opencode/skills"
+  run env QA_BLUEPRINTS_LOCAL_PATH="${oc_repo}" HOME="${oc_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target auto
+  assert_success
+  [ -f "${oc_home}/.config/opencode/skills/qa-11x-architect/SKILL.md" ]
+}

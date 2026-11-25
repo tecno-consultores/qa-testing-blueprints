@@ -442,50 +442,55 @@ class TestInstallSkill(unittest.TestCase):
         self.assertTrue(installed.is_file())
         self.assertIn("--network none", docker_log.read_text(encoding="utf-8"))
 
-    def test_bash_install_parity_lang_4_connectors_prune_and_script_protection(
-        self,
-    ) -> None:
-        """Verifica paridad D8: 4 conectores, --lang, exclusiones, poda y scripts."""
-        repo = self.temp_path / "parity_repo"
+    @staticmethod
+    def _build_parity_manifest_fixture(repo: Path) -> None:
+        """Crea un repositorio local mínimo con manifest.json válido para paridad."""
         arch = repo / ".agents" / "skills" / "qa-11x-architect"
         arch.mkdir(parents=True)
         (arch / "SKILL.md").write_text("# Architect\n", encoding="utf-8")
         (repo / ".agents" / "scripts").mkdir(parents=True)
         (repo / "scripts").mkdir(parents=True)
-        bump = repo / ".agents" / "scripts" / "bump_version_11x.py"
-        bump.write_text("# monorepo\n", encoding="utf-8")
-        self_inst = repo / "scripts" / "install-skill.sh"
-        self_inst.write_text("#!/bin/sh\n", encoding="utf-8")
-        limpieza = repo / "scripts" / "limpieza.sh"
-        limpieza.write_text("#!/bin/sh\necho new-limpieza\n", encoding="utf-8")
+        (repo / ".agents" / "scripts" / "bump_version_11x.py").write_text(
+            "# monorepo\n", encoding="utf-8"
+        )
+        (repo / "scripts" / "install-skill.sh").write_text(
+            "#!/bin/sh\n", encoding="utf-8"
+        )
+        (repo / "scripts" / "limpieza.sh").write_text(
+            "#!/bin/sh\necho new-limpieza\n", encoding="utf-8"
+        )
 
-        def _ent(rel: str, strat: str = "") -> dict[str, object]:
+        def _entry(rel: str) -> dict[str, object]:
             raw = (repo / rel).read_bytes()
-            d: dict[str, object] = {
+            return {
                 "path": rel,
                 "sha256": hashlib.sha256(raw).hexdigest(),
                 "size_bytes": len(raw),
             }
-            if strat:
-                d["merge_strategy"] = strat
-            return d
 
         (repo / "manifest.json").write_text(
             json.dumps(
                 {
                     "blueprint_version": "3.2.1",
                     "common_files": [
-                        _ent("scripts/limpieza.sh"),
-                        _ent("scripts/install-skill.sh"),
+                        _entry("scripts/limpieza.sh"),
+                        _entry("scripts/install-skill.sh"),
                     ],
                     "agent_governance_files": [
-                        _ent(".agents/skills/qa-11x-architect/SKILL.md"),
-                        _ent(".agents/scripts/bump_version_11x.py"),
+                        _entry(".agents/skills/qa-11x-architect/SKILL.md"),
+                        _entry(".agents/scripts/bump_version_11x.py"),
                     ],
                 }
             ),
             encoding="utf-8",
         )
+
+    def test_bash_install_parity_lang_4_connectors_prune_and_script_protection(
+        self,
+    ) -> None:
+        """Verifica paridad D8: conectores, --lang, exclusiones, poda y scripts."""
+        repo = self.temp_path / "parity_repo"
+        self._build_parity_manifest_fixture(repo)
 
         home = self.temp_path / "parity_home"
         for sub in (
@@ -553,18 +558,6 @@ class TestInstallSkill(unittest.TestCase):
         self.assertIn("serialized 1 container at a time", agents_text)
         self.assertIn("--rm --restart=no --network none", agents_text)
 
-        # Paridad de directivas QA-DOCKER-LOOP-01 entre install-skill.sh y agents-connector.ts
-        connector_ts = (
-            REPO_ROOT / "mcp-server" / "src" / "services" / "agents-connector.ts"
-        ).read_text(encoding="utf-8")
-        installer_sh = INSTALL_SCRIPT.read_text(encoding="utf-8")
-        for clause in (
-            "serialized 1 container at a time; zero parallel subagent `docker run`; `--rm --restart=no --network none` offline",
-            "en serie 1 contenedor a la vez; sin `docker run` paralelo en subagentes; `--rm --restart=no --network none` offline",
-        ):
-            self.assertIn(clause, connector_ts)
-            self.assertIn(clause, installer_sh)
-
         # Omitir --lang en 2da corrida debe preservar idioma español
         res_pres = subprocess.run(
             ["sh", str(INSTALL_SCRIPT), "--target", "auto", "--init-agents"],
@@ -579,6 +572,24 @@ class TestInstallSkill(unittest.TestCase):
             (home / ".claude/CLAUDE.md").read_text(encoding="utf-8"),
         )
         self.assertIn("strictly in **Spanish**", (ws / "AGENTS.md").read_text("utf-8"))
+
+    def test_docker_loop_01_clause_parity_between_installer_and_connector(
+        self,
+    ) -> None:
+        """Verifica paridad QA-DOCKER-LOOP-01 entre install-skill.sh y TS."""
+        connector_ts = (
+            REPO_ROOT / "mcp-server" / "src" / "services" / "agents-connector.ts"
+        ).read_text(encoding="utf-8")
+        installer_sh = INSTALL_SCRIPT.read_text(encoding="utf-8")
+        clauses = (
+            "serialized 1 container at a time; zero parallel subagent "
+            "`docker run`; `--rm --restart=no --network none` offline",
+            "en serie 1 contenedor a la vez; sin `docker run` paralelo en "
+            "subagentes; `--rm --restart=no --network none` offline",
+        )
+        for clause in clauses:
+            self.assertIn(clause, connector_ts)
+            self.assertIn(clause, installer_sh)
 
 
 if __name__ == "__main__":

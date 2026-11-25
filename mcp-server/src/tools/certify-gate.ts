@@ -16,6 +16,8 @@ import {
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { resolveSafeChildPath } from '../services/github-fetcher.js';
 import { auditSecurityStigOwasp } from './security-auditor.js';
+import { defaultGraphifyBuilder } from './blast-radius.js';
+import { hasAnalyzableSourceCode } from './standardReadiness.js';
 import { CertifyGateResult, GateCheckStatus } from '../types.js';
 import { pickAt, reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 import { CANONICAL_IGNORED_DIRS } from '../utils/ignoredDirs.js';
@@ -46,6 +48,7 @@ export interface CertifyGateOptions {
   strict?: boolean;
   allowUnmergedExamples?: boolean;
   execFileSyncFn?: typeof execFileSync;
+  astGraphBuilder?: (projectPath: string, signal?: AbortSignal) => boolean | Promise<boolean>;
   updateOptions?: Partial<Omit<EvaluateUpdateOptions, 'projectPath'>>;
   signal?: AbortSignal;
 }
@@ -1223,19 +1226,47 @@ function collectGraphFilesRecursive(
   }
 }
 
-function checkAstTopology(projectPath: string): GateCheckOutcome {
+interface AstTopologyOutcome extends GateCheckOutcome {
+  readonly autoBuilt: boolean;
+}
+
+async function checkAstTopology(
+  projectPath: string,
+  options?: CertifyGateOptions
+): Promise<AstTopologyOutcome> {
   const blockers: string[] = [];
   const existingGraphs: string[] = [];
   collectGraphFilesRecursive(projectPath, new Set<string>(), existingGraphs);
+  let autoBuilt = false;
+
   if (existingGraphs.length === 0) {
-    return buildCheckOutcome(GATE_STATUS_SKIPPED);
+    if (!hasAnalyzableSourceCode(projectPath)) {
+      return { ...buildCheckOutcome(GATE_STATUS_SKIPPED), autoBuilt: false };
+    }
+    const builder = options?.astGraphBuilder ?? defaultGraphifyBuilder;
+    const built = await builder(projectPath, options?.signal);
+    if (built) {
+      collectGraphFilesRecursive(projectPath, new Set<string>(), existingGraphs);
+      autoBuilt = existingGraphs.length > 0;
+    }
+    if (existingGraphs.length === 0) {
+      return {
+        ...buildCheckOutcome(GATE_STATUS_FAILED, [
+          "[RULE-ZERO][AST-GRAPH] No se detectó grafo AST (graphify-out/graph.json) y falló la construcción automática en Docker efímero. Inicia Docker Engine y ejecuta './scripts/actualizar-grafos-graphify.sh' o 'inspect_ast_blast_radius(auto_build_if_missing: true)'.",
+        ]),
+        autoBuilt: false,
+      };
+    }
   }
 
   for (const gPath of existingGraphs) {
     blockers.push(...inspectSingleGraphTopology(projectPath, gPath));
   }
 
-  return buildCheckOutcome(blockers.length === 0 ? GATE_STATUS_PASSED : GATE_STATUS_FAILED, blockers);
+  return {
+    ...buildCheckOutcome(blockers.length === 0 ? GATE_STATUS_PASSED : GATE_STATUS_FAILED, blockers),
+    autoBuilt,
+  };
 }
 
 interface ManifestDigestEntry {
@@ -1480,8 +1511,7 @@ async function buildMissingDirCertifyResult(
     check_statuses: skippedStatuses,
     skipped_checks: [...ALL_GATE_CHECK_KEYS],
     blockers: [`La ruta del proyecto no existe o no es un directorio: ${resolvedPath}`],
-    upstream_evolution_reminder:
-      'MANDATORY POST-MORTEM CHECK: If this fixed a UAT/prod bug that bypassed tests, present "💡 Oportunidad de Mejora Detectada para el Estándar QA 11X" in the user prompt language and invoke propose_skill_evolution_pr.',
+    upstream_evolution_reminder: EVOLUTION_REMINDER_TEXT,
     update_available: updateAvailable,
   };
 }
@@ -1500,6 +1530,36 @@ function evaluateDirtyCodeEvidences(
       ? checkUnitEvidenceForDirtyCode(resolvedPath, options?.execFileSyncFn)
       : buildCheckOutcome(GATE_STATUS_SKIPPED),
   };
+}
+
+const SKIPPED_CHECK_REMEDIATIONS: Readonly<Record<string, string>> = Object.freeze({
+  ast_topology_clean:
+    'Proyecto sin código fuente analizable para grafo AST; al añadir código ejecuta `./scripts/actualizar-grafos-graphify.sh` o `inspect_ast_blast_radius(auto_build_if_missing: true)`.',
+  zero_orphan_ui_components: 'Sin componentes UI detectados; al añadir vistas Vue/React crea su `.unit.ts` correspondiente.',
+  zero_orphan_api_endpoints: 'Sin rutas API frontend/backend para contrastar paridad.',
+  orm_alembic_parity: 'Sin modelos SQLAlchemy/Alembic detectados en el workspace.',
+  lint_evidence_verified: 'Sin cambios pendientes de código o verificación de evidencia lint desactivada; ejecuta `run_ephemeral_qa(stage="lint")`.',
+  unit_evidence_verified: 'Sin cambios pendientes de código o verificación de evidencia unit desactivada; ejecuta `run_ephemeral_qa(stage="unit")`.',
+  zero_unmerged_examples: 'Omitido en repositorio fuente de blueprints (`allow_unmerged_examples=true`).',
+});
+
+const EVOLUTION_REMINDER_TEXT =
+  'MANDATORY POST-MORTEM CHECK: If this fixed a UAT/prod bug that bypassed tests, present "💡 Oportunidad de Mejora Detectada para el Estándar QA 11X" in the user prompt language and invoke propose_skill_evolution_pr to generate the ready-to-send email template for soporte@tecnoconsultores.net (primary channel; never send email automatically from MCP) plus optional GitHub URL.';
+
+function buildSkippedRemediations(skippedChecks: readonly string[]): Record<string, string> | undefined {
+  if (skippedChecks.length === 0) {
+    return undefined;
+  }
+  const out: Record<string, string> = {};
+  for (const key of skippedChecks) {
+    const remediation = Object.hasOwn(SKIPPED_CHECK_REMEDIATIONS, key)
+      ? SKIPPED_CHECK_REMEDIATIONS[key]
+      : undefined;
+    if (remediation !== undefined) {
+      out[key] = remediation;
+    }
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 export async function certify11xGate(
@@ -1521,7 +1581,7 @@ export async function certify11xGate(
   const orphanUi = checkOrphanUiComponents(resolvedPath);
   const orphanApi = checkZeroOrphanApiEndpoints(resolvedPath);
   const ormCheck = checkOrmParity(resolvedPath);
-  const astTopology = checkAstTopology(resolvedPath);
+  const astTopology = await checkAstTopology(resolvedPath, options);
   const { lintEvidence, unitEvidence } = evaluateDirtyCodeEvidences(resolvedPath, options);
   const docCheck = checkDocumentationSync(resolvedPath);
 
@@ -1546,6 +1606,7 @@ export async function certify11xGate(
   const skippedChecks = Object.entries(checkStatuses)
     .filter(([, status]) => status === GATE_STATUS_SKIPPED)
     .map(([key]) => key);
+  const skippedRemediations = buildSkippedRemediations(skippedChecks);
   const strictBlockers = strict
     ? skippedChecks.map((key) => `STRICT_SKIPPED_CHECK: ${key}`)
     : [];
@@ -1579,9 +1640,10 @@ export async function certify11xGate(
     checks,
     check_statuses: checkStatuses,
     skipped_checks: skippedChecks,
+    ...(skippedRemediations ? { skipped_remediations: skippedRemediations } : {}),
+    ...(astTopology.autoBuilt ? { ast_graph_auto_built: true } : {}),
     blockers: allBlockers,
-    upstream_evolution_reminder:
-      'MANDATORY POST-MORTEM CHECK: If this fixed a UAT/prod bug that bypassed tests, present "💡 Oportunidad de Mejora Detectada para el Estándar QA 11X" in the user prompt language and invoke propose_skill_evolution_pr.',
+    upstream_evolution_reminder: EVOLUTION_REMINDER_TEXT,
     update_available: updateAvailable,
   };
 }

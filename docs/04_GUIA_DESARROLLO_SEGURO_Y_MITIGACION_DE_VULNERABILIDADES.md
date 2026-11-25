@@ -1227,3 +1227,28 @@ final class DisaStigSecurityGuard
     }
 }
 ```
+
+---
+
+## Pattern 18: Edge Cache Poisoning & SPA Asset MIME Collision Prevention (`UI-11X-03`)
+
+### The Risk
+Serving a Vite/Webpack SPA behind Cloudflare Pages or Netlify with a blanket `/* /index.html 200` rule in `public/_redirects` and positive `Cache-Control: max-age=...` on HTML entrypoints causes stale cached HTML to fetch deleted `/assets/*.js` hashes that answer `HTTP 200` (`text/html`). Under `X-Content-Type-Options: nosniff`, browsers refuse to execute the HTML response as JavaScript/CSS, leaving an unstyled broken shell in production.
+
+### Mandatory Implementation
+1. **Exclude `/assets/*` before catch-all `/*` in `public/_redirects`:**
+   ```text
+   /assets/*  /404.html   404
+   /*         /index.html 200
+   ```
+2. **Prevent HTML Entrypoint Cache Poisoning in `public/_headers`:**
+   ```text
+   /
+     ! Cache-Control
+     Cache-Control: public, max-age=0, must-revalidate
+
+   /assets/*
+     ! Cache-Control
+     Cache-Control: public, max-age=31536000, immutable
+   ```
+3. **Post-Deploy Verification & CDN Purge (`Rule Zero` Docker):** Hydrate `scripts/audit-edge.sh.example` to `scripts/audit-edge.sh` and run it after deploy (`--purge-cloudflare-cache` via env-only `CLOUDFLARE_ZONE_ID` + `CLOUDFLARE_API_TOKEN`) to certify live `Cache-Control`, `<script type="module">` JS MIME, HTTP `404` on missing `/assets/*`, and OSHP/HSTS headers.

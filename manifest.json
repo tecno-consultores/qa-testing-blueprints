@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
-  "blueprint_version": "3.8.1",
-  "generated_at_utc": "2026-11-25T18:13:37Z",
+  "blueprint_version": "3.9.0",
+  "generated_at_utc": "2026-11-25T22:52:28Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -488,9 +488,9 @@
     "php": {
       "description": "PHP 8.2-8.5 Backend APIs and Services (PHP-CS-Fixer, PHPStan Level Max, Psalm, PCOV >= 95%, Infection, Karate BDD)",
       "readme": "php/README.md",
-      "readme_sha256": "5d751fe47211ef111460ae2340b378b2b1606e2b71ce35153e3b509e7be33d19",
+      "readme_sha256": "43a6563f38981bc08561be836adc2e0075d70fd5c4608222a64222bc3eeff7d1",
       "readme_es": "php/README.es.md",
-      "readme_es_sha256": "d029501f183a7e03adafdb6e0946e661137fedc01c54370c5fc5f6f91fa14e2f",
+      "readme_es_sha256": "40f05b021818f292fd732bd100f75e6bd496603c1614f1d82cd6ebac4490cf81",
       "files": [
         {
           "path": "php/.php-cs-fixer.dist.php.example",
@@ -780,8 +780,8 @@
           "path": "react-frontend/test/ui_business_flow.feature",
           "target_name": "test/ui_business_flow.feature",
           "merge_strategy": "copy_if_missing",
-          "sha256": "0b949c58fa065cf3122ed8918c67d03b3d2b9c806ed55cb7b545f14a1817c4f5",
-          "size_bytes": 5264
+          "sha256": "f91f3c9513a7ea25137a8a4e5e2f0aabb402a7303951d3d818c063b90d111921",
+          "size_bytes": 5627
         },
         {
           "path": "react-frontend/tests/screenplay/Actor.ts",
@@ -1008,8 +1008,8 @@
           "path": "vue3/test/ui_business_flow.feature",
           "target_name": "test/ui_business_flow.feature",
           "merge_strategy": "copy_if_missing",
-          "sha256": "c091f4516e575954a253afc1c13721c65116e239e0e1201b5d3dd72c154267ba",
-          "size_bytes": 5186
+          "sha256": "fa9e94ba59ac74acadc05150ac096811d952ccd2c3f2910820ef9eaefe51b5d1",
+          "size_bytes": 5549
         },
         {
           "path": "vue3/tests/screenplay/Actor.ts",
@@ -1075,7 +1075,7 @@
       "path": "lefthook.yml",
       "target_name": "lefthook.yml",
       "merge_strategy": "copy_if_missing",
-      "sha256": "f3c6800845a16d32bb603888ff437bd02c19b2b7ed5fd5e04ea7f1e90833b04b",
+      "sha256": "25df3f8a0fe563fd9e566e9df2322b8cad068da9041e5f9d130bc0da13948ff5",
       "size_bytes": 21801
     },
     {
@@ -1084,6 +1084,13 @@
       "merge_strategy": "overwrite_executable",
       "sha256": "b8d65649baab61509d370dff18143981d29158737c0914d9fca6c9944aa6420a",
       "size_bytes": 6162
+    },
+    {
+      "path": "scripts/audit-edge.sh.example",
+      "target_name": "scripts/audit-edge.sh",
+      "merge_strategy": "copy_if_missing",
+      "sha256": "b70fa714c40aea44f737baa4f687d6ffdd21682fc040ead551ca7f8c823b4de3",
+      "size_bytes": 8589
     },
     {
       "path": "scripts/auditar-infra.sh",
@@ -1154,8 +1161,8 @@
       "path": ".agents/rules/continuous_agent_evolution.md",
       "target_name": ".agents/rules/continuous_agent_evolution.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "cacc4aba6c56384cbf29b5ff7a3a9100beaa675355b95072f144b4f93ae8023c",
-      "size_bytes": 2845
+      "sha256": "60e9a1788ed8ebcb42023b3cdc1c85e71f784efb19186f416d3d440ebb698fe3",
+      "size_bytes": 3148
     },
     {
       "path": ".agents/rules/frontend_parity_and_closure.md",
@@ -1259,8 +1266,8 @@
       "path": ".agents/scripts/certify_task_completion.sh",
       "target_name": ".agents/scripts/certify_task_completion.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "f8482bfdcefc7d05a14c43cd563237e4dca00894c8c4e114baa1358606b60a2a",
-      "size_bytes": 32677
+      "sha256": "d647ed55da55c9060052f2d94738957baaf5a7a90bad4a6de15763e9ddc6850c",
+      "size_bytes": 35704
     },
     {
       "path": ".agents/scripts/checkpoint_ctl.py",
@@ -1273,7 +1280,7 @@
       "path": ".agents/scripts/compact_context_11x.py",
       "target_name": ".agents/scripts/compact_context_11x.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "a3c90322908bd456469a6925207b585aed142a5e5a68942cec9fcf29b62c6b04",
+      "sha256": "1787bef9bd6297792265d029f0867cffd8f971d4101b47f139d0c86cb7d8ffe6",
       "size_bytes": 16329
     },
     {
@@ -1336,8 +1343,8 @@
       "path": ".agents/scripts/sync_governance.py",
       "target_name": ".agents/scripts/sync_governance.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "2982bec508fbaf6f99a8c1f1522d23337c02abc8b66b8c2f6267830044db4cbf",
-      "size_bytes": 44676
+      "sha256": "65e5f3722cf47e9b66f4d28101e8f8dc01d4dfeb2899b9c1604f563541b00b0f",
+      "size_bytes": 44817
     },
     {
       "path": ".agents/scripts/track_findings_state.py",
@@ -1399,8 +1406,8 @@
       "path": ".agents/scripts/verify_topological_health.py",
       "target_name": ".agents/scripts/verify_topological_health.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "f4a4d32d0fbc31257f58086f51f5dd108e1fbe25361737b32068ebb1a1545e87",
-      "size_bytes": 28982
+      "sha256": "9e38e3c8b376adc96dde7fc3475b31446d325b10ed0dacbe2c76d5d061fcad03",
+      "size_bytes": 29155
     },
     {
       "path": ".agents/scripts/verify_zero_orphan_vue_components.py",
@@ -1427,8 +1434,8 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "3df59b0bdd6291523cb6876b57a8c8b7c8b640fee27197c5e09e8a0f834a11c4",
-      "size_bytes": 11934
+      "sha256": "ac796952dbdd3f1a0dbecefe8db9b810717edd0ee7e4f4c2e2a6df0d84a71b99",
+      "size_bytes": 12094
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
@@ -1455,8 +1462,8 @@
       "path": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
       "target_name": ".agents/skills/qa-11x-architect/references/04-stack-node-vue-react.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "9ced390f8173e61e249947754a8a1bc6fd2d596d17e665473edc3bb4f8c5aadc",
-      "size_bytes": 19719
+      "sha256": "85b3298e61b83513a2e3747a06bf72e23796d56427753845050db93658081cc0",
+      "size_bytes": 21173
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/05-stack-bash-devops.md",
@@ -1630,7 +1637,7 @@
       "path": "AGENTS.md",
       "target_name": "AGENTS.md",
       "merge_strategy": "surgical_merge",
-      "sha256": "0d20b702d9a02a4f314581ad0a61c9d2e1b4bcf874959ea6c9b21c023b34306b",
+      "sha256": "56daea61a861cc4627abb541736a6953ab7847883ebbb79e0c2aa6b408ab72e5",
       "size_bytes": 7738
     },
     {
@@ -1651,50 +1658,50 @@
       "path": "SECURITY.es.md",
       "target_name": "SECURITY.es.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "760d5c161d2eb4eb10101ebefb65dd5e2db8a488c77a87dbe9c89ed3e63fe4dd",
-      "size_bytes": 39956
+      "sha256": "544c6d73dce75a34b8d4bd33481ff42dc60a62d492c11fb13b59c0f374c483e4",
+      "size_bytes": 41554
     },
     {
       "path": "SECURITY.md",
       "target_name": "SECURITY.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "946f52b27785b73dfad2b872cff4be372db449f0e17b72f4f5737f478de7a03d",
-      "size_bytes": 36403
+      "sha256": "b161dd185891bf574502c3027bdb4fdde0b3b323da8ea9858654cf3af5d0d4d8",
+      "size_bytes": 37905
     },
     {
       "path": "catalogs/agenticskills-submission.md",
       "target_name": "catalogs/agenticskills-submission.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "9225140569925b9d6bc310935872f58108bbcf150e5a11ee2fa9c670846cf534",
+      "sha256": "bba30fe8ec9fe205d5615dd5ed378f8e2e26ec67b8a75de7858712aea5750fc5",
       "size_bytes": 16678
     },
     {
       "path": "catalogs/qaskills-pack.json",
       "target_name": "catalogs/qaskills-pack.json",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "160ad199d017e13647e1fa08acb3bd2fa40bb22b127cf2fa437d6f624dc20759",
+      "sha256": "d0feb336348066c75ce9b6c9372ed68941d4f9d91e89b866594dfa9665c8b9bc",
       "size_bytes": 7023
     },
     {
       "path": "catalogs/skillsllm-manifest.json",
       "target_name": "catalogs/skillsllm-manifest.json",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "c1de8645e29b0fc5b04bee44ad77a5f240877a4dff4a0dc57931f4db00d401b9",
+      "sha256": "444a104cf8957b64f8e8a73d6543fa5fc90b391ec928bdd0149be410576bd821",
       "size_bytes": 11156
     },
     {
       "path": "llms.txt",
       "target_name": "llms.txt",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "c5642a44b50efc4e18738c45fbee87248fa66bb687b59e1fbb8d932cee490a44",
+      "sha256": "4bde0def3553290ee1fa9b1d6bb1495f7c16fb2a33f390ea1a148f982f8bccd8",
       "size_bytes": 18399
     },
     {
       "path": "scripts/install-skill.sh",
       "target_name": "scripts/install-skill.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "9134e011d0cf45e8113498ef47fda934057ef116f22f0f9b1db204fd98766dde",
-      "size_bytes": 38588
+      "sha256": "d18b957a31de0923a68596fc9d07c207e5a64241b46acf20a65b3dbd64210b5e",
+      "size_bytes": 39086
     }
   ]
 }

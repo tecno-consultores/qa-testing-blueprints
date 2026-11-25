@@ -48,7 +48,7 @@ Docker Engine is a **mandatory, non-negotiable physical prerequisite** (`qa-11x 
 
 ## 4. Automation Scripts in `.agents/scripts/` (30 Gates & Utilities)
 
-> **Surface Inventory:** `10` scripts in `scripts/`, `30` files in `.agents/scripts/` (`29` Python total incl. `scripts/generar-manifiesto.py`), `27` files in `tests/`.
+> **Surface Inventory:** `11` scripts in `scripts/`, `30` files in `.agents/scripts/` (`29` Python total incl. `scripts/generar-manifiesto.py`), `28` files in `tests/`.
 
 `_budgets.py` (`8 KB` root `AGENTS.md` / `1.5 KB` connectors / `36 KB` rules cap), `_common.py` (shared ignore dirs, secret/leak patterns, atomic JSON/text writes, `safe.directory`), `checkpoint_ctl.py`, `certify_task_completion.sh` (10-stage gate + ephemeral session), `bump_version_11x.py`, `sync_governance.py`, `verify_roadmap_consistency.py`, `verify_docs_invariants.py` (+ `_docs_invariants_{config,counts,bilingual,catalogs}.py`), `verify_alembic_orm_parity.py`, `verify_zero_orphan_vue_components.py`, `verify_no_orphan_api_endpoints.py`, `verify_json_no_duplicate_keys.py`, `inspect_blast_radius.py`, `select_tests_by_blast_radius.py`, `verify_topological_health.py` (`.agents/boundaries.json`, `--metrics`), `verify_diff_coverage.py`, `track_findings_state.py` (`BREAKER-42`), `generate_pr_verdict.py`, `lint_test_antipatterns.py`, `lint_workflows.py`, `lint_docs_gate.py`, `normalize_kcov_cobertura.py`, `compact_context_11x.py`, `release_readiness_gate.py`, `audit_pagespeed_insights.py`, `validate_calm_architecture.sh`.
 

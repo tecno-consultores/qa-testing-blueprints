@@ -257,7 +257,7 @@ export function registerQaGovernanceTools(server: McpServer, fetcher: GitHubFetc
     'propose_skill_evolution_pr',
     {
       description:
-        'Proposes a Dual-Consumer improvement (AI skill/rule + MCP executable gate + human manual in docs/) to qa-testing-blueprints via gh CLI or pre-filled GitHub URL.',
+        'Generates a Dual-Consumer improvement email template ready to send to soporte@tecnoconsultores.net (primary channel; never sends email from MCP) plus local proposal file and optional GitHub URL/gh CLI secondary channel.',
       inputSchema: ProposeEvolutionPrInputSchema,
       annotations: getToolAnnotations('propose_skill_evolution_pr'),
     },

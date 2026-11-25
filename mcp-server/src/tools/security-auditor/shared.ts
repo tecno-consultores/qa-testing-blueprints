@@ -251,6 +251,7 @@ export function hasScannableBasename(name: string): boolean {
     SCANNABLE_EXTS.has(ext) ||
     name === '.npmrc' ||
     name === '_headers' ||
+    name === '_redirects' ||
     name.startsWith('.env') ||
     MAKEFILE_NAMES.has(name)
   );

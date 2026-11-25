@@ -16,13 +16,13 @@ Because this repository acts as the corporate architectural blueprint and knowle
 
 | Version | Support Status | Infrastructure Requirements |
 | :--- | :--- | :--- |
-| **`3.8.x` (`main` / Active)** | ✅ Active Support | Docker 26+, PostgreSQL 17, Multi-Threaded KeyDB |
-| **`3.6.x`** | ⚠️ Security Fixes Only | Superseded by `3.8.x` (`upgrade recommended`) |
-| **`3.5.x`** | ⚠️ Security Fixes Only | Superseded by `3.8.x` (`upgrade recommended`) |
-| **`3.3.x`** | ⚠️ Security Fixes Only | Superseded by `3.8.x` (`upgrade recommended`) |
-| **`3.2.x`** | ⚠️ Security Fixes Only | Superseded by `3.8.x` (`upgrade recommended`) |
-| **`3.1.x`** | ⚠️ Security Fixes Only | Superseded by `3.8.x` (`upgrade recommended`) |
-| **`3.0.x`** | ⚠️ Security Fixes Only | Superseded by `3.8.x` (`upgrade recommended`) |
+| **`3.9.x` (`main` / Active)** | ✅ Active Support | Docker 26+, PostgreSQL 17, Multi-Threaded KeyDB |
+| **`3.6.x`** | ⚠️ Security Fixes Only | Superseded by `3.9.x` (`upgrade recommended`) |
+| **`3.5.x`** | ⚠️ Security Fixes Only | Superseded by `3.9.x` (`upgrade recommended`) |
+| **`3.3.x`** | ⚠️ Security Fixes Only | Superseded by `3.9.x` (`upgrade recommended`) |
+| **`3.2.x`** | ⚠️ Security Fixes Only | Superseded by `3.9.x` (`upgrade recommended`) |
+| **`3.1.x`** | ⚠️ Security Fixes Only | Superseded by `3.9.x` (`upgrade recommended`) |
+| **`3.0.x`** | ⚠️ Security Fixes Only | Superseded by `3.9.x` (`upgrade recommended`) |
 | **`<= 2.x`** | ❌ Unsupported | Discontinued versions |
 
 ---
@@ -267,6 +267,12 @@ Integrating SPAs (Vue 3, React) with REST/WebSocket APIs (FastAPI, Node.js) crea
 - **Mitigation:**
   - Enforce `restart: "no"`, `cpus: "${QA_CPU_LIMIT:-2.0}"`, `mem_limit`, and `pids_limit` (`64` init / `256` standard / `512` browser/JVM) across `docker-compose.qa.yml` (with `network_mode: none` on offline init services), `--wait-timeout 60` on `up -d --wait`, `COMPOSE_PARALLEL_LIMIT=1`, `--rm --restart=no` on `docker run`, and dual-compose `trap ... EXIT INT TERM` cleanup (statically audited via `QA-DOCKER-LOOP-01` in `audit_security_stig_owasp` and `scripts/auditar-infra.sh`, exemptable with `# qa-docker-loop-ok`).
   - Serialize heavy Docker QA execution in `run_ephemeral_qa` (`QA_MAX_CONCURRENT_CONTAINERS=1` atomic FIFO slot lock, passive Linux RAM `< 12%` / thermal `>= 85°C` guardrails, workspace-scoped CrashLoop auto-remediation with fail-fast on foreign CrashLoops, and guaranteed compose teardown on `make` timeout/abort), inspect `restarting` containers in `limpieza.sh` / `clean_workspace_11x` / `qa-11x doctor`, and forbid parallel subagent `/teamwork` `docker run` fan-out.
+
+### 4.34. Edge Cache Poisoning & SPA Asset MIME Collision Prevention (`UI-11X-03` — `OWASP OSHP` & `W3C/Cloudflare Edge`)
+- **Risk:** Deploying Vite/Webpack SPAs to Edge CDNs (Cloudflare Pages / Netlify) with a catch-all SPA rule (`/* /index.html 200`) in `_redirects` without protecting `/assets/*`, combined with positive `Cache-Control: max-age=...` on HTML entrypoints (`/`, `/index.html`), causes stale HTML to request deleted bundle hashes that respond `HTTP 200` (`Content-Type: text/html`) instead of `404`, triggering strict `X-Content-Type-Options: nosniff` blocking and broken unstyled production shells.
+- **Mitigation:**
+  - Statically enforce in `audit_security_stig_owasp` (`UI-11X-03`): (1) `_redirects` catch-all `/* ... 200` MUST declare an earlier `/assets/*` exclusion (e.g., `/assets/* /404.html 404` or `/assets/* /assets/:splat 200` + `public/assets/404.html`), and (2) `_headers` HTML entrypoints (`/`, `/index.html`, `/*.html`) MUST NOT set positive `max-age` without `no-cache`/`no-store`.
+  - Certify HTTP `404` on nonexistent `/assets/nonexistent-bundle-probe.js` in Karate `ui_business_flow.feature` (`vue3`/`react-frontend`) and run the reusable post-deploy probe [`scripts/audit-edge.sh.example`](scripts/audit-edge.sh.example) inside ephemeral Docker (`Rule Zero`, optional `--purge-cloudflare-cache` via env-only `CLOUDFLARE_ZONE_ID`/`CLOUDFLARE_API_TOKEN`) verifying live `Cache-Control`, `<script type="module">` JS MIME, `/assets/*` `404`, and OSHP/HSTS headers.
 
 ---
 

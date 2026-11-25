@@ -796,7 +796,11 @@ def main(
         return 1
     graph_files = _resolve_graph_targets(target_root, graph_file)
     if not graph_files:
-        print("⚠️ SKIPPED [AST Topology]: 0 grafos AST (graph.json) detectados.")
+        print(
+            "⚠️ SKIPPED [AST Topology]: 0 grafos AST (graph.json) detectados. "
+            "Genera el grafo con './scripts/actualizar-grafos-graphify.sh' o "
+            "'inspect_ast_blast_radius(auto_build_if_missing: true)'."
+        )
         return exit_skipped_code
 
     config = _AuditRunConfig(

@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0.0",
-  "name": "QA Testing Blueprints (QA-11X v3.8)",
+  "name": "QA Testing Blueprints (QA-11X v3.9)",
   "slug": "qa-testing-blueprints-11x",
-  "version": "3.8.1",
-  "standard_edition": "QA-11X v3.8",
+  "version": "3.9.0",
+  "standard_edition": "QA-11X v3.9",
   "license": "MIT",
   "author": "Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)",
   "homepage": "https://github.com/tecno-consultores/qa-testing-blueprints",
@@ -118,8 +118,8 @@
       "name": "qa-11x-architect",
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-architect/SKILL.md",
-      "size_bytes": 11934,
-      "sha256": "3df59b0bdd6291523cb6876b57a8c8b7c8b640fee27197c5e09e8a0f834a11c4",
+      "size_bytes": 12094,
+      "sha256": "ac796952dbdd3f1a0dbecefe8db9b810717edd0ee7e4f4c2e2a6df0d84a71b99",
       "description": "Master QA 11X & DevSecOps orchestrator (@sinfallas/mcp-qa-11x). Use whenever initializing or auditing QA in a repository, merging .example blueprints, writing or updating unit/BDD/mutation/E2E tests, enforcing STIG/OWASP controls, running ephemeral Docker QA, or certifying tasks before local commit."
     },
     {

@@ -16,6 +16,7 @@ import {
   CODEX_MCP_REL_PATH,
   HERMES_CANONICAL_MCP_REL_PATH,
   HERMES_FALLBACK_MCP_REL_PATH,
+  OPENCODE_CANONICAL_MCP_REL_PATH,
   type JsonMcpClient,
   resolveActiveJsonMcpClientRelPath,
 } from '../utils/ideConfigPaths.js';
@@ -37,6 +38,7 @@ export const SUPPORTED_MCP_CLIENTS = [
   'codex',
   'gemini-cli',
   'hermes',
+  'opencode',
   'all',
 ] as const;
 
@@ -190,6 +192,13 @@ function buildJsonServerEntry(
   return { command: 'npx', args: buildNpxArgs(pkgSpec, toolset) };
 }
 
+function buildOpenCodeServerEntry(
+  pkgSpec: string,
+  toolset?: ToolsetMode
+): { type: 'local'; command: string[] } {
+  return { type: 'local', command: ['npx', ...buildNpxArgs(pkgSpec, toolset)] };
+}
+
 function buildCodexTomlBlock(pkgSpec: string, toolset?: ToolsetMode): string {
   const argsLiteral = buildNpxArgs(pkgSpec, toolset)
     .map((a) => `"${a}"`)
@@ -229,6 +238,22 @@ function buildClientSnippet(
       kind: 'json',
       packageSpec: ctx.pkgSpec,
       targetPath: resolveSafeChildPath(ctx.homeDir, relPath),
+      snippet: `${JSON.stringify(doc, null, 2)}\n`,
+    };
+  }
+  if (client === 'opencode') {
+    const doc = {
+      mcp: {
+        servers: {
+          [QA_SERVER_KEY]: buildOpenCodeServerEntry(ctx.pkgSpec, ctx.toolset),
+        },
+      },
+    };
+    return {
+      client,
+      kind: 'json',
+      packageSpec: ctx.pkgSpec,
+      targetPath: resolveSafeChildPath(ctx.homeDir, OPENCODE_CANONICAL_MCP_REL_PATH),
       snippet: `${JSON.stringify(doc, null, 2)}\n`,
     };
   }
@@ -397,6 +422,38 @@ function prepareJsonClientInstall(
   };
 }
 
+function prepareOpenCodeClientInstall(
+  relPath: string,
+  targetPath: string,
+  ctx: SnippetTargetContext
+): PlannedClientInstall {
+  const existed = assertInstallPathsSafe(ctx.homeDir, relPath, targetPath);
+  const existingDoc = existed ? parseExistingJsonDoc(targetPath) : {};
+  if (!existingDoc) {
+    throw new Error(`JSON inválido existente en '${targetPath}'; se aborta para evitar corrupción.`);
+  }
+  const existingMcp = isPlainObject(existingDoc.mcp) ? existingDoc.mcp : {};
+  const existingServers = isPlainObject(existingMcp.servers) ? existingMcp.servers : {};
+  const mergedDoc = {
+    ...existingDoc,
+    mcp: {
+      ...existingMcp,
+      servers: {
+        ...existingServers,
+        [QA_SERVER_KEY]: buildOpenCodeServerEntry(ctx.pkgSpec, ctx.toolset),
+      },
+    },
+  };
+  return {
+    client: 'opencode',
+    kind: 'json',
+    relPath,
+    targetPath,
+    existed,
+    content: `${JSON.stringify(mergedDoc, null, 2)}\n`,
+  };
+}
+
 function prepareTomlClientInstall(
   relPath: string,
   targetPath: string,
@@ -434,6 +491,10 @@ function prepareClientInstall(
     const relPath = resolveActiveJsonMcpClientRelPath(client, ctx.homeDir, ctx.platform);
     const targetPath = resolveSafeChildPath(ctx.homeDir, relPath);
     return prepareJsonClientInstall(client, relPath, targetPath, ctx);
+  }
+  if (client === 'opencode') {
+    const targetPath = resolveSafeChildPath(ctx.homeDir, OPENCODE_CANONICAL_MCP_REL_PATH);
+    return prepareOpenCodeClientInstall(OPENCODE_CANONICAL_MCP_REL_PATH, targetPath, ctx);
   }
   if (client === 'codex') {
     const targetPath = resolveSafeChildPath(ctx.homeDir, CODEX_MCP_REL_PATH);

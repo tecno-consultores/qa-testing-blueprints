@@ -15,7 +15,7 @@
 #
 # Uso:
 #   curl -fsSL https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/scripts/install-skill.sh | sh
-#   ./scripts/install-skill.sh [--target antigravity|claude|cursor|windsurf|codex|hermes|workspace|all] [--dry-run]
+#   ./scripts/install-skill.sh [--target antigravity|claude|cursor|windsurf|codex|hermes|opencode|workspace|all] [--dry-run]
 # ==============================================================================
 
 set -eu
@@ -174,9 +174,11 @@ fi
 TARGET_SELECTION="${TARGET_ARG:-${QA_SKILL_TARGET:-${TARGET:-auto}}}"
 
 case "${TARGET_SELECTION}" in
-  "" | auto | all | workspace | local | antigravity | claude | cursor | windsurf | codex | hermes) ;;
+  "" | auto | all | workspace | local | antigravity | claude | cursor | windsurf | codex | hermes | opencode)
+    :
+    ;;
   *)
-    log_error "Destino --target inválido: '${TARGET_SELECTION}'. Valores permitidos: auto, workspace, antigravity, claude, cursor, windsurf, codex, hermes, all."
+    log_error "Destino --target inválido: '${TARGET_SELECTION}'. Valores permitidos: auto, workspace, antigravity, claude, cursor, windsurf, codex, hermes, opencode, all."
     exit 1
     ;;
 esac
@@ -298,6 +300,9 @@ detect_global_agent_dirs() {
   if [ -d "${HOME_DIR}/.codex" ]; then
     printf "%s/.codex/skills\n" "${HOME_DIR}"
   fi
+  if [ -d "${HOME_DIR}/.config/opencode" ]; then
+    printf "%s/.config/opencode/skills\n" "${HOME_DIR}"
+  fi
 }
 
 resolve_destination_dirs() {
@@ -325,6 +330,9 @@ resolve_destination_dirs() {
     hermes)
       printf "%s/.hermes/skills\n" "${HOME_DIR}"
       ;;
+    opencode)
+      printf "%s/.config/opencode/skills\n" "${HOME_DIR}"
+      ;;
     all)
       _detected="$(detect_global_agent_dirs || true)"
       if [ -n "${_detected}" ]; then
@@ -336,6 +344,7 @@ resolve_destination_dirs() {
         printf "%s/.cursor/skills\n" "${HOME_DIR}"
         printf "%s/.codeium/windsurf/skills\n" "${HOME_DIR}"
         printf "%s/.codex/skills\n" "${HOME_DIR}"
+        printf "%s/.config/opencode/skills\n" "${HOME_DIR}"
       fi
       ;;
     auto | "")
@@ -625,11 +634,13 @@ sync_global_agent_connectors() {
       sync_single_global_connector ".claude" ".claude/CLAUDE.md" "${_dry_mode}"
       sync_single_global_connector ".codex" ".codex/AGENTS.md" "${_dry_mode}"
       sync_single_global_connector ".codeium/windsurf" ".codeium/windsurf/memories/global_rules.md" "${_dry_mode}"
+      sync_single_global_connector ".config/opencode" ".config/opencode/AGENTS.md" "${_dry_mode}"
       ;;
     antigravity) sync_single_global_connector ".gemini" ".gemini/GEMINI.md" "${_dry_mode}" ;;
     claude) sync_single_global_connector ".claude" ".claude/CLAUDE.md" "${_dry_mode}" ;;
     codex) sync_single_global_connector ".codex" ".codex/AGENTS.md" "${_dry_mode}" ;;
     windsurf) sync_single_global_connector ".codeium/windsurf" ".codeium/windsurf/memories/global_rules.md" "${_dry_mode}" ;;
+    opencode) sync_single_global_connector ".config/opencode" ".config/opencode/AGENTS.md" "${_dry_mode}" ;;
   esac
 }
 

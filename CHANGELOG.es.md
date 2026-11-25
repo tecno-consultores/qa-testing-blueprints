@@ -10,6 +10,28 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ---
 
+## [3.9.0] - 2026-11-25
+
+### Añadido
+* **Auditoría Integral QA-11X sin Puntos Ciegos, Auto-Build AST Obligatorio e `instructions` MCP Nativas:**
+  * Añadido `mcp-server/src/tools/standardReadiness.ts` conectado en `inspect_project_config` (`standard_11x_readiness`: evaluación por tier de Graphify AST recursivo, scripts Rule Zero, gobernanza Thin-Repo `AGENTS.md`/`.qa-11x.json`/`.gitignore`/duplicados, CI/Lefthook, FINOS CALM, docs y `recommended_audit_sequence` dinámica) y en `audit_test_pyramid_gaps` (`meta_gates_audit`, acciones especializadas `ai-evals`/`mobile-appium`/`vibe-rescue` y disparos corregidos de L03/L06/L07), promovida `audit_test_pyramid_gaps` a `CORE_TOOLSET_NAMES` (`9` herramientas núcleo) y añadidas `instructions` nativas en `mcp-server/src/server.ts`.
+  * Lograda paridad 1:1 de auto-build AST entre `certify_11x_gate` y `.agents/scripts/certify_task_completion.sh` (Gate 6): proyectos con código fuente sin `graphify-out/graph.json` construyen automáticamente el grafo en Docker efímero (`sinfallas/remote-graphify`), bloqueando (`[RULE-ZERO][AST-GRAPH]`) si Docker no está disponible o falla, y emitiendo `skipped_remediations` en repos solo documentación.
+* **Soporte First-Class para OpenCode (`~/.config/opencode/`):**
+  * Extendidos `install-skill` (`mcp-server/src/cli/install-skill.ts` + paridad `scripts/install-skill.sh`), `agents-connector.ts` (`~/.config/opencode/AGENTS.md`), `version-manager.ts`, `ideConfigPaths.ts`, `mcp-config.ts` (`--client opencode` con `mcp.servers["qa-11x"]`, `type: "local"` y `command: [...]`), `companionMcpDetector.ts`, `doctor.ts`, `commandCatalog.ts` y `docs/agent-setup.{md,es.md}`.
+* **Plantilla Zero-Trust de Evolución por Correo (`soporte@tecnoconsultores.net`):**
+  * Evolucionado `propose_skill_evolution_pr` para armar una plantilla lista para enviar por correo (`primary_channel: 'email'`, `support_email: 'soporte@tecnoconsultores.net'`, `email_template` sanitizada, `prefilled_mailto_url <= 2000` chars y cabecera en `.agents/proposals/<slug>.md`, sin envío automático desde el MCP), conservando `prefilled_github_url` y `gh` CLI como canal secundario opcional.
+* **Blindaje contra Envenenamiento de Caché de Borde y Colisión MIME SPA (`UI-11X-03` + `scripts/audit-edge.sh.example`):**
+  * Ampliada `UI-11X-03` (`mcp-server/src/tools/security-auditor/pwaAndEdgeRules.ts`) para detectar catch-alls SPA (`/* ... 200`) en `_redirects` sin guarda previa `/assets/*` y entrypoints HTML (`/`, `/index.html`, `/*.html`) en `_headers` con `Cache-Control: max-age` positivo sin `no-cache`/`no-store`.
+  * Añadido Escenario 7 BDD Karate (`404` sobre `/assets/nonexistent-bundle-probe.js`) en `vue3/` y `react-frontend/`, creada plantilla reutilizable `scripts/audit-edge.sh.example` (registrada en `manifest.json` + probada en `tests/bats/test_audit_edge.bats`) y sincronizada documentación Dual-Consumer (`SECURITY.{md,es.md}`, `docs/02`, `docs/04`, `04-stack-node-vue-react.md`).
+
+### Corregido
+* **Ruff `C901` y `E501` en `tests/test_install_skill.unit.py`:** Refactorizado `test_bash_install_parity_lang_4_connectors_prune_and_script_protection` con el helper puro `_build_parity_manifest_fixture` y separada la paridad estática `QA-DOCKER-LOOP-01` en su propio test unitario (`CC <= 3`, `<= 88` cols).
+
+### Modificado
+* **Rotación Global de Versión a `3.9.0` (`QA-11X v3.9`):** Sincronizados `standard_edition` (`QA-11X v3.9`), SemVer `3.9.0`, guías bilingües (`README`, `ROADMAP` Hito 32, `TESTING`, `SECURITY`, `CHANGELOG`, `docs/*`), `.claude-plugin/{plugin,marketplace}.json`, `manifest.json` SHA-256 y `@sinfallas/mcp-qa-11x@3.9.0`.
+
+---
+
 ## [3.8.1] - 2026-11-25
 
 ### Corregido

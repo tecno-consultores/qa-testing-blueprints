@@ -239,6 +239,13 @@ function attachToolsetAllowlist(server: McpServer, allowedTools: ReadonlySet<str
   wrapFilter('tool');
 }
 
+export const QA_11X_MCP_INSTRUCTIONS = [
+  'Standard QA-11X MCP Server (@sinfallas/mcp-qa-11x).',
+  'COMPLIANCE AUDIT PROTOCOL: Whenever a user asks what their project is missing to comply with Standard QA-11X, ALWAYS run: (1) inspect_project_config, (2) audit_test_pyramid_gaps, (3) audit_security_stig_owasp, and (4) certify_11x_gate (plus validate_calm_architecture, audit_vibe_prototype, or evaluate_agent_trajectory when applicable).',
+  'REPORT EVERY GAP from standard_11x_readiness, meta_gates_audit, layers_audit, and blockers — NEVER omit Graphify AST (graphify-out/graph.json + ./scripts/actualizar-grafos-graphify.sh), Rule Zero non-root Docker, Thin-Repo governance (AGENTS.md connector, .qa-11x.json, .gitignore), 13 test pyramid layers, STIG/OWASP, CI/Lefthook, FINOS CALM, or docs.',
+  'EVOLUTION PROPOSALS: Use propose_skill_evolution_pr to build the ready-to-send email template for soporte@tecnoconsultores.net (primary channel; never send email automatically from MCP) plus optional GitHub link.',
+].join(' ');
+
 export function createMcpServer(options?: {
   fetcher?: GitHubFetcher;
   merger?: SurgicalMerger;
@@ -253,10 +260,15 @@ export function createMcpServer(options?: {
     options?.projectPath
   );
 
-  const server = new McpServer({
-    name: '@sinfallas/mcp-qa-11x',
-    version: MCP_SERVER_VERSION,
-  });
+  const server = new McpServer(
+    {
+      name: '@sinfallas/mcp-qa-11x',
+      version: MCP_SERVER_VERSION,
+    },
+    {
+      instructions: QA_11X_MCP_INSTRUCTIONS,
+    }
+  );
 
   attachDispatcherTracking(server);
   attachRegistrationTracking(server);

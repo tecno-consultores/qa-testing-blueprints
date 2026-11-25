@@ -16,13 +16,13 @@ Dado que este repositorio actúa como la plantilla arquitectónica y base de con
 
 | Versión | Estado de Soporte | Requisitos de Infraestructura |
 | :--- | :--- | :--- |
-| **`3.8.x` (`main` / Activa)** | ✅ Soporte Activo | Docker 26+, PostgreSQL 17, KeyDB Multi-Hilo |
-| **`3.6.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.8.x` (`actualización recomendada`) |
-| **`3.5.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.8.x` (`actualización recomendada`) |
-| **`3.3.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.8.x` (`actualización recomendada`) |
-| **`3.2.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.8.x` (`actualización recomendada`) |
-| **`3.1.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.8.x` (`actualización recomendada`) |
-| **`3.0.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.8.x` (`actualización recomendada`) |
+| **`3.9.x` (`main` / Activa)** | ✅ Soporte Activo | Docker 26+, PostgreSQL 17, KeyDB Multi-Hilo |
+| **`3.6.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.9.x` (`actualización recomendada`) |
+| **`3.5.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.9.x` (`actualización recomendada`) |
+| **`3.3.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.9.x` (`actualización recomendada`) |
+| **`3.2.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.9.x` (`actualización recomendada`) |
+| **`3.1.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.9.x` (`actualización recomendada`) |
+| **`3.0.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.9.x` (`actualización recomendada`) |
 | **`<= 2.x`** | ❌ No Soportado | Versiones descontinuadas |
 
 ---
@@ -267,6 +267,12 @@ La integración entre aplicaciones SPA (Vue 3, React) y APIs REST/WebSockets (Fa
 - **Mitigación:**
   - Exigir `restart: "no"`, `cpus: "${QA_CPU_LIMIT:-2.0}"`, `mem_limit` y `pids_limit` (`64` init / `256` estándar / `512` navegador/JVM) en `docker-compose.qa.yml` (con `network_mode: none` en servicios init offline), `--wait-timeout 60` en `up -d --wait`, `COMPOSE_PARALLEL_LIMIT=1`, `--rm --restart=no` en `docker run` y limpieza dual `trap ... EXIT INT TERM` (auditado estáticamente mediante `QA-DOCKER-LOOP-01` en `audit_security_stig_owasp` y `scripts/auditar-infra.sh`, eximible con `# qa-docker-loop-ok`).
   - Serializar la ejecución QA en Docker dentro de `run_ephemeral_qa` (lockfile FIFO atómico `QA_MAX_CONCURRENT_CONTAINERS=1`, guardrails pasivos Linux de RAM `< 12%` y temperatura `>= 85°C`, auto-remediación de CrashLoops del workspace con bloqueo *fail-fast* ante CrashLoops externos y teardown garantizado tras timeout/abort de `make`), barrer contenedores `restarting` en `limpieza.sh` / `clean_workspace_11x` / `qa-11x doctor` y prohibir fan-out paralelo de `docker run` desde subagentes `/teamwork`.
+
+### 4.34. Prevención de Envenenamiento de Caché de Borde y Colisión MIME en Activos SPA (`UI-11X-03` — `OWASP OSHP` y `W3C/Cloudflare Edge`)
+- **Riesgo:** Desplegar SPAs Vite/Webpack en CDNs de borde (Cloudflare Pages / Netlify) con una regla catch-all `/* /index.html 200` en `_redirects` sin excluir `/assets/*`, sumado a `Cache-Control: max-age=...` positivo en entrypoints HTML (`/`, `/index.html`), provoca que el HTML obsoleto solicite hashes de bundles eliminados que responden `HTTP 200` (`Content-Type: text/html`) en lugar de `404`, disparando bloqueo estricto por `X-Content-Type-Options: nosniff` y dejando la aplicación rota sin estilos.
+- **Mitigación:**
+  - Exigir estáticamente en `audit_security_stig_owasp` (`UI-11X-03`): (1) todo catch-all `/* ... 200` en `_redirects` DEBE declarar antes una exclusión para `/assets/*` (p. ej. `/assets/* /404.html 404` o `/assets/* /assets/:splat 200` + `public/assets/404.html`), y (2) los entrypoints HTML en `_headers` (`/`, `/index.html`, `/*.html`) NO deben fijar `max-age` positivo sin `no-cache`/`no-store`.
+  - Certificar HTTP `404` sobre `/assets/nonexistent-bundle-probe.js` en Karate `ui_business_flow.feature` (`vue3`/`react-frontend`) y ejecutar la plantilla post-despliegue [`scripts/audit-edge.sh.example`](scripts/audit-edge.sh.example) dentro de Docker efímero (`Rule Zero`, con `--purge-cloudflare-cache` opcional vía `CLOUDFLARE_ZONE_ID`/`CLOUDFLARE_API_TOKEN` solo por entorno) verificando `Cache-Control` en vivo, MIME `javascript` en `<script type="module">`, sonda `404` en `/assets/*` y cabeceras OSHP/HSTS.
 
 ---
 

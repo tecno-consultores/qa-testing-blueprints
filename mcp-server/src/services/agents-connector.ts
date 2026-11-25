@@ -28,7 +28,7 @@ export const CANONICAL_GLOBAL_SKILL_DIRS: ReadonlySet<string> = new Set([
 ]);
 
 export interface GlobalConnectorTargetSpec {
-  readonly agent: 'antigravity' | 'claude' | 'codex' | 'windsurf';
+  readonly agent: 'antigravity' | 'claude' | 'codex' | 'windsurf' | 'opencode';
   readonly detectRelDir: string;
   readonly relFile: string;
 }
@@ -55,6 +55,11 @@ export const GLOBAL_CONNECTOR_TARGETS: readonly GlobalConnectorTargetSpec[] = Ob
     agent: 'windsurf',
     detectRelDir: path.join('.codeium', 'windsurf'),
     relFile: path.join('.codeium', 'windsurf', 'memories', 'global_rules.md'),
+  },
+  {
+    agent: 'opencode',
+    detectRelDir: path.join('.config', 'opencode'),
+    relFile: path.join('.config', 'opencode', 'AGENTS.md'),
   },
 ]);
 

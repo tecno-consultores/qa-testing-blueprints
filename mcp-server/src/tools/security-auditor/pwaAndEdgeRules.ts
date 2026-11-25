@@ -37,6 +37,9 @@ const WATCHED_EDGE_HEADERS = new Set([
 ]);
 
 const PUBLIC_EDGE_ASSET_PREFIXES = ['/favicons/', '/brand/', '/og/'];
+const HTML_ENTRYPOINT_ROUTES = new Set(['/', '/index.html', '/*.html', '/**.html']);
+const POSITIVE_MAX_AGE_RE = /\bmax-age=[1-9]\d*/i;
+const NO_CACHE_DIRECTIVE_RE = /\b(?:no-cache|no-store)\b/i;
 
 interface EdgeHeaderOp {
   kind: 'detach' | 'set';
@@ -439,6 +442,37 @@ function inspectSingleEdgeHeaderBlock(
   return findings;
 }
 
+function checkHtmlEntrypointCachePoisoning(
+  relPath: string,
+  blocks: readonly EdgeHeaderBlock[]
+): SecurityFinding[] {
+  const findings: SecurityFinding[] = [];
+  for (const block of blocks) {
+    if (!HTML_ENTRYPOINT_ROUTES.has(block.route.toLowerCase())) {
+      continue;
+    }
+    for (const op of block.ops) {
+      if (
+        op.kind === 'set' &&
+        op.name === 'cache-control' &&
+        POSITIVE_MAX_AGE_RE.test(op.value) &&
+        !NO_CACHE_DIRECTIVE_RE.test(op.value)
+      ) {
+        findings.push(
+          makeUi11x03Finding({
+            severity: 'HIGH',
+            file: relPath,
+            line: op.line,
+            message: `Bloque HTML "${block.route}" en _headers fija Cache-Control con max-age positivo ("${op.value}"), riesgo de envenenamiento de caché con hashes de bundles obsoletos tras despliegues.`,
+            remediation: `Usar "Cache-Control: public, max-age=0, must-revalidate" o "no-cache, no-store, must-revalidate" en "${block.route}" y reservar max-age largo/immutable solo para /assets/*.`,
+          })
+        );
+      }
+    }
+  }
+  return findings;
+}
+
 function checkCloudflareHeadersDetachment(projectPath: string, relPath: string): SecurityFinding[] {
   const normRel = relPath.replace(/\\/g, '/');
   if (!/(?:^|\/)_headers$/.test(normRel) || isTestFilePath(normRel)) return [];
@@ -447,14 +481,65 @@ function checkCloudflareHeadersDetachment(projectPath: string, relPath: string):
   if (!rawText || rawText.includes(UI_11X_03_OK_PRAGMA)) return [];
 
   const blocks = parseEdgeHeadersBlocks(rawText.split(/\r?\n/));
+  const findings: SecurityFinding[] = [...checkHtmlEntrypointCachePoisoning(relPath, blocks)];
   const globalWatched = collectGlobalWatchedHeaders(blocks);
-  if (globalWatched.size === 0) return [];
+  if (globalWatched.size === 0) return findings;
 
-  const findings: SecurityFinding[] = [];
   for (const block of blocks) {
     findings.push(...inspectSingleEdgeHeaderBlock(relPath, block, globalWatched));
   }
   return findings;
+}
+
+function isSpaCatchAllRedirectTokens(tokens: readonly string[]): boolean {
+  const from = tokens[0] ?? '';
+  const status = tokens[2] ?? '';
+  return from === WILDCARD_ALL_ROUTE && (status === '200' || status === '200!');
+}
+
+function isAssetsGuardRedirectToken(from: string): boolean {
+  return from === '/assets/*' || from.startsWith('/assets/');
+}
+
+function checkCloudflareRedirectsAssetGuard(
+  projectPath: string,
+  relPath: string
+): SecurityFinding[] {
+  const normRel = relPath.replace(/\\/g, '/');
+  if (!/(?:^|\/)_redirects$/.test(normRel) || isTestFilePath(normRel)) return [];
+
+  const rawText = readTextFileSafe(path.join(projectPath, relPath));
+  if (!rawText || rawText.includes(UI_11X_03_OK_PRAGMA)) return [];
+
+  const redirectDir = path.dirname(path.join(projectPath, relPath));
+  const hasAssets404Html = fs.existsSync(path.join(redirectDir, 'assets', '404.html'));
+  let hasAssetsRuleBeforeCatchAll = hasAssets404Html;
+
+  const lines = rawText.split(/\r?\n/);
+  for (const [idx, raw] of lines.entries()) {
+    const trimmed = raw.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const tokens = trimmed.split(/\s+/);
+    if (tokens.length < 2) continue;
+    if (isAssetsGuardRedirectToken(tokens[0] ?? '')) {
+      hasAssetsRuleBeforeCatchAll = true;
+      continue;
+    }
+    if (isSpaCatchAllRedirectTokens(tokens) && !hasAssetsRuleBeforeCatchAll) {
+      return [
+        makeUi11x03Finding({
+          severity: 'HIGH',
+          file: relPath,
+          line: idx + 1,
+          message:
+            'Regla catch-all SPA "/* ... 200" en _redirects sin exclusión previa para /assets/* (los bundles JS/CSS inexistentes devolverán HTTP 200 text/html y serán bloqueados por X-Content-Type-Options: nosniff).',
+          remediation:
+            'Declarar antes de "/* /index.html 200" una regla explícita para /assets/* (ej. "/assets/* /404.html 404" o "/assets/* /assets/:splat 200" + public/assets/404.html) y verificar HTTP 404 en BDD/edge audit.',
+        }),
+      ];
+    }
+  }
+  return [];
 }
 
 function extractRoutePatterns(doc: Record<string, unknown>, key: string): string[] {
@@ -520,6 +605,7 @@ export function checkUi11x03FaviconPwaAndEdgeHeaders(
       ...checkHtmlFaviconAndAppleTouchLinks(projectPath, relPath, allRelFiles),
       ...checkWebAppManifestIcons(projectPath, relPath),
       ...checkCloudflareHeadersDetachment(projectPath, relPath),
+      ...checkCloudflareRedirectsAssetGuard(projectPath, relPath),
       ...checkCloudflareRoutesJson(projectPath, relPath)
     );
   }

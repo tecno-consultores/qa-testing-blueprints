@@ -14,6 +14,7 @@ import { detectCompanionMcps } from '../utils/companionMcpDetector.js';
 import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 import { getBrowserMcpCandidatePaths } from '../utils/ideConfigPaths.js';
 import { CANONICAL_IGNORED_DIRS } from '../utils/ignoredDirs.js';
+import { evaluateStandard11xReadiness } from './standardReadiness.js';
 
 const BASH_STACK_NAME = 'bash-scripts';
 const PHP_STACK_NAME = 'php';
@@ -513,9 +514,11 @@ export async function inspectProjectConfig(
   });
 
   const fallbackStacks = files.some((f) => f.endsWith('.py')) ? ['python'] : [];
+  const finalStacks = detectedStacks.length > 0 ? detectedStacks : fallbackStacks;
+  const standardReadiness = evaluateStandard11xReadiness(resolvedPath, finalStacks, files);
   return {
     project_path: resolvedPath,
-    detected_stacks: detectedStacks.length > 0 ? detectedStacks : fallbackStacks,
+    detected_stacks: finalStacks,
     docker_daemon_required: true,
     has_docker_compose_qa: fs.existsSync(path.join(resolvedPath, 'docker-compose.qa.yml')),
     has_makefile: fs.existsSync(path.join(resolvedPath, 'Makefile')),
@@ -528,6 +531,7 @@ export async function inspectProjectConfig(
     recommended_next_tool: 'fetch_blueprint_bundle',
     browser_testing_readiness: browserReadiness,
     companion_mcps: companionMcps,
+    standard_11x_readiness: standardReadiness,
     update_available: updateAvailable,
   };
 }

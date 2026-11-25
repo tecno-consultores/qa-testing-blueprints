@@ -24,6 +24,8 @@ export const CODEX_MCP_REL_PATH = path.join('.codex', 'config.toml');
 export const GEMINI_CLI_MCP_REL_PATH = path.join('.gemini', 'settings.json');
 export const HERMES_CANONICAL_MCP_REL_PATH = path.join('.hermes', 'mcp.json');
 export const HERMES_FALLBACK_MCP_REL_PATH = path.join('.hermes', 'config.yaml');
+export const OPENCODE_CANONICAL_MCP_REL_PATH = path.join('.config', 'opencode', 'opencode.json');
+export const OPENCODE_FALLBACK_MCP_REL_PATH = path.join('.opencode', 'opencode.json');
 
 const VSCODE_DARWIN_REL_PATH = path.join(
   'Library',
@@ -137,6 +139,10 @@ export function getDoctorIdeMcpTargets(
       client: 'hermes',
       relPaths: [HERMES_CANONICAL_MCP_REL_PATH, HERMES_FALLBACK_MCP_REL_PATH],
     },
+    {
+      client: 'opencode',
+      relPaths: [OPENCODE_CANONICAL_MCP_REL_PATH, OPENCODE_FALLBACK_MCP_REL_PATH],
+    },
   ];
 }
 
@@ -157,6 +163,8 @@ export function getBrowserMcpCandidatePaths(
     resolveClaudeDesktopMcpRelPath(platform),
     HERMES_CANONICAL_MCP_REL_PATH,
     HERMES_FALLBACK_MCP_REL_PATH,
+    OPENCODE_CANONICAL_MCP_REL_PATH,
+    OPENCODE_FALLBACK_MCP_REL_PATH,
   ];
   return relPaths.map((relPath) => path.join(baseHome, relPath));
 }

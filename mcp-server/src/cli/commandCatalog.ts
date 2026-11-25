@@ -192,8 +192,8 @@ export const CLI_COMMAND_CATALOG: readonly CliSubcommandSpec[] = [
         short: '-t',
         argLabel: '<env>',
         desc: {
-          en: 'auto (default) | workspace | antigravity | claude | cursor | windsurf | codex | hermes | all',
-          es: 'auto (por defecto) | workspace | antigravity | claude | cursor | windsurf | codex | hermes | all',
+          en: 'auto (default) | workspace | antigravity | claude | cursor | windsurf | codex | hermes | opencode | all',
+          es: 'auto (por defecto) | workspace | antigravity | claude | cursor | windsurf | codex | hermes | opencode | all',
         },
       },
       COMMON_PROJECT_FLAG,
@@ -695,12 +695,13 @@ export const CLI_COMMAND_CATALOG: readonly CliSubcommandSpec[] = [
           'codex',
           'gemini-cli',
           'hermes',
+          'opencode',
           'all',
         ],
         zshMeta: 'client',
         desc: {
-          en: 'antigravity | claude-code | claude-desktop | cursor | vscode | windsurf | codex | gemini-cli | hermes | all',
-          es: 'antigravity | claude-code | claude-desktop | cursor | vscode | windsurf | codex | gemini-cli | hermes | all',
+          en: 'antigravity | claude-code | claude-desktop | cursor | vscode | windsurf | codex | gemini-cli | hermes | opencode | all',
+          es: 'antigravity | claude-code | claude-desktop | cursor | vscode | windsurf | codex | gemini-cli | hermes | opencode | all',
         },
       },
       {

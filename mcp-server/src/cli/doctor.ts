@@ -355,6 +355,16 @@ function isUnpinnedPackageArg(pkgArg: string): boolean {
   return pkgArg.includes('@latest') || !pkgArg.includes(`${PKG_NAME}@`);
 }
 
+function extractQaEntryArgsList(entry: { args?: unknown; command?: unknown }): string[] {
+  if (Array.isArray(entry.args)) {
+    return entry.args.map(String);
+  }
+  if (Array.isArray(entry.command)) {
+    return entry.command.map(String);
+  }
+  return [];
+}
+
 function checkQaServerEntryPinning(
   filePath: string,
   serverKey: string,
@@ -363,8 +373,7 @@ function checkQaServerEntryPinning(
   if (!/qa[-_]?11x/i.test(serverKey) || typeof entryRaw !== 'object' || entryRaw === null) {
     return null;
   }
-  const argsRaw = (entryRaw as { args?: unknown }).args;
-  const argsList = Array.isArray(argsRaw) ? argsRaw.map(String) : [];
+  const argsList = extractQaEntryArgsList(entryRaw);
   const pkgArg = argsList.find((item) => item.includes(PKG_NAME));
   if (!pkgArg) return null;
   return isUnpinnedPackageArg(pkgArg) ? formatUnpinnedWarning(filePath, pkgArg) : null;
@@ -372,7 +381,11 @@ function checkQaServerEntryPinning(
 
 function inspectJsonPinning(filePath: string, rawText: string): string | null {
   const raw = JSON.parse(rawText) as Record<string, unknown>;
-  const serverMaps = [raw.mcpServers, raw.servers].filter(
+  const nestedMcp =
+    typeof raw.mcp === 'object' && raw.mcp !== null && !Array.isArray(raw.mcp)
+      ? (raw.mcp as Record<string, unknown>).servers
+      : undefined;
+  const serverMaps = [raw.mcpServers, raw.servers, nestedMcp].filter(
     (entry): entry is Record<string, unknown> =>
       typeof entry === 'object' && entry !== null && !Array.isArray(entry)
   );

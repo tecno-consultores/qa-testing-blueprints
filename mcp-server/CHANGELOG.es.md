@@ -8,6 +8,14 @@ Todos los cambios notables en el paquete npm y servidor MCP `@sinfallas/mcp-qa-1
 
 ## [Unreleased]
 
+## [3.9.0] - 2026-11-25
+
+### Añadido
+- **Auditoría Integral QA-11X sin Puntos Ciegos, Auto-Build AST Obligatorio e `instructions` MCP Nativas:** Añadido `src/tools/standardReadiness.ts` integrado en `inspect_project_config` (`standard_11x_readiness`: evaluación por tier de Graphify AST recursivo, scripts Rule Zero, gobernanza Thin-Repo `AGENTS.md`/`.qa-11x.json`/`.gitignore`/duplicados, CI/Lefthook, FINOS CALM, docs y `recommended_audit_sequence` dinámica) y en `audit_test_pyramid_gaps` (`meta_gates_audit`, acciones especializadas `ai-evals`/`mobile-appium`/`vibe-rescue` y disparos corregidos de L03/L06/L07); promovida `audit_test_pyramid_gaps` a `CORE_TOOLSET_NAMES` (`9` herramientas núcleo, `18` auto máx., `19` full); configuradas `instructions` nativas en `src/server.ts`; y evolucionado `certify_11x_gate` para autoconstruir `graphify-out/graph.json` en Docker Rule Zero cuando existe código fuente (bloqueando `[RULE-ZERO][AST-GRAPH]` si Docker no está disponible o falla, y emitiendo `skipped_remediations` en repos solo documentación).
+- **Soporte First-Class para OpenCode (`~/.config/opencode/`):** Extendidos `install-skill`, `agents-connector.ts` (`5` conectores globales), `version-manager.ts` (`8` directorios globales de skills), `ideConfigPaths.ts` (`10` clientes IDE en `doctor` / `13` rutas de navegadores), `mcp-config.ts` (`--client opencode` generando `mcp.servers["qa-11x"]` con `type: "local"` y `command: [...]`), `companionMcpDetector.ts`, `doctor.ts` y `commandCatalog.ts`.
+- **Plantilla Zero-Trust de Evolución por Correo (`soporte@tecnoconsultores.net`):** Evolucionado `propose_skill_evolution_pr` para construir una plantilla sanitizada lista para enviar por correo (`primary_channel: 'email'`, `support_email: 'soporte@tecnoconsultores.net'`, `email_template`, `prefilled_mailto_url <= 2000` chars y cabecera en `.agents/proposals/<slug>.md`, estrictamente sin envío automático desde el MCP), conservando `prefilled_github_url` y `gh` CLI como canal secundario opcional.
+- **Blindaje contra Envenenamiento de Caché de Borde y Colisión MIME SPA (`UI-11X-03`):** Ampliados `src/tools/security-auditor/pwaAndEdgeRules.ts` y `shared.ts` (escaneo de `_redirects`) para detectar catch-alls SPA (`/* ... 200`) en `_redirects` sin guarda previa `/assets/*` y entrypoints HTML (`/`, `/index.html`, `/*.html`) en `_headers` con `Cache-Control: max-age` positivo sin `no-cache`/`no-store`.
+
 ## [3.8.1] - 2026-11-25
 
 ### Corregido

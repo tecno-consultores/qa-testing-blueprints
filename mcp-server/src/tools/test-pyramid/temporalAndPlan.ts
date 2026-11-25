@@ -8,6 +8,7 @@ import type {
   PyramidLayerAudit,
   PyramidLayerStatus,
   StackName,
+  TestPyramidMetaGateAudit,
 } from '../../types.js';
 import { type LayerAugmentContext } from './bddAndQualityLayers.js';
 import {
@@ -240,27 +241,35 @@ export function evaluateLayer13TrimodalFixtures(
 // 📋 Generador del Plan de Acción Priorizado
 // ============================================================================
 
+function isLayerIncomplete(layer: PyramidLayerAudit | undefined): boolean {
+  return layer !== undefined && (layer.status === STATUS_MISSING || layer.status === STATUS_PARTIAL);
+}
+
 function addCriticalActions(
   plan: PrioritizedTestAction[],
   layers: PyramidLayerAudit[],
   inventory: MissingTestInventory
 ): void {
-  if (inventory.orphan_source_files.length > 0) {
+  const l03 = layers.find((l) => l.layer_id === 'L03_UNIT_ISOLATED');
+  if (inventory.orphan_source_files.length > 0 || isLayerIncomplete(l03)) {
+    const targetFiles =
+      inventory.orphan_source_files.length > 0
+        ? inventory.orphan_source_files.slice(0, 5).map((o) => o.expected_unit_test)
+        : ['tests/core.unit.py', 'src/core.unit.ts'];
     plan.push({
       step: plan.length + 1,
       priority: PRIORITY_CRITICAL,
       layer_number: 3,
-      title: 'Crear pruebas unitarias faltantes para archivos huérfanos',
+      title: 'Completar pruebas unitarias aisladas (>= 95% cobertura)',
       action:
-        'Crear los archivos .unit.py y .unit.ts listados en missing_test_inventory.orphan_source_files aislando red con mocks y cubriendo ramas de error.',
-      target_files_to_create: inventory.orphan_source_files
-        .slice(0, 5)
-        .map((o) => o.expected_unit_test),
+        'Crear pruebas unitarias para archivos huérfanos y exigir umbral --cov-fail-under=95 / coverage.thresholds>=95 aislando red con mocks.',
+      target_files_to_create: targetFiles,
       verification_command: MAKE_QA_UNIT,
     });
   }
 
-  if (inventory.untested_api_endpoints.length > 0) {
+  const l06 = layers.find((l) => l.layer_id === 'L06_BDD_API_KARATE');
+  if (inventory.untested_api_endpoints.length > 0 || isLayerIncomplete(l06)) {
     plan.push({
       step: plan.length + 1,
       priority: PRIORITY_CRITICAL,
@@ -274,7 +283,7 @@ function addCriticalActions(
   }
 
   const l04 = layers.find((l) => l.layer_id === 'L04_ORM_MIGRATION_PARITY');
-  if (l04 && (l04.status === STATUS_MISSING || l04.status === STATUS_PARTIAL)) {
+  if (isLayerIncomplete(l04)) {
     plan.push({
       step: plan.length + 1,
       priority: PRIORITY_CRITICAL,
@@ -327,14 +336,15 @@ function addHighActions(
     });
   }
 
-  if (inventory.untested_ui_views.length > 0) {
+  const l07 = layers.find((l) => l.layer_id === 'L07_BDD_UI_KARATE_REFRESH');
+  if (inventory.untested_ui_views.length > 0 || isLayerIncomplete(l07)) {
     plan.push({
       step: plan.length + 1,
       priority: PRIORITY_HIGH,
       layer_number: 7,
       title: 'Crear escenarios BDD en Karate UI para vistas sin cobertura',
       action:
-        `Escribir escenarios BDD en test/${UI_BUSINESS_FLOW_FEATURE} cubriendo las vistas huérfanas de la interfaz.`,
+        `Escribir escenarios BDD en test/${UI_BUSINESS_FLOW_FEATURE} cubriendo las vistas huérfanas, 404 en /assets/* y refresco dual.`,
       target_files_to_create: [`test/${UI_BUSINESS_FLOW_FEATURE}`],
       verification_command: MAKE_QA_BDD,
     });
@@ -433,14 +443,126 @@ function addMediumActions(
   }
 }
 
+interface MetaGateActionSpec {
+  readonly gateId: string;
+  readonly priority: typeof PRIORITY_HIGH;
+  readonly title: string;
+  readonly targets: readonly string[];
+  readonly cmd: string;
+}
+
+const META_GATE_ACTION_SPECS: readonly MetaGateActionSpec[] = [
+  {
+    gateId: 'graphify_ast',
+    priority: PRIORITY_HIGH,
+    title: 'Construir grafo AST Graphify y habilitar verificación topológica',
+    targets: ['graphify-out/graph.json', 'scripts/actualizar-grafos-graphify.sh'],
+    cmd: './scripts/actualizar-grafos-graphify.sh',
+  },
+  {
+    gateId: 'thin_repo_governance',
+    priority: PRIORITY_HIGH,
+    title: 'Completar gobernanza Thin-Repo (AGENTS.md, .qa-11x.json, .gitignore)',
+    targets: ['AGENTS.md', '.qa-11x.json', '.gitignore'],
+    cmd: 'npx -y @sinfallas/mcp-qa-11x@latest init-agents --agents auto',
+  },
+  {
+    gateId: 'ci_hooks_automation',
+    priority: PRIORITY_MEDIUM,
+    title: 'Configurar hooks locales (lefthook.yml) y CI proporcional de PR',
+    targets: ['lefthook.yml', '.github/workflows/qa-11x-pr.yml'],
+    cmd: 'npx -y @sinfallas/mcp-qa-11x@latest quickstart',
+  },
+  {
+    gateId: 'calm_architecture',
+    priority: PRIORITY_MEDIUM,
+    title: 'Declarar y validar arquitectura FINOS CALM (7 controles 11X)',
+    targets: ['architecture/qa-11x.calm.json'],
+    cmd: 'make validate-calm',
+  },
+];
+
+const SPECIALIZED_STACK_ACTIONS: Readonly<
+  Record<string, { readonly title: string; readonly action: string; readonly targets: readonly string[]; readonly cmd: string }>
+> = {
+  'ai-evals': {
+    title: 'Ejecutar evaluaciones Dual-Mode LLM/RAG y Red-Teaming OWASP LLM Top 10',
+    action:
+      'Ejecutar evaluate_agent_trajectory (contratos deterministas offline) y run_llm_red_team (Promptfoo OWASP LLM Top 10).',
+    targets: ['ai-evals/', 'promptfooconfig.yaml'],
+    cmd: 'make test-ai-offline',
+  },
+  'mobile-appium': {
+    title: 'Certificar suite móvil Screenplay Appium 3 / WebdriverIO en Docker efímero',
+    action:
+      'Ejecutar la matriz móvil con MobileActor en sinfallas/base-mobile-appium:26 (sin depender de emuladores locales en CI).',
+    targets: ['mobile-appium/wdio.conf.ts'],
+    cmd: 'make qa-mobile',
+  },
+  'vibe-rescue': {
+    title: 'Ejecutar rescate Vibe-to-Enterprise (RLS, WORM, CC <= 5, >= 95% cov)',
+    action:
+      'Invocar audit_vibe_prototype para detectar VIBE-SEC-001..QA-005 e inyectar plantillas de endurecimiento RLS/Docker.',
+    targets: ['vibe-rescue/templates/rls_hardening.sql'],
+    cmd: 'npx -y @sinfallas/mcp-qa-11x@latest audit --mode vibe',
+  },
+};
+
+function addMetaGateAndSpecializedActions(
+  plan: PrioritizedTestAction[],
+  metaGates: readonly TestPyramidMetaGateAudit[] | undefined,
+  detectedStacks: readonly StackName[] | undefined
+): void {
+  if (metaGates) {
+    for (const spec of META_GATE_ACTION_SPECS) {
+      const gate = metaGates.find((g) => g.gate_id === spec.gateId);
+      if (!gate || gate.status === 'PRESENT') {
+        continue;
+      }
+      if (!gate.required_for_tier && spec.gateId === 'calm_architecture') {
+        continue;
+      }
+      plan.push({
+        step: plan.length + 1,
+        priority: spec.priority,
+        layer_number: 0,
+        title: spec.title,
+        action: gate.remediation,
+        target_files_to_create: [...spec.targets],
+        verification_command: spec.cmd,
+      });
+    }
+  }
+  for (const stack of detectedStacks ?? []) {
+    const spec = Object.hasOwn(SPECIALIZED_STACK_ACTIONS, stack)
+      ? SPECIALIZED_STACK_ACTIONS[stack]
+      : undefined;
+    if (!spec) {
+      continue;
+    }
+    plan.push({
+      step: plan.length + 1,
+      priority: PRIORITY_MEDIUM,
+      layer_number: 0,
+      title: spec.title,
+      action: spec.action,
+      target_files_to_create: [...spec.targets],
+      verification_command: spec.cmd,
+    });
+  }
+}
+
 export function buildPrioritizedActionPlan(
   layers: PyramidLayerAudit[],
-  inventory: MissingTestInventory
+  inventory: MissingTestInventory,
+  metaGates?: readonly TestPyramidMetaGateAudit[],
+  detectedStacks?: readonly StackName[]
 ): PrioritizedTestAction[] {
   const plan: PrioritizedTestAction[] = [];
   addCriticalActions(plan, layers, inventory);
   addHighActions(plan, layers, inventory);
   addMediumActions(plan, layers);
+  addMetaGateAndSpecializedActions(plan, metaGates, detectedStacks);
   return plan;
 }
 

@@ -39,6 +39,14 @@ describe('certify-gate', () => {
     const alembicDir = path.join(dir, 'alembic', 'versions');
     fs.mkdirSync(alembicDir, { recursive: true });
     fs.writeFileSync(path.join(alembicDir, '001_init.py'), '# migration');
+
+    const graphDir = path.join(dir, 'graphify-out');
+    fs.mkdirSync(graphDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(graphDir, 'graph.json'),
+      JSON.stringify({ nodes: [{ id: 'n_user', source_file: 'src/models/user.py' }], links: [] }),
+      'utf8'
+    );
   }
 
   it('certifica exitosamente un proyecto que cumple todas las compuertas 11X', async () => {
@@ -54,17 +62,16 @@ describe('certify-gate', () => {
     expect(result.checks.security_stig_owasp_clean).toBe(true);
     expect(result.checks.documentation_synced).toBe(true);
     expect(result.checks.zero_orphan_api_endpoints).toBe(false);
-    expect(result.checks.ast_topology_clean).toBe(false);
+    expect(result.checks.ast_topology_clean).toBe(true);
     expect(result.checks.lint_evidence_verified).toBe(false);
     expect(result.checks.unit_evidence_verified).toBe(false);
     expect(result.check_statuses?.zero_orphan_api_endpoints).toBe('SKIPPED');
-    expect(result.check_statuses?.ast_topology_clean).toBe('SKIPPED');
+    expect(result.check_statuses?.ast_topology_clean).toBe('PASSED');
     expect(result.check_statuses?.lint_evidence_verified).toBe('SKIPPED');
     expect(result.check_statuses?.unit_evidence_verified).toBe('SKIPPED');
     expect(result.skipped_checks).toEqual(
       expect.arrayContaining([
         'zero_orphan_api_endpoints',
-        'ast_topology_clean',
         'lint_evidence_verified',
         'unit_evidence_verified',
       ])
@@ -437,7 +444,6 @@ describe('certify-gate', () => {
     expect(strictBlocked.blockers).toEqual(
       expect.arrayContaining([
         'STRICT_SKIPPED_CHECK: zero_orphan_api_endpoints',
-        'STRICT_SKIPPED_CHECK: ast_topology_clean',
         'STRICT_SKIPPED_CHECK: lint_evidence_verified',
       ])
     );

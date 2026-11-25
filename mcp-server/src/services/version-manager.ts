@@ -169,6 +169,7 @@ const GLOBAL_SKILL_REL_DIRS: readonly string[] = [
   path.join('.cursor', 'skills'),
   path.join('.codeium', 'windsurf', 'skills'),
   path.join('.codex', 'skills'),
+  path.join('.config', 'opencode', 'skills'),
 ];
 
 export function resolveGlobalSkillCandidateDirs(homeDir: string): string[] {

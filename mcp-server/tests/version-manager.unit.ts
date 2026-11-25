@@ -609,7 +609,7 @@ describe('Version Manager, .qa-11x-version Stamp, 24h TTL Fail-Open & Global Aut
 
       const geminiSkillsDir = path.join(fakeHome, '.gemini', 'config', 'skills');
       expect(resolveGlobalSkillCandidateDirs(fakeHome)).toContain(geminiSkillsDir);
-      expect(resolveGlobalSkillCandidateDirs(fakeHome)).toHaveLength(7);
+      expect(resolveGlobalSkillCandidateDirs(fakeHome)).toHaveLength(8);
       expect(detectExistingQa11xSkillDirs(fakeHome)).toContain(geminiSkillsDir);
       expect(readVersionStamp(geminiSkillsDir)).toBe('2.19.0');
       expect(readVersionStamp(path.join(projectDir, '.agents'))).toBe('2.19.0');

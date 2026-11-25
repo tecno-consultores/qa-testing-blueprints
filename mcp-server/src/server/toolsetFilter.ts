@@ -9,6 +9,7 @@ export type ToolsetMode = 'core' | 'auto' | 'full';
 
 export const CORE_TOOLSET_NAMES: ReadonlySet<string> = new Set([
   'inspect_project_config',
+  'audit_test_pyramid_gaps',
   'inspect_ast_blast_radius',
   'bootstrap_or_merge_11x',
   'audit_security_stig_owasp',

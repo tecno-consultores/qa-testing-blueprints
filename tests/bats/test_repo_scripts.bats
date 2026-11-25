@@ -77,7 +77,8 @@ PY
 
 @test "certify_task_completion.sh (F1.4): reporta SKIPPED si falta verificar-secretos.sh y bloquea con --strict y QA11X_STRICT=1" {
   WORK="${BATS_TEST_TMPDIR}/certify_ws"
-  mkdir -p "${WORK}/.agents/scripts" "${WORK}/scripts"
+  mkdir -p "${WORK}/.agents/scripts" "${WORK}/scripts" "${WORK}/graphify-out"
+  printf '{"nodes":[],"links":[]}\n' >"${WORK}/graphify-out/graph.json"
   cp "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh" "${WORK}/.agents/scripts/certify_task_completion.sh"
   chmod +x "${WORK}/.agents/scripts/certify_task_completion.sh"
 
@@ -128,7 +129,8 @@ EOF
 
 @test "certify_task_completion.sh (F1.4 gates 2/4/8/10): detecta SKIPPED en auditar-infra/manifiesto/validador/diff-cov y bloquea en --strict" {
   WORK="${BATS_TEST_TMPDIR}/certify_multi_skip"
-  mkdir -p "${WORK}/.agents/scripts" "${WORK}/scripts" "${WORK}/tests/bats"
+  mkdir -p "${WORK}/.agents/scripts" "${WORK}/scripts" "${WORK}/tests/bats" "${WORK}/graphify-out"
+  printf '{"nodes":[],"links":[]}\n' >"${WORK}/graphify-out/graph.json"
   cp "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh" "${WORK}/.agents/scripts/certify_task_completion.sh"
   chmod +x "${WORK}/.agents/scripts/certify_task_completion.sh"
 
@@ -178,7 +180,8 @@ EOF
   FAKE_BIN="${BATS_TEST_TMPDIR}/fake_bin"
   DOCKER_LOG="${BATS_TEST_TMPDIR}/docker_calls.log"
   FAKE_PY_MARKER="${BATS_TEST_TMPDIR}/host_python_called.flag"
-  mkdir -p "${WORK}/.agents/scripts" "${WORK}/scripts" "${WORK}/mcp-server" "${FAKE_BIN}"
+  mkdir -p "${WORK}/.agents/scripts" "${WORK}/scripts" "${WORK}/mcp-server" "${WORK}/graphify-out" "${FAKE_BIN}"
+  printf '{"nodes":[],"links":[]}\n' >"${WORK}/graphify-out/graph.json"
   cp "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh" "${WORK}/.agents/scripts/certify_task_completion.sh"
   chmod +x "${WORK}/.agents/scripts/certify_task_completion.sh"
 
@@ -259,7 +262,8 @@ EOF
 
 @test "certify_task_completion.sh (F3.2): exige tests/docs para SKILL.md, rules, schemas, manifest.json y llms.txt pero mantiene DOCS_ONLY para docs/*.md" {
   WORK="${BATS_TEST_TMPDIR}/certify_f32_gate10"
-  mkdir -p "${WORK}/.agents/scripts" "${WORK}/.agents/schemas" "${WORK}/.agents/skills/demo" "${WORK}/.agents/rules" "${WORK}/scripts" "${WORK}/docs" "${WORK}/tests"
+  mkdir -p "${WORK}/.agents/scripts" "${WORK}/.agents/schemas" "${WORK}/.agents/skills/demo" "${WORK}/.agents/rules" "${WORK}/scripts" "${WORK}/docs" "${WORK}/tests" "${WORK}/graphify-out"
+  printf '{"nodes":[],"links":[]}\n' >"${WORK}/graphify-out/graph.json"
   cp "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh" "${WORK}/.agents/scripts/certify_task_completion.sh"
   chmod +x "${WORK}/.agents/scripts/certify_task_completion.sh"
 
@@ -1132,7 +1136,8 @@ EOF
 @test "certify_task_completion.sh: cubre QA_DIAGNOSTIC_JSON relativo, fallback HEAD~1..HEAD y verify_diff_coverage en Gate 10" {
   WORK="${BATS_TEST_TMPDIR}/certify_head_cov_ws"
   DIFF_COV_LOG="${BATS_TEST_TMPDIR}/diff_cov_args.log"
-  mkdir -p "${WORK}/.agents/scripts" "${WORK}/.agents/.cache/coverage" "${WORK}/scripts" "${WORK}/tests/bats"
+  mkdir -p "${WORK}/.agents/scripts" "${WORK}/.agents/.cache/coverage" "${WORK}/scripts" "${WORK}/tests/bats" "${WORK}/graphify-out"
+  printf '{"nodes":[],"links":[]}\n' >"${WORK}/graphify-out/graph.json"
   cp "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh" "${WORK}/.agents/scripts/certify_task_completion.sh"
   chmod +x "${WORK}/.agents/scripts/certify_task_completion.sh"
 
@@ -1344,7 +1349,8 @@ EOF
 @test "Wave 3 M023/M024/M044/M045: certify catalogs+test-only+redaction, auditar-infra fingerprint y probar-mcp CWD" {
   # 1. M024 + M023: catalogs/ obliga QA-TEST-SYNC-01, test-only no bloquea docs y redacción case-insensitive en stderr
   local w3_ws="${BATS_TEST_TMPDIR}/w3_certify_ws"
-  mkdir -p "${w3_ws}/.agents/scripts" "${w3_ws}/scripts" "${w3_ws}/catalogs" "${w3_ws}/tests"
+  mkdir -p "${w3_ws}/.agents/scripts" "${w3_ws}/scripts" "${w3_ws}/catalogs" "${w3_ws}/tests" "${w3_ws}/graphify-out"
+  printf '{"nodes":[],"links":[]}\n' >"${w3_ws}/graphify-out/graph.json"
   cp "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh" "${w3_ws}/.agents/scripts/certify_task_completion.sh"
   chmod +x "${w3_ws}/.agents/scripts/certify_task_completion.sh"
   printf 'print("✔ [Manifest] stub OK")\n' >"${w3_ws}/scripts/generar-manifiesto.py"
@@ -1766,7 +1772,8 @@ EOF
 @test "certify_task_completion.sh y instalar-hooks.sh: soportan rutas UTF-8 no-ASCII (core.quotePath=false)" {
   local utf_ws="${BATS_TEST_TMPDIR}/cert_utf8_ws"
   local utf_bin="${BATS_TEST_TMPDIR}/cert_utf8_bin"
-  mkdir -p "${utf_ws}/.agents/scripts" "${utf_ws}/scripts" "${utf_bin}"
+  mkdir -p "${utf_ws}/.agents/scripts" "${utf_ws}/scripts" "${utf_ws}/graphify-out" "${utf_bin}"
+  printf '{"nodes":[],"links":[]}\n' >"${utf_ws}/graphify-out/graph.json"
   cp "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh" "${utf_ws}/.agents/scripts/certify_task_completion.sh"
   cp "${REPO_ROOT}/scripts/verificar-secretos.sh" "${utf_ws}/scripts/verificar-secretos.sh"
   cp "${REPO_ROOT}/instalar-hooks.sh" "${utf_ws}/instalar-hooks.sh"
@@ -2197,4 +2204,70 @@ EOF
   assert_success
   run grep -F "rm -f deadbeef1234" "${docker_log}"
   assert_success
+}
+
+@test "certify_task_completion.sh (Gate 6 v3.9.0): auto-construye graphify-out/graph.json bajo Rule Zero y bloquea si falla o falta Docker" {
+  local ast_ws="${BATS_TEST_TMPDIR}/ast_autobuild_ws"
+  local ast_bin="${BATS_TEST_TMPDIR}/ast_autobuild_bin"
+  local nodk_bin="${BATS_TEST_TMPDIR}/ast_nodk_bin"
+  mkdir -p "${ast_ws}/.agents/scripts" "${ast_ws}/scripts" "${ast_ws}/src" "${ast_bin}" "${nodk_bin}"
+  cp "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh" "${ast_ws}/.agents/scripts/"
+  chmod +x "${ast_ws}/.agents/scripts/certify_task_completion.sh"
+  printf '#!/usr/bin/env bash\nexit 0\n' >"${ast_ws}/scripts/verificar-secretos.sh"
+  chmod +x "${ast_ws}/scripts/verificar-secretos.sh"
+  printf 'print("✔ [AST] stub OK")\n' >"${ast_ws}/.agents/scripts/verify_topological_health.py"
+  printf 'export const v = 1;\n' >"${ast_ws}/src/app.ts"
+
+  for tool in bash sh awk cat chmod cp dirname find git grep head id mkdir mktemp mv python3 readlink realpath rm sed sort stat tail touch tr wc env date; do
+    resolved="$(command -v "${tool}" || true)"
+    [ -n "${resolved}" ] && ln -sf "${resolved}" "${nodk_bin}/${tool}"
+  done
+
+  # 1. Sin docker en PATH y con código fuente -> falla duro [RULE-ZERO][AST-GRAPH]
+  run env QA11X_DOCKERENV_PATH="${HERMETIC_DOCKERENV}" PATH="${nodk_bin}" LC_ALL=C bash "${ast_ws}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 1
+  assert_output --partial "[RULE-ZERO][AST-GRAPH]"
+
+  # 2. Con scripts/actualizar-grafos-graphify.sh que falla -> bloquea
+  printf '#!/usr/bin/env bash\nexit 0\n' >"${ast_bin}/docker"
+  chmod +x "${ast_bin}/docker"
+  printf '#!/usr/bin/env bash\nexit 1\n' >"${ast_ws}/scripts/actualizar-grafos-graphify.sh"
+  chmod +x "${ast_ws}/scripts/actualizar-grafos-graphify.sh"
+  run env QA11X_DOCKERENV_PATH="${HERMETIC_DOCKERENV}" PATH="${ast_bin}:/usr/bin:/bin" LC_ALL=C bash "${ast_ws}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 1
+  assert_output --partial "actualizar-grafos-graphify.sh"
+
+  # 3. Con scripts/actualizar-grafos-graphify.sh que sale 0 sin crear graph.json -> bloquea
+  printf '#!/usr/bin/env bash\nexit 0\n' >"${ast_ws}/scripts/actualizar-grafos-graphify.sh"
+  run env QA11X_DOCKERENV_PATH="${HERMETIC_DOCKERENV}" PATH="${ast_bin}:/usr/bin:/bin" LC_ALL=C bash "${ast_ws}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 1
+  assert_output --partial "sin generar graphify-out/graph.json"
+
+  # 4. Con scripts/actualizar-grafos-graphify.sh generando graphify-out/graph.json -> pasa Gate 6
+  cat >"${ast_ws}/scripts/actualizar-grafos-graphify.sh" <<EOF
+#!/usr/bin/env bash
+mkdir -p "${ast_ws}/graphify-out"
+printf '{"nodes":[],"links":[]}\n' >"${ast_ws}/graphify-out/graph.json"
+EOF
+  run env QA11X_DOCKERENV_PATH="${HERMETIC_DOCKERENV}" PATH="${ast_bin}:/usr/bin:/bin" LC_ALL=C bash "${ast_ws}/.agents/scripts/certify_task_completion.sh"
+  assert_success
+  [ -f "${ast_ws}/graphify-out/graph.json" ]
+
+  # 5. Fallback directo a docker run sin actualizar-grafos-graphify.sh (fallo y éxito)
+  rm -rf "${ast_ws}/graphify-out" "${ast_ws}/scripts/actualizar-grafos-graphify.sh"
+  printf '#!/usr/bin/env bash\nexit 1\n' >"${ast_bin}/docker"
+  run env QA11X_DOCKERENV_PATH="${HERMETIC_DOCKERENV}" PATH="${ast_bin}:/usr/bin:/bin" LC_ALL=C bash "${ast_ws}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 1
+  assert_output --partial "en contenedor Docker"
+
+  cat >"${ast_bin}/docker" <<EOF
+#!/usr/bin/env bash
+mkdir -p "${ast_ws}/graphify-out"
+printf '{"nodes":[],"links":[]}\n' >"${ast_ws}/graphify-out/graph.json"
+exit 0
+EOF
+  chmod +x "${ast_bin}/docker"
+  run env QA11X_DOCKERENV_PATH="${HERMETIC_DOCKERENV}" PATH="${ast_bin}:/usr/bin:/bin" LC_ALL=C bash "${ast_ws}/.agents/scripts/certify_task_completion.sh"
+  assert_success
+  [ -f "${ast_ws}/graphify-out/graph.json" ]
 }

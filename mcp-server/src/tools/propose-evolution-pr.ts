@@ -5,15 +5,22 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { execFile } from 'node:child_process';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
-import { ProposeEvolutionPrInput, ProposeEvolutionPrResult } from '../types.js';
-import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
+import { EvolutionEmailTemplate, ProposeEvolutionPrInput, ProposeEvolutionPrResult } from '../types.js';
+import { reportDebugCatchError, sanitizeDiagnosticText } from '../utils/diagnosticFormatter.js';
 
 export const UPSTREAM_REPO = 'tecno-consultores/qa-testing-blueprints';
+export const EVOLUTION_SUPPORT_EMAIL = 'soporte@tecnoconsultores.net';
 export const MAX_PREFILLED_GITHUB_URL_LENGTH = 2000;
+export const MAX_PREFILLED_MAILTO_URL_LENGTH = 2000;
 const STATUS_PR_CREATED = 'PR_CREATED_VIA_GH';
 const STATUS_ISSUE_CREATED = 'ISSUE_CREATED_VIA_GH';
 const STATUS_PROPOSAL_GENERATED = 'PROPOSAL_FILE_AND_URL_GENERATED';
 const UTF8_ENCODING = 'utf-8';
+const LOCAL_USER_PATH_RE = /(?:\/(?:home|Users)\/[A-Za-z0-9._-]+|[A-Za-z]:\\Users\\[A-Za-z0-9._-]+)/g;
+
+export function sanitizeProposalTextForEmail(raw: string): string {
+  return sanitizeDiagnosticText(raw).replace(LOCAL_USER_PATH_RE, '<LOCAL_HOME>');
+}
 
 export function encodeRfc3986URIComponent(value: string): string {
   return encodeURIComponent(value).replace(
@@ -202,12 +209,17 @@ function writeProposalFile(
   assertContainedNonSymlinkPath(resolvedPath, filePath);
   const fence = computeSafeCodeFence(input.proposed_content_or_snippet);
 
+  const sanitizedRationale = sanitizeProposalTextForEmail(input.empirical_rationale);
+  const sanitizedSnippet = sanitizeProposalTextForEmail(input.proposed_content_or_snippet);
+  const sanitizedTitle = sanitizeProposalTextForEmail(input.improvement_title).replace(/[\r\n]+/g, ' ').trim();
   const fileContent = [
-    `# Propuesta de Evolución Continua: ${input.improvement_title}`,
+    `# Propuesta de Evolución Continua: ${sanitizedTitle}`,
     '',
+    `**Canal Principal (Correo — sin envío automático desde MCP):** \`${EVOLUTION_SUPPORT_EMAIL}\``,
+    `**Asunto Sugerido:** \`[QA-11X Evolution] ${sanitizedTitle}\``,
     `**Fecha de Registro:** ${new Date().toISOString()}`,
     `**Rama Sugerida:** \`evolution/${slug}\``,
-    `**Repositorio Destino:** \`${UPSTREAM_REPO}\``,
+    `**Repositorio Destino (Canal Secundario):** \`${UPSTREAM_REPO}\``,
     `**Archivo Objetivo (Capa IA):** \`${safeBlueprintFile}\``,
     `**Componente Ejecutable (Capa MCP):** \`${targets.targetMcpComponent}\``,
     `**Manual Humano Objetivo (\`docs/\`):** \`${targets.targetHumanDocFile}\``,
@@ -215,11 +227,11 @@ function writeProposalFile(
     ...buildDualConsumerSectionLines(safeBlueprintFile, input, targets),
     '',
     '## Justificación Empírica (Dogfooding / Producción)',
-    input.empirical_rationale,
+    sanitizedRationale,
     '',
     '## Bloque / Cambio Propuesto (Skill / MCP)',
     `${fence}markdown`,
-    input.proposed_content_or_snippet,
+    sanitizedSnippet,
     fence,
     '',
   ].join('\n');
@@ -228,18 +240,20 @@ function writeProposalFile(
   return filePath;
 }
 
-function truncateBodyForUrlBudget(issueBody: string, urlPrefix: string, slug: string): string {
-  const fullEncoded = encodeRfc3986URIComponent(issueBody);
-  if (urlPrefix.length + fullEncoded.length <= MAX_PREFILLED_GITHUB_URL_LENGTH) {
+function truncateBodyForUrlBudget(
+  body: string,
+  urlPrefix: string,
+  slug: string,
+  maxUrlLen: number = MAX_PREFILLED_GITHUB_URL_LENGTH
+): string {
+  const fullEncoded = encodeRfc3986URIComponent(body);
+  if (urlPrefix.length + fullEncoded.length <= maxUrlLen) {
     return fullEncoded;
   }
   const suffix = `\n\n...(Truncado por límite de URL; adjunte el contenido completo desde .agents/proposals/${slug}.md)`;
   const encodedSuffix = encodeRfc3986URIComponent(suffix);
-  const maxBodyEncodedLen = Math.max(
-    0,
-    MAX_PREFILLED_GITHUB_URL_LENGTH - urlPrefix.length - encodedSuffix.length
-  );
-  const codePoints = Array.from(issueBody);
+  const maxBodyEncodedLen = Math.max(0, maxUrlLen - urlPrefix.length - encodedSuffix.length);
+  const codePoints = Array.from(body);
   let low = 0;
   let high = codePoints.length;
   while (low < high) {
@@ -252,6 +266,53 @@ function truncateBodyForUrlBudget(issueBody: string, urlPrefix: string, slug: st
     }
   }
   return `${encodeRfc3986URIComponent(codePoints.slice(0, low).join(''))}${encodedSuffix}`;
+}
+
+export function buildPrefilledEmailTemplate(
+  input: ProposeEvolutionPrInput,
+  slug: string,
+  targets: DualConsumerTargets
+): { emailTemplate: EvolutionEmailTemplate; prefilledMailtoUrl: string } {
+  const safeBlueprintFile = validateRelativeRepoPath(input.target_blueprint_file, 'target_blueprint_file');
+  const cleanTitle = sanitizeProposalTextForEmail(input.improvement_title).replace(/[\r\n]+/g, ' ').trim();
+  const subject = `[QA-11X Evolution] ${cleanTitle}`;
+  const attachmentPath = `.agents/proposals/${slug}.md`;
+  const fence = computeSafeCodeFence(input.proposed_content_or_snippet);
+  const bodyLines = [
+    'Hola equipo de Tecno Consultores,',
+    '',
+    'Comparto la siguiente propuesta de mejora para el Estándar QA-11X (qa-testing-blueprints):',
+    '',
+    '### Matriz Dual-Consumer',
+    `- Capa Agentes IA (Skill / Rule): ${safeBlueprintFile}`,
+    `- Capa Ejecutable (MCP / Auditor): ${targets.targetMcpComponent}`,
+    `- Capa Ingeniería Humana (docs/): ${targets.targetHumanDocFile}`,
+    ...(input.proposed_human_doc_summary?.trim()
+      ? ['', '### Borrador para Documentación Humana (docs/)', sanitizeProposalTextForEmail(input.proposed_human_doc_summary.trim())]
+      : []),
+    '',
+    '### Justificación Empírica',
+    sanitizeProposalTextForEmail(input.empirical_rationale),
+    '',
+    '### Cambio / Bloque Propuesto',
+    `${fence}markdown`,
+    sanitizeProposalTextForEmail(input.proposed_content_or_snippet),
+    fence,
+    '',
+    `(Plantilla local de referencia: ${attachmentPath})`,
+  ];
+  const body = bodyLines.join('\n');
+  const mailtoPrefix = `mailto:${EVOLUTION_SUPPORT_EMAIL}?subject=${encodeRfc3986URIComponent(subject)}&body=`;
+  const prefilledMailtoUrl = `${mailtoPrefix}${truncateBodyForUrlBudget(body, mailtoPrefix, slug, MAX_PREFILLED_MAILTO_URL_LENGTH)}`;
+  return {
+    emailTemplate: {
+      to: EVOLUTION_SUPPORT_EMAIL,
+      subject,
+      body,
+      attachment_path: attachmentPath,
+    },
+    prefilledMailtoUrl,
+  };
 }
 
 export function buildPrefilledIssueUrl(input: ProposeEvolutionPrInput): {
@@ -368,7 +429,12 @@ export async function proposeSkillEvolutionPr(
   assertContainedNonSymlinkPath(resolvedPath, proposalTargetPath);
   const dualTargets = inferDualConsumerTargets(input);
   const { issueBody, prefilledUrl } = buildPrefilledIssueUrl(input);
+  const { emailTemplate, prefilledMailtoUrl } = buildPrefilledEmailTemplate(input, slug, dualTargets);
   const sharedFields = {
+    primary_channel: 'email' as const,
+    support_email: EVOLUTION_SUPPORT_EMAIL,
+    email_template: emailTemplate,
+    prefilled_mailto_url: prefilledMailtoUrl,
     target_repo: UPSTREAM_REPO,
     target_blueprint_file: safeBlueprintFile,
     target_human_doc_file: dualTargets.targetHumanDocFile,
@@ -384,8 +450,7 @@ export async function proposeSkillEvolutionPr(
       gh_cli_authenticated: false,
       pull_request_url: null,
       local_proposal_file: proposalTargetPath,
-      message:
-        'Propuesta Dual-Consumer generada en modo dry_run=true sin escribir en disco (comparta prefilled_github_url íntegro con &body=).',
+      message: `Plantilla Dual-Consumer lista para enviar por correo a ${EVOLUTION_SUPPORT_EMAIL} (canal principal; dry_run=true sin escribir en disco ni enviar correo). Canal secundario opcional: prefilled_github_url.`,
     };
   }
 
@@ -398,8 +463,7 @@ export async function proposeSkillEvolutionPr(
       gh_cli_authenticated: false,
       pull_request_url: null,
       local_proposal_file: proposalFilePath,
-      message:
-        'Propuesta Dual-Consumer generada localmente y URL prellenada creada (modo offline seleccionado; comparta prefilled_github_url íntegro con &body=).',
+      message: `Plantilla Dual-Consumer guardada localmente (modo offline seleccionado) y lista para enviar por correo a ${EVOLUTION_SUPPORT_EMAIL} (canal principal; use email_template o prefilled_mailto_url; canal secundario opcional: prefilled_github_url).`,
     };
   }
 
@@ -414,14 +478,14 @@ export async function proposeSkillEvolutionPr(
       pull_request_url: ghResult.remoteUrl,
       local_proposal_file: proposalFilePath,
       message: isIssue
-        ? `Issue upstream Dual-Consumer creado exitosamente en ${ghResult.remoteUrl}`
-        : `Pull Request Dual-Consumer creado exitosamente en ${ghResult.remoteUrl}`,
+        ? `Issue upstream Dual-Consumer creado exitosamente en ${ghResult.remoteUrl} (plantilla de correo para ${EVOLUTION_SUPPORT_EMAIL} también generada).`
+        : `Pull Request Dual-Consumer creado exitosamente en ${ghResult.remoteUrl} (plantilla de correo para ${EVOLUTION_SUPPORT_EMAIL} también generada).`,
     };
   }
 
   const msg = ghResult.ghAuthenticated
-    ? 'gh CLI autenticado pero no se pudo crear el PR directamente; se generó propuesta local Dual-Consumer y URL prellenada (comparta prefilled_github_url íntegro con &body=).'
-    : 'gh CLI no disponible o no autenticado; se generó propuesta local Dual-Consumer y URL prellenada de GitHub (comparta prefilled_github_url íntegro con &body=).';
+    ? `gh CLI autenticado pero no se pudo crear el PR directamente; envía la plantilla generada por correo a ${EVOLUTION_SUPPORT_EMAIL} (canal principal) o usa prefilled_github_url.`
+    : `Envía la plantilla Dual-Consumer generada por correo a ${EVOLUTION_SUPPORT_EMAIL} (canal principal; gh CLI no disponible o no autenticado; canal secundario: prefilled_github_url).`;
 
   return {
     ...sharedFields,

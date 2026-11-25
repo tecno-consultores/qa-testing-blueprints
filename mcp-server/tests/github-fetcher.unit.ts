@@ -520,10 +520,10 @@ describe('GitHubFetcher Service (DISA STIG V-222513 & Zero-Clone Hydration)', ()
   });
 
   it('extracts standard edition from package description with safe fallback', () => {
-    expect(MCP_STANDARD_EDITION).toBe('QA-11X v3.8');
+    expect(MCP_STANDARD_EDITION).toBe('QA-11X v3.9');
     expect(extractStandardEdition('Official MCP Server (QA-11X v3.9: 19 Tools)')).toBe('QA-11X v3.9');
-    expect(extractStandardEdition('Description without edition tag')).toBe('QA-11X v3.8');
-    expect(extractStandardEdition()).toBe('QA-11X v3.8');
+    expect(extractStandardEdition('Description without edition tag')).toBe('QA-11X v3.9');
+    expect(extractStandardEdition()).toBe('QA-11X v3.9');
   });
 
   it('trims trailing slashes in rawBaseUrl, encodes path segments, and recovers cleanly from corrupt cached manifest.json', async () => {

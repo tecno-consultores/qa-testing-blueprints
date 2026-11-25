@@ -1,0 +1,213 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
+#
+# Plantilla agnóstica QA-11X (UI-11X-03) — Auditoría Post-Despliegue de Borde (Edge / CDN)
+# Previene envenenamiento de caché en HTML entrypoints, colisión MIME en /assets/* bajo
+# X-Content-Type-Options: nosniff y degradación de cabeceras de seguridad Grado A+.
+#
+# Uso (siempre dentro de contenedor Docker efímero — Regla Cero):
+#   EDGE_BASE_URL="https://app.example.com" bash scripts/audit-edge.sh
+#   bash scripts/audit-edge.sh https://app.example.com
+#   EDGE_NO_CACHE_PATHS="/api/health,/api/status" bash scripts/audit-edge.sh https://app.example.com
+#   CLOUDFLARE_ZONE_ID=... CLOUDFLARE_API_TOKEN=... bash scripts/audit-edge.sh --purge-cloudflare-cache https://app.example.com
+
+set -euo pipefail
+
+CURL_BIN="${CURL_BIN:-curl}"
+EDGE_MISSING_ASSET_PROBE="${EDGE_MISSING_ASSET_PROBE:-/assets/__audit_missing_probe__.js}"
+EDGE_NO_CACHE_PATHS="${EDGE_NO_CACHE_PATHS:-}"
+CLOUDFLARE_API_BASE="${CLOUDFLARE_API_BASE:-https://api.cloudflare.com/client/v4}"
+PURGE_CF=0
+BASE_URL="${EDGE_BASE_URL:-}"
+
+usage() {
+  cat <<'EOF'
+Uso: audit-edge.sh [--purge-cloudflare-cache] [<EDGE_BASE_URL>]
+
+Variables de entorno opcionales:
+  EDGE_BASE_URL              URL base a auditar (ej. https://app.example.com)
+  EDGE_NO_CACHE_PATHS        Rutas adicionales separadas por coma que no deben fijar max-age > 0
+  EDGE_MISSING_ASSET_PROBE   Sonda inexistente bajo /assets/* (default: /assets/__audit_missing_probe__.js)
+  CLOUDFLARE_ZONE_ID         ID de zona Cloudflare (solo con --purge-cloudflare-cache)
+  CLOUDFLARE_API_TOKEN       Token API Cloudflare con Zone:Cache Purge (solo env, nunca argv)
+EOF
+}
+
+for arg in "$@"; do
+  case "${arg}" in
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    --purge-cloudflare-cache)
+      PURGE_CF=1
+      ;;
+    --api-token | --api-token=* | --token | --token=*)
+      printf '❌ [EDGE-11X] Pasa CLOUDFLARE_API_TOKEN únicamente por variable de entorno, nunca en argv.\n' >&2
+      exit 1
+      ;;
+    http://* | https://*)
+      BASE_URL="${arg}"
+      ;;
+    *)
+      printf '❌ [EDGE-11X] Argumento no reconocido: %s\n' "${arg}" >&2
+      exit 1
+      ;;
+  esac
+done
+
+BASE_URL="${BASE_URL%/}"
+if [ -z "${BASE_URL}" ]; then
+  printf '❌ [EDGE-11X] Debe indicar EDGE_BASE_URL o pasar la URL base como argumento.\n' >&2
+  usage >&2
+  exit 1
+fi
+
+TMP_DIR="$(mktemp -d /tmp/qa11x-audit-edge.XXXXXX)"
+cleanup() {
+  rm -rf "${TMP_DIR}" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
+get_header_ci() {
+  local headers_file="$1"
+  local header_name="$2"
+  awk -F': ' -v target="$(printf '%s' "${header_name}" | tr '[:upper:]' '[:lower:]')" '
+    BEGIN { IGNORECASE = 1; val = "" }
+    {
+      gsub(/\r/, "")
+      split($0, parts, ":")
+      key = tolower(parts[1])
+      if (key == target) {
+        sub(/^[^:]*:[[:space:]]*/, "")
+        val = $0
+      }
+    }
+    END { print val }
+  ' "${headers_file}"
+}
+
+get_http_status() {
+  local headers_file="$1"
+  awk '/^HTTP\//{ gsub(/\r/, ""); code = $2 } END { print code }' "${headers_file}"
+}
+
+check_no_positive_cache_override() {
+  local route_label="$1"
+  local cache_ctrl="$2"
+  local lower_cc
+  lower_cc="$(printf '%s' "${cache_ctrl}" | tr '[:upper:]' '[:lower:]')"
+  if printf '%s' "${lower_cc}" | grep -Eq '(^|[[:space:],])max-age=[1-9][0-9]*' &&
+    ! printf '%s' "${lower_cc}" | grep -Eq '(^|[[:space:],])(no-cache|no-store)($|[[:space:],])'; then
+    printf '❌ [EDGE-11X] %s expone Cache-Control con max-age positivo ("%s") sin no-cache/no-store.\n' \
+      "${route_label}" "${cache_ctrl}" >&2
+    return 1
+  fi
+  return 0
+}
+
+purge_cloudflare_zone_cache() {
+  if [ -z "${CLOUDFLARE_ZONE_ID:-}" ] || [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
+    printf '❌ [EDGE-11X] --purge-cloudflare-cache requiere CLOUDFLARE_ZONE_ID y CLOUDFLARE_API_TOKEN en entorno.\n' >&2
+    return 1
+  fi
+  local purge_resp="${TMP_DIR}/cf_purge.json"
+  "${CURL_BIN}" -fsS -X POST \
+    "${CLOUDFLARE_API_BASE%/}/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
+    -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+    -H "Content-Type: application/json" \
+    --data '{"purge_everything":true}' >"${purge_resp}"
+  if ! grep -Eq '"success"[[:space:]]*:[[:space:]]*true' "${purge_resp}"; then
+    printf '❌ [EDGE-11X] Purga de caché Cloudflare falló (sin "success":true).\n' >&2
+    return 1
+  fi
+  printf '✔ [EDGE-11X] Caché de zona Cloudflare purgada correctamente.\n'
+}
+
+if [ "${PURGE_CF}" -eq 1 ]; then
+  purge_cloudflare_zone_cache
+fi
+
+# 1. Auditar GET / (HTML entrypoint, Cache-Control y cabeceras de seguridad)
+ROOT_HDR="${TMP_DIR}/root.headers"
+ROOT_BODY="${TMP_DIR}/root.html"
+"${CURL_BIN}" -sS -L -D "${ROOT_HDR}" -o "${ROOT_BODY}" "${BASE_URL}/"
+
+ROOT_STATUS="$(get_http_status "${ROOT_HDR}")"
+if [ "${ROOT_STATUS}" != "200" ]; then
+  printf '❌ [EDGE-11X] GET / devolvió HTTP %s (esperado 200).\n' "${ROOT_STATUS:-none}" >&2
+  exit 1
+fi
+
+ROOT_CC="$(get_header_ci "${ROOT_HDR}" "Cache-Control")"
+check_no_positive_cache_override "GET /" "${ROOT_CC}"
+
+ROOT_NOSNIFF="$(printf '%s' "$(get_header_ci "${ROOT_HDR}" "X-Content-Type-Options")" | tr '[:upper:]' '[:lower:]')"
+if [ "${ROOT_NOSNIFF}" != "nosniff" ]; then
+  printf '❌ [EDGE-11X] GET / carece de X-Content-Type-Options: nosniff (actual: "%s").\n' "${ROOT_NOSNIFF}" >&2
+  exit 1
+fi
+
+ROOT_XFO="$(printf '%s' "$(get_header_ci "${ROOT_HDR}" "X-Frame-Options")" | tr '[:upper:]' '[:lower:]')"
+if [ "${ROOT_XFO}" != "deny" ]; then
+  printf '❌ [EDGE-11X] GET / carece de X-Frame-Options: DENY (actual: "%s").\n' "${ROOT_XFO}" >&2
+  exit 1
+fi
+
+if [[ "${BASE_URL}" == https://* ]]; then
+  ROOT_HSTS="$(printf '%s' "$(get_header_ci "${ROOT_HDR}" "Strict-Transport-Security")" | tr '[:upper:]' '[:lower:]')"
+  if ! printf '%s' "${ROOT_HSTS}" | grep -Eq 'max-age=[1-9][0-9]*'; then
+    printf '❌ [EDGE-11X] GET / HTTPS carece de Strict-Transport-Security válido (actual: "%s").\n' "${ROOT_HSTS}" >&2
+    exit 1
+  fi
+fi
+
+# 2. Extraer dinámicamente el bundle JS de entrada y verificar HTTP 200 + Content-Type javascript
+MODULE_SRC="$(grep -Eo '<script[^>]+type=["'"'"']module["'"'"'][^>]+src=["'"'"'](/assets/[^"'"'"']+\.m?js)["'"'"']' "${ROOT_BODY}" |
+  sed -E 's/.*src=["'"'"']([^"'"'"']+)["'"'"'].*/\1/' | head -n 1 || true)"
+if [ -z "${MODULE_SRC}" ]; then
+  MODULE_SRC="$(grep -Eo '<script[^>]+src=["'"'"'](/assets/[^"'"'"']+\.m?js)["'"'"'][^>]+type=["'"'"']module["'"'"']' "${ROOT_BODY}" |
+    sed -E 's/.*src=["'"'"']([^"'"'"']+)["'"'"'].*/\1/' | head -n 1 || true)"
+fi
+if [ -n "${MODULE_SRC}" ]; then
+  ASSET_HDR="${TMP_DIR}/asset.headers"
+  "${CURL_BIN}" -sS -I -D "${ASSET_HDR}" -o /dev/null "${BASE_URL}${MODULE_SRC}"
+  ASSET_STATUS="$(get_http_status "${ASSET_HDR}")"
+  ASSET_CT="$(printf '%s' "$(get_header_ci "${ASSET_HDR}" "Content-Type")" | tr '[:upper:]' '[:lower:]')"
+  if [ "${ASSET_STATUS}" != "200" ]; then
+    printf '❌ [EDGE-11X] Bundle vivo %s devolvió HTTP %s (esperado 200).\n' "${MODULE_SRC}" "${ASSET_STATUS:-none}" >&2
+    exit 1
+  fi
+  if ! printf '%s' "${ASSET_CT}" | grep -Eq 'javascript|ecmascript'; then
+    printf '❌ [EDGE-11X] Colisión MIME en %s: Content-Type="%s" (esperado javascript, nunca text/html).\n' \
+      "${MODULE_SRC}" "${ASSET_CT}" >&2
+    exit 1
+  fi
+fi
+
+# 3. Verificar sonda inexistente bajo /assets/* -> HTTP 404 estricto (nunca 200 text/html)
+PROBE_HDR="${TMP_DIR}/probe.headers"
+"${CURL_BIN}" -sS -D "${PROBE_HDR}" -o /dev/null "${BASE_URL}${EDGE_MISSING_ASSET_PROBE}"
+PROBE_STATUS="$(get_http_status "${PROBE_HDR}")"
+if [ "${PROBE_STATUS}" != "404" ]; then
+  printf '❌ [EDGE-11X] Sonda %s devolvió HTTP %s (esperado 404; posible fallback SPA /* -> 200 contaminando /assets/*).\n' \
+    "${EDGE_MISSING_ASSET_PROBE}" "${PROBE_STATUS:-none}" >&2
+  exit 1
+fi
+
+# 4. Auditar rutas adicionales sin caché positivo (EDGE_NO_CACHE_PATHS)
+if [ -n "${EDGE_NO_CACHE_PATHS}" ]; then
+  IFS=',' read -r -a extra_paths <<<"${EDGE_NO_CACHE_PATHS}"
+  for raw_p in "${extra_paths[@]}"; do
+    clean_p="$(printf '%s' "${raw_p}" | tr -d '[:space:]')"
+    [ -n "${clean_p}" ] || continue
+    [[ "${clean_p}" == /* ]] || clean_p="/${clean_p}"
+    extra_hdr="${TMP_DIR}/extra_$(printf '%s' "${clean_p}" | tr '/?' '__').headers"
+    "${CURL_BIN}" -sS -D "${extra_hdr}" -o /dev/null "${BASE_URL}${clean_p}"
+    extra_cc="$(get_header_ci "${extra_hdr}" "Cache-Control")"
+    check_no_positive_cache_override "GET ${clean_p}" "${extra_cc}"
+  done
+fi
+
+printf '✔ [EDGE-11X] Auditoría de borde superada en %s (Cache-Control, MIME JS, sonda 404 y OSHP).\n' "${BASE_URL}"

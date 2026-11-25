@@ -356,7 +356,7 @@ payload = {
     "attachments": [],
     "labels": [
         {"name": "agent", "value": os.environ.get("QA_AGENT_NAME", "qa-11x-certifier")},
-        {"name": "agent_version", "value": os.environ.get("QA_AGENT_VERSION", "3.8.1")},
+        {"name": "agent_version", "value": os.environ.get("QA_AGENT_VERSION", "3.9.0")},
         {"name": "environment", "value": os.environ.get("QA_ENVIRONMENT", "docker-ephemeral")},
     ],
 }
@@ -617,6 +617,57 @@ gate_08_manifest() {
   fi
 }
 
+gate_06_ast_topology() {
+  if [ ! -f "${SCRIPT_DIR}/verify_topological_health.py" ]; then
+    printf '⚠️ [SKIPPED] Script verify_topological_health.py no encontrado (omitido).\n'
+    return 20
+  fi
+
+  local graph_found=""
+  graph_found="$(find "${REPO_ROOT}" \
+    \( -name node_modules -o -name .git -o -name dist -o -name .venv -o -name venv -o -name vendor -o -name target -o -name coverage -o -name mutants \) -prune \
+    -o -path '*/graphify-out/graph.json' -type f -print -quit 2>/dev/null || true)"
+
+  if [ -z "${graph_found}" ]; then
+    local src_found=""
+    src_found="$(find "${REPO_ROOT}" \
+      \( -name node_modules -o -name .git -o -name dist -o -name .venv -o -name venv -o -name vendor -o -name target -o -name coverage -o -name mutants -o -name docs -o -name assets -o -name .agents \) -prune \
+      -o -type f \( -name '*.py' -o -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' -o -name '*.vue' -o -name '*.php' -o -name '*.sh' \) -print -quit 2>/dev/null || true)"
+    if [ -n "${src_found}" ]; then
+      printf 'ℹ️ [AST Topology] 0 grafos AST detectados; auto-construyendo en Docker efímero (Rule Zero)...\n'
+      if ! command -v docker >/dev/null 2>&1; then
+        printf '❌ [RULE-ZERO][AST-GRAPH] Docker no está disponible para construir graphify-out/graph.json.\n' >&2
+        return 1
+      fi
+      if [ -f "${REPO_ROOT}/scripts/actualizar-grafos-graphify.sh" ]; then
+        bash "${REPO_ROOT}/scripts/actualizar-grafos-graphify.sh" || {
+          printf '❌ [RULE-ZERO][AST-GRAPH] Falló la auto-construcción del grafo AST vía ./scripts/actualizar-grafos-graphify.sh.\n' >&2
+          return 1
+        }
+      else
+        local graphify_img="${QA_GRAPHIFY_IMAGE:-sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0}"
+        mkdir -p "${REPO_ROOT}/graphify-out"
+        docker run --rm --network none --security-opt=no-new-privileges:true --cap-drop=ALL \
+          -u "$(id -u):$(id -g)" -e HOME=/tmp -e OLLAMA_BASE_URL="" \
+          -v "${REPO_ROOT}:/app:ro" -v "${REPO_ROOT}/graphify-out:/app/graphify-out" -w /app \
+          "${graphify_img}" sh -c "graphify extract . --code-only && graphify cluster-only . && rm -rf graphify-out/cache graphify-out/20* graphify-out/.graphify_* graphify-out/.cloud-cta-shown" || {
+          printf '❌ [RULE-ZERO][AST-GRAPH] Falló la auto-construcción del grafo AST en contenedor Docker.\n' >&2
+          return 1
+        }
+      fi
+      graph_found="$(find "${REPO_ROOT}" \
+        \( -name node_modules -o -name .git -o -name dist -o -name .venv -o -name venv -o -name vendor -o -name target -o -name coverage -o -name mutants \) -prune \
+        -o -path '*/graphify-out/graph.json' -type f -print -quit 2>/dev/null || true)"
+      if [ -z "${graph_found}" ]; then
+        printf '❌ [RULE-ZERO][AST-GRAPH] La auto-construcción finalizó sin generar graphify-out/graph.json.\n' >&2
+        return 1
+      fi
+    fi
+  fi
+
+  run_validator_gate "${SCRIPT_DIR}/verify_topological_health.py"
+}
+
 run_validator_gate() {
   local script_path="$1"
   if [ ! -f "${script_path}" ]; then
@@ -777,9 +828,9 @@ run_gate 5 "No Orphan API Endpoints" \
   run_validator_gate "${SCRIPT_DIR}/verify_no_orphan_api_endpoints.py"
 
 run_gate 6 "AST Topological Health" \
-  "Corrige el acoplamiento inverso de capas y regenera el grafo con ./scripts/actualizar-grafos-graphify.sh." \
+  "Asegura Docker Engine activo, corrige acoplamientos inversos y regenera el grafo con ./scripts/actualizar-grafos-graphify.sh." \
   "python3 .agents/scripts/verify_topological_health.py" \
-  run_validator_gate "${SCRIPT_DIR}/verify_topological_health.py"
+  gate_06_ast_topology
 
 run_gate 7 "ORM & Migration Parity" \
   "Genera la migración de base de datos pendiente (revision <= 32 chars) y re-ejecuta verify_alembic_orm_parity.py." \

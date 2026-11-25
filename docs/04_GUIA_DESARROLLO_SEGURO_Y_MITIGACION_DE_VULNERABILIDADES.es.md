@@ -1227,3 +1227,28 @@ final class DisaStigSecurityGuard
     }
 }
 ```
+
+---
+
+## Patrón 18: Prevención de Envenenamiento de Caché de Borde y Colisión MIME en Activos SPA (`UI-11X-03`)
+
+### El Riesgo
+Servir una SPA Vite/Webpack tras Cloudflare Pages o Netlify con una regla global `/* /index.html 200` en `public/_redirects` y `Cache-Control: max-age=...` positivo en los entrypoints HTML provoca que el HTML retenido en caché solicite hashes `/assets/*.js` ya eliminados que responden `HTTP 200` (`text/html`). Bajo `X-Content-Type-Options: nosniff`, los navegadores bloquean el documento HTML como JS/CSS y dejan la aplicación rota sin estilos.
+
+### Implementación Obligatoria
+1. **Excluir `/assets/*` antes del catch-all `/*` en `public/_redirects`:**
+   ```text
+   /assets/*  /404.html   404
+   /*         /index.html 200
+   ```
+2. **Evitar envenenamiento de caché del entrypoint HTML en `public/_headers`:**
+   ```text
+   /
+     ! Cache-Control
+     Cache-Control: public, max-age=0, must-revalidate
+
+   /assets/*
+     ! Cache-Control
+     Cache-Control: public, max-age=31536000, immutable
+   ```
+3. **Verificación Post-Despliegue y Purga CDN (`Rule Zero` Docker):** Hidratar `scripts/audit-edge.sh.example` a `scripts/audit-edge.sh` y ejecutarlo tras el despliegue (`--purge-cloudflare-cache` mediante `CLOUDFLARE_ZONE_ID` y `CLOUDFLARE_API_TOKEN` solo por entorno) certificando `Cache-Control` vivo, MIME `javascript` en `<script type="module">`, HTTP `404` en `/assets/*` inexistentes y cabeceras OSHP/HSTS.

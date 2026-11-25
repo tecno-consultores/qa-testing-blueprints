@@ -63,7 +63,7 @@ export const TOOL_ANNOTATIONS: Readonly<Record<string, ToolAnnotations>> = Objec
   clean_workspace_11x: WRITE_DESTRUCTIVE_LOCAL,
   audit_security_stig_owasp: READ_ONLY_LOCAL,
   run_ephemeral_qa: WRITE_SAFE_OPEN,
-  certify_11x_gate: READ_ONLY_OPEN,
+  certify_11x_gate: WRITE_SAFE_OPEN,
   audit_test_pyramid_gaps: READ_ONLY_LOCAL,
   init_or_append_agents_md: WRITE_SAFE_LOCAL,
   propose_skill_evolution_pr: WRITE_NON_IDEMPOTENT_OPEN,

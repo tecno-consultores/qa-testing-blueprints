@@ -858,7 +858,8 @@ describe('CLI Arg Helpers, Doctor & Upgrade Subcommands (QA-11X)', () => {
       expect(jsonDiag.output).not.toContain(secretToken);
       expect(textDiag.output).not.toContain(secretToken);
       const parsed = JSON.parse(jsonDiag.output) as DoctorReport;
-      expect(parsed.global_connectors).toHaveLength(4);
+      expect(parsed.global_connectors).toHaveLength(5);
+      expect(parsed.global_connectors.some((c) => c.agent === 'opencode')).toBe(true);
       expect(parsed.global_connectors.find((c) => c.agent === 'antigravity')?.exceeds_budget).toBe(true);
       expect(parsed.project_connector?.exists).toBe(true);
       expect(parsed.ide_config_warnings.some((w) => w.includes('antigravity/ y config/'))).toBe(true);

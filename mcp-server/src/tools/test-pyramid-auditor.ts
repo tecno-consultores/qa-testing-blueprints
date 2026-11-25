@@ -5,6 +5,7 @@ import * as fs from 'node:fs';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import type { MissingTestInventory, PyramidLayerAudit, StackName, TestPyramidGapResult } from '../types.js';
 import { collectProjectFiles, inspectProjectConfig } from './inspect-project.js';
+import { buildPyramidMetaGatesAudit, evaluateStandard11xReadiness } from './standardReadiness.js';
 import {
   checkOperationalViewsDualRefresh, evaluateLayer06BddApiKarate, evaluateLayer07BddUiKarate,
   evaluateLayer08Mutation, evaluateLayer09A11yLighthouse, evaluateLayer10PerfLoad,
@@ -117,7 +118,14 @@ export async function auditTestPyramidGaps(
     not_applicable: layersAudit.filter((l) => l.status === STATUS_NOT_APPLICABLE).length,
   };
 
-  const prioritizedPlan = buildPrioritizedActionPlan(layersAudit, fullMissingInventory);
+  const standardReadiness = evaluateStandard11xReadiness(resolvedPath, detectedStacks, files);
+  const metaGatesAudit = buildPyramidMetaGatesAudit(standardReadiness);
+  const prioritizedPlan = buildPrioritizedActionPlan(
+    layersAudit,
+    fullMissingInventory,
+    metaGatesAudit,
+    detectedStacks
+  );
 
   const totalOrphans = orphanSourceFiles.length;
   const totalUntestedApis = untestedApis.length;
@@ -148,6 +156,7 @@ export async function auditTestPyramidGaps(
     pyramid_score_pct: pyramidScorePct,
     summary_counts: summaryCounts,
     layers_audit: layersAudit,
+    meta_gates_audit: metaGatesAudit,
     missing_test_inventory: missingInventory,
     prioritized_action_plan: prioritizedPlan,
   };

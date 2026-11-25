@@ -95,3 +95,11 @@ Feature: Contratos BDD HTTP, Cabeceras OWASP OSHP, Rutas SPA/SSG y SEO para Vue 
     * assert responseStatus == 200 || responseStatus == 404
     And match header Cross-Origin-Resource-Policy == 'same-origin'
     And match header X-Content-Type-Options == 'nosniff'
+
+  Scenario: 7. UI-11X-03 garantiza HTTP 404 (nunca 200 text/html) para bundles inexistentes bajo /assets/*
+    Given path '/assets/nonexistent-bundle-probe.js'
+    When method get
+    Then status 404
+    * def probeCt = getHeader('Content-Type')
+    * assert !probeCt.toLowerCase().contains('javascript')
+    And match header X-Content-Type-Options == 'nosniff'

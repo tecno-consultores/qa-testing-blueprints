@@ -1,8 +1,8 @@
-# 🛡️ Quality Assurance Scoreboard (TESTING.md) — Corporate Standard `QA-11X v3.8` (`v3.8.1`)
+# 🛡️ Quality Assurance Scoreboard (TESTING.md) — Corporate Standard `QA-11X v3.9` (`v3.9.0`)
 
 > 🌐 **Language:** **English (Canonical)** · [🇪🇸 Leer en Español](TESTING.es.md)
 
-This document serves as the live certification scoreboard for Corporate Quality Standard Level 11X (`v3.8.1`) across the `qa-testing-blueprints` repository blueprints (**10 hydratable stacks** `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue` + `architecture/` + `mcp-server/` = **12 matrix environments**). All included ecosystems are evaluated under **Rule Zero**: strict, 100% isolated execution in ephemeral Docker containers with **Pass-Quiet / Fail-Verbose** output (one-line telemetry with metrics on success, full trace on failure to optimize AI agent context windows).
+This document serves as the live certification scoreboard for Corporate Quality Standard Level 11X (`v3.9.0`) across the `qa-testing-blueprints` repository blueprints (**10 hydratable stacks** `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue` + `architecture/` + `mcp-server/` = **12 matrix environments**). All included ecosystems are evaluated under **Rule Zero**: strict, 100% isolated execution in ephemeral Docker containers with **Pass-Quiet / Fail-Verbose** output (one-line telemetry with metrics on success, full trace on failure to optimize AI agent context windows).
 
 ---
 
@@ -168,9 +168,9 @@ Scope: **10 hydratable stacks** (`python`, `fastapi`, `node-backend`, `vue3`, `r
   make qa-all        # Full 11X suite
   ```
 
-### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x` `v3.8.1`)
+### 🧠 MCP Server (`mcp-server/` — `@sinfallas/mcp-qa-11x` `v3.9.0`)
 * **Base Image:** `sinfallas/base-node-ionic:26` (Available tags: `22`, `24`, `26` and `latest`)
-* **Certified 11X Metrics (`v3.8.1` / `QA-11X v3.8`):**
+* **Certified 11X Metrics (`v3.9.0` / `QA-11X v3.9`):**
   * **Statements:** `99.85%` (`>= 95.0%`)
   * **Branches:** `97.15%` global (`>= 95.0%`)
   * **Functions:** `99.89%` (`>= 95.0%`)

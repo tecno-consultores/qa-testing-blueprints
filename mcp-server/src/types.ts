@@ -318,6 +318,43 @@ export interface CompanionMcpDiscoverySummary {
   delegation_directives: readonly string[];
 }
 
+export type StandardTier = 'starter' | 'standard' | 'enterprise';
+
+export type StandardPillarStatus = 'PRESENT' | 'PARTIAL' | 'MISSING' | 'PENDING_VERIFICATION';
+
+export interface StandardReadinessPillar {
+  readonly id: string;
+  readonly name: string;
+  readonly status: StandardPillarStatus;
+  readonly required_for_tier: boolean;
+  readonly min_tier: StandardTier;
+  readonly missing_items: string[];
+  readonly remediation: string;
+}
+
+export interface Standard11xReadiness {
+  readonly declared_tier: StandardTier | null;
+  readonly effective_tier: StandardTier;
+  readonly ast_graph_present: boolean;
+  readonly ast_graph_files: string[];
+  readonly has_graphify_script: boolean;
+  readonly has_boundaries_config: boolean;
+  readonly has_agents_md: boolean;
+  readonly has_agents_connector: boolean;
+  readonly has_qa_11x_config: boolean;
+  readonly has_active_task_md: boolean;
+  readonly has_local_governance_duplication: boolean;
+  readonly missing_gitignore_entries: string[];
+  readonly has_ci_workflow: boolean;
+  readonly has_calm_architecture: boolean;
+  readonly has_security_md: boolean;
+  readonly changelog_has_unreleased: boolean;
+  readonly missing_base_scripts: string[];
+  readonly pillars: StandardReadinessPillar[];
+  readonly missing_mandatory_pillars: string[];
+  readonly recommended_audit_sequence: string[];
+}
+
 export interface ProjectAuditResult {
   project_path: string;
   detected_stacks: string[];
@@ -339,6 +376,7 @@ export interface ProjectAuditResult {
   recommended_next_tool: string;
   browser_testing_readiness?: BrowserTestingReadiness;
   companion_mcps?: CompanionMcpDiscoverySummary;
+  standard_11x_readiness?: Standard11xReadiness;
   update_available?: UpdateAvailabilityInfo;
 }
 
@@ -605,6 +643,8 @@ export interface CertifyGateResult {
   };
   check_statuses?: Record<string, GateCheckStatus>;
   skipped_checks?: string[];
+  skipped_remediations?: Record<string, string>;
+  ast_graph_auto_built?: boolean;
   blockers: string[];
   upstream_evolution_reminder?: string;
   update_available?: UpdateAvailabilityInfo;
@@ -686,6 +726,15 @@ export interface MissingTestInventory {
   total_untested_views_count?: number;
 }
 
+export interface TestPyramidMetaGateAudit {
+  readonly gate_id: string;
+  readonly gate_name: string;
+  readonly status: StandardPillarStatus;
+  readonly required_for_tier: boolean;
+  readonly missing_requirements: string[];
+  readonly remediation: string;
+}
+
 export interface TestPyramidGapResult {
   project_path: string;
   detected_stacks: StackName[];
@@ -697,6 +746,7 @@ export interface TestPyramidGapResult {
     not_applicable: number;
   };
   layers_audit: PyramidLayerAudit[]; // Las 13 capas evaluadas
+  meta_gates_audit?: TestPyramidMetaGateAudit[];
   missing_test_inventory: MissingTestInventory;
   prioritized_action_plan: PrioritizedTestAction[];
 }
@@ -844,8 +894,19 @@ export const ProposeEvolutionPrInputSchema = z.object({
 }).strict();
 export type ProposeEvolutionPrInput = z.input<typeof ProposeEvolutionPrInputSchema>;
 
+export interface EvolutionEmailTemplate {
+  readonly to: string;
+  readonly subject: string;
+  readonly body: string;
+  readonly attachment_path: string;
+}
+
 export interface ProposeEvolutionPrResult {
   status: 'PR_CREATED_VIA_GH' | 'ISSUE_CREATED_VIA_GH' | 'PROPOSAL_FILE_AND_URL_GENERATED';
+  primary_channel: 'email';
+  support_email: string;
+  email_template: EvolutionEmailTemplate;
+  prefilled_mailto_url: string;
   target_repo: string;
   target_blueprint_file: string;
   target_human_doc_file: string;

@@ -8,6 +8,14 @@ All notable changes to the `@sinfallas/mcp-qa-11x` npm package and MCP server ar
 
 ## [Unreleased]
 
+## [3.9.0] - 2026-11-25
+
+### Added
+- **Zero-Blindspot Standard 11X Compliance Audit, Mandatory AST Auto-Build & Native MCP `instructions`:** Added `src/tools/standardReadiness.ts` wired into `inspect_project_config` (`standard_11x_readiness`: tier-aware evaluation of recursive Graphify AST, Rule Zero scripts, Thin-Repo `AGENTS.md`/`.qa-11x.json`/`.gitignore`/duplication hygiene, CI/Lefthook, FINOS CALM, docs, and dynamic `recommended_audit_sequence`) and `audit_test_pyramid_gaps` (`meta_gates_audit`, specialized `ai-evals`/`mobile-appium`/`vibe-rescue` actions, and fixed L03/L06/L07 action triggers); promoted `audit_test_pyramid_gaps` into `CORE_TOOLSET_NAMES` (`9` core tools, `18` auto max, `19` full); configured native `McpServer` `instructions` in `src/server.ts`; and upgraded `certify_11x_gate` to auto-build missing `graphify-out/graph.json` under Rule Zero Docker when source code exists (hard-failing `[RULE-ZERO][AST-GRAPH]` if Docker is unavailable or build fails, and emitting `skipped_remediations` on docs-only repos).
+- **First-Class OpenCode Support (`~/.config/opencode/`):** Extended `install-skill`, `agents-connector.ts` (`5` global connectors), `version-manager.ts` (`8` global skill dirs), `ideConfigPaths.ts` (`10` IDE doctor targets / `13` browser candidate paths), `mcp-config.ts` (`--client opencode` emitting `mcp.servers["qa-11x"]` with `type: "local"` and `command: [...]`), `companionMcpDetector.ts`, `doctor.ts`, and `commandCatalog.ts`.
+- **Zero-Trust Email Evolution Template (`soporte@tecnoconsultores.net`):** Upgraded `propose_skill_evolution_pr` to assemble a sanitized ready-to-send email template (`primary_channel: 'email'`, `support_email: 'soporte@tecnoconsultores.net'`, `email_template`, `prefilled_mailto_url <= 2000` chars, and `.agents/proposals/<slug>.md` header — strictly zero auto-sending from MCP), keeping `prefilled_github_url` and `gh` CLI as an optional secondary channel.
+- **Edge Cache Poisoning & SPA Asset MIME Collision Shield (`UI-11X-03`):** Extended `src/tools/security-auditor/pwaAndEdgeRules.ts` and `shared.ts` (`_redirects` scanning) to flag SPA `_redirects` catch-alls (`/* ... 200`) lacking an earlier `/assets/*` guard and `_headers` HTML entrypoints (`/`, `/index.html`, `/*.html`) with positive `Cache-Control: max-age` without `no-cache`/`no-store`.
+
 ## [3.8.1] - 2026-11-25
 
 ### Fixed

@@ -48,6 +48,7 @@
 | **Hito 29** | `v3.6.0` (`QA-11X v3.6`) — Remediación de Auditoría Integral, Modularización de Monolitos, Economía de Tokens, Endurecimiento CI y 100% Diff Coverage | [`CHANGELOG.es.md`](CHANGELOG.es.md) + [`TESTING.es.md`](TESTING.es.md) | ✅ Completado | `100%` |
 | **Hito 30** | `v3.7.0` (`QA-11X v3.7`) — Guardrails Anti-Saturación Docker, Candado FIFO, Protección Térmica/RAM/CrashLoop y Regla Estática #37 (`QA-DOCKER-LOOP-01`) | [`SECURITY.es.md`](SECURITY.es.md) §4.33 + [`docs/docker-troubleshooting.es.md`](docs/docker-troubleshooting.es.md) §15 | ✅ Completado | `100%` |
 | **Hito 31** | `v3.8.0` (`QA-11X v3.8`) — `Rule Zero` Duro en Doctor, *Companion MCPs*, SARIF 2.1.0 Federado, Evidencia Dual `lint`+`unit`, `expect_red`, `--toolset` y Skills CSO | [`CHANGELOG.es.md`](CHANGELOG.es.md) + [`TESTING.es.md`](TESTING.es.md) | ✅ Completado | `100%` |
+| **Hito 32** | `v3.9.0` (`QA-11X v3.9`) — Auditoría Integral sin Puntos Ciegos, Auto-Build AST Obligatorio, OpenCode First-Class, Plantilla de Correo y Blindaje Edge `UI-11X-03` | [`CHANGELOG.es.md`](CHANGELOG.es.md) + [`SECURITY.es.md`](SECURITY.es.md) §4.34 | ✅ Completado | `100%` |
 
 ---
 
@@ -414,3 +415,13 @@
 - [x] **31.1.** Exigir Docker Engine activo como bloqueante duro en [`doctor.ts`](mcp-server/src/cli/doctor.ts) (`exitCode = 1`, `docker_daemon_ok: false`, `[RULE-ZERO]`) y añadir ejecución SARIF offline no-root en Docker serializado (`externalScannerRunner.ts`, `QA_MAX_CONCURRENT_CONTAINERS=1`), autodescubrimiento de *Companion MCPs* (`companionMcpDetector.ts`), ingestión SARIF 2.1.0 endurecida (`sarifIngester.ts`), certeza `confidence` y supresiones auditadas `qa-11x-ignore` (`fp-check`).
 - [x] **31.2.** Exigir evidencia fresca dual `lint` + `unit` sobre código sucio en [`certify-gate.ts`](mcp-server/src/tools/certify-gate.ts) + [`qa-evidence.ts`](mcp-server/src/services/qa-evidence.ts), añadir sello TDD `expect_red` (`RED -> GREEN`, exento de `BREAKER-42`) en [`ephemeral-runner.ts`](mcp-server/src/tools/ephemeral-runner.ts), añadir `--toolset core|auto|full` (`toolsetFilter.ts`) y adoptar frontmatters CSO (*Trigger-Only*), revisión cruzada en 2 etapas (`0` Docker) y evals de presión anti-racionalización en `.agents/` y `tests/evals/`.
 - [x] **31.3.** Corregir el montaje `mobile-appium:/mobile-appium:ro` en `pre-commit` de `lefthook.yml` e `instalar-hooks.sh`, rotar atómicamente el monorepo y `@sinfallas/mcp-qa-11x` a `3.8.0` (`QA-11X v3.8`), sincronizar documentación 1:1 EN/ES + `manifest.json` SHA-256 + grafos Graphify AST y certificar Vitest (`784`, `99.85%` líneas, `100.00%` diff líneas), Karate BDD (`54`), Pytest, BATS, E2E Clean-Room y `certify_task_completion.sh`.
+
+---
+
+## ✅ Hito 32: `v3.9.0` (`QA-11X v3.9`) — Auditoría Integral sin Puntos Ciegos, Auto-Build AST Obligatorio, OpenCode, Plantilla de Correo y Blindaje Edge `UI-11X-03`
+**Referencia Obligatoria:** [`CHANGELOG.es.md`](CHANGELOG.es.md), [`SECURITY.es.md`](SECURITY.es.md) §4.34 y [`docs/agent-setup.es.md`](docs/agent-setup.es.md)
+
+### Tareas de Implementación:
+- [x] **32.1.** Corregir Ruff `C901`/`E501` en `tests/test_install_skill.unit.py`, añadir `standard_11x_readiness` por tier (`standardReadiness.ts`) en `inspect_project_config`, `meta_gates_audit` en `audit_test_pyramid_gaps` (promovida a `CORE_TOOLSET_NAMES`), `instructions` nativas en `McpServer` y paridad 1:1 de auto-build AST bajo Rule Zero en `certify_11x_gate` y `.agents/scripts/certify_task_completion.sh`.
+- [x] **32.2.** Entregar soporte global first-class para OpenCode (`~/.config/opencode/{skills,AGENTS.md,opencode.json}`) en `install-skill`, `scripts/install-skill.sh`, `agents-connector.ts`, `mcp-config.ts`, `ideConfigPaths.ts`, `version-manager.ts`, `doctor.ts` y `docs/agent-setup.{md,es.md}`, además de la plantilla Zero-Trust de correo (`soporte@tecnoconsultores.net`, cero envío automático desde MCP) en `propose_skill_evolution_pr`.
+- [x] **32.3.** Endurecer `UI-11X-03` contra envenenamiento de caché de borde y colisión MIME en `_redirects`, añadir Escenario 7 BDD (`404` en `/assets/*`) en `vue3/` y `react-frontend/`, crear `scripts/audit-edge.sh.example` + `tests/bats/test_audit_edge.bats`, rotar atómicamente el monorepo a `3.9.0` (`QA-11X v3.9`), refrescar grafos Graphify AST y certificar `10/10` (`QA-GIT-GATE-01`).

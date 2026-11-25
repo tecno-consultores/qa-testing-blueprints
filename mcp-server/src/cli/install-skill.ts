@@ -51,6 +51,7 @@ const HERMES_DIR_NAME = '.hermes';
 const CURSOR_DIR_NAME = '.cursor';
 const CODEX_DIR_NAME = '.codex';
 const WINDSURF_REL_DIR = path.join('.codeium', 'windsurf');
+const OPENCODE_REL_DIR = path.join('.config', 'opencode');
 const UTF8 = 'utf-8';
 
 export const INSTALL_SKILL_HELP_TEXT = renderSubcommandHelpText('install-skill', 'en');
@@ -193,6 +194,7 @@ const GLOBAL_AGENT_DETECTION_SPECS: ReadonlyArray<{
   { markerRel: CURSOR_DIR_NAME, skillsRel: path.join(CURSOR_DIR_NAME, SKILLS_DIR_NAME) },
   { markerRel: WINDSURF_REL_DIR, skillsRel: path.join(WINDSURF_REL_DIR, SKILLS_DIR_NAME) },
   { markerRel: CODEX_DIR_NAME, skillsRel: path.join(CODEX_DIR_NAME, SKILLS_DIR_NAME) },
+  { markerRel: OPENCODE_REL_DIR, skillsRel: path.join(OPENCODE_REL_DIR, SKILLS_DIR_NAME) },
 ];
 
 function resolveSafeGlobalSkillDir(homeDir: string, relDir: string): string {
@@ -268,6 +270,7 @@ const VALID_SKILL_TARGETS = new Set<string>([
   'hermes',
   'windsurf',
   'codex',
+  'opencode',
   'all',
   'auto',
 ]);
@@ -275,7 +278,7 @@ const VALID_SKILL_TARGETS = new Set<string>([
 export function assertValidSkillTarget(targetArg: string): void {
   if (!VALID_SKILL_TARGETS.has(targetArg)) {
     throw new Error(
-      `Destino --target inválido: '${targetArg}'. Valores permitidos: auto, workspace, antigravity, claude, cursor, windsurf, codex, hermes, all.`
+      `Destino --target inválido: '${targetArg}'. Valores permitidos: auto, workspace, antigravity, claude, cursor, windsurf, codex, hermes, opencode, all.`
     );
   }
 }
@@ -295,6 +298,8 @@ function resolveDestinationDirs(targetArg: string, homeDir: string, cwd: string)
       return [resolveSafeGlobalSkillDir(homeDir, path.join(WINDSURF_REL_DIR, SKILLS_DIR_NAME))];
     case 'codex':
       return [resolveSafeGlobalSkillDir(homeDir, path.join(CODEX_DIR_NAME, SKILLS_DIR_NAME))];
+    case 'opencode':
+      return [resolveSafeGlobalSkillDir(homeDir, path.join(OPENCODE_REL_DIR, SKILLS_DIR_NAME))];
     case 'all':
       return resolveAllGlobalAgentDirs(homeDir);
     case 'auto':

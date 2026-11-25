@@ -137,12 +137,12 @@ test-py:
 
 shellcheck:
 	@echo "🐚 [ShellCheck] Auditando scripts Bash (-x) en Docker efímero..."
-	@docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/repo:ro" -w /repo $(BASH_IMG) bash -c 'shopt -s nullglob; raw=(scripts/*.sh .agents/scripts/*.sh instalar-hooks.sh */limpieza.sh bash-scripts/*.sh mcp-server/example/verify-v2.sh); if [ "$${#raw[@]}" -gt 0 ]; then mapfile -t files < <(printf "%s\n" "$${raw[@]}" | sort -u); shellcheck -x "$${files[@]}"; fi'
+	@docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/repo:ro" -w /repo $(BASH_IMG) bash -c 'shopt -s nullglob; raw=(scripts/*.sh scripts/*.sh.example .agents/scripts/*.sh instalar-hooks.sh */limpieza.sh bash-scripts/*.sh mcp-server/example/verify-v2.sh); if [ "$${#raw[@]}" -gt 0 ]; then mapfile -t files < <(printf "%s\n" "$${raw[@]}" | sort -u); shellcheck -x "$${files[@]}"; fi'
 	@echo "✔ [ShellCheck] 0 hallazgos en scripts Bash."
 
 shfmt:
 	@echo "📐 [shfmt] Verificando formato Bash (shfmt -i 2 -ci -d) en Docker efímero..."
-	@docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/repo:ro" -w /repo $(BASH_IMG) bash -c 'shopt -s nullglob; raw=(scripts/*.sh .agents/scripts/*.sh instalar-hooks.sh */limpieza.sh bash-scripts/*.sh mcp-server/example/verify-v2.sh); if [ "$${#raw[@]}" -gt 0 ]; then mapfile -t files < <(printf "%s\n" "$${raw[@]}" | sort -u); shfmt -i 2 -ci -d "$${files[@]}"; fi'
+	@docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/repo:ro" -w /repo $(BASH_IMG) bash -c 'shopt -s nullglob; raw=(scripts/*.sh scripts/*.sh.example .agents/scripts/*.sh instalar-hooks.sh */limpieza.sh bash-scripts/*.sh mcp-server/example/verify-v2.sh); if [ "$${#raw[@]}" -gt 0 ]; then mapfile -t files < <(printf "%s\n" "$${raw[@]}" | sort -u); shfmt -i 2 -ci -d "$${files[@]}"; fi'
 	@echo "✔ [shfmt] Formato Bash conforme."
 
 test-bats:

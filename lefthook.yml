@@ -80,7 +80,7 @@ pre-commit:
       run: ./scripts/verificar-secretos.sh {staged_files}
 
     # --------------------------------------------------------------------------
-    # GOBERNANZA ZERO-LLM E INVARIANTES DOCUMENTALES (QA-11X v3.8)
+    # GOBERNANZA ZERO-LLM E INVARIANTES DOCUMENTALES (QA-11X v3.9)
     # --------------------------------------------------------------------------
     governance-sync-check:
       glob: "{manifest.json,AGENTS.md,lefthook.yml,.trivy.yaml,.env.example,llms.txt,catalogs/**,mcp-server/package.json,*.md,**/*.md,.agents/**,docs/**,scripts/*.sh,**/*.example,**/docker-compose.qa.yml,**/limpieza.sh,fastapi/**,python/**,node-backend/**,vue3/**,react-frontend/**,php/**,bash-scripts/**,mobile-appium/**,ai-evals/**,vibe-rescue/**}"

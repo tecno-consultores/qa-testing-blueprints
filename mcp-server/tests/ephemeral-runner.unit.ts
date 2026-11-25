@@ -41,7 +41,9 @@ describe('ephemeral-runner', () => {
   });
 
   it('retorna fallo estructurado si el proyecto carece de Makefile', async () => {
-    const result = await runEphemeralQa(tempDir, 'unit');
+    const result = await runEphemeralQa(tempDir, 'unit', 60, {
+      guardrails: { enabled: false },
+    });
 
     expect(result.status).toBe('FAILED');
     expect(result.exit_code).toBe(1);

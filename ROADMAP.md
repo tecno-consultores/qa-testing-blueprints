@@ -48,6 +48,7 @@
 | **Milestone 29** | `v3.6.0` (`QA-11X v3.6`) — Integral Audit Remediation, God-Module Modularization, Token Economy, CI Hardening & 100% Diff Coverage | [`CHANGELOG.md`](CHANGELOG.md) + [`TESTING.md`](TESTING.md) | ✅ Completed | `100%` |
 | **Milestone 30** | `v3.7.0` (`QA-11X v3.7`) — Docker Anti-Saturation Guardrails, FIFO Slot Lock, Thermal/RAM/CrashLoop Protection & Static Rule #37 (`QA-DOCKER-LOOP-01`) | [`SECURITY.md`](SECURITY.md) §4.33 + [`docs/docker-troubleshooting.md`](docs/docker-troubleshooting.md) §15 | ✅ Completed | `100%` |
 | **Milestone 31** | `v3.8.0` (`QA-11X v3.8`) — Hard `Rule Zero` Doctor, Companion MCP Discovery, Federated SARIF 2.1.0, Dual `lint`+`unit` Evidence, `expect_red`, `--toolset` & CSO Skills | [`CHANGELOG.md`](CHANGELOG.md) + [`TESTING.md`](TESTING.md) | ✅ Completed | `100%` |
+| **Milestone 32** | `v3.9.0` (`QA-11X v3.9`) — Zero-Blindspot Compliance Audit, Mandatory AST Auto-Build, OpenCode First-Class, Email Evolution Template & `UI-11X-03` Edge/MIME Shield | [`CHANGELOG.md`](CHANGELOG.md) + [`SECURITY.md`](SECURITY.md) §4.34 | ✅ Completed | `100%` |
 
 ---
 
@@ -414,3 +415,13 @@
 - [x] **31.1.** Enforce active Docker Engine as a hard blocker in [`doctor.ts`](mcp-server/src/cli/doctor.ts) (`exitCode = 1`, `docker_daemon_ok: false`, `[RULE-ZERO]`) and add serialized non-root offline Docker SARIF execution (`externalScannerRunner.ts`, `QA_MAX_CONCURRENT_CONTAINERS=1`), Companion MCP auto-discovery (`companionMcpDetector.ts`), hardened SARIF 2.1.0 ingestion (`sarifIngester.ts`), finding `confidence`, and audited `qa-11x-ignore` suppressions (`fp-check`).
 - [x] **31.2.** Enforce dual fresh `lint` + `unit` evidence on dirty code trees in [`certify-gate.ts`](mcp-server/src/tools/certify-gate.ts) + [`qa-evidence.ts`](mcp-server/src/services/qa-evidence.ts), add TDD `expect_red` stamp (`RED -> GREEN`, exempt from `BREAKER-42`) in [`ephemeral-runner.ts`](mcp-server/src/tools/ephemeral-runner.ts), add `--toolset core|auto|full` (`toolsetFilter.ts`), and adopt CSO trigger-only skill frontmatters, 2-stage clean-context read-only review (`0` Docker), and anti-rationalization pressure evals across `.agents/` and `tests/evals/`.
 - [x] **31.3.** Fix `mobile-appium:/mobile-appium:ro` pre-commit mount in `lefthook.yml` and `instalar-hooks.sh`, rotate monorepo and `@sinfallas/mcp-qa-11x` atomically to `3.8.0` (`QA-11X v3.8`), sync 1:1 EN/ES docs + `manifest.json` SHA-256 + Graphify AST graphs, and certify Vitest (`784`, `99.85%` lines, `100.00%` diff lines), Karate BDD (`54`), Pytest, BATS, Clean-Room E2E, and `certify_task_completion.sh`.
+
+---
+
+## ✅ Milestone 32: `v3.9.0` (`QA-11X v3.9`) — Zero-Blindspot Compliance Audit, Mandatory AST Auto-Build, OpenCode, Email Evolution Template & `UI-11X-03` Edge Shield
+**Mandatory Reference:** [`CHANGELOG.md`](CHANGELOG.md), [`SECURITY.md`](SECURITY.md) §4.34, and [`docs/agent-setup.md`](docs/agent-setup.md)
+
+### Implementation Tasks:
+- [x] **32.1.** Fix Ruff `C901`/`E501` in `tests/test_install_skill.unit.py`, add tier-aware `standard_11x_readiness` (`standardReadiness.ts`) in `inspect_project_config`, `meta_gates_audit` in `audit_test_pyramid_gaps` (promoted to `CORE_TOOLSET_NAMES`), native `McpServer` `instructions`, and 1:1 Rule Zero AST auto-build parity in `certify_11x_gate` and `.agents/scripts/certify_task_completion.sh`.
+- [x] **32.2.** Deliver first-class OpenCode global support (`~/.config/opencode/{skills,AGENTS.md,opencode.json}`) across `install-skill`, `scripts/install-skill.sh`, `agents-connector.ts`, `mcp-config.ts`, `ideConfigPaths.ts`, `version-manager.ts`, `doctor.ts`, and `docs/agent-setup.{md,es.md}`, plus the sanitized Zero-Trust email evolution template (`soporte@tecnoconsultores.net`, zero auto-sending from MCP) in `propose_skill_evolution_pr`.
+- [x] **32.3.** Harden `UI-11X-03` against Edge cache poisoning and SPA `_redirects` MIME collision, add Scenario 7 BDD (`404` on `/assets/*`) in `vue3/` and `react-frontend/`, create `scripts/audit-edge.sh.example` + `tests/bats/test_audit_edge.bats`, rotate monorepo atomically to `3.9.0` (`QA-11X v3.9`), refresh Graphify AST graphs, and certify `10/10` (`QA-GIT-GATE-01`).

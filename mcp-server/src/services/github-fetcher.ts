@@ -33,7 +33,7 @@ const PACKAGE_META = JSON.parse(fs.readFileSync(PACKAGE_JSON_URL, 'utf-8')) as {
 
 export function extractStandardEdition(description?: string): string {
   const match = /\(QA-11X v\d+\.\d+(?=:)/.exec(description ?? '');
-  return match ? match[0].slice(1) : 'QA-11X v3.8';
+  return match ? match[0].slice(1) : 'QA-11X v3.9';
 }
 
 export const MCP_SERVER_VERSION: string = PACKAGE_META.version;
