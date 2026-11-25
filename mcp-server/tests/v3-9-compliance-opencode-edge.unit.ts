@@ -200,7 +200,7 @@ describe('QA-11X v3.9.0 — Compliance Audit, AST Auto-Build, OpenCode, Email Te
     expect(syncEntries[0]?.updated).toBe(true);
     expect(fs.existsSync(path.join(opencodeDir, 'AGENTS.md'))).toBe(true);
 
-    // mcp-config install for opencode (mcp.servers["qa-11x"].type="local", command=[...])
+    // mcp-config install for opencode (official https://opencode.ai/config.json: mcp["qa-11x"])
     const cfgRes = runMcpConfigCli(['--client', 'opencode', '--install', '--latest'], {
       homeDir: fakeHome,
       cwd: tmpDir,
@@ -209,20 +209,23 @@ describe('QA-11X v3.9.0 — Compliance Audit, AST Auto-Build, OpenCode, Email Te
     const openCodeCfgPath = path.join(fakeHome, OPENCODE_CANONICAL_MCP_REL_PATH);
     expect(fs.existsSync(openCodeCfgPath)).toBe(true);
     const parsedCfg = JSON.parse(fs.readFileSync(openCodeCfgPath, 'utf-8')) as {
-      mcp: { servers: Record<string, { type: string; command: string[] }> };
+      $schema?: string;
+      mcp: Record<string, { type: string; command: string[]; enabled?: boolean }>;
     };
-    expect(parsedCfg.mcp.servers['qa-11x']?.type).toBe('local');
-    expect(parsedCfg.mcp.servers['qa-11x']?.command[0]).toBe('npx');
+    expect(parsedCfg.$schema).toBe('https://opencode.ai/config.json');
+    expect(parsedCfg.mcp['qa-11x']?.type).toBe('local');
+    expect(parsedCfg.mcp['qa-11x']?.enabled).toBe(true);
+    expect(parsedCfg.mcp['qa-11x']?.command[0]).toBe('npx');
 
     // Companion MCP detection & browser candidates include opencode
     expect(getDoctorIdeMcpTargets().some((t) => t.client === 'opencode')).toBe(true);
     expect(getBrowserMcpCandidatePaths(fakeHome).some((p) => p.includes('opencode.json'))).toBe(true);
-    parsedCfg.mcp.servers['playwright'] = { type: 'local', command: ['npx', '-y', '@playwright/mcp@latest'] };
+    parsedCfg.mcp['playwright'] = { type: 'local', command: ['npx', '-y', '@playwright/mcp@latest'], enabled: true };
     fs.writeFileSync(openCodeCfgPath, JSON.stringify(parsedCfg, null, 2), 'utf-8');
     const companions = detectCompanionMcps(fakeHome);
     expect(companions.detected_any).toBe(true);
 
-    // Doctor warns about unpinned @latest inside OpenCode mcp.servers command[]
+    // Doctor warns about unpinned @latest inside OpenCode mcp["qa-11x"].command[]
     const docRes = await runDoctorCli(['--offline', '--json', '--dir', tmpDir], {
       homeDir: fakeHome,
       cwd: tmpDir,
@@ -239,6 +242,27 @@ describe('QA-11X v3.9.0 — Compliance Audit, AST Auto-Build, OpenCode, Email Te
     expect(docRes.exitCode).toBe(0);
     expect(docRes.output).toContain('opencode');
     expect(docRes.output).toContain('@latest');
+
+    // Doctor also warns if legacy mcp.servers.qa-11x schema is present in opencode.json
+    fs.writeFileSync(
+      openCodeCfgPath,
+      JSON.stringify({ mcp: { servers: { 'qa-11x': { type: 'local', command: ['npx', '-y', '@sinfallas/mcp-qa-11x@3.9.0'] } } } }),
+      'utf-8'
+    );
+    const legacyWarnRes = await runDoctorCli(['--offline', '--json', '--dir', tmpDir], {
+      homeDir: fakeHome,
+      cwd: tmpDir,
+      dockerProbeFn: () => '28.0.0',
+      dockerHealthProbeFn: () => ({
+        restarting_containers: [],
+        orphan_bridge_networks: 0,
+        network_manager_unmanaged_ok: true,
+        max_temp_c: null,
+        available_mem_pct: 60,
+        warnings: [],
+      }),
+    });
+    expect(legacyWarnRes.output).toContain('mcp.servers.qa-11x');
 
     // install-skill --target opencode + version-manager detection
     const mockRepo = path.join(tmpDir, 'mock-blueprints');
@@ -361,7 +385,7 @@ describe('QA-11X v3.9.0 — Compliance Audit, AST Auto-Build, OpenCode, Email Te
       fs.chmodSync(qaCfg, 0o600);
     }
 
-    // 2. OpenCode mcp-config merge (non-object mcp/servers, --toolset core, and invalid JSON abort)
+    // 2. OpenCode mcp-config merge (official mcp["qa-11x"], non-object mcp, --toolset core, and invalid JSON abort)
     const ocHome = path.join(tmpDir, 'oc-edge-home');
     const ocCfgPath = path.join(ocHome, '.config', 'opencode', 'opencode.json');
     fs.mkdirSync(path.dirname(ocCfgPath), { recursive: true });
@@ -372,16 +396,22 @@ describe('QA-11X v3.9.0 — Compliance Audit, AST Auto-Build, OpenCode, Email Te
     });
     expect(mergedNonObj.exitCode).toBe(0);
     const parsedMerged = JSON.parse(fs.readFileSync(ocCfgPath, 'utf-8')) as {
+      $schema?: string;
       custom?: boolean;
-      mcp?: { servers?: { 'qa-11x'?: { command?: string[] } } };
+      mcp?: Record<string, { command?: string[]; enabled?: boolean }>;
     };
+    expect(parsedMerged.$schema).toBe('https://opencode.ai/config.json');
     expect(parsedMerged.custom).toBe(true);
-    expect(parsedMerged.mcp?.servers?.['qa-11x']?.command).toContain('--toolset');
+    expect(parsedMerged.mcp?.['qa-11x']?.command).toContain('--toolset');
+    expect(parsedMerged.mcp?.['qa-11x']?.enabled).toBe(true);
 
-    // Merge preserving existing sibling server inside mcp.servers
+    // Merge preserving existing $schema and sibling server inside mcp
     fs.writeFileSync(
       ocCfgPath,
-      JSON.stringify({ mcp: { servers: { sibling: { type: 'local', command: ['echo'] } } } }),
+      JSON.stringify({
+        $schema: 'https://custom.example/schema.json',
+        mcp: { sibling: { type: 'local', command: ['echo'] } },
+      }),
       'utf-8'
     );
     const mergedSibling = runMcpConfigCli(['--client', 'opencode', '--install'], {
@@ -389,7 +419,9 @@ describe('QA-11X v3.9.0 — Compliance Audit, AST Auto-Build, OpenCode, Email Te
       platform: 'linux',
     });
     expect(mergedSibling.exitCode).toBe(0);
-    expect(fs.readFileSync(ocCfgPath, 'utf-8')).toContain('"sibling"');
+    const rawMergedSibling = fs.readFileSync(ocCfgPath, 'utf-8');
+    expect(rawMergedSibling).toContain('"sibling"');
+    expect(rawMergedSibling).toContain('https://custom.example/schema.json');
 
     // Corrupt existing opencode.json aborts cleanly with exitCode 1
     fs.writeFileSync(ocCfgPath, '{ corrupt-json', 'utf-8');
@@ -399,5 +431,110 @@ describe('QA-11X v3.9.0 — Compliance Audit, AST Auto-Build, OpenCode, Email Te
     });
     expect(corruptRes.exitCode).toBe(1);
     expect(corruptRes.output).toContain('JSON inválido existente');
+  });
+
+  it('supports all 21 local MCP clients (Zed, Cline, Roo, Kilo, Continue, Goose, Amazon Q, Junie, Devin, Augment, Trae) and new global skill targets', async () => {
+    const multiHome = path.join(tmpDir, 'multi-agent-home');
+    fs.mkdirSync(multiHome, { recursive: true });
+
+    // 1. Print all 21 supported clients cleanly
+    const allPrint = runMcpConfigCli(['--client', 'all', '--print', '--json'], {
+      homeDir: multiHome,
+      platform: 'linux',
+    });
+    expect(allPrint.exitCode).toBe(0);
+    const parsedAll = JSON.parse(allPrint.output) as { clients: Array<{ client: string; snippet: string }> };
+    expect(parsedAll.clients).toHaveLength(21);
+    expect(parsedAll.clients.find((c) => c.client === 'opencode')?.snippet).toContain('https://opencode.ai/config.json');
+    expect(parsedAll.clients.find((c) => c.client === 'zed')?.snippet).toContain('"context_servers"');
+    expect(parsedAll.clients.find((c) => c.client === 'continue')?.snippet).toContain('schema: v1');
+    expect(parsedAll.clients.find((c) => c.client === 'goose')?.snippet).toContain('extensions:');
+
+    // 2. Zed install (empty -> merge with existing context_servers -> non-object context_servers -> invalid JSON abort)
+    const zedCfg = path.join(multiHome, '.config', 'zed', 'settings.json');
+    expect(runMcpConfigCli(['--client', 'zed', '--install'], { homeDir: multiHome, platform: 'linux' }).exitCode).toBe(0);
+    const zedParsed = JSON.parse(fs.readFileSync(zedCfg, 'utf-8')) as {
+      context_servers?: Record<string, { command: string; args: string[] }>;
+    };
+    expect(zedParsed.context_servers?.['qa-11x']?.command).toBe('npx');
+    fs.writeFileSync(zedCfg, JSON.stringify({ theme: 'One', context_servers: { other: { command: 'echo', args: [] } } }), 'utf-8');
+    expect(runMcpConfigCli(['--client', 'zed', '--install'], { homeDir: multiHome, platform: 'linux' }).exitCode).toBe(0);
+    expect(fs.readFileSync(zedCfg, 'utf-8')).toContain('"other"');
+    fs.writeFileSync(zedCfg, JSON.stringify({ context_servers: 'invalid' }), 'utf-8');
+    expect(runMcpConfigCli(['--client', 'zed', '--install'], { homeDir: multiHome, platform: 'linux' }).exitCode).toBe(0);
+    fs.writeFileSync(zedCfg, '{bad', 'utf-8');
+    expect(runMcpConfigCli(['--client', 'zed', '--install'], { homeDir: multiHome, platform: 'linux' }).exitCode).toBe(1);
+
+    // 3. Continue.dev YAML install
+    const contRes = runMcpConfigCli(['--client', 'continue', '--install'], { homeDir: multiHome, platform: 'linux' });
+    expect(contRes.exitCode).toBe(0);
+    expect(fs.readFileSync(path.join(multiHome, '.continue', 'mcpServers', 'qa-11x.yaml'), 'utf-8')).toContain('name: qa-11x');
+
+    // 4. Block Goose YAML install across all upsert branches (new -> no extensions -> extensions without qa-11x -> replace qa-11x)
+    const gooseCfg = path.join(multiHome, '.config', 'goose', 'config.yaml');
+    expect(runMcpConfigCli(['--client', 'goose', '--install'], { homeDir: multiHome, platform: 'linux' }).exitCode).toBe(0);
+    expect(fs.readFileSync(gooseCfg, 'utf-8')).toContain('type: stdio');
+    fs.writeFileSync(gooseCfg, 'GOOSE_PROVIDER: openai\n', 'utf-8');
+    expect(runMcpConfigCli(['--client', 'goose', '--install'], { homeDir: multiHome, platform: 'linux' }).exitCode).toBe(0);
+    expect(fs.readFileSync(gooseCfg, 'utf-8')).toContain('GOOSE_PROVIDER: openai');
+    fs.writeFileSync(gooseCfg, 'extensions:\n  other:\n    type: stdio\n', 'utf-8');
+    expect(runMcpConfigCli(['--client', 'goose', '--install'], { homeDir: multiHome, platform: 'linux' }).exitCode).toBe(0);
+    expect(fs.readFileSync(gooseCfg, 'utf-8')).toContain('other:');
+    expect(runMcpConfigCli(['--client', 'goose', '--latest', '--install'], { homeDir: multiHome, platform: 'linux' }).exitCode).toBe(0);
+    expect(fs.readFileSync(gooseCfg, 'utf-8')).toContain('@latest');
+
+    // 5. Standard JSON clients install (cline, roo-code, kilo-code, amazon-q, jetbrains-ai, devin, augment, trae)
+    for (const cliClient of ['cline', 'roo-code', 'kilo-code', 'amazon-q', 'jetbrains-ai', 'devin', 'augment', 'trae']) {
+      const res = runMcpConfigCli(['--client', cliClient, '--install'], { homeDir: multiHome, platform: 'linux' });
+      expect(res.exitCode).toBe(0);
+    }
+    expect(fs.existsSync(path.join(multiHome, '.aws', 'amazonq', 'mcp.json'))).toBe(true);
+    expect(fs.existsSync(path.join(multiHome, '.junie', 'mcp', 'mcp.json'))).toBe(true);
+    expect(fs.existsSync(path.join(multiHome, '.config', 'devin', 'mcp_config.json'))).toBe(true);
+
+    // 6. Global skills (gemini-cli, copilot, agents) & global connectors (zed, gemini-cli -> .gemini/GEMINI.md)
+    fs.mkdirSync(path.join(multiHome, '.gemini'), { recursive: true });
+    fs.mkdirSync(path.join(multiHome, '.config', 'zed'), { recursive: true });
+    expect(syncGlobalAgentConnectors(multiHome, false, 'en', 'gemini-cli')[0]?.updated).toBe(true);
+    expect(syncGlobalAgentConnectors(multiHome, false, 'en', 'zed')[0]?.updated).toBe(true);
+    expect(fs.existsSync(path.join(multiHome, '.config', 'zed', 'AGENTS.md'))).toBe(true);
+
+    const mockRepo = path.join(tmpDir, 'mock-multi-repo');
+    const skillPath = path.join(mockRepo, '.agents', 'skills', 'qa-11x-architect');
+    fs.mkdirSync(skillPath, { recursive: true });
+    const skillBody = '# QA-11X Multi-Agent\n';
+    fs.writeFileSync(path.join(skillPath, 'SKILL.md'), skillBody, 'utf-8');
+    const { createHash } = await import('node:crypto');
+    const sha = createHash('sha256').update(skillBody).digest('hex');
+    fs.writeFileSync(
+      path.join(mockRepo, 'manifest.json'),
+      JSON.stringify({
+        blueprint_version: '3.9.0',
+        common_files: [],
+        agent_governance_files: [
+          {
+            path: '.agents/skills/qa-11x-architect/SKILL.md',
+            target_name: '.agents/skills/qa-11x-architect/SKILL.md',
+            merge_strategy: 'copy_or_overwrite',
+            sha256: sha,
+            size_bytes: Buffer.byteLength(skillBody),
+          },
+        ],
+        stacks: {},
+      }),
+      'utf-8'
+    );
+    const fetcher = new GitHubFetcher({ localOverridePath: mockRepo });
+    for (const target of ['gemini-cli', 'copilot', 'agents']) {
+      await runInstallSkillCli(['--target', target], fetcher, {
+        homeDir: multiHome,
+        cwd: tmpDir,
+        log: () => undefined,
+      });
+    }
+    const foundSkillDirs = detectExistingQa11xSkillDirs(multiHome);
+    expect(foundSkillDirs).toContain(path.join(multiHome, '.gemini', 'skills'));
+    expect(foundSkillDirs).toContain(path.join(multiHome, '.copilot', 'skills'));
+    expect(foundSkillDirs).toContain(path.join(multiHome, '.agents', 'skills'));
   });
 });

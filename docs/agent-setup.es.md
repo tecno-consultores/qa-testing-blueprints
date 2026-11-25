@@ -29,43 +29,43 @@ npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --lang en --agen
 
 > [!NOTE]
 > - **Política de Idioma (`--lang auto|es|en`):** Tanto `init-agents` como `install-skill --init-agents` usan `--lang auto` por defecto (*Dynamic Language Mirroring*, reflejando el idioma del prompt del usuario y el idioma existente en `README.md`/`CHANGELOG.md`), soportando también `--lang es` y `--lang en` explícitos y manteniendo las directivas internas `.agents/` en inglés técnico compacto. Re-ejecutar `init-agents` (`[dir] [--project-path|--dir|-p <dir>] [--lang|-l auto|es|en] [--agents|-a auto|all|<csv>] [--dry-run]`) con otro `--lang` actualiza de forma idempotente únicamente el bloque conector delimitado QA-11X sin alterar reglas personalizadas del proyecto.
-> - **Flags Adicionales Thin-Repo y Trazabilidad:** `install-skill` (`install`) acepta `[--target|-t <env>] [--lang|-l auto|es|en] [--agents|-a <spec>] [--project-path|-p <dir>] [--init-agents] [--include-scripts] [--reconcile] [--dry-run]`, sincronizando los conectores `$HOME` detectados (`.gemini/GEMINI.md`, `.claude/CLAUDE.md`, `.codex/AGENTS.md`, `.codeium/windsurf/memories/global_rules.md`, `.config/opencode/AGENTS.md`), preservando el idioma previo si se omite `--lang`, podando archivos retirados de skills canónicas y protegiendo `scripts/*` personalizados (escribe `.11x-incoming` y recomienda `.agents/limpieza.local.sh`). `reconcile-agents` acepta `[dir] [--project-path|--dir|-p <dir>] [--scan-workspaces <dir>] [--apply] [--allow-dirty] [--prune-bridges] [--dry-run] [--json]` (poda conservadora de duplicados canónicos preservando secciones híbridas para revisión manual, consolida respaldos sueltos, parchea `.gitignore` y escanea workspaces multi-repo en `--dry-run` seguro por defecto). `tms-sync` soporta `--mode <inventory|push-results|pull-stories> --provider <jira|zephyr|xray|github-issues> [--target-dir <dir>] [--junit-xml <ruta>] [--base-url <https://...>] [--project-key <key>] [--issue-key <key>] [--test-execution-key <key>] [--repo <owner/repo>] [--required-keys <k1,k2>] [--timeout-ms <ms>] [--dry-run|--live] [--json]`.
+> - **Flags Adicionales Thin-Repo y Trazabilidad:** `install-skill` (`install`) acepta `[--target|-t <env>] [--lang|-l auto|es|en] [--agents|-a <spec>] [--project-path|-p <dir>] [--init-agents] [--include-scripts] [--reconcile] [--dry-run]`, soportando destinos globales de skills (`antigravity`, `gemini-cli`, `claude`, `cursor`, `windsurf`, `codex`, `hermes`, `opencode`, `copilot`, `agents` -> `~/.agents/skills`), sincronizando los conectores `$HOME` detectados (`.gemini/GEMINI.md`, `.claude/CLAUDE.md`, `.codex/AGENTS.md`, `.codeium/windsurf/memories/global_rules.md`, `.config/opencode/AGENTS.md`, `.config/zed/AGENTS.md`), preservando el idioma previo si se omite `--lang`, podando archivos retirados de skills canónicas y protegiendo `scripts/*` personalizados (escribe `.11x-incoming` y recomienda `.agents/limpieza.local.sh`). `reconcile-agents` acepta `[dir] [--project-path|--dir|-p <dir>] [--scan-workspaces <dir>] [--apply] [--allow-dirty] [--prune-bridges] [--dry-run] [--json]` (poda conservadora de duplicados canónicos preservando secciones híbridas para revisión manual, consolida respaldos sueltos, parchea `.gitignore` y escanea workspaces multi-repo en `--dry-run` seguro por defecto). `tms-sync` soporta `--mode <inventory|push-results|pull-stories> --provider <jira|zephyr|xray|github-issues> [--target-dir <dir>] [--junit-xml <ruta>] [--base-url <https://...>] [--project-key <key>] [--issue-key <key>] [--test-execution-key <key>] [--repo <owner/repo>] [--required-keys <k1,k2>] [--timeout-ms <ms>] [--dry-run|--live] [--json]`.
 > - **Negociación Bilingüe de Recursos MCP (`?lang=es|en`):** Las URIs MCP `blueprint://*` soportan `?lang=en` (inglés canónico, por defecto) y `?lang=es` (espejo 1:1 en español `.es.md`, ej. `blueprint://mobile-appium/readme?lang=es` para `sinfallas/base-mobile-appium:26`).
 > - **Arquitectura Puente Thin-Repo (`--agents <csv|auto|all>`):** En lugar de duplicar manuales extensos en cada carpeta de herramienta, cada puente se mantiene estrictamente en `<= 15` líneas y apunta directo a `AGENTS.md` (incluyendo *frontmatter* `.mdc` válido para Cursor y sintaxis YAML `read:` sin duplicación para `.aider.conf.yml`), con protección contra *path-traversal* y simulación `--dry-run`.
 > - **Guardia de Push Confirmado por Humanos (`QA-GIT-GATE-01`):** Los conectores generados exigen cierre local certificado con `git commit` y prohíben `git push` o `npm publish` automáticos sin autorización humana explícita.
 
 ### 🌐 Matriz Declarativa de los 28 Agentes de Programación IA Soportados (`--agents`)
 
-| ID de Agente (`--agents`) | Asistente / Entorno | Categoría | Archivo Puente Generado | Marcadores de Auto-Detección (`--agents auto`) |
-| :--- | :--- | :--- | :--- | :--- |
-| `antigravity` | Google Antigravity IDE | IDE | `AGENTS.md` | `.gemini`, `.idx` |
-| `claude-code` | Claude Code CLI | CLI | `CLAUDE.md` | `CLAUDE.md`, `.claude` |
-| `claude-desktop` | Claude Desktop | Desktop | `AGENTS.md` | `.mcp.json` |
-| `cursor` | Cursor IDE | IDE | `.cursor/rules/qa-11x.mdc` (*frontmatter* `.mdc`) | `.cursor`, `.cursorrules` |
-| `windsurf` | Windsurf (Codeium) | IDE | `.windsurfrules` | `.windsurfrules`, `.windsurf`, `.codeium` |
-| `copilot` | GitHub Copilot (VS Code) | IDE | `.github/copilot-instructions.md` | `.github`, `.vscode` |
-| `codex` | OpenAI Codex CLI | CLI | `AGENTS.md` | `.codex` |
-| `gemini-cli` | Google Gemini CLI | CLI | `GEMINI.md` | `GEMINI.md`, `.gemini` |
-| `gemini-code-assist` | Gemini Code Assist | IDE | `.gemini/styleguide.md` | `.gemini` |
-| `cline` | Cline (VS Code) | IDE | `.clinerules` | `.clinerules`, `.cline` |
-| `roo-code` | Roo Code | IDE | `.roo/rules/qa-11x.md` | `.roo`, `.roorules` |
-| `aider` | Aider CLI | CLI | `.aider.conf.yml` (`read: AGENTS.md`) | `.aider.conf.yml`, `.aiderignore` |
-| `continue` | Continue.dev | IDE | `.continue/rules/qa-11x.md` | `.continue`, `.continuerules` |
-| `zed` | Zed Editor AI | IDE | `.rules` | `.zed`, `.rules` |
-| `devin` | Devin Autonomous Agent | Autónomo | `AGENTS.md` | `.devin` |
-| `cody` | Sourcegraph Cody | IDE | `.sourcegraph/qa-11x.rule.md` | `.sourcegraph` |
-| `amazon-q` | Amazon Q Developer | IDE | `.amazonq/rules/qa-11x.md` | `.amazonq` |
-| `jetbrains-ai` | JetBrains AI / Junie | IDE | `.junie/guidelines.md` | `.junie`, `.idea` |
-| `augment` | Augment Code | IDE | `.augment/rules/qa-11x.md` | `.augment` |
-| `trae` | Trae IDE | IDE | `.trae/rules/qa-11x.md` | `.trae` |
-| `hermes` | Hermes Agent | Autónomo | `AGENTS.md` | `.hermes` |
-| `opencode` | OpenCode CLI | CLI | `AGENTS.md` | `opencode.json`, `.opencode` |
-| `goose` | Block Goose | CLI | `.goosehints` | `.goosehints`, `.goose` |
-| `kilo-code` | Kilo Code | IDE | `.kilocode/rules/qa-11x.md` | `.kilocode` |
-| `bolt` | Bolt.new | Vibe-Coding | `.bolt/prompt` | `.bolt` |
-| `lovable` | Lovable.dev | Vibe-Coding | `.lovable/rules.md` | `.lovable` |
-| `v0` | Vercel v0 | Vibe-Coding | `.v0/rules.md` | `.v0` |
-| `replit` | Replit Agent | Vibe-Coding | `replit.md` | `.replit`, `replit.nix`, `replit.md` |
+| ID de Agente (`--agents`) | Asistente / Entorno | Categoría | Archivo Puente Generado | Alcance Verificado de Integración | Marcadores de Auto-Detección (`--agents auto`) |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `antigravity` | Google Antigravity IDE | IDE | `AGENTS.md` | Completo (Bridge + Skills Globales + Conector `$HOME` + `mcp-config`/`doctor`) | `.gemini`, `.idx` |
+| `claude-code` | Claude Code CLI | CLI | `CLAUDE.md` | Completo (Bridge + Skills Globales + Conector `$HOME` + `mcp-config`/`doctor` + Plugin) | `CLAUDE.md`, `.claude` |
+| `claude-desktop` | Claude Desktop | Desktop | `AGENTS.md` | Bridge + `mcp-config`/`doctor` (JSON multi-OS) | `.mcp.json` |
+| `cursor` | Cursor IDE | IDE | `.cursor/rules/qa-11x.mdc` (*frontmatter* `.mdc`) | Completo (Bridge + Skills Globales + `mcp-config`/`doctor`) | `.cursor`, `.cursorrules` |
+| `windsurf` | Windsurf (Codeium) | IDE | `.windsurfrules` *(legado; `.windsurf/rules/` también compatible)* | Completo (Bridge + Skills Globales + `$HOME` `global_rules.md` + `mcp-config`/`doctor`) | `.windsurfrules`, `.windsurf`, `.codeium` |
+| `copilot` | GitHub Copilot (VS Code) | IDE | `.github/copilot-instructions.md` | Bridge + Skills Globales (`~/.copilot/skills`) + `mcp-config --client vscode` / `doctor` | `.github`, `.vscode` |
+| `codex` | OpenAI Codex CLI | CLI | `AGENTS.md` | Completo (Bridge + Skills Globales + Conector `$HOME` + TOML `mcp-config`/`doctor`) | `.codex` |
+| `gemini-cli` | Google Gemini CLI | CLI | `GEMINI.md` | Completo (Bridge + Skills Globales `~/.gemini/skills` + Conector `$HOME` + `mcp-config`/`doctor`) | `GEMINI.md`, `.gemini` |
+| `gemini-code-assist` | Gemini Code Assist | IDE | `.gemini/styleguide.md` | Bridge + skills `.gemini/` compartidos y MCP del IDE | `.gemini` |
+| `cline` | Cline (VS Code / CLI) | IDE | `.clinerules` | Bridge + `mcp-config --client cline` / `doctor` (`cline_mcp_settings.json`) | `.clinerules`, `.cline` |
+| `roo-code` | Roo Code | IDE | `.roo/rules/qa-11x.md` | Bridge + `mcp-config --client roo-code` / `doctor` (`rooveterinaryinc.roo-cline`) | `.roo`, `.roorules` |
+| `aider` | Aider CLI | CLI | `.aider.conf.yml` (`read: AGENTS.md`) | Bridge YAML declarativo *(sin registro MCP stdio nativo)* | `.aider.conf.yml`, `.aiderignore` |
+| `continue` | Continue.dev | IDE | `.continue/rules/qa-11x.md` | Bridge + YAML `mcp-config --client continue` / `doctor` (`.continue/mcpServers/qa-11x.yaml`) | `.continue`, `.continuerules` |
+| `zed` | Zed Editor AI | IDE | `.rules` | Completo (Bridge + `$HOME` `~/.config/zed/AGENTS.md` + `context_servers` `mcp-config`/`doctor`) | `.zed`, `.rules` |
+| `devin` | Devin Autonomous Agent | Autónomo | `AGENTS.md` | Bridge + `mcp-config --client devin` / `doctor` (`mcp_config.json`) | `.devin` |
+| `cody` | Sourcegraph Cody | IDE | `.sourcegraph/qa-11x.rule.md` | Bridge declarativo *(ajustes IDE / enterprise)* | `.sourcegraph` |
+| `amazon-q` | Amazon Q Developer | IDE | `.amazonq/rules/qa-11x.md` | Bridge + `mcp-config --client amazon-q` / `doctor` (`~/.aws/amazonq/mcp.json`) | `.amazonq` |
+| `jetbrains-ai` | JetBrains AI / Junie | IDE | `.junie/guidelines.md` | Bridge + `mcp-config --client jetbrains-ai` / `doctor` (`~/.junie/mcp/mcp.json` + GUI) | `.junie`, `.idea` |
+| `augment` | Augment Code | IDE | `.augment/rules/qa-11x.md` | Bridge + `mcp-config --client augment` / `doctor` (`~/.augment/settings.json`) | `.augment` |
+| `trae` | Trae IDE | IDE | `.trae/rules/qa-11x.md` | Bridge + `mcp-config --client trae` / `doctor` (`.trae/mcp.json`) | `.trae` |
+| `hermes` | Hermes Agent | Autónomo | `AGENTS.md` | Bridge + Skills Globales (`~/.hermes/skills`) + `mcp-config`/`doctor` (`mcp.json` y `config.yaml`) | `.hermes` |
+| `opencode` | OpenCode CLI | CLI | `AGENTS.md` | Completo (Bridge + Skills Globales + Conector `$HOME` + esquema oficial `mcp.qa-11x` `mcp-config`/`doctor`) | `opencode.json`, `.opencode` |
+| `goose` | Block Goose | CLI | `.goosehints` | Bridge + YAML `mcp-config --client goose` / `doctor` (`config.yaml` `extensions:`) | `.goosehints`, `.goose` |
+| `kilo-code` | Kilo Code | IDE | `.kilocode/rules/qa-11x.md` | Bridge + `mcp-config --client kilo-code` / `doctor` (`kilocode.kilo-code` y `kilo.jsonc`) | `.kilocode` |
+| `bolt` | Bolt.new | Vibe-Coding | `.bolt/prompt` | Bridge declarativo *(web cloud: solo Connectors HTTP/SSE remotos; sin MCP stdio local)* | `.bolt` |
+| `lovable` | Lovable.dev | Vibe-Coding | `.lovable/rules.md` | Bridge declarativo *(pegar en Lovable Custom Knowledge; solo MCP remoto cloud)* | `.lovable` |
+| `v0` | Vercel v0 | Vibe-Coding | `.v0/rules.md` | Bridge declarativo *(adjuntar como brief/prompt; solo MCP remoto cloud)* | `.v0` |
+| `replit` | Replit Agent | Vibe-Coding | `replit.md` | Bridge (`replit.md`) + `.agents/skills/` de workspace (`install-skill --target workspace`) | `.replit`, `replit.nix`, `replit.md` |
 
 ---
 
@@ -214,6 +214,7 @@ Windsurf soporta configuraciones MCP globales en el directorio `.codeium`.
 Los IDEs de JetBrains con AI Assistant o Junie permiten registrar servidores MCP vía ajustes o JSON.
 
 - **Ruta en GUI:** *Settings / Preferences > Tools > AI Assistant > Model Context Protocol (MCP)*.
+- **Archivo de Configuración Junie (`mcp-config --client jetbrains-ai --install`):** `~/.junie/mcp/mcp.json` (usuario) o `.junie/mcp/mcp.json` (proyecto).
 - **Configuración JSON:**
   ```json
   {
@@ -230,12 +231,22 @@ Los IDEs de JetBrains con AI Assistant o Junie permiten registrar servidores MCP
 
 ### Grupo B: Agentes Especializados y de Código Abierto
 
-#### 8. Cline / Roo Code (Extensión de VS Code)
-- **Ruta del Archivo de Configuración:**
+#### 8. Cline, Roo Code y Kilo Code (Extensiones VS Code / CLIs)
+Cada extensión usa su propia ruta `globalStorage` (todas soportadas directamente por `mcp-config --client <cline|roo-code|kilo-code> --install` y `doctor`):
+
+- **Cline (`mcp-config --client cline --install`):**
   - macOS: `~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`
   - Linux: `~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`
   - Windows: `%APPDATA%\Code\User\globalStorage\saoudrizwan.claude-dev\settings\cline_mcp_settings.json`
-- **Contenido:**
+  - Respaldo Cline CLI: `~/.cline/data/settings/cline_mcp_settings.json`
+- **Roo Code (`mcp-config --client roo-code --install`):**
+  - macOS: `~/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json`
+  - Linux: `~/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json`
+  - Windows: `%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json`
+  - Nivel proyecto: `.roo/mcp.json`
+- **Kilo Code (`mcp-config --client kilo-code --install`):**
+  - VS Code `globalStorage`: `.../globalStorage/kilocode.kilo-code/settings/mcp_settings.json` (global JSONC: `~/.config/kilo/kilo.jsonc`, proyecto: `.kilocode/mcp.json`)
+- **Contenido JSON `mcpServers` compartido:**
   ```json
   {
     "mcpServers": {
@@ -295,33 +306,71 @@ Hermes Agent utiliza **YAML** (`~/.hermes/config.yaml`) para su archivo principa
 ---
 
 #### 11. Zed Editor y OpenCode
-- **Zed (`~/.config/zed/settings.json`):**
+- **Zed (`~/.config/zed/settings.json` o `%APPDATA%\Zed\settings.json`, gestionado con `mcp-config --client zed --install`; conector global `~/.config/zed/AGENTS.md`):**
   ```json
   {
-    "context_servers": [
-      {
-        "id": "qa-11x",
-        "command": {
-          "path": "npx",
-          "args": ["-y", "@sinfallas/mcp-qa-11x@latest"]
-        }
-      }
-    ]
-  }
-  ```
-- **OpenCode (`~/.config/opencode/opencode.json` o `opencode.json` de proyecto, gestionado con `mcp-config --client opencode --install` e `install-skill --target opencode`):**
-  ```json
-  {
-    "mcp": {
-      "servers": {
-        "qa-11x": {
-          "type": "local",
-          "command": ["npx", "-y", "@sinfallas/mcp-qa-11x@latest"]
-        }
+    "context_servers": {
+      "qa-11x": {
+        "command": "npx",
+        "args": ["-y", "@sinfallas/mcp-qa-11x@latest"]
       }
     }
   }
   ```
+- **OpenCode (`~/.config/opencode/opencode.json` o `opencode.json` de proyecto, esquema oficial `https://opencode.ai/config.json`, gestionado con `mcp-config --client opencode --install` e `install-skill --target opencode`):**
+  ```json
+  {
+    "$schema": "https://opencode.ai/config.json",
+    "mcp": {
+      "qa-11x": {
+        "type": "local",
+        "command": ["npx", "-y", "@sinfallas/mcp-qa-11x@latest"],
+        "enabled": true
+      }
+    }
+  }
+  ```
+
+---
+
+#### 12. Amazon Q, Devin, Augment Code, Trae IDE, Continue.dev y Block Goose
+Los seis clientes MCP locales están soportados directamente por `mcp-config --client <id> --install` y auditados por `doctor`:
+
+- **Clientes JSON `mcpServers` Estándar:**
+  - **Amazon Q Developer (`--client amazon-q`):** `~/.aws/amazonq/mcp.json`
+  - **Devin (`--client devin`):** `~/.config/devin/mcp_config.json` (Windows: `%APPDATA%\devin\mcp_config.json`)
+  - **Augment Code (`--client augment`):** `~/.augment/settings.json`
+  - **Trae IDE (`--client trae`):** `~/.trae/mcp.json` (o proyecto `.trae/mcp.json`)
+- **Continue.dev (`--client continue`, `~/.continue/mcpServers/qa-11x.yaml`):**
+  ```yaml
+  name: QA-11X MCP Server
+  version: 0.0.1
+  schema: v1
+  mcpServers:
+    - name: qa-11x
+      command: npx
+      args:
+        - "-y"
+        - "@sinfallas/mcp-qa-11x@latest"
+  ```
+- **Block Goose (`--client goose`, `~/.config/goose/config.yaml` o `%APPDATA%\Block\goose\config\config.yaml`):**
+  ```yaml
+  extensions:
+    qa-11x:
+      name: QA-11X
+      type: stdio
+      cmd: npx
+      args:
+        - "-y"
+        - "@sinfallas/mcp-qa-11x@latest"
+      enabled: true
+      timeout: 300
+  ```
+
+#### 13. Plataformas Cloud Vibe-Coding y Puentes Declarativos (`bolt`, `lovable`, `v0`, `replit`, `aider`, `cody`)
+- **Bolt.new, Lovable.dev y Vercel v0:** Al ejecutarse en navegador cloud, aceptan únicamente conectores MCP remotos HTTP/SSE (no subprocesos `stdio` locales). Usa `init-agents` para generar los puentes Thin-Repo (`.bolt/prompt`, `.lovable/rules.md` para pegar en *Custom Knowledge*, `.v0/rules.md` adjunto como brief de proyecto) y ejecuta `npx @sinfallas/mcp-qa-11x audit --mode vibe` en local tras exportar a Git.
+- **Replit Agent:** Lee `replit.md`, `AGENTS.md` y `.agents/skills/` (`install-skill --target workspace`) dentro de su contenedor de workspace.
+- **Aider y Sourcegraph Cody:** Se integran mediante sus puentes declarativos de repositorio (`.aider.conf.yml` `read: AGENTS.md` y `.sourcegraph/qa-11x.rule.md`) junto con la CLI (`npx @sinfallas/mcp-qa-11x audit|certify`).
 
 ---
 

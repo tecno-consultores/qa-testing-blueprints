@@ -9,18 +9,29 @@ import { resolveSubcommandHelpText } from '../src/cli.js';
 import {
   ANTIGRAVITY_CANONICAL_MCP_REL_PATH,
   ANTIGRAVITY_FALLBACK_MCP_REL_PATH,
+  AMAZON_Q_MCP_REL_PATH,
+  AUGMENT_MCP_REL_PATH,
   CLAUDE_CODE_MCP_REL_PATH,
   CODEX_MCP_REL_PATH,
+  CONTINUE_MCP_REL_PATH,
   CURSOR_MCP_REL_PATH,
   getBrowserMcpCandidatePaths,
   getDoctorIdeMcpTargets,
   HERMES_CANONICAL_MCP_REL_PATH,
   HERMES_FALLBACK_MCP_REL_PATH,
+  JUNIE_MCP_REL_PATH,
   OPENCODE_CANONICAL_MCP_REL_PATH,
   OPENCODE_FALLBACK_MCP_REL_PATH,
   resolveActiveJsonMcpClientRelPath,
   resolveClaudeDesktopMcpRelPath,
+  resolveClineMcpRelPath,
+  resolveDevinMcpRelPath,
+  resolveGooseMcpRelPath,
   resolveJsonMcpClientRelPath,
+  resolveKiloCodeMcpRelPath,
+  resolveRooCodeMcpRelPath,
+  resolveZedMcpRelPath,
+  TRAE_MCP_REL_PATH,
   WINDSURF_MCP_REL_PATH,
 } from '../src/utils/ideConfigPaths.js';
 
@@ -44,9 +55,23 @@ describe('ideConfigPaths & CLI help loaders', () => {
     expect(resolveJsonMcpClientRelPath('hermes', 'linux')).toBe(HERMES_CANONICAL_MCP_REL_PATH);
     expect(resolveJsonMcpClientRelPath('claude-desktop', 'darwin')).toContain('Library');
     expect(resolveJsonMcpClientRelPath('claude-desktop', 'win32')).toContain('AppData');
+    expect(resolveJsonMcpClientRelPath('cline', 'linux')).toBe(resolveClineMcpRelPath('linux'));
+    expect(resolveJsonMcpClientRelPath('roo-code', 'darwin')).toBe(resolveRooCodeMcpRelPath('darwin'));
+    expect(resolveJsonMcpClientRelPath('kilo-code', 'win32')).toBe(resolveKiloCodeMcpRelPath('win32'));
+    expect(resolveJsonMcpClientRelPath('amazon-q', 'linux')).toBe(AMAZON_Q_MCP_REL_PATH);
+    expect(resolveJsonMcpClientRelPath('jetbrains-ai', 'linux')).toBe(JUNIE_MCP_REL_PATH);
+    expect(resolveJsonMcpClientRelPath('devin', 'win32')).toBe(resolveDevinMcpRelPath('win32'));
+    expect(resolveJsonMcpClientRelPath('devin', 'linux')).toBe(resolveDevinMcpRelPath('linux'));
+    expect(resolveJsonMcpClientRelPath('augment', 'linux')).toBe(AUGMENT_MCP_REL_PATH);
+    expect(resolveJsonMcpClientRelPath('trae', 'linux')).toBe(TRAE_MCP_REL_PATH);
+    expect(resolveZedMcpRelPath('win32')).toContain('AppData');
+    expect(resolveZedMcpRelPath('linux')).toContain('.config');
+    expect(resolveGooseMcpRelPath('win32')).toContain('Block');
+    expect(resolveGooseMcpRelPath('linux')).toContain('goose');
+    expect(CONTINUE_MCP_REL_PATH).toContain('mcpServers');
   });
 
-  it('returns all 10 IDE doctor specs (including vscode, gemini-cli & opencode) and 13 browser MCP candidate paths', () => {
+  it('returns all 21 IDE doctor specs (including zed, cline, roo-code, kilo-code, continue & goose) and 26 browser MCP candidate paths', () => {
     const targets = getDoctorIdeMcpTargets('linux');
     expect(targets.map((t) => t.client)).toEqual([
       'antigravity',
@@ -59,6 +84,17 @@ describe('ideConfigPaths & CLI help loaders', () => {
       'gemini-cli',
       'hermes',
       'opencode',
+      'zed',
+      'cline',
+      'roo-code',
+      'kilo-code',
+      'amazon-q',
+      'jetbrains-ai',
+      'devin',
+      'augment',
+      'trae',
+      'continue',
+      'goose',
     ]);
     expect(targets[0]?.relPaths).toEqual([
       ANTIGRAVITY_CANONICAL_MCP_REL_PATH,
@@ -77,7 +113,7 @@ describe('ideConfigPaths & CLI help loaders', () => {
 
     const fakeHome = path.join('/tmp', 'qa-ide-home');
     const winCandidates = getBrowserMcpCandidatePaths(fakeHome, 'win32');
-    expect(winCandidates).toHaveLength(13);
+    expect(winCandidates).toHaveLength(26);
     expect(winCandidates.some((candidate) => candidate.endsWith(CODEX_MCP_REL_PATH))).toBe(true);
     expect(winCandidates.every((candidate) => candidate.startsWith(fakeHome))).toBe(true);
     expect(winCandidates.some((candidate) => candidate.includes('AppData'))).toBe(true);

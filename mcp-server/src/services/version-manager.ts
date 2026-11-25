@@ -164,12 +164,15 @@ export function readVersionStamp(targetDir: string): string | null {
 const GLOBAL_SKILL_REL_DIRS: readonly string[] = [
   path.join('.gemini', 'config', 'skills'),
   path.join('.gemini', 'antigravity', 'skills'),
+  path.join('.gemini', 'skills'),
   path.join('.claude', 'skills'),
   path.join('.hermes', 'skills'),
   path.join('.cursor', 'skills'),
   path.join('.codeium', 'windsurf', 'skills'),
   path.join('.codex', 'skills'),
   path.join('.config', 'opencode', 'skills'),
+  path.join('.copilot', 'skills'),
+  path.join('.agents', 'skills'),
 ];
 
 export function resolveGlobalSkillCandidateDirs(homeDir: string): string[] {

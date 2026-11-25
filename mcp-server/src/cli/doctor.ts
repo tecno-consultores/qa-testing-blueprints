@@ -240,7 +240,7 @@ function scanNpxCacheEntries(homeDir: string): NpxCacheEntry[] {
 
 const IDE_MCP_TARGETS = getDoctorIdeMcpTargets();
 
-const TEXT_CONFIG_EXTS = ['.toml', '.yaml', '.yml'] as const;
+const TEXT_CONFIG_EXTS = ['.toml', '.yaml', '.yml', '.jsonc'] as const;
 const TOML_HEADER_LINE_RE = /^\s*\[{1,2}[^\]]+\]{1,2}\s*$/;
 const YAML_OR_TOML_KEY_PREFIX_RE = /^\s*[A-Za-z0-9_.-]+\s*(?:=|:(?:\s|$))/;
 const SCOPED_PKG_NAME = `${PKG_SCOPE}/${PKG_NAME}`;
@@ -379,21 +379,34 @@ function checkQaServerEntryPinning(
   return isUnpinnedPackageArg(pkgArg) ? formatUnpinnedWarning(filePath, pkgArg) : null;
 }
 
+function isRecordObj(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function inspectJsonPinning(filePath: string, rawText: string): string | null {
   const raw = JSON.parse(rawText) as Record<string, unknown>;
-  const nestedMcp =
-    typeof raw.mcp === 'object' && raw.mcp !== null && !Array.isArray(raw.mcp)
-      ? (raw.mcp as Record<string, unknown>).servers
-      : undefined;
-  const serverMaps = [raw.mcpServers, raw.servers, nestedMcp].filter(
-    (entry): entry is Record<string, unknown> =>
-      typeof entry === 'object' && entry !== null && !Array.isArray(entry)
-  );
+  const mcpObj = isRecordObj(raw.mcp) ? raw.mcp : undefined;
+  const legacyMcpServers = mcpObj && isRecordObj(mcpObj.servers) ? mcpObj.servers : undefined;
+  const serverMaps = [
+    raw.mcpServers,
+    raw.servers,
+    raw.context_servers,
+    mcpObj,
+    legacyMcpServers,
+  ].filter(isRecordObj);
   for (const servers of serverMaps) {
     for (const [serverKey, entryRaw] of Object.entries(servers)) {
       const warn = checkQaServerEntryPinning(filePath, serverKey, entryRaw);
       if (warn) return warn;
     }
+  }
+  if (
+    filePath.endsWith('opencode.json') &&
+    legacyMcpServers &&
+    Object.keys(legacyMcpServers).some((k) => /qa[-_]?11x/i.test(k)) &&
+    !Object.keys(mcpObj ?? {}).some((k) => /qa[-_]?11x/i.test(k))
+  ) {
+    return `IDE MCP '${filePath}' usa 'mcp.servers.qa-11x' (esquema legado); el esquema oficial de OpenCode exige 'mcp.qa-11x' (ejecuta 'mcp-config --client opencode --install').`;
   }
   return null;
 }

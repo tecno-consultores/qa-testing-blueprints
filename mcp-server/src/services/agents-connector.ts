@@ -28,7 +28,7 @@ export const CANONICAL_GLOBAL_SKILL_DIRS: ReadonlySet<string> = new Set([
 ]);
 
 export interface GlobalConnectorTargetSpec {
-  readonly agent: 'antigravity' | 'claude' | 'codex' | 'windsurf' | 'opencode';
+  readonly agent: 'antigravity' | 'claude' | 'codex' | 'windsurf' | 'opencode' | 'zed';
   readonly detectRelDir: string;
   readonly relFile: string;
 }
@@ -60,6 +60,11 @@ export const GLOBAL_CONNECTOR_TARGETS: readonly GlobalConnectorTargetSpec[] = Ob
     agent: 'opencode',
     detectRelDir: path.join('.config', 'opencode'),
     relFile: path.join('.config', 'opencode', 'AGENTS.md'),
+  },
+  {
+    agent: 'zed',
+    detectRelDir: path.join('.config', 'zed'),
+    relFile: path.join('.config', 'zed', 'AGENTS.md'),
   },
 ]);
 
@@ -512,7 +517,8 @@ function selectConnectorTargetsForArg(targetArg?: string): readonly GlobalConnec
   if (!targetArg || targetArg === 'auto' || targetArg === 'all') {
     return GLOBAL_CONNECTOR_TARGETS;
   }
-  return GLOBAL_CONNECTOR_TARGETS.filter((target) => target.agent === targetArg);
+  const normalized = targetArg === 'gemini-cli' ? 'antigravity' : targetArg;
+  return GLOBAL_CONNECTOR_TARGETS.filter((target) => target.agent === normalized);
 }
 
 export function syncGlobalAgentConnectors(

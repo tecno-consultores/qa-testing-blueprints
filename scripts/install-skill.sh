@@ -174,11 +174,11 @@ fi
 TARGET_SELECTION="${TARGET_ARG:-${QA_SKILL_TARGET:-${TARGET:-auto}}}"
 
 case "${TARGET_SELECTION}" in
-  "" | auto | all | workspace | local | antigravity | claude | cursor | windsurf | codex | hermes | opencode)
+  "" | auto | all | workspace | local | antigravity | gemini-cli | claude | cursor | windsurf | codex | hermes | opencode | copilot | agents)
     :
     ;;
   *)
-    log_error "Destino --target inválido: '${TARGET_SELECTION}'. Valores permitidos: auto, workspace, antigravity, claude, cursor, windsurf, codex, hermes, opencode, all."
+    log_error "Destino --target inválido: '${TARGET_SELECTION}'. Valores permitidos: auto, workspace, antigravity, gemini-cli, claude, cursor, windsurf, codex, hermes, opencode, copilot, agents, all."
     exit 1
     ;;
 esac
@@ -285,6 +285,9 @@ detect_global_agent_dirs() {
   if [ -d "${HOME_DIR}/.gemini" ]; then
     emit_gemini_skill_dirs
   fi
+  if [ -f "${HOME_DIR}/.gemini/settings.json" ] || [ -d "${HOME_DIR}/.gemini/skills" ]; then
+    printf "%s/.gemini/skills\n" "${HOME_DIR}"
+  fi
   if [ -d "${HOME_DIR}/.claude" ]; then
     printf "%s/.claude/skills\n" "${HOME_DIR}"
   fi
@@ -303,6 +306,12 @@ detect_global_agent_dirs() {
   if [ -d "${HOME_DIR}/.config/opencode" ]; then
     printf "%s/.config/opencode/skills\n" "${HOME_DIR}"
   fi
+  if [ -d "${HOME_DIR}/.copilot" ]; then
+    printf "%s/.copilot/skills\n" "${HOME_DIR}"
+  fi
+  if [ -d "${HOME_DIR}/.agents/skills" ]; then
+    printf "%s/.agents/skills\n" "${HOME_DIR}"
+  fi
 }
 
 resolve_destination_dirs() {
@@ -314,6 +323,9 @@ resolve_destination_dirs() {
       ;;
     antigravity)
       emit_gemini_skill_dirs
+      ;;
+    gemini-cli)
+      printf "%s/.gemini/skills\n" "${HOME_DIR}"
       ;;
     claude)
       printf "%s/.claude/skills\n" "${HOME_DIR}"
@@ -333,18 +345,27 @@ resolve_destination_dirs() {
     opencode)
       printf "%s/.config/opencode/skills\n" "${HOME_DIR}"
       ;;
+    copilot)
+      printf "%s/.copilot/skills\n" "${HOME_DIR}"
+      ;;
+    agents)
+      printf "%s/.agents/skills\n" "${HOME_DIR}"
+      ;;
     all)
       _detected="$(detect_global_agent_dirs || true)"
       if [ -n "${_detected}" ]; then
         printf '%s\n' "${_detected}"
       else
         emit_gemini_skill_dirs
+        printf "%s/.gemini/skills\n" "${HOME_DIR}"
         printf "%s/.claude/skills\n" "${HOME_DIR}"
         printf "%s/.hermes/skills\n" "${HOME_DIR}"
         printf "%s/.cursor/skills\n" "${HOME_DIR}"
         printf "%s/.codeium/windsurf/skills\n" "${HOME_DIR}"
         printf "%s/.codex/skills\n" "${HOME_DIR}"
         printf "%s/.config/opencode/skills\n" "${HOME_DIR}"
+        printf "%s/.copilot/skills\n" "${HOME_DIR}"
+        printf "%s/.agents/skills\n" "${HOME_DIR}"
       fi
       ;;
     auto | "")
@@ -635,8 +656,9 @@ sync_global_agent_connectors() {
       sync_single_global_connector ".codex" ".codex/AGENTS.md" "${_dry_mode}"
       sync_single_global_connector ".codeium/windsurf" ".codeium/windsurf/memories/global_rules.md" "${_dry_mode}"
       sync_single_global_connector ".config/opencode" ".config/opencode/AGENTS.md" "${_dry_mode}"
+      sync_single_global_connector ".config/zed" ".config/zed/AGENTS.md" "${_dry_mode}"
       ;;
-    antigravity) sync_single_global_connector ".gemini" ".gemini/GEMINI.md" "${_dry_mode}" ;;
+    antigravity | gemini-cli) sync_single_global_connector ".gemini" ".gemini/GEMINI.md" "${_dry_mode}" ;;
     claude) sync_single_global_connector ".claude" ".claude/CLAUDE.md" "${_dry_mode}" ;;
     codex) sync_single_global_connector ".codex" ".codex/AGENTS.md" "${_dry_mode}" ;;
     windsurf) sync_single_global_connector ".codeium/windsurf" ".codeium/windsurf/memories/global_rules.md" "${_dry_mode}" ;;

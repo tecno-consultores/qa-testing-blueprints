@@ -52,6 +52,7 @@ const CURSOR_DIR_NAME = '.cursor';
 const CODEX_DIR_NAME = '.codex';
 const WINDSURF_REL_DIR = path.join('.codeium', 'windsurf');
 const OPENCODE_REL_DIR = path.join('.config', 'opencode');
+const COPILOT_DIR_NAME = '.copilot';
 const UTF8 = 'utf-8';
 
 export const INSTALL_SKILL_HELP_TEXT = renderSubcommandHelpText('install-skill', 'en');
@@ -189,12 +190,16 @@ const GLOBAL_AGENT_DETECTION_SPECS: ReadonlyArray<{
   readonly markerRel: string;
   readonly skillsRel: string;
 }> = [
+  { markerRel: path.join(GEMINI_DIR_NAME, 'settings.json'), skillsRel: path.join(GEMINI_DIR_NAME, SKILLS_DIR_NAME) },
+  { markerRel: path.join(GEMINI_DIR_NAME, SKILLS_DIR_NAME), skillsRel: path.join(GEMINI_DIR_NAME, SKILLS_DIR_NAME) },
   { markerRel: CLAUDE_DIR_NAME, skillsRel: path.join(CLAUDE_DIR_NAME, SKILLS_DIR_NAME) },
   { markerRel: HERMES_DIR_NAME, skillsRel: path.join(HERMES_DIR_NAME, SKILLS_DIR_NAME) },
   { markerRel: CURSOR_DIR_NAME, skillsRel: path.join(CURSOR_DIR_NAME, SKILLS_DIR_NAME) },
   { markerRel: WINDSURF_REL_DIR, skillsRel: path.join(WINDSURF_REL_DIR, SKILLS_DIR_NAME) },
   { markerRel: CODEX_DIR_NAME, skillsRel: path.join(CODEX_DIR_NAME, SKILLS_DIR_NAME) },
   { markerRel: OPENCODE_REL_DIR, skillsRel: path.join(OPENCODE_REL_DIR, SKILLS_DIR_NAME) },
+  { markerRel: COPILOT_DIR_NAME, skillsRel: path.join(COPILOT_DIR_NAME, SKILLS_DIR_NAME) },
+  { markerRel: path.join(AGENTS_DIR_NAME, SKILLS_DIR_NAME), skillsRel: path.join(AGENTS_DIR_NAME, SKILLS_DIR_NAME) },
 ];
 
 function resolveSafeGlobalSkillDir(homeDir: string, relDir: string): string {
@@ -266,11 +271,14 @@ const VALID_SKILL_TARGETS = new Set<string>([
   'local',
   'cursor',
   'antigravity',
+  'gemini-cli',
   'claude',
   'hermes',
   'windsurf',
   'codex',
   'opencode',
+  'copilot',
+  'agents',
   'all',
   'auto',
 ]);
@@ -278,35 +286,38 @@ const VALID_SKILL_TARGETS = new Set<string>([
 export function assertValidSkillTarget(targetArg: string): void {
   if (!VALID_SKILL_TARGETS.has(targetArg)) {
     throw new Error(
-      `Destino --target inválido: '${targetArg}'. Valores permitidos: auto, workspace, antigravity, claude, cursor, windsurf, codex, hermes, opencode, all.`
+      `Destino --target inválido: '${targetArg}'. Valores permitidos: auto, workspace, antigravity, gemini-cli, claude, cursor, windsurf, codex, hermes, opencode, copilot, agents, all.`
     );
   }
 }
 
+const SINGLE_GLOBAL_SKILL_TARGET_RELS: Readonly<Record<string, string>> = {
+  cursor: path.join(CURSOR_DIR_NAME, SKILLS_DIR_NAME),
+  'gemini-cli': path.join(GEMINI_DIR_NAME, SKILLS_DIR_NAME),
+  claude: path.join(CLAUDE_DIR_NAME, SKILLS_DIR_NAME),
+  hermes: path.join(HERMES_DIR_NAME, SKILLS_DIR_NAME),
+  windsurf: path.join(WINDSURF_REL_DIR, SKILLS_DIR_NAME),
+  codex: path.join(CODEX_DIR_NAME, SKILLS_DIR_NAME),
+  opencode: path.join(OPENCODE_REL_DIR, SKILLS_DIR_NAME),
+  copilot: path.join(COPILOT_DIR_NAME, SKILLS_DIR_NAME),
+  agents: path.join(AGENTS_DIR_NAME, SKILLS_DIR_NAME),
+};
+
 function resolveDestinationDirs(targetArg: string, homeDir: string, cwd: string): string[] {
   assertValidSkillTarget(targetArg);
-  switch (targetArg) {
-    case 'cursor':
-      return [resolveSafeGlobalSkillDir(homeDir, path.join(CURSOR_DIR_NAME, SKILLS_DIR_NAME))];
-    case 'antigravity':
-      return resolveGeminiSkillDirs(homeDir);
-    case 'claude':
-      return [resolveSafeGlobalSkillDir(homeDir, path.join(CLAUDE_DIR_NAME, SKILLS_DIR_NAME))];
-    case 'hermes':
-      return [resolveSafeGlobalSkillDir(homeDir, path.join(HERMES_DIR_NAME, SKILLS_DIR_NAME))];
-    case 'windsurf':
-      return [resolveSafeGlobalSkillDir(homeDir, path.join(WINDSURF_REL_DIR, SKILLS_DIR_NAME))];
-    case 'codex':
-      return [resolveSafeGlobalSkillDir(homeDir, path.join(CODEX_DIR_NAME, SKILLS_DIR_NAME))];
-    case 'opencode':
-      return [resolveSafeGlobalSkillDir(homeDir, path.join(OPENCODE_REL_DIR, SKILLS_DIR_NAME))];
-    case 'all':
-      return resolveAllGlobalAgentDirs(homeDir);
-    case 'auto':
-      return resolveGlobalOrFallbackTargets(homeDir, cwd);
-    default:
-      return [resolveSafeWorkspaceSkillsDir(cwd)];
+  if (Object.hasOwn(SINGLE_GLOBAL_SKILL_TARGET_RELS, targetArg)) {
+    return [resolveSafeGlobalSkillDir(homeDir, SINGLE_GLOBAL_SKILL_TARGET_RELS[targetArg]!)];
   }
+  if (targetArg === 'antigravity') {
+    return resolveGeminiSkillDirs(homeDir);
+  }
+  if (targetArg === 'all') {
+    return Array.from(new Set(resolveAllGlobalAgentDirs(homeDir)));
+  }
+  if (targetArg === 'auto') {
+    return resolveGlobalOrFallbackTargets(homeDir, cwd);
+  }
+  return [resolveSafeWorkspaceSkillsDir(cwd)];
 }
 
 interface WriteDownloadedSkillsInput {

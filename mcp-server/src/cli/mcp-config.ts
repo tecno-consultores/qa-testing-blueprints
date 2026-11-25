@@ -14,11 +14,14 @@ import { parseToolsetMode, type ToolsetMode } from '../server/toolsetFilter.js';
 import { pickAt, reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 import {
   CODEX_MCP_REL_PATH,
+  CONTINUE_MCP_REL_PATH,
   HERMES_CANONICAL_MCP_REL_PATH,
   HERMES_FALLBACK_MCP_REL_PATH,
   OPENCODE_CANONICAL_MCP_REL_PATH,
   type JsonMcpClient,
   resolveActiveJsonMcpClientRelPath,
+  resolveGooseMcpRelPath,
+  resolveZedMcpRelPath,
 } from '../utils/ideConfigPaths.js';
 import {
   type CliCommandOutput,
@@ -39,6 +42,17 @@ export const SUPPORTED_MCP_CLIENTS = [
   'gemini-cli',
   'hermes',
   'opencode',
+  'zed',
+  'cline',
+  'roo-code',
+  'kilo-code',
+  'amazon-q',
+  'jetbrains-ai',
+  'devin',
+  'augment',
+  'trae',
+  'continue',
+  'goose',
   'all',
 ] as const;
 
@@ -54,6 +68,8 @@ export interface McpConfigCliDeps {
 const PKG_NAME = '@sinfallas/mcp-qa-11x';
 const QA_SERVER_KEY = 'qa-11x';
 const MCP_SERVERS_KEY = 'mcpServers';
+const OPENCODE_SCHEMA_URL = 'https://opencode.ai/config.json';
+const ZED_CONTEXT_SERVERS_KEY = 'context_servers';
 const UTF8_ENCODING = 'utf-8';
 const BACKUP_SUFFIX = '.11x-backup';
 const CODEX_SECTION_HEADER = '[mcp_servers.qa-11x]';
@@ -68,11 +84,20 @@ const JSON_MCP_CLIENTS = new Set<string>([
   'windsurf',
   'claude-desktop',
   'hermes',
+  'cline',
+  'roo-code',
+  'kilo-code',
+  'amazon-q',
+  'jetbrains-ai',
+  'devin',
+  'augment',
+  'trae',
 ]);
 
 export const MCP_CONFIG_HELP_TEXT = renderSubcommandHelpText('mcp-config', 'en');
 
 type CommandMcpClient = 'claude-code' | 'vscode' | 'gemini-cli';
+type SpecialClient = 'opencode' | 'zed' | 'codex' | 'continue' | 'goose';
 
 function isJsonClient(client: SingleMcpClient): client is JsonMcpClient {
   return JSON_MCP_CLIENTS.has(client);
@@ -89,7 +114,7 @@ interface McpConfigParseState {
 
 interface ClientSnippetPayload {
   readonly client: SingleMcpClient;
-  readonly kind: 'json' | 'toml' | 'command';
+  readonly kind: 'json' | 'toml' | 'yaml' | 'command';
   readonly packageSpec: string;
   readonly snippet: string;
   readonly targetPath?: string;
@@ -98,7 +123,7 @@ interface ClientSnippetPayload {
 
 interface ClientInstallOutcome {
   readonly client: SingleMcpClient;
-  readonly kind: 'json' | 'toml' | 'command';
+  readonly kind: 'json' | 'toml' | 'yaml' | 'command';
   readonly status: 'installed' | 'dry-run' | 'manual-command';
   readonly targetPath?: string;
   readonly backupPath?: string;
@@ -195,8 +220,8 @@ function buildJsonServerEntry(
 function buildOpenCodeServerEntry(
   pkgSpec: string,
   toolset?: ToolsetMode
-): { type: 'local'; command: string[] } {
-  return { type: 'local', command: ['npx', ...buildNpxArgs(pkgSpec, toolset)] };
+): { type: 'local'; command: string[]; enabled: true } {
+  return { type: 'local', command: ['npx', ...buildNpxArgs(pkgSpec, toolset)], enabled: true };
 }
 
 function buildCodexTomlBlock(pkgSpec: string, toolset?: ToolsetMode): string {
@@ -204,6 +229,40 @@ function buildCodexTomlBlock(pkgSpec: string, toolset?: ToolsetMode): string {
     .map((a) => `"${a}"`)
     .join(', ');
   return [CODEX_SECTION_HEADER, 'command = "npx"', `args = [${argsLiteral}]`].join('\n');
+}
+
+function buildContinueYamlDoc(pkgSpec: string, toolset?: ToolsetMode): string {
+  const argsYaml = buildNpxArgs(pkgSpec, toolset)
+    .map((arg) => `      - "${arg}"`)
+    .join('\n');
+  return [
+    'name: QA-11X MCP Server',
+    'version: 0.0.1',
+    'schema: v1',
+    'mcpServers:',
+    `  - name: ${QA_SERVER_KEY}`,
+    '    command: npx',
+    '    args:',
+    argsYaml,
+    '',
+  ].join('\n');
+}
+
+function buildGooseExtensionLines(pkgSpec: string, toolset?: ToolsetMode): string[] {
+  return [
+    `  ${QA_SERVER_KEY}:`,
+    '    name: QA-11X',
+    '    type: stdio',
+    '    cmd: npx',
+    '    args:',
+    ...buildNpxArgs(pkgSpec, toolset).map((arg) => `      - "${arg}"`),
+    '    enabled: true',
+    '    timeout: 300',
+  ];
+}
+
+function buildGooseYamlSnippet(pkgSpec: string, toolset?: ToolsetMode): string {
+  return ['extensions:', ...buildGooseExtensionLines(pkgSpec, toolset), ''].join('\n');
 }
 
 const COMMAND_CLIENT_BUILDERS: Readonly<
@@ -224,6 +283,61 @@ interface SnippetTargetContext {
   readonly platform: NodeJS.Platform;
 }
 
+const SPECIAL_SNIPPET_BUILDERS: Readonly<
+  Record<SpecialClient, (ctx: SnippetTargetContext) => ClientSnippetPayload>
+> = {
+  opencode: (ctx) => {
+    const doc = {
+      $schema: OPENCODE_SCHEMA_URL,
+      mcp: { [QA_SERVER_KEY]: buildOpenCodeServerEntry(ctx.pkgSpec, ctx.toolset) },
+    };
+    return {
+      client: 'opencode',
+      kind: 'json',
+      packageSpec: ctx.pkgSpec,
+      targetPath: resolveSafeChildPath(ctx.homeDir, OPENCODE_CANONICAL_MCP_REL_PATH),
+      snippet: `${JSON.stringify(doc, null, 2)}\n`,
+    };
+  },
+  zed: (ctx) => {
+    const doc = {
+      [ZED_CONTEXT_SERVERS_KEY]: { [QA_SERVER_KEY]: buildJsonServerEntry(ctx.pkgSpec, ctx.toolset) },
+    };
+    return {
+      client: 'zed',
+      kind: 'json',
+      packageSpec: ctx.pkgSpec,
+      targetPath: resolveSafeChildPath(ctx.homeDir, resolveZedMcpRelPath(ctx.platform)),
+      snippet: `${JSON.stringify(doc, null, 2)}\n`,
+    };
+  },
+  codex: (ctx) => ({
+    client: 'codex',
+    kind: 'toml',
+    packageSpec: ctx.pkgSpec,
+    targetPath: resolveSafeChildPath(ctx.homeDir, CODEX_MCP_REL_PATH),
+    snippet: `${buildCodexTomlBlock(ctx.pkgSpec, ctx.toolset)}\n`,
+  }),
+  continue: (ctx) => ({
+    client: 'continue',
+    kind: 'yaml',
+    packageSpec: ctx.pkgSpec,
+    targetPath: resolveSafeChildPath(ctx.homeDir, CONTINUE_MCP_REL_PATH),
+    snippet: buildContinueYamlDoc(ctx.pkgSpec, ctx.toolset),
+  }),
+  goose: (ctx) => ({
+    client: 'goose',
+    kind: 'yaml',
+    packageSpec: ctx.pkgSpec,
+    targetPath: resolveSafeChildPath(ctx.homeDir, resolveGooseMcpRelPath(ctx.platform)),
+    snippet: buildGooseYamlSnippet(ctx.pkgSpec, ctx.toolset),
+  }),
+};
+
+function isSpecialClient(client: SingleMcpClient): client is SpecialClient {
+  return Object.hasOwn(SPECIAL_SNIPPET_BUILDERS, client);
+}
+
 function buildClientSnippet(
   client: SingleMcpClient,
   ctx: SnippetTargetContext
@@ -241,30 +355,8 @@ function buildClientSnippet(
       snippet: `${JSON.stringify(doc, null, 2)}\n`,
     };
   }
-  if (client === 'opencode') {
-    const doc = {
-      mcp: {
-        servers: {
-          [QA_SERVER_KEY]: buildOpenCodeServerEntry(ctx.pkgSpec, ctx.toolset),
-        },
-      },
-    };
-    return {
-      client,
-      kind: 'json',
-      packageSpec: ctx.pkgSpec,
-      targetPath: resolveSafeChildPath(ctx.homeDir, OPENCODE_CANONICAL_MCP_REL_PATH),
-      snippet: `${JSON.stringify(doc, null, 2)}\n`,
-    };
-  }
-  if (client === 'codex') {
-    return {
-      client,
-      kind: 'toml',
-      packageSpec: ctx.pkgSpec,
-      targetPath: resolveSafeChildPath(ctx.homeDir, CODEX_MCP_REL_PATH),
-      snippet: `${buildCodexTomlBlock(ctx.pkgSpec, ctx.toolset)}\n`,
-    };
+  if (isSpecialClient(client)) {
+    return SPECIAL_SNIPPET_BUILDERS[client](ctx);
   }
   const command = COMMAND_CLIENT_BUILDERS[client](ctx.pkgSpec, ctx.toolset);
   return { client, kind: 'command', packageSpec: ctx.pkgSpec, command, snippet: command };
@@ -369,7 +461,7 @@ function upsertCodexToml(existing: string | null, block: string): string {
 type PlannedClientInstall =
   | {
       readonly client: SingleMcpClient;
-      readonly kind: 'json' | 'toml';
+      readonly kind: 'json' | 'toml' | 'yaml';
       readonly relPath: string;
       readonly targetPath: string;
       readonly existed: boolean;
@@ -391,17 +483,26 @@ function assertInstallPathsSafe(homeDir: string, relPath: string, targetPath: st
   return existed;
 }
 
+function readExistingJsonOrThrow(
+  relPath: string,
+  targetPath: string,
+  homeDir: string
+): { readonly existed: boolean; readonly existingDoc: Record<string, unknown> } {
+  const existed = assertInstallPathsSafe(homeDir, relPath, targetPath);
+  const existingDoc = existed ? parseExistingJsonDoc(targetPath) : {};
+  if (!existingDoc) {
+    throw new Error(`JSON inválido existente en '${targetPath}'; se aborta para evitar corrupción.`);
+  }
+  return { existed, existingDoc };
+}
+
 function prepareJsonClientInstall(
   client: JsonMcpClient,
   relPath: string,
   targetPath: string,
   ctx: SnippetTargetContext
 ): PlannedClientInstall {
-  const existed = assertInstallPathsSafe(ctx.homeDir, relPath, targetPath);
-  const existingDoc = existed ? parseExistingJsonDoc(targetPath) : {};
-  if (!existingDoc) {
-    throw new Error(`JSON inválido existente en '${targetPath}'; se aborta para evitar corrupción.`);
-  }
+  const { existed, existingDoc } = readExistingJsonOrThrow(relPath, targetPath, ctx.homeDir);
   const existingServers = isPlainObject(existingDoc[MCP_SERVERS_KEY])
     ? existingDoc[MCP_SERVERS_KEY]
     : {};
@@ -427,21 +528,14 @@ function prepareOpenCodeClientInstall(
   targetPath: string,
   ctx: SnippetTargetContext
 ): PlannedClientInstall {
-  const existed = assertInstallPathsSafe(ctx.homeDir, relPath, targetPath);
-  const existingDoc = existed ? parseExistingJsonDoc(targetPath) : {};
-  if (!existingDoc) {
-    throw new Error(`JSON inválido existente en '${targetPath}'; se aborta para evitar corrupción.`);
-  }
+  const { existed, existingDoc } = readExistingJsonOrThrow(relPath, targetPath, ctx.homeDir);
   const existingMcp = isPlainObject(existingDoc.mcp) ? existingDoc.mcp : {};
-  const existingServers = isPlainObject(existingMcp.servers) ? existingMcp.servers : {};
   const mergedDoc = {
+    $schema: typeof existingDoc.$schema === 'string' ? existingDoc.$schema : OPENCODE_SCHEMA_URL,
     ...existingDoc,
     mcp: {
       ...existingMcp,
-      servers: {
-        ...existingServers,
-        [QA_SERVER_KEY]: buildOpenCodeServerEntry(ctx.pkgSpec, ctx.toolset),
-      },
+      [QA_SERVER_KEY]: buildOpenCodeServerEntry(ctx.pkgSpec, ctx.toolset),
     },
   };
   return {
@@ -452,6 +546,56 @@ function prepareOpenCodeClientInstall(
     existed,
     content: `${JSON.stringify(mergedDoc, null, 2)}\n`,
   };
+}
+
+function prepareZedClientInstall(
+  relPath: string,
+  targetPath: string,
+  ctx: SnippetTargetContext
+): PlannedClientInstall {
+  const { existed, existingDoc } = readExistingJsonOrThrow(relPath, targetPath, ctx.homeDir);
+  const existingServers = isPlainObject(existingDoc[ZED_CONTEXT_SERVERS_KEY])
+    ? existingDoc[ZED_CONTEXT_SERVERS_KEY]
+    : {};
+  const mergedDoc = {
+    ...existingDoc,
+    [ZED_CONTEXT_SERVERS_KEY]: {
+      ...existingServers,
+      [QA_SERVER_KEY]: buildJsonServerEntry(ctx.pkgSpec, ctx.toolset),
+    },
+  };
+  return {
+    client: 'zed',
+    kind: 'json',
+    relPath,
+    targetPath,
+    existed,
+    content: `${JSON.stringify(mergedDoc, null, 2)}\n`,
+  };
+}
+
+function upsertGooseYaml(existing: string | null, entryLines: readonly string[]): string {
+  if (existing === null || existing.trim().length === 0) {
+    return ['extensions:', ...entryLines, ''].join('\n');
+  }
+  const lines = stripTrailingNewlines(existing).split('\n');
+  const extIdx = lines.findIndex((line) => /^extensions\s*:\s*$/.test(line.trim()));
+  if (extIdx === -1) {
+    return `${lines.join('\n')}\n\nextensions:\n${entryLines.join('\n')}\n`;
+  }
+  const qaIdx = lines.findIndex(
+    (line, idx) => idx > extIdx && new RegExp(`^\\s{2}${QA_SERVER_KEY}\\s*:`).test(line)
+  );
+  if (qaIdx === -1) {
+    const out = [...lines.slice(0, extIdx + 1), ...entryLines, ...lines.slice(extIdx + 1)];
+    return `${out.join('\n')}\n`;
+  }
+  let endIdx = qaIdx + 1;
+  while (endIdx < lines.length && (/^\s{4,}/.test(lines[endIdx] ?? '') || (lines[endIdx] ?? '').trim() === '')) {
+    endIdx += 1;
+  }
+  const out = [...lines.slice(0, qaIdx), ...entryLines, ...lines.slice(endIdx)];
+  return `${out.join('\n')}\n`;
 }
 
 function prepareTomlClientInstall(
@@ -470,6 +614,70 @@ function prepareTomlClientInstall(
     content: upsertCodexToml(existingContent, buildCodexTomlBlock(ctx.pkgSpec, ctx.toolset)),
   };
 }
+
+function prepareContinueYamlInstall(
+  relPath: string,
+  targetPath: string,
+  ctx: SnippetTargetContext
+): PlannedClientInstall {
+  const existed = assertInstallPathsSafe(ctx.homeDir, relPath, targetPath);
+  return {
+    client: 'continue',
+    kind: 'yaml',
+    relPath,
+    targetPath,
+    existed,
+    content: buildContinueYamlDoc(ctx.pkgSpec, ctx.toolset),
+  };
+}
+
+function prepareGooseYamlInstall(
+  relPath: string,
+  targetPath: string,
+  ctx: SnippetTargetContext
+): PlannedClientInstall {
+  const existed = assertInstallPathsSafe(ctx.homeDir, relPath, targetPath);
+  const existingContent = existed ? fs.readFileSync(targetPath, UTF8_ENCODING) : null;
+  return {
+    client: 'goose',
+    kind: 'yaml',
+    relPath,
+    targetPath,
+    existed,
+    content: upsertGooseYaml(existingContent, buildGooseExtensionLines(ctx.pkgSpec, ctx.toolset)),
+  };
+}
+
+const SPECIAL_INSTALL_PREPARERS: Readonly<
+  Record<SpecialClient, (ctx: SnippetTargetContext) => PlannedClientInstall>
+> = {
+  opencode: (ctx) =>
+    prepareOpenCodeClientInstall(
+      OPENCODE_CANONICAL_MCP_REL_PATH,
+      resolveSafeChildPath(ctx.homeDir, OPENCODE_CANONICAL_MCP_REL_PATH),
+      ctx
+    ),
+  zed: (ctx) => {
+    const relPath = resolveZedMcpRelPath(ctx.platform);
+    return prepareZedClientInstall(relPath, resolveSafeChildPath(ctx.homeDir, relPath), ctx);
+  },
+  codex: (ctx) =>
+    prepareTomlClientInstall(
+      CODEX_MCP_REL_PATH,
+      resolveSafeChildPath(ctx.homeDir, CODEX_MCP_REL_PATH),
+      ctx
+    ),
+  continue: (ctx) =>
+    prepareContinueYamlInstall(
+      CONTINUE_MCP_REL_PATH,
+      resolveSafeChildPath(ctx.homeDir, CONTINUE_MCP_REL_PATH),
+      ctx
+    ),
+  goose: (ctx) => {
+    const relPath = resolveGooseMcpRelPath(ctx.platform);
+    return prepareGooseYamlInstall(relPath, resolveSafeChildPath(ctx.homeDir, relPath), ctx);
+  },
+};
 
 function resolveHermesYamlNotice(client: SingleMcpClient, homeDir: string): string | undefined {
   if (client !== 'hermes') {
@@ -492,13 +700,8 @@ function prepareClientInstall(
     const targetPath = resolveSafeChildPath(ctx.homeDir, relPath);
     return prepareJsonClientInstall(client, relPath, targetPath, ctx);
   }
-  if (client === 'opencode') {
-    const targetPath = resolveSafeChildPath(ctx.homeDir, OPENCODE_CANONICAL_MCP_REL_PATH);
-    return prepareOpenCodeClientInstall(OPENCODE_CANONICAL_MCP_REL_PATH, targetPath, ctx);
-  }
-  if (client === 'codex') {
-    const targetPath = resolveSafeChildPath(ctx.homeDir, CODEX_MCP_REL_PATH);
-    return prepareTomlClientInstall(CODEX_MCP_REL_PATH, targetPath, ctx);
+  if (isSpecialClient(client)) {
+    return SPECIAL_INSTALL_PREPARERS[client](ctx);
   }
   return {
     client,

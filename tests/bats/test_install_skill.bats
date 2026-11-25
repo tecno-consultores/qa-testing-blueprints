@@ -1245,4 +1245,25 @@ JSON
   run env QA_BLUEPRINTS_LOCAL_PATH="${oc_repo}" HOME="${oc_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target auto
   assert_success
   [ -f "${oc_home}/.config/opencode/skills/qa-11x-architect/SKILL.md" ]
+
+  # Destinos globales gemini-cli, copilot, agents y conector ~/.config/zed/AGENTS.md
+  mkdir -p "${oc_home}/.gemini" "${oc_home}/.config/zed"
+  printf '{}\n' >"${oc_home}/.gemini/settings.json"
+  run env QA_BLUEPRINTS_LOCAL_PATH="${oc_repo}" HOME="${oc_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target gemini-cli --lang en
+  assert_success
+  [ -f "${oc_home}/.gemini/skills/qa-11x-architect/SKILL.md" ]
+  [ -f "${oc_home}/.gemini/GEMINI.md" ]
+
+  run env QA_BLUEPRINTS_LOCAL_PATH="${oc_repo}" HOME="${oc_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target copilot
+  assert_success
+  [ -f "${oc_home}/.copilot/skills/qa-11x-architect/SKILL.md" ]
+
+  run env QA_BLUEPRINTS_LOCAL_PATH="${oc_repo}" HOME="${oc_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target agents
+  assert_success
+  [ -f "${oc_home}/.agents/skills/qa-11x-architect/SKILL.md" ]
+
+  # Auto-detección de .gemini/settings.json, .copilot, .agents/skills y .config/zed/AGENTS.md
+  run env QA_BLUEPRINTS_LOCAL_PATH="${oc_repo}" HOME="${oc_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target auto
+  assert_success
+  [ -f "${oc_home}/.config/zed/AGENTS.md" ]
 }
