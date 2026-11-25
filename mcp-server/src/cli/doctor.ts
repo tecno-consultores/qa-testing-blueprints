@@ -24,7 +24,8 @@ import {
   readVersionStampData,
 } from '../services/version-manager.js';
 import { inspectProjectConfig } from '../tools/inspect-project.js';
-import type { ProjectAuditResult } from '../types.js';
+import type { CompanionMcpDiscoverySummary, ProjectAuditResult } from '../types.js';
+import { detectCompanionMcps } from '../utils/companionMcpDetector.js';
 import { pickAt, reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 import {
   ANTIGRAVITY_CANONICAL_MCP_REL_PATH,
@@ -114,7 +115,10 @@ export interface DoctorReport {
   readonly ide_config_warnings: readonly string[];
   readonly stamp_drift_warnings: readonly string[];
   readonly docker_version: string | null;
+  readonly docker_daemon_ok: boolean;
   readonly docker_health?: DockerHostHealth;
+  readonly companion_mcps: CompanionMcpDiscoverySummary;
+  readonly blockers: readonly string[];
   readonly graphify_graph_present: boolean;
   readonly project_inspection: ProjectAuditResult;
 }
@@ -491,12 +495,21 @@ function formatDoctorText(report: DoctorReport): string {
   const multiCacheNote = report.npx_cache.multiple_npx_caches
     ? ' (⚠️ múltiples cachés detectados; ejecuta upgrade --cache-only)'
     : '';
+  const detectedCompanions = report.companion_mcps.capabilities
+    .filter((cap) => cap.detected)
+    .flatMap((cap) => cap.matched_servers);
+  const companionSummary =
+    detectedCompanions.length > 0 ? detectedCompanions.join(', ') : 'ninguno';
   const lines: string[] = [
     `🩺 [QA-11X Doctor] MCP v${report.mcp_version} | origin=${report.binary_origin} | node=${report.node_version}`,
     projectLine,
-    `  Docker: ${report.docker_version ?? 'no detectado'} | Graphify AST: ${report.graphify_graph_present ? 'presente' : 'ausente'}`,
+    `  Docker (Rule Zero obligatorio): ${report.docker_version ?? 'NO DETECTADO (BLOQUEANTE)'} | Graphify AST: ${report.graphify_graph_present ? 'presente' : 'ausente'}`,
+    `  Companion MCPs: ${companionSummary}`,
     `  Cachés _npx: ${report.npx_cache.entries.length}${multiCacheNote}`,
   ];
+  for (const blocker of report.blockers) {
+    lines.push(`  ❌ ${blocker}`);
+  }
   for (const cache of report.npx_cache.entries) {
     lines.push(`    - ${cache.hashDir}: v${cache.version}`);
   }
@@ -588,7 +601,15 @@ async function buildDoctorReport(
     : inspectDelimitedConnector(path.join(projectPath, 'AGENTS.md'), PROJECT_CONNECTOR_MAX_BYTES);
 
   const dockerVersion = dockerProbeFn();
+  const dockerDaemonOk = dockerVersion !== null;
   const dockerHealth = resolveDoctorDockerHealth(deps, dockerVersion);
+  const companionMcps =
+    projectInspection.companion_mcps ?? detectCompanionMcps(homeDir, deps.platform);
+  const blockers: string[] = dockerDaemonOk
+    ? []
+    : [
+        '[RULE-ZERO] Docker Engine operativo es obligatorio e innegociable para QA-11X (`docker info` falló). Instala o inicia el daemon Docker antes de ejecutar QA-11X.',
+      ];
 
   return {
     mcp_version: MCP_SERVER_VERSION,
@@ -609,7 +630,10 @@ async function buildDoctorReport(
     ide_config_warnings: collectIdeConfigWarnings(homeDir, ideConfigs),
     stamp_drift_warnings: collectStampDriftWarnings(skillDirs, projectPath, inHomeMode),
     docker_version: dockerVersion,
+    docker_daemon_ok: dockerDaemonOk,
     ...(dockerHealth ? { docker_health: dockerHealth } : {}),
+    companion_mcps: companionMcps,
+    blockers,
     graphify_graph_present:
       !inHomeMode && fs.existsSync(path.join(projectPath, 'graphify-out', 'graph.json')),
     project_inspection: projectInspection,
@@ -630,7 +654,7 @@ export async function runDoctorCli(
     const parsed = parseDoctorArgs(args);
     const report = await buildDoctorReport(parsed, deps);
     return {
-      exitCode: 0,
+      exitCode: report.blockers.length > 0 ? 1 : 0,
       output: parsed.json ? formatCliJson(report) : formatDoctorText(report),
     };
   } catch (err: unknown) {

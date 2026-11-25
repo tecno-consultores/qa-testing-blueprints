@@ -435,6 +435,7 @@ export interface DockerFallbackContext {
   readonly timeoutSeconds: number;
   readonly startTime: number;
   readonly execFileSyncFn?: typeof execFileSync;
+  readonly expectRed?: boolean;
   readonly signal?: AbortSignal;
   readonly prepDirs?: readonly string[];
 }

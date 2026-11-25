@@ -168,6 +168,13 @@ export const AuditSecurityInputSchema = z.object({
     .describe(
       'If true, includes *.example and Makefile.example blueprint templates in the audit (default false).'
     ),
+  ingest_external_sarif: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe(
+      'If true (default), ingests external SARIF 2.1.0 reports from .agents/.cache/sarif/*.sarif generated in ephemeral Docker.'
+    ),
 }).strict();
 
 export const RunEphemeralQaInputSchema = z.object({
@@ -198,6 +205,13 @@ export const RunEphemeralQaInputSchema = z.object({
     .describe(
       'If true and git detects only documentation changes (*.md / docs/), skips starting Docker containers and returns SKIPPED via Fast-Path.'
     ),
+  expect_red: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe(
+      'TDD RED-phase verification: when true, asserts that the new test fails as expected (exempt from BREAKER-42 streaks; fails if 0 tests fail).'
+    ),
 }).strict();
 
 export const CertifyGateInputSchema = z.object({
@@ -209,12 +223,19 @@ export const CertifyGateInputSchema = z.object({
     .describe(
       'When true (default), requires recent run_ephemeral_qa(stage=\'lint\') evidence if git working tree contains code modifications.'
     ),
+  require_unit_evidence: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe(
+      'When true (default), requires fresh run_ephemeral_qa(stage=\'unit\'|\'ci\'|\'all\') evidence matching the current dirty code tree (verification-before-completion).'
+    ),
   strict: z
     .boolean()
     .optional()
     .default(false)
     .describe(
-      'When true, treats any SKIPPED check (zero targets or skipped lint evidence) as a gate blocker.'
+      'When true, treats any SKIPPED check (zero targets or skipped lint/unit evidence) as a gate blocker.'
     ),
   allow_unmerged_examples: z
     .boolean()
@@ -283,9 +304,24 @@ export interface GlobalSkillAutoSyncResult {
   updated_files_count: number;
 }
 
+export interface CompanionMcpCapabilitySummary {
+  category: 'browser_live' | 'sast_taint' | 'sca_container' | 'lsp_symbolic' | 'mobile_live';
+  detected: boolean;
+  matched_servers: readonly string[];
+  config_files: readonly string[];
+  delegation_directive: string;
+}
+
+export interface CompanionMcpDiscoverySummary {
+  detected_any: boolean;
+  capabilities: readonly CompanionMcpCapabilitySummary[];
+  delegation_directives: readonly string[];
+}
+
 export interface ProjectAuditResult {
   project_path: string;
   detected_stacks: string[];
+  docker_daemon_required?: boolean;
   has_docker_compose_qa: boolean;
   has_makefile: boolean;
   has_lefthook: boolean;
@@ -302,6 +338,7 @@ export interface ProjectAuditResult {
   missing_11x_files: string[];
   recommended_next_tool: string;
   browser_testing_readiness?: BrowserTestingReadiness;
+  companion_mcps?: CompanionMcpDiscoverySummary;
   update_available?: UpdateAvailabilityInfo;
 }
 
@@ -423,9 +460,13 @@ export interface BlastRadiusResult {
   git_signals?: GitArchSignalsReport;
 }
 
+export type FindingConfidence = 'HIGH' | 'MEDIUM' | 'HEURISTIC';
+
 export interface SecurityFinding {
   rule_id: string;
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  confidence?: FindingConfidence;
+  source?: string;
   stig_owasp_ref: string;
   file: string;
   line: number;
@@ -433,9 +474,17 @@ export interface SecurityFinding {
   remediation: string;
 }
 
+export interface SuppressedSecurityFinding {
+  rule_id: string;
+  file: string;
+  line: number;
+  justification: string;
+}
+
 export interface GroupedSecurityFinding {
   rule_id: string;
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  confidence?: FindingConfidence;
   stig_owasp_ref: string;
   message: string;
   remediation: string;
@@ -456,6 +505,9 @@ export interface SecurityAuditResult {
   findings: SecurityFinding[];
   grouped_findings?: GroupedSecurityFinding[];
   truncated_findings_count?: number;
+  suppressed_findings_count?: number;
+  suppressed_findings?: SuppressedSecurityFinding[];
+  external_sarif_files?: string[];
 }
 
 export interface QaCoverageFile {
@@ -525,6 +577,7 @@ export interface QaExecutionResult {
   exit_code: number;
   duration_ms: number;
   tests_detected?: number;
+  red_phase_verified?: boolean;
   coverage: QaCoverageSummary;
   failed_tests: QaFailedTest[];
   linter_and_complexity_issues: QaLinterIssue[];
@@ -546,6 +599,7 @@ export interface CertifyGateResult {
     orm_alembic_parity: boolean;
     ast_topology_clean?: boolean;
     lint_evidence_verified?: boolean;
+    unit_evidence_verified?: boolean;
     security_stig_owasp_clean: boolean;
     documentation_synced: boolean;
   };

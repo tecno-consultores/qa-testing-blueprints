@@ -69,7 +69,7 @@ pre-commit:
     mcp-lint:
       root: "mcp-server/"
       glob: "*.ts"
-      run: bash -c 'if [ ! -f package.json ]; then exit 0; fi; docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "$(pwd):/app" -w /app sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60 bash -c '\''pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && npx eslint --max-warnings 0 "$@" && pnpm --silent run typecheck'\'' _ "$@"' _ {staged_files}
+      run: bash -c 'if [ ! -f package.json ]; then exit 0; fi; MCP_PRECOMMIT_VOLS=(); [ -d "../mobile-appium" ] && MCP_PRECOMMIT_VOLS+=(-v "$(cd .. && pwd)/mobile-appium:/mobile-appium:ro"); docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "$(pwd):/app" ${MCP_PRECOMMIT_VOLS[@]+"${MCP_PRECOMMIT_VOLS[@]}"} -w /app sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60 bash -c '\''pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && npx eslint --max-warnings 0 "$@" && pnpm --silent run typecheck'\'' _ "$@"' _ {staged_files}
 
     # --------------------------------------------------------------------------
     # PROTECCIÓN DE SECRETOS (Global, deduplicado sobre staged)

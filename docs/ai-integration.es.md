@@ -4,6 +4,8 @@
 
 Este documento detalla cómo evolucionar de una interacción manual a un flujo de trabajo automatizado, donde los agentes de Inteligencia Artificial ingieren, aplican y ejecutan los *blueprints* de QA de forma autónoma.
 
+> **Requisito Obligatorio de Docker (`Rule Zero`):** Toda máquina o entorno de agentes que ejecute `qa-11x` DEBE tener un demonio Docker activo (`qa-11x doctor` lo aplica como bloqueante duro). `inspect_project_config` autodetecta MCPs compañeros instalados (`semgrep`, `serena`, `playwright`, `trivy`, `appium`) para delegación en vivo e ingiere `.agents/.cache/sarif/*.sarif` generados dentro de contenedores efímeros no-root (`--rm --restart=no --network none`) serializados bajo `QA_MAX_CONCURRENT_CONTAINERS=1`.
+
 ## 1. Ingestión de Reglas mediante MCP (Model Context Protocol)
 Para que un agente comprenda las restricciones corporativas en tiempo real, los *blueprints* deben exponerse como recursos dinámicos.
 
@@ -106,7 +108,7 @@ npx -y @sinfallas/mcp-qa-11x@latest upgrade [--cache-only] [--dry-run]  # alias:
 npx -y @sinfallas/mcp-qa-11x@latest mcp-config --client <id> [--print|--install] [--pin-version]
 npx -y @sinfallas/mcp-qa-11x@latest completion <fish|bash|zsh>
 
-# Compuertas CI/CD headless (certificación de 10 puntos, auditoría SARIF v2.1.0 y enrutamiento diferencial AST):
+# Compuertas CI/CD headless (certificación de 11 puntos, auditoría SARIF v2.1.0 y enrutamiento diferencial AST):
 npx -y @sinfallas/mcp-qa-11x@latest certify [dir] [--strict] [--release-gate] [--junit-xml <ruta>] [--json]
 npx -y @sinfallas/mcp-qa-11x@latest audit [dir] --mode <security|pyramid|vibe|calm|all> [--sarif|--json] [--fail-on high]
 npx -y @sinfallas/mcp-qa-11x@latest blast-radius [simbolo] [--changed-since origin/main] [--git-signals] [--auto-build] [--json]

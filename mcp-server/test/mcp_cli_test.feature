@@ -1842,6 +1842,36 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert limpieza53.contains('status=restarting')
     * assert limpieza53.contains('docker update --restart=no')
 
+  Scenario: 54. Evolución Superpowers, Companion MCPs, SARIF 2.1.0 federado, Rule Zero bloqueante en doctor, expect_red y --toolset
+    * def doctor54 = karate.readAsString(mcpRoot + '/src/cli/doctor.ts')
+    * assert doctor54.contains('docker_daemon_ok')
+    * assert doctor54.contains('[RULE-ZERO]')
+    * def comp54 = karate.readAsString(mcpRoot + '/src/utils/companionMcpDetector.ts')
+    * assert comp54.contains('browser_live')
+    * assert comp54.contains('sast_taint')
+    * assert comp54.contains('sca_container')
+    * assert comp54.contains('lsp_symbolic')
+    * def sarif54 = karate.readAsString(mcpRoot + '/src/utils/sarifIngester.ts')
+    * assert sarif54.contains('ingestExternalSarifReports')
+    * assert sarif54.contains('2.1.0')
+    * def extRun54 = karate.readAsString(mcpRoot + '/src/tools/ephemeral-runner/externalScannerRunner.ts')
+    * assert extRun54.contains('--restart=no')
+    * assert extRun54.contains('--network')
+    * assert extRun54.contains('acquireDockerSlotLock')
+    * def ev54 = karate.readAsString(mcpRoot + '/src/services/qa-evidence.ts')
+    * assert ev54.contains('checkUnitEvidenceForDirtyCode')
+    * assert ev54.contains('recordRedPhaseEvidence')
+    * def runner54 = readModule(mcpRoot + '/src/tools/ephemeral-runner.ts')
+    * assert runner54.contains('[TDD-TAUTOLOGY]')
+    * assert runner54.contains('applyExpectRedPhaseOutcome')
+    * def toolset54 = karate.readAsString(mcpRoot + '/src/server/toolsetFilter.ts')
+    * assert toolset54.contains('CORE_TOOLSET_NAMES')
+    * assert toolset54.contains('resolveAllowedToolNames')
+    * def sec54 = readModule(mcpRoot + '/src/tools/security-auditor.ts')
+    * assert sec54.contains('qa-11x-ignore')
+    * assert sec54.contains('suppressed_findings_count')
+
+
 
 
 

@@ -5,7 +5,10 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { execFileSync } from 'child_process';
-import { checkLintEvidenceForDirtyCode } from '../services/qa-evidence.js';
+import {
+  checkLintEvidenceForDirtyCode,
+  checkUnitEvidenceForDirtyCode,
+} from '../services/qa-evidence.js';
 import {
   evaluateUpdateStatus,
   type EvaluateUpdateOptions,
@@ -39,6 +42,7 @@ function buildCheckOutcome(status: GateCheckStatus, blockers: string[] = []): Ga
 
 export interface CertifyGateOptions {
   requireLintEvidence?: boolean;
+  requireUnitEvidence?: boolean;
   strict?: boolean;
   allowUnmergedExamples?: boolean;
   execFileSyncFn?: typeof execFileSync;
@@ -1432,6 +1436,7 @@ function mapCheckStatusesToBooleans(
     orm_alembic_parity: checkStatuses.orm_alembic_parity === GATE_STATUS_PASSED,
     ast_topology_clean: checkStatuses.ast_topology_clean === GATE_STATUS_PASSED,
     lint_evidence_verified: checkStatuses.lint_evidence_verified === GATE_STATUS_PASSED,
+    unit_evidence_verified: checkStatuses.unit_evidence_verified === GATE_STATUS_PASSED,
     security_stig_owasp_clean: checkStatuses.security_stig_owasp_clean === GATE_STATUS_PASSED,
     documentation_synced: checkStatuses.documentation_synced === GATE_STATUS_PASSED,
   };
@@ -1451,6 +1456,7 @@ const ALL_GATE_CHECK_KEYS = [
   'orm_alembic_parity',
   'ast_topology_clean',
   'lint_evidence_verified',
+  'unit_evidence_verified',
   'security_stig_owasp_clean',
   'documentation_synced',
 ] as const;
@@ -1480,6 +1486,22 @@ async function buildMissingDirCertifyResult(
   };
 }
 
+function evaluateDirtyCodeEvidences(
+  resolvedPath: string,
+  options?: CertifyGateOptions
+): { readonly lintEvidence: GateCheckOutcome; readonly unitEvidence: GateCheckOutcome } {
+  const requireLint = options?.requireLintEvidence ?? true;
+  const requireUnit = options?.requireUnitEvidence ?? true;
+  return {
+    lintEvidence: requireLint
+      ? checkLintEvidenceForDirtyCode(resolvedPath, options?.execFileSyncFn)
+      : buildCheckOutcome(GATE_STATUS_SKIPPED),
+    unitEvidence: requireUnit
+      ? checkUnitEvidenceForDirtyCode(resolvedPath, options?.execFileSyncFn)
+      : buildCheckOutcome(GATE_STATUS_SKIPPED),
+  };
+}
+
 export async function certify11xGate(
   projectPath: string,
   options?: CertifyGateOptions
@@ -1487,7 +1509,6 @@ export async function certify11xGate(
   const signal = options?.signal;
   throwIfCertifyAborted(signal);
   const resolvedPath = resolveSafeProjectPath(projectPath);
-  const requireLint = options?.requireLintEvidence ?? true;
   const strict = options?.strict ?? false;
 
   const isExistingDir = fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isDirectory();
@@ -1501,9 +1522,7 @@ export async function certify11xGate(
   const orphanApi = checkZeroOrphanApiEndpoints(resolvedPath);
   const ormCheck = checkOrmParity(resolvedPath);
   const astTopology = checkAstTopology(resolvedPath);
-  const lintEvidence: GateCheckOutcome = requireLint
-    ? checkLintEvidenceForDirtyCode(resolvedPath, options?.execFileSyncFn)
-    : buildCheckOutcome(GATE_STATUS_SKIPPED);
+  const { lintEvidence, unitEvidence } = evaluateDirtyCodeEvidences(resolvedPath, options);
   const docCheck = checkDocumentationSync(resolvedPath);
 
   throwIfCertifyAborted(signal);
@@ -1519,6 +1538,7 @@ export async function certify11xGate(
     orm_alembic_parity: ormCheck.status,
     ast_topology_clean: astTopology.status,
     lint_evidence_verified: lintEvidence.status,
+    unit_evidence_verified: unitEvidence.status,
     security_stig_owasp_clean: securityAudit.passed ? GATE_STATUS_PASSED : GATE_STATUS_FAILED,
     documentation_synced: docCheck.status,
   };
@@ -1538,6 +1558,7 @@ export async function certify11xGate(
     ...ormCheck.blockers,
     ...astTopology.blockers,
     ...lintEvidence.blockers,
+    ...unitEvidence.blockers,
     ...securityBlockers,
     ...docCheck.blockers,
     ...strictBlockers,

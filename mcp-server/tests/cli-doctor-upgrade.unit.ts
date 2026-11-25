@@ -360,13 +360,16 @@ describe('CLI Arg Helpers, Doctor & Upgrade Subcommands (QA-11X)', () => {
 
       childProcessMockState.dockerBehavior = 'empty';
       const emptyProbe = await runDoctorCli([projDir, '--offline', '--json'], { cwd: projDir, homeDir });
+      expect(emptyProbe.exitCode).toBe(1);
       expect((JSON.parse(emptyProbe.output) as DoctorReport).docker_version).toBeNull();
+      expect((JSON.parse(emptyProbe.output) as DoctorReport).docker_daemon_ok).toBe(false);
 
       childProcessMockState.dockerBehavior = 'throw';
       const throwProbe = await runDoctorCli([projDir, '--offline'], { cwd: projDir, homeDir });
-      expect(throwProbe.exitCode).toBe(0);
+      expect(throwProbe.exitCode).toBe(1);
       expect(throwProbe.output).toContain('stacks: ninguno');
-      expect(throwProbe.output).toContain('Docker: no detectado');
+      expect(throwProbe.output).toContain('NO DETECTADO (BLOQUEANTE)');
+      expect(throwProbe.output).toContain('[RULE-ZERO]');
       expect(throwProbe.output).toContain('Graphify AST: ausente');
     });
 
@@ -381,18 +384,30 @@ describe('CLI Arg Helpers, Doctor & Upgrade Subcommands (QA-11X)', () => {
       const docRun = await runCli(['doctor', projDir, '--offline', '--json'], {
         cwd: projDir,
         homeDir,
-        dockerProbeFn: () => null,
+        dockerProbeFn: () => '27.5.1',
         log: (m) => logs.push(m),
         errorLog: (m) => errs.push(m),
       });
       expect(docRun.exitCode).toBe(0);
       expect(docRun.command).toBe('doctor');
-      expect(JSON.parse(logs[0] ?? '{}')).toMatchObject({ mcp_version: MCP_SERVER_VERSION });
+      expect(JSON.parse(logs[0] ?? '{}')).toMatchObject({
+        mcp_version: MCP_SERVER_VERSION,
+        docker_daemon_ok: true,
+      });
+
+      const blockedDocRun = await runCli(['doctor', projDir, '--offline', '--json'], {
+        cwd: projDir,
+        homeDir,
+        dockerProbeFn: () => null,
+        log: (m) => logs.push(m),
+        errorLog: (m) => errs.push(m),
+      });
+      expect(blockedDocRun.exitCode).toBe(1);
 
       const statusRun = await runCli(['status', projDir, '--offline'], {
         cwd: projDir,
         homeDir,
-        dockerProbeFn: () => null,
+        dockerProbeFn: () => '27.5.1',
         log: (m) => logs.push(m),
         errorLog: (m) => errs.push(m),
       });
@@ -463,7 +478,7 @@ describe('CLI Arg Helpers, Doctor & Upgrade Subcommands (QA-11X)', () => {
       const homeTextRes = await runDoctorCli(['--offline'], {
         cwd: homeDir,
         homeDir,
-        dockerProbeFn: () => null,
+        dockerProbeFn: () => '27.5.1',
       });
       expect(homeTextRes.exitCode).toBe(0);
       expect(homeTextRes.output).toContain('modo global $HOME; stacks: ninguno');
@@ -473,8 +488,9 @@ describe('CLI Arg Helpers, Doctor & Upgrade Subcommands (QA-11X)', () => {
         homeDir,
         dockerProbeFn: () => null,
       });
-      expect(homeJsonRes.exitCode).toBe(0);
+      expect(homeJsonRes.exitCode).toBe(1);
       const parsedHome = JSON.parse(homeJsonRes.output) as DoctorReport;
+      expect(parsedHome.docker_daemon_ok).toBe(false);
       expect(parsedHome.project_path).toBe(fs.realpathSync(homeDir));
       expect(parsedHome.graphify_graph_present).toBe(false);
       expect(parsedHome.project_inspection.detected_stacks).toEqual([]);

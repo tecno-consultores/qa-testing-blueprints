@@ -1,9 +1,8 @@
 ---
 name: qa-11x-llm-evaluator
 description: >-
-  Dual-mode LLM, RAG, multimodal, voice, and autonomous agent evaluation sub-skill for Standard 11X.
-  Enforces zero-cost deterministic offline contracts in CI (make test / make certify) and on-demand
-  probabilistic evaluation and OWASP LLM Top 10 red-teaming via DeepEval and Promptfoo in ephemeral Docker.
+  LLM, RAG, multimodal, voice, and agent trajectory evaluation sub-skill for Standard 11X. Use whenever testing
+  prompts, structured outputs, retrieval pipelines, MCP tool-calling agents, or OWASP LLM Top 10 red-teaming suites.
 ---
 
 # QA 11X LLM & Agentic Evaluator (`qa-11x-llm-evaluator`)

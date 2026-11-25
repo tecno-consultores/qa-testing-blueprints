@@ -8,6 +8,9 @@ Todos los cambios notables en el paquete npm y servidor MCP `@sinfallas/mcp-qa-1
 
 ## [Unreleased]
 
+### Añadido
+- **Bloqueo Duro `Rule Zero` de Docker, Detección de *Companion MCPs*, Ingestión SARIF Federada, Compuertas `Superpowers` y `--toolset`:** Exigido Docker Engine activo en `doctor` (`exitCode = 1`, `docker_daemon_ok: false`, bloqueante `[RULE-ZERO]` si falla `docker info`); añadidos `externalScannerRunner.ts` (ejecución SARIF no-root `--rm --restart=no --network none` bajo `QA_MAX_CONCURRENT_CONTAINERS=1`), `companionMcpDetector.ts`, `sarifIngester.ts`, certeza `confidence` + supresiones auditables `qa-11x-ignore <REGLA>: <motivo>`, evidencia fresca dual `lint`+`unit` en `certify_11x_gate` (`--require-unit-evidence`), sello TDD `expect_red` en `run_ephemeral_qa` y `--toolset core|auto|full` (`QA_11X_TOOLSET`).
+
 ## [3.7.0] - 2026-11-25
 
 ### Añadido

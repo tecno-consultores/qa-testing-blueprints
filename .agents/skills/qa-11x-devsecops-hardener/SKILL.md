@@ -1,9 +1,9 @@
 ---
 name: qa-11x-devsecops-hardener
 description: >-
-  DISA ASD STIG V6R5 and OWASP Developer Guide v4.2 hardening sub-skill for Standard 11X. Use whenever
-  designing, auditing, or modifying multi-tenant PostgreSQL 15–17+ RLS schemas, authentication and session
-  flows, cryptographic secret vaults, WORM audit hash-chains, mutating MCP/JSON-RPC tools, or non-root Docker containers.
+  Security-by-design hardening sub-skill for Standard 11X. Use whenever designing, auditing, or modifying
+  multi-tenant PostgreSQL RLS schemas, authentication/MFA/session flows, secret vaults, WORM audit logs,
+  mutating MCP/JSON-RPC tools, SARIF security findings, or non-root Docker containers.
 ---
 
 # QA 11X DevSecOps Hardener (`qa-11x-devsecops-hardener`)
@@ -117,3 +117,7 @@ Unauthenticated multi-step ceremonies (`login -> mfa_enrollment_required | mfa_c
 - **Multi-Tenant WS / PubSub Isolation (`SEC-WS-PUBSUB-01`):** Prefix KeyDB/Redis PubSub channels by tenant (`ws:{tenant_id}:events`) and validate `tenant_id`/`org_id` per WebSocket subscriber before fan-out broadcast.
 - **`QA-HEALTH-01` & `QA-CLI-TTY-01`:** Boot orchestrators under default prod `Settings()` without mocking `OPTIONAL_WORKERS` (surfacing `task.exception()`); detect `isTTY`/`isatty()` without `--stdio` to print help and `exit(0)` in `<= 5s`.
 - **Rootless Alignment (`QA-COV-01`, `QA-DOCKER-TTY-01`, `QA-CI-ESCAPE-01`, `QA-MAKE-CURDIR-01` & `pnpm-store-init`):** Use `cap_drop: [ALL]`, `no-new-privileges:true`, `read_only: true` (`/tmp` `tmpfs` + pre-created `Dockerfile` dirs for writable `tmpfs` caches like `/app/.wrangler` with `noexec,nosuid,nodev`), `docker compose run --rm -T` in `CI=true` scripts/workflows, single-dollar `$(pwd)`/`$(id -u)` in GitHub Actions `run:` steps (`QA-CI-ESCAPE-01`), `$(CURDIR)` instead of `$(PWD)` in sub-Makefiles (`QA-MAKE-CURDIR-01`), Trivy `HIGH/CRITICAL = 0`, `-u "$(id -u):$(id -g)"`, `HOME=/tmp`, `COVERAGE_FILE=/tmp/.coverage`, `UV_CACHE_DIR=/tmp/uv-cache`, and `pnpm_config_store_dir=/pnpm/store` + `pnpm-store-init` (`chmod -R a+rwX /pnpm`) on `UID 10001` Node images to prevent `os error 13`.
+
+### 6.4. Federated SAST/SARIF Delegation & `fp-check` Triage (`Rule Zero`)
+- **Companion MCP vs. Ephemeral Docker SARIF:** When `inspect_project_config` detects a live SAST/SCA MCP (`semgrep`, `sonarqube`, `snyk`, `trivy`), delegate inter-file taint analysis to that MCP while keeping `audit_security_stig_owasp` for the 37 native 11X invariants. Without a Companion MCP, run external scanners **exclusively inside non-root ephemeral Docker** (`--rm --restart=no --network none`, serialized under `QA_MAX_CONCURRENT_CONTAINERS=1`) emitting `.agents/.cache/sarif/*.sarif`.
+- **Mandatory `fp-check` Before Patching or Suppressing:** Inspect `finding.confidence` (`HIGH` | `MEDIUM` | `HEURISTIC`) and trace AST caller reachability (`inspect_ast_blast_radius`) before altering production code on `HEURISTIC` matches. Only after confirming a true false positive, annotate the exact line with `# qa-11x-ignore <RULE_ID>: <justification >= 12 chars>` (audited via `suppressed_findings_count`, never silent).

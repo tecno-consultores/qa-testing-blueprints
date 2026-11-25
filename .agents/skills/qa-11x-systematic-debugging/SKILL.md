@@ -1,9 +1,8 @@
 ---
 name: qa-11x-systematic-debugging
 description: >-
-  Mandatory 4-phase deterministic root-cause debugging sub-skill for Standard 11X. Use before applying
-  any bug fix, test repair, regression patch, or runtime troubleshooting to isolate root causes via
-  Docker Rule Zero reproduction, Graphify AST blast-radius tracing, single-hypothesis testing, and RED-to-GREEN locks.
+  Root-cause debugging and regression isolation sub-skill for Standard 11X. Use before applying any bug fix,
+  test repair, flaky-test patch, Docker CrashLoop recovery, or BREAKER-42 circuit-breaker remediation.
 ---
 
 # QA 11X Systematic Debugging (`qa-11x-systematic-debugging`)

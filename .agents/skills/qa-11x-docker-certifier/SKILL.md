@@ -1,9 +1,9 @@
 ---
 name: qa-11x-docker-certifier
 description: >-
-  QA 11X Corporate Standard certifier in ephemeral Docker containers. Enforces Rule Zero
-  (zero host executions on Ubuntu/macOS/Windows), Cyclomatic/Cognitive Complexity Grade A, unit test coverage >= 95%,
-  mutation testing, WCAG 2.1 AA accessibility, Lighthouse CI, and silent mode RAM conservation.
+  Ephemeral Docker QA execution and certification sub-skill for Standard 11X. Use whenever running linters,
+  typecheckers, unit/integration/mutation/E2E suites, accessibility checks, external SARIF scanners, or workspace
+  cleanups under mandatory non-root Docker Rule Zero.
 ---
 
 # QA 11X Corporate Standard Certifier (Ephemeral Docker Execution)

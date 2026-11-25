@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.7.0",
-  "generated_at_utc": "2026-11-25T08:40:19Z",
+  "generated_at_utc": "2026-11-25T15:09:41Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -1068,15 +1068,15 @@
       "path": "instalar-hooks.sh",
       "target_name": "instalar-hooks.sh",
       "merge_strategy": "copy_if_missing",
-      "sha256": "dcf6c6b67f205fb414455d365a71d33882f2a2e971529a8dfadac429896f09a3",
-      "size_bytes": 16879
+      "sha256": "f52f3e58f3e53e691a340dc12b0f97e7060463cf872b830a04a8312a1ef218f5",
+      "size_bytes": 17061
     },
     {
       "path": "lefthook.yml",
       "target_name": "lefthook.yml",
       "merge_strategy": "copy_if_missing",
-      "sha256": "aa89f36fb48216e5f0f0e66ae22fce583ec219025c36460beea9341e2b2b4a69",
-      "size_bytes": 21621
+      "sha256": "36a88f933773532498f20477d3e489cc0da4981b0d5cd59d01440f4955d06213",
+      "size_bytes": 21801
     },
     {
       "path": "scripts/actualizar-grafos-graphify.sh",
@@ -1140,8 +1140,8 @@
       "path": ".agents/rules/active_task_and_planning_resilience.md",
       "target_name": ".agents/rules/active_task_and_planning_resilience.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "e49f62dea0e19ae82007a9e11cc1e8b5ad986f8262327153c5116d2d3f0fbd2e",
-      "size_bytes": 2143
+      "sha256": "3a323cea6b899fb0b10e2eb0658762ced96eba5d7b4cd87c48e53063cdf20397",
+      "size_bytes": 2555
     },
     {
       "path": ".agents/rules/anti_regression_and_side_effects_guardrail.md",
@@ -1182,8 +1182,8 @@
       "path": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "target_name": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "a00ec6f5576683215224e0339ac256a499b73656a7058c49f445159143ba9940",
-      "size_bytes": 6631
+      "sha256": "abf648a512288397c0463dcc035a315148dbcd3bf1b099f4cbafbd58870bd8a9",
+      "size_bytes": 6779
     },
     {
       "path": ".agents/rules/secure_development_and_testing_guidelines.md",
@@ -1413,22 +1413,22 @@
       "path": ".agents/skills/docker-trivy-keydb-hardening/SKILL.md",
       "target_name": ".agents/skills/docker-trivy-keydb-hardening/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "f47ce03690c78377002f4d78a85a7aa150e1dd35e04966f7ff30d7e1348354fc",
-      "size_bytes": 6112
+      "sha256": "443f54d005b5c0e77fc206ae32fa1043b709743c1958dd6414641ef00f494a21",
+      "size_bytes": 6142
     },
     {
       "path": ".agents/skills/graphify-ast-navigator/SKILL.md",
       "target_name": ".agents/skills/graphify-ast-navigator/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "807ec721429555b498489a6462303ce3fa15547ac1421acb7461f37264cdb04a",
-      "size_bytes": 9819
+      "sha256": "9da76dbc2a78790e5700fb1ccfb98d1d5e31daaddf1562c5ccff0cbd5091caf9",
+      "size_bytes": 9712
     },
     {
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "94d4cf7e3dd7ccce01be4c02879607d6524091dd329971282d7a52a9939edab9",
-      "size_bytes": 12045
+      "sha256": "2a3d940ce94d6c8362080ca27f161780af59ec9ecdd6e96ca76d7b94ae544337",
+      "size_bytes": 11934
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
@@ -1497,15 +1497,15 @@
       "path": ".agents/skills/qa-11x-architect/references/10-sdd-ears-traceability.md",
       "target_name": ".agents/skills/qa-11x-architect/references/10-sdd-ears-traceability.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "6aa3983ff0d771757c696630bfaed933e5e3440eb0c8843d095cef02aef3875c",
-      "size_bytes": 3764
+      "sha256": "77a3b9750ca0bb7d30a9d100287ee23625ee3a934aac451eaff0e63525207692",
+      "size_bytes": 4532
     },
     {
       "path": ".agents/skills/qa-11x-devsecops-hardener/SKILL.md",
       "target_name": ".agents/skills/qa-11x-devsecops-hardener/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "ede172df75f16becf465e8a640df2d36b37d66a0dbb4669038be208cc79c5394",
-      "size_bytes": 14341
+      "sha256": "9d630f0812b402a6fc761e8c0c39793bbcb602430c6e7636c176196e5d681a6a",
+      "size_bytes": 15307
     },
     {
       "path": ".agents/skills/qa-11x-devsecops-hardener/references/stig_rls_vault.md",
@@ -1518,43 +1518,43 @@
       "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "target_name": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "fcf8874c1715ccb72a3c718402ce4c7acb178881069ff999a08e0efb8b081b04",
-      "size_bytes": 12984
+      "sha256": "652e496131a8cff173c185449cbe1565def685dd96fc0590a7af9c3cad4f7cd5",
+      "size_bytes": 12957
     },
     {
       "path": ".agents/skills/qa-11x-llm-evaluator/SKILL.md",
       "target_name": ".agents/skills/qa-11x-llm-evaluator/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "efe810962b858926c3ce941c6958f9c7cc39eab7cde3b980cfaccb2c3f62ed17",
-      "size_bytes": 9996
+      "sha256": "8d96c7a135d12ee066410583fef712b8da4c8e183cf9c74f858d3a1c172fdd48",
+      "size_bytes": 9916
     },
     {
       "path": ".agents/skills/qa-11x-screenplay-builder/SKILL.md",
       "target_name": ".agents/skills/qa-11x-screenplay-builder/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "ad79bf5db356c272bfaa03599a6944ffbbc18e0314aa08e392d0d045d626c12e",
-      "size_bytes": 12056
+      "sha256": "aeeee011d1dffeb4fb651b015df449f49aa4758c14e40ae69a562da02b12373b",
+      "size_bytes": 11861
     },
     {
       "path": ".agents/skills/qa-11x-systematic-debugging/SKILL.md",
       "target_name": ".agents/skills/qa-11x-systematic-debugging/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "1e89ccc3a49883cac114166158d4021d7ce434bdd427c45e5001c372a53add7b",
-      "size_bytes": 11409
+      "sha256": "3dc189d0b5b63fe36098b1788d8134a978fac20339d428f90d1aad43756fca96",
+      "size_bytes": 11299
     },
     {
       "path": ".agents/skills/qa-11x-vibe-rescue/SKILL.md",
       "target_name": ".agents/skills/qa-11x-vibe-rescue/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "f1fc12850413cfcda4472e6ba5a43144807a6f0ca3ef97bc7ef7f67920c55aa9",
-      "size_bytes": 9495
+      "sha256": "8a39ed73c8abd2c18861afbbcfb35a891406092534ef79df883e7739c8cc02cf",
+      "size_bytes": 9368
     },
     {
       "path": ".agents/skills/refactoring-ui/SKILL.md",
       "target_name": ".agents/skills/refactoring-ui/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "bf7e3204c5eb5033dd423f50e43798d037764ce17cab5cb3af56d439e848e1d6",
-      "size_bytes": 8947
+      "sha256": "a639fb3279be1229dfb828fc54b408ea1f0836f9d39dc13f7057dfe28daeee37",
+      "size_bytes": 8830
     },
     {
       "path": ".agents/skills/refactoring-ui/references/color.md",
@@ -1623,29 +1623,29 @@
       "path": ".agents/skills/tactical-patterns-11x/SKILL.md",
       "target_name": ".agents/skills/tactical-patterns-11x/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "4473804007cd5b65a6ae734faa318adec75368b299787c1fde809eece5554e96",
-      "size_bytes": 2481
+      "sha256": "350f75f16d38f566dec5d5f535b9e57bbbe477c61ef89cfb086d907e58e03565",
+      "size_bytes": 2485
     },
     {
       "path": "AGENTS.md",
       "target_name": "AGENTS.md",
       "merge_strategy": "surgical_merge",
-      "sha256": "00784d18fd3b5851f36b0a9d7ec4072f8e7013c33b0299d2974f11d70cd17337",
-      "size_bytes": 7456
+      "sha256": "0d20b702d9a02a4f314581ad0a61c9d2e1b4bcf874959ea6c9b21c023b34306b",
+      "size_bytes": 7738
     },
     {
       "path": "AI_MASTER_PROMPT.es.md",
       "target_name": "AI_MASTER_PROMPT.es.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "63da675979a5b9a5ebde5feab264d73f255725e2d5cac209657e03b6039303ad",
-      "size_bytes": 18185
+      "sha256": "e07a7228baba5fb4762c8b35985db77c6ef9072af49cf18f384cec09954fbb07",
+      "size_bytes": 18597
     },
     {
       "path": "AI_MASTER_PROMPT.md",
       "target_name": "AI_MASTER_PROMPT.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "9a8f406aa3e204259579417653e203aa908ef5eb004e646fb4afe276365a28c9",
-      "size_bytes": 16996
+      "sha256": "08dabe72fde77b8e13308969ae4148e90dc5b3a2d73ba07bf69281b82b01a1ed",
+      "size_bytes": 17390
     },
     {
       "path": "SECURITY.es.md",
@@ -1672,15 +1672,15 @@
       "path": "catalogs/qaskills-pack.json",
       "target_name": "catalogs/qaskills-pack.json",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "cb5645a1b236bd0079b9a6198fac4d9b7730237b1e505f6d7ff06186ca3ee1e9",
-      "size_bytes": 7819
+      "sha256": "93a61a1ba59d8943d3a8c5928a218357cfd0fa9f63981b439ce94967817689c1",
+      "size_bytes": 7023
     },
     {
       "path": "catalogs/skillsllm-manifest.json",
       "target_name": "catalogs/skillsllm-manifest.json",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "8ff8db58f7bfef563da653410c3a3072c6ab724239d3bd824e6fa3ad732271d5",
-      "size_bytes": 11952
+      "sha256": "eeb6fc4763c59deb0cb7bf0b77b3c84828d0f724c75b30628d8646421fbcfd8f",
+      "size_bytes": 11156
     },
     {
       "path": "llms.txt",

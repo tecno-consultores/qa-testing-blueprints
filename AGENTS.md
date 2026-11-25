@@ -24,9 +24,9 @@ All AI coding assistants and developers in this monorepo MUST enforce Level-11X 
 
 ---
 
-## 2. Rule Zero: Ephemeral Docker Execution
+## 2. Rule Zero: Mandatory Ephemeral Docker Execution
 
-**NEVER** execute tests, migrations, compilers, or linters directly on host OS (`Ubuntu`/`macOS`/`Windows`). Execute exclusively in non-root ephemeral Docker containers (`Makefile` / `docker-compose.qa.yml` / `run_ephemeral_qa`) **serialized 1 container at a time** (`QA_MAX_CONCURRENT_CONTAINERS=1`; no parallel subagent `/teamwork` `docker run` fan-out; pass `--rm --restart=no --network none` on offline commands; `QA-DOCKER-LOOP-01`).
+Docker Engine is a **mandatory, non-negotiable physical prerequisite** (`qa-11x doctor` fails hard if the daemon is absent). **NEVER** execute tests, migrations, compilers, linters, or external SAST/SCA scanners (`semgrep`, `trivy`, `codeql`) directly on host OS (`Ubuntu`/`macOS`/`Windows`). Unless delegated to an active user-configured Companion MCP (`semgrep`, `serena`, `playwright`), execute exclusively in non-root ephemeral Docker containers (`Makefile` / `docker-compose.qa.yml` / `run_ephemeral_qa`) **serialized 1 container at a time** (`QA_MAX_CONCURRENT_CONTAINERS=1`; no parallel `/teamwork` `docker run` fan-out; pass `--rm --restart=no --network none` on offline commands; `QA-DOCKER-LOOP-01`).
 
 ---
 

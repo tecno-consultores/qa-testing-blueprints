@@ -1,9 +1,8 @@
 ---
 name: graphify-ast-navigator
 description: >-
-  AST Knowledge Graph lifecycle and bidirectional code navigation (why and how to create, incrementally refresh,
-  and query graph.json & GRAPH_REPORT.md). MANDATORY FIRST STEP whenever answering questions about project code
-  or architecture (Code Q&A), tracing callers/callees, auditing pre-refactoring blast radius, or checking layer boundaries.
+  AST knowledge graph navigation and topological boundary skill. Use whenever answering questions about project code
+  or architecture (Code Q&A), tracing symbol callers/callees, computing pre-edit blast radius, or checking layer boundaries.
 ---
 
 # Graphify AST Knowledge Graph & Bidirectional Code Navigator (`graphify-ast-navigator`)

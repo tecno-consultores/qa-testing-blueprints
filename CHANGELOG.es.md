@@ -8,6 +8,12 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### Añadido
+* **Bloqueo Duro `Rule Zero` de Docker, Detección de *Companion MCPs*, Ingestión SARIF Federada, Compuertas `Superpowers` y `--toolset`:**
+  * Convertida la disponibilidad de Docker Engine en bloqueante duro en `qa-11x doctor` (`exitCode = 1`, `docker_daemon_ok: false`, bloqueante `[RULE-ZERO]` si falla `docker info`) y añadido el ejecutor SARIF en contenedores efímeros no-root serializados (`externalScannerRunner.ts` bajo `QA_MAX_CONCURRENT_CONTAINERS=1`, `--rm --restart=no --network none`) junto con la exigencia explícita de Docker en toda la documentación bilingüe EN/ES.
+  * Añadidos `companionMcpDetector.ts` (`inspect_project_config` y `doctor` detectando `playwright`/`chrome-devtools`, `semgrep`/`sonarqube`/`snyk`, `trivy`, `serena` y `appium`), `sarifIngester.ts` (`.agents/.cache/sarif/*.sarif` en `audit_security_stig_owasp` y `certify_11x_gate`), certeza estática `confidence` (`HIGH | MEDIUM | HEURISTIC`) y supresiones auditables `qa-11x-ignore <REGLA>: <motivo>` (`fp-check`).
+  * Cerrada la brecha `verification-before-completion` en `qa-evidence.ts` y `certify-gate.ts` (`require_unit_evidence: true` junto a `require_lint_evidence: true` sobre código sucio), añadido `expect_red` (sello TDD `RED -> GREEN` exento de rachas `BREAKER-42`) en `run_ephemeral_qa`, añadido `--toolset core|auto|full` (`QA_11X_TOOLSET`) y aplicados frontmatters CSO (*Trigger-Only*), filtro Pre-Plan YAGNI + Revisión Cruzada en 2 Etapas (`0` Docker) y escenarios de presión anti-atajos en `.agents/`.
+
 ### Corregido
 * **Alineación de `AI_MASTER_PROMPT.{md,es.md}` con `AGENTS.md` y `v3.7.0`:** Aclarado su rol bajo demanda (`blueprint://core/philosophy`) frente a `AGENTS.md` + `.agents/rules/` autocargados, corregida la contradicción de landmark semántico `<footer>` (en flujo fuera de `<main>`) y sincronizados los guardrails de serialización Docker `QA-DOCKER-LOOP-01` (hashes SHA-256 en `manifest.json` actualizados).
 

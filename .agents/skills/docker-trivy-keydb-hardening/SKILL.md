@@ -1,8 +1,8 @@
 ---
 name: docker-trivy-keydb-hardening
 description: >-
-  Container hardening guidelines (Trivy HIGH/CRITICAL = 0), KeyDB multi-threaded in-memory engine,
-  non-root runtime users, multi-stage Docker builds, and backend performance optimization.
+  Container security and in-memory cache hardening skill. Use whenever authoring or auditing Dockerfiles,
+  docker-compose manifests, Trivy IaC/CVE scans, non-root UID bind mounts, or KeyDB/Redis runtime configurations.
 ---
 
 # Docker Trivy Hardening & KeyDB Performance Skill

@@ -68,23 +68,29 @@ describe('Paridad Pre-Push 1:1 con CI (QA Evidence, Stages integration/ci, Dynam
     expect(blocked.checks.lint_evidence_verified).toBe(false);
     expect(blocked.blockers.some((b) => b.includes('stage="lint"'))).toBe(true);
 
-    // 2. Con requireLintEvidence: false -> marca SKIPPED (nunca PASSED=true) y bloquea si strict=true
+    // 2. Con requireLintEvidence: false y requireUnitEvidence: false -> marca SKIPPED (nunca PASSED=true) y bloquea si strict=true
     const skippedLintGate = await certify11xGate(tmpDir, {
       requireLintEvidence: false,
+      requireUnitEvidence: false,
       execFileSyncFn: mockExecSync,
     });
     expect(skippedLintGate.checks.lint_evidence_verified).toBe(false);
+    expect(skippedLintGate.checks.unit_evidence_verified).toBe(false);
     expect(skippedLintGate.check_statuses?.lint_evidence_verified).toBe('SKIPPED');
+    expect(skippedLintGate.check_statuses?.unit_evidence_verified).toBe('SKIPPED');
     expect(skippedLintGate.skipped_checks).toContain('lint_evidence_verified');
+    expect(skippedLintGate.skipped_checks).toContain('unit_evidence_verified');
     expect(skippedLintGate.gate_passed).toBe(true);
 
     const strictSkippedGate = await certify11xGate(tmpDir, {
       requireLintEvidence: false,
+      requireUnitEvidence: false,
       strict: true,
       execFileSyncFn: mockExecSync,
     });
     expect(strictSkippedGate.gate_passed).toBe(false);
     expect(strictSkippedGate.blockers).toContain('STRICT_SKIPPED_CHECK: lint_evidence_verified');
+    expect(strictSkippedGate.blockers).toContain('STRICT_SKIPPED_CHECK: unit_evidence_verified');
 
     // 3. Si runEphemeralQa falla -> NO graba sello
     const mockExecFail = ((
@@ -121,12 +127,34 @@ describe('Paridad Pre-Push 1:1 con CI (QA Evidence, Stages integration/ci, Dynam
     expect(passedLint.status).toBe('PASSED');
     expect(fs.existsSync(path.join(tmpDir, QA_EVIDENCE_REL_PATH))).toBe(true);
 
+    // 4b. Solo lint sin unit sigue bloqueando certify11xGate (verification-before-completion completo)
+    const missingUnitGate = await certify11xGate(tmpDir, { execFileSyncFn: mockExecSync });
+    expect(missingUnitGate.checks.lint_evidence_verified).toBe(true);
+    expect(missingUnitGate.checks.unit_evidence_verified).toBe(false);
+    expect(missingUnitGate.gate_passed).toBe(false);
+    expect(missingUnitGate.blockers.some((b) => b.includes('stage="unit"'))).toBe(true);
+
+    const mockUnitPass = ((
+      _file: string,
+      _args: readonly string[],
+      _opts: unknown,
+      cb: (err: Error | null, stdout: string, stderr: string) => void
+    ) => {
+      cb(null, 'All files | 98.00 | 95.00 | 100.0 | 98.00 |\n5 passed', '');
+    }) as unknown as typeof execFile;
+
+    await runEphemeralQa(tmpDir, 'unit', 30, {
+      execFileFn: mockUnitPass,
+      execFileSyncFn: mockExecSync,
+    });
+
     // Editar únicamente documentación (CHANGELOG.md / README.md) NO invalida el sello de código
     fs.writeFileSync(path.join(tmpDir, 'README.md'), '# Docs updated after lint\n', 'utf8');
     porcelainOutput = ' M src/service.ts\n M CHANGELOG.md\n?? README.md\n';
 
     const certifiedAfterDocs = await certify11xGate(tmpDir, { execFileSyncFn: mockExecSync });
     expect(certifiedAfterDocs.checks.lint_evidence_verified).toBe(true);
+    expect(certifiedAfterDocs.checks.unit_evidence_verified).toBe(true);
     expect(certifiedAfterDocs.gate_passed).toBe(true);
 
     // 5. Si se vuelve a modificar el archivo de código -> el fingerprint cambia e invalida el sello

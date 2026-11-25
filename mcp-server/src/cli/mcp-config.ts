@@ -10,6 +10,7 @@ import {
   resolveSafeChildPath,
   resolveSafeHomeDir,
 } from '../services/github-fetcher.js';
+import { parseToolsetMode, type ToolsetMode } from '../server/toolsetFilter.js';
 import { pickAt, reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 import {
   CODEX_MCP_REL_PATH,
@@ -58,6 +59,7 @@ const TOML_SECTION_HEADER_RE = /^\s*\[{1,2}[^[\]]+\]{1,2}/;
 const SECURE_FILE_MODE = 0o600;
 const ERROR_PREFIX = '❌ [mcp-config]';
 const CLIENT_VALUE_FLAGS = new Set(['--client', '-c']);
+const TOOLSET_VALUE_FLAGS = new Set(['--toolset']);
 const JSON_MCP_CLIENTS = new Set<string>([
   'antigravity',
   'cursor',
@@ -76,6 +78,7 @@ function isJsonClient(client: SingleMcpClient): client is JsonMcpClient {
 
 interface McpConfigParseState {
   clientRaw: string;
+  toolset?: ToolsetMode;
   install: boolean;
   pinVersion: boolean;
   dryRun: boolean;
@@ -157,6 +160,12 @@ function parseMcpConfigArgs(args: readonly string[]): McpConfigParseState {
       i += clientMatch.consumed;
       continue;
     }
+    const toolsetMatch = matchFlagValue(args, i, TOOLSET_VALUE_FLAGS);
+    if (toolsetMatch) {
+      state.toolset = parseToolsetMode(toolsetMatch.value);
+      i += toolsetMatch.consumed;
+      continue;
+    }
     throw new Error(`Opción desconocida en mcp-config: '${token}'.`);
   }
   return state;
@@ -170,23 +179,38 @@ function buildPackageSpec(pinVersion: boolean): string {
   return pinVersion ? `${PKG_NAME}@${MCP_SERVER_VERSION}` : `${PKG_NAME}@latest`;
 }
 
-function buildJsonServerEntry(pkgSpec: string): { command: string; args: [string, string] } {
-  return { command: 'npx', args: ['-y', pkgSpec] };
+function buildNpxArgs(pkgSpec: string, toolset?: ToolsetMode): string[] {
+  return toolset && toolset !== 'full' ? ['-y', pkgSpec, '--toolset', toolset] : ['-y', pkgSpec];
 }
 
-function buildCodexTomlBlock(pkgSpec: string): string {
-  return [CODEX_SECTION_HEADER, 'command = "npx"', `args = ["-y", "${pkgSpec}"]`].join('\n');
+function buildJsonServerEntry(
+  pkgSpec: string,
+  toolset?: ToolsetMode
+): { command: string; args: string[] } {
+  return { command: 'npx', args: buildNpxArgs(pkgSpec, toolset) };
 }
 
-const COMMAND_CLIENT_BUILDERS: Readonly<Record<CommandMcpClient, (pkgSpec: string) => string>> = {
-  'claude-code': (pkgSpec) => `claude mcp add -s user ${QA_SERVER_KEY} -- npx -y ${pkgSpec}`,
-  vscode: (pkgSpec) =>
-    `code --add-mcp '${JSON.stringify({ name: QA_SERVER_KEY, ...buildJsonServerEntry(pkgSpec) })}'`,
-  'gemini-cli': (pkgSpec) => `gemini mcp add ${QA_SERVER_KEY} npx -y ${pkgSpec}`,
+function buildCodexTomlBlock(pkgSpec: string, toolset?: ToolsetMode): string {
+  const argsLiteral = buildNpxArgs(pkgSpec, toolset)
+    .map((a) => `"${a}"`)
+    .join(', ');
+  return [CODEX_SECTION_HEADER, 'command = "npx"', `args = [${argsLiteral}]`].join('\n');
+}
+
+const COMMAND_CLIENT_BUILDERS: Readonly<
+  Record<CommandMcpClient, (pkgSpec: string, toolset?: ToolsetMode) => string>
+> = {
+  'claude-code': (pkgSpec, toolset) =>
+    `claude mcp add -s user ${QA_SERVER_KEY} -- npx ${buildNpxArgs(pkgSpec, toolset).join(' ')}`,
+  vscode: (pkgSpec, toolset) =>
+    `code --add-mcp '${JSON.stringify({ name: QA_SERVER_KEY, ...buildJsonServerEntry(pkgSpec, toolset) })}'`,
+  'gemini-cli': (pkgSpec, toolset) =>
+    `gemini mcp add ${QA_SERVER_KEY} npx ${buildNpxArgs(pkgSpec, toolset).join(' ')}`,
 };
 
 interface SnippetTargetContext {
   readonly pkgSpec: string;
+  readonly toolset?: ToolsetMode;
   readonly homeDir: string;
   readonly platform: NodeJS.Platform;
 }
@@ -196,7 +220,9 @@ function buildClientSnippet(
   ctx: SnippetTargetContext
 ): ClientSnippetPayload {
   if (isJsonClient(client)) {
-    const doc = { [MCP_SERVERS_KEY]: { [QA_SERVER_KEY]: buildJsonServerEntry(ctx.pkgSpec) } };
+    const doc = {
+      [MCP_SERVERS_KEY]: { [QA_SERVER_KEY]: buildJsonServerEntry(ctx.pkgSpec, ctx.toolset) },
+    };
     const relPath = resolveActiveJsonMcpClientRelPath(client, ctx.homeDir, ctx.platform);
     return {
       client,
@@ -212,10 +238,10 @@ function buildClientSnippet(
       kind: 'toml',
       packageSpec: ctx.pkgSpec,
       targetPath: resolveSafeChildPath(ctx.homeDir, CODEX_MCP_REL_PATH),
-      snippet: `${buildCodexTomlBlock(ctx.pkgSpec)}\n`,
+      snippet: `${buildCodexTomlBlock(ctx.pkgSpec, ctx.toolset)}\n`,
     };
   }
-  const command = COMMAND_CLIENT_BUILDERS[client](ctx.pkgSpec);
+  const command = COMMAND_CLIENT_BUILDERS[client](ctx.pkgSpec, ctx.toolset);
   return { client, kind: 'command', packageSpec: ctx.pkgSpec, command, snippet: command };
 }
 
@@ -358,7 +384,7 @@ function prepareJsonClientInstall(
     ...existingDoc,
     [MCP_SERVERS_KEY]: {
       ...existingServers,
-      [QA_SERVER_KEY]: buildJsonServerEntry(ctx.pkgSpec),
+      [QA_SERVER_KEY]: buildJsonServerEntry(ctx.pkgSpec, ctx.toolset),
     },
   };
   return {
@@ -384,7 +410,7 @@ function prepareTomlClientInstall(
     relPath,
     targetPath,
     existed,
-    content: upsertCodexToml(existingContent, buildCodexTomlBlock(ctx.pkgSpec)),
+    content: upsertCodexToml(existingContent, buildCodexTomlBlock(ctx.pkgSpec, ctx.toolset)),
   };
 }
 
@@ -416,7 +442,7 @@ function prepareClientInstall(
   return {
     client,
     kind: 'command',
-    command: COMMAND_CLIENT_BUILDERS[client](ctx.pkgSpec),
+    command: COMMAND_CLIENT_BUILDERS[client](ctx.pkgSpec, ctx.toolset),
   };
 }
 
@@ -538,6 +564,7 @@ export function runMcpConfigCli(
     const homeDir = resolveSafeHomeDir(deps.homeDir);
     const ctx: SnippetTargetContext = {
       pkgSpec: buildPackageSpec(state.pinVersion),
+      ...(state.toolset !== undefined ? { toolset: state.toolset } : {}),
       homeDir,
       platform: deps.platform ?? process.platform,
     };

@@ -6,6 +6,9 @@ This document addresses architectural questions and the most common issues when 
 
 ## 🏗️ Philosophy and Execution
 
+### Can I run `qa-11x` on a PC without Docker installed?
+**No — Docker Engine is a mandatory, non-negotiable physical prerequisite (`Rule Zero`).** `qa-11x` never degrades to running compilers, linters, test suites, or external SAST/SCA scanners (`Semgrep`, `Trivy`, `CodeQL`) on your host OS. Running `npx -y @sinfallas/mcp-qa-11x doctor` checks live daemon reachability (`docker info`) and exits with `1` (`[RULE-ZERO]` blocker) if Docker is missing or stopped. When external tools are not served by an already-active Companion MCP in your IDE, `qa-11x` launches them strictly inside non-root ephemeral containers (`--rm --restart=no --network none`) serialized under `QA_MAX_CONCURRENT_CONTAINERS=1`.
+
 ### Why can't I run `npm install`, `pip install`, or tests directly on my local machine?
 To guarantee **immutability and absolute parity with production**. The "works on my machine" problem is usually caused by hidden global Node/Python versions or residual environment variables. By forcing ephemeral containers (through simplified commands such as `make qa-unit`), the environment starts completely clean, uses isolated caches, executes the suite, and destroys itself.
 

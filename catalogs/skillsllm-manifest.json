@@ -118,99 +118,99 @@
       "name": "qa-11x-architect",
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-architect/SKILL.md",
-      "size_bytes": 12045,
-      "sha256": "94d4cf7e3dd7ccce01be4c02879607d6524091dd329971282d7a52a9939edab9",
-      "description": "Master QA 11X & DevSecOps Architect (qa-testing-blueprints v3.7+). Use whenever the user asks to initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md."
+      "size_bytes": 11934,
+      "sha256": "2a3d940ce94d6c8362080ca27f161780af59ec9ecdd6e96ca76d7b94ae544337",
+      "description": "Master QA 11X & DevSecOps orchestrator (@sinfallas/mcp-qa-11x). Use whenever initializing or auditing QA in a repository, merging .example blueprints, writing or updating unit/BDD/mutation/E2E tests, enforcing STIG/OWASP controls, running ephemeral Docker QA, or certifying tasks before local commit."
     },
     {
       "id": "qa-11x-devsecops-hardener",
       "name": "qa-11x-devsecops-hardener",
       "path": ".agents/skills/qa-11x-devsecops-hardener/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-devsecops-hardener/SKILL.md",
-      "size_bytes": 14341,
-      "sha256": "ede172df75f16becf465e8a640df2d36b37d66a0dbb4669038be208cc79c5394",
-      "description": "DISA ASD STIG V6R5 and OWASP Developer Guide v4.2 hardening sub-skill for Standard 11X. Use whenever designing, auditing, or modifying multi-tenant PostgreSQL 15–17+ RLS schemas, authentication and session flows, cryptographic secret vaults, WORM audit hash-chains, mutating MCP/JSON-RPC tools, or non-root Docker containers."
+      "size_bytes": 15307,
+      "sha256": "9d630f0812b402a6fc761e8c0c39793bbcb602430c6e7636c176196e5d681a6a",
+      "description": "Security-by-design hardening sub-skill for Standard 11X. Use whenever designing, auditing, or modifying multi-tenant PostgreSQL RLS schemas, authentication/MFA/session flows, secret vaults, WORM audit logs, mutating MCP/JSON-RPC tools, SARIF security findings, or non-root Docker containers."
     },
     {
       "id": "qa-11x-systematic-debugging",
       "name": "qa-11x-systematic-debugging",
       "path": ".agents/skills/qa-11x-systematic-debugging/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-systematic-debugging/SKILL.md",
-      "size_bytes": 11409,
-      "sha256": "1e89ccc3a49883cac114166158d4021d7ce434bdd427c45e5001c372a53add7b",
-      "description": "Mandatory 4-phase deterministic root-cause debugging sub-skill for Standard 11X. Use before applying any bug fix, test repair, regression patch, or runtime troubleshooting to isolate root causes via Docker Rule Zero reproduction, Graphify AST blast-radius tracing, single-hypothesis testing, and RED-to-GREEN locks."
+      "size_bytes": 11299,
+      "sha256": "3dc189d0b5b63fe36098b1788d8134a978fac20339d428f90d1aad43756fca96",
+      "description": "Root-cause debugging and regression isolation sub-skill for Standard 11X. Use before applying any bug fix, test repair, flaky-test patch, Docker CrashLoop recovery, or BREAKER-42 circuit-breaker remediation."
     },
     {
       "id": "qa-11x-screenplay-builder",
       "name": "qa-11x-screenplay-builder",
       "path": ".agents/skills/qa-11x-screenplay-builder/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-screenplay-builder/SKILL.md",
-      "size_bytes": 12056,
-      "sha256": "ad79bf5db356c272bfaa03599a6944ffbbc18e0314aa08e392d0d045d626c12e",
-      "description": "Proportional E2E and acceptance architecture sub-skill for Standard 11X. Enforces the Screenplay Pattern (Actors, Abilities, Tasks, Interactions, Questions) on multi-role RBAC, multi-tenant, and hybrid UI+API+Mobile flows, lightweight composed POM on small single-role apps (<= 10 tests, <= 3 pages), semantic self-healing ARIA locators, Anti-JSDOM geometry, Anti-Silo cross-module Questions, and 3-phase temporal assertions."
+      "size_bytes": 11861,
+      "sha256": "aeeee011d1dffeb4fb651b015df449f49aa4758c14e40ae69a562da02b12373b",
+      "description": "Acceptance and E2E test architecture sub-skill for Standard 11X. Use whenever creating, refactoring, or reviewing Playwright, WebdriverIO/Appium, or UI/API acceptance suites across single-role or multi-role RBAC and multi-tenant apps."
     },
     {
       "id": "qa-11x-llm-evaluator",
       "name": "qa-11x-llm-evaluator",
       "path": ".agents/skills/qa-11x-llm-evaluator/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-llm-evaluator/SKILL.md",
-      "size_bytes": 9996,
-      "sha256": "efe810962b858926c3ce941c6958f9c7cc39eab7cde3b980cfaccb2c3f62ed17",
-      "description": "Dual-mode LLM, RAG, multimodal, voice, and autonomous agent evaluation sub-skill for Standard 11X. Enforces zero-cost deterministic offline contracts in CI (make test / make certify) and on-demand probabilistic evaluation and OWASP LLM Top 10 red-teaming via DeepEval and Promptfoo in ephemeral Docker."
+      "size_bytes": 9916,
+      "sha256": "8d96c7a135d12ee066410583fef712b8da4c8e183cf9c74f858d3a1c172fdd48",
+      "description": "LLM, RAG, multimodal, voice, and agent trajectory evaluation sub-skill for Standard 11X. Use whenever testing prompts, structured outputs, retrieval pipelines, MCP tool-calling agents, or OWASP LLM Top 10 red-teaming suites."
     },
     {
       "id": "qa-11x-vibe-rescue",
       "name": "qa-11x-vibe-rescue",
       "path": ".agents/skills/qa-11x-vibe-rescue/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-vibe-rescue/SKILL.md",
-      "size_bytes": 9495,
-      "sha256": "f1fc12850413cfcda4472e6ba5a43144807a6f0ca3ef97bc7ef7f67920c55aa9",
-      "description": "5-stage Vibe-to-Enterprise rescue and hardening sub-skill for Standard 11X. Audits and hardens AI-generated prototypes (Bolt.new, Lovable, v0, Replit Agent, rapid vibe-coding scaffolds) without destroying their UX, enforcing secret quarantine, PostgreSQL 17 RLS, strict typing (CC <= 5), non-root Docker Rule Zero (>= 95% coverage), and 10/10 gate closure."
+      "size_bytes": 9368,
+      "sha256": "8a39ed73c8abd2c18861afbbcfb35a891406092534ef79df883e7739c8cc02cf",
+      "description": "Prototype-to-enterprise hardening sub-skill for Standard 11X. Use whenever rescuing, auditing, or productionizing AI-generated scaffolds (Bolt.new, Lovable, v0, Replit Agent, or rapid vibe-coded prototypes) without breaking their UX."
     },
     {
       "id": "qa-11x-docker-certifier",
       "name": "qa-11x-docker-certifier",
       "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-docker-certifier/SKILL.md",
-      "size_bytes": 12984,
-      "sha256": "fcf8874c1715ccb72a3c718402ce4c7acb178881069ff999a08e0efb8b081b04",
-      "description": "QA 11X Corporate Standard certifier in ephemeral Docker containers. Enforces Rule Zero (zero host executions on Ubuntu/macOS/Windows), Cyclomatic/Cognitive Complexity Grade A, unit test coverage >= 95%, mutation testing, WCAG 2.1 AA accessibility, Lighthouse CI, and silent mode RAM conservation."
+      "size_bytes": 12957,
+      "sha256": "652e496131a8cff173c185449cbe1565def685dd96fc0590a7af9c3cad4f7cd5",
+      "description": "Ephemeral Docker QA execution and certification sub-skill for Standard 11X. Use whenever running linters, typecheckers, unit/integration/mutation/E2E suites, accessibility checks, external SARIF scanners, or workspace cleanups under mandatory non-root Docker Rule Zero."
     },
     {
       "id": "docker-trivy-keydb-hardening",
       "name": "docker-trivy-keydb-hardening",
       "path": ".agents/skills/docker-trivy-keydb-hardening/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/docker-trivy-keydb-hardening/SKILL.md",
-      "size_bytes": 6112,
-      "sha256": "f47ce03690c78377002f4d78a85a7aa150e1dd35e04966f7ff30d7e1348354fc",
-      "description": "Container hardening guidelines (Trivy HIGH/CRITICAL = 0), KeyDB multi-threaded in-memory engine, non-root runtime users, multi-stage Docker builds, and backend performance optimization."
+      "size_bytes": 6142,
+      "sha256": "443f54d005b5c0e77fc206ae32fa1043b709743c1958dd6414641ef00f494a21",
+      "description": "Container security and in-memory cache hardening skill. Use whenever authoring or auditing Dockerfiles, docker-compose manifests, Trivy IaC/CVE scans, non-root UID bind mounts, or KeyDB/Redis runtime configurations."
     },
     {
       "id": "graphify-ast-navigator",
       "name": "graphify-ast-navigator",
       "path": ".agents/skills/graphify-ast-navigator/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/graphify-ast-navigator/SKILL.md",
-      "size_bytes": 9819,
-      "sha256": "807ec721429555b498489a6462303ce3fa15547ac1421acb7461f37264cdb04a",
-      "description": "AST Knowledge Graph lifecycle and bidirectional code navigation (why and how to create, incrementally refresh, and query graph.json & GRAPH_REPORT.md). MANDATORY FIRST STEP whenever answering questions about project code or architecture (Code Q&A), tracing callers/callees, auditing pre-refactoring blast radius, or checking layer boundaries."
+      "size_bytes": 9712,
+      "sha256": "9da76dbc2a78790e5700fb1ccfb98d1d5e31daaddf1562c5ccff0cbd5091caf9",
+      "description": "AST knowledge graph navigation and topological boundary skill. Use whenever answering questions about project code or architecture (Code Q&A), tracing symbol callers/callees, computing pre-edit blast radius, or checking layer boundaries."
     },
     {
       "id": "refactoring-ui",
       "name": "refactoring-ui",
       "path": ".agents/skills/refactoring-ui/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/refactoring-ui/SKILL.md",
-      "size_bytes": 8947,
-      "sha256": "bf7e3204c5eb5033dd423f50e43798d037764ce17cab5cb3af56d439e848e1d6",
-      "description": "Visual hierarchy, spacing, type, color, depth and polish rules from Refactoring UI (Wathan & Schoger), aligned with QA 11X WCAG 2.1 AA, Anti-JSDOM geometry, and Lighthouse CI. Use when building or restyling an interface, when a UI looks unpolished or cluttered and the cause is unclear, or when picking concrete values for a spacing scale, type scale, color palette or shadow set."
+      "size_bytes": 8830,
+      "sha256": "a639fb3279be1229dfb828fc54b408ea1f0836f9d39dc13f7057dfe28daeee37",
+      "description": "Frontend visual design, hierarchy, and WCAG 2.1 AA layout skill. Use when building or restyling UI components, diagnosing cluttered or unpolished interfaces, preventing fixed-footer viewport collisions, or selecting spacing, typography, color, and dark-mode tokens."
     },
     {
       "id": "tactical-patterns-11x",
       "name": "tactical-patterns-11x",
       "path": ".agents/skills/tactical-patterns-11x/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/tactical-patterns-11x/SKILL.md",
-      "size_bytes": 2481,
-      "sha256": "4473804007cd5b65a6ae734faa318adec75368b299787c1fde809eece5554e96",
-      "description": "JIT tactical patterns for QA-11X: complexity rescue (CC <= 5, SonarJS <= 15, max-params <= 4, max-depth <= 3), offline Port/Adapter (--network none), atomic outbox/idempotency/RLS, and anti-overengineering."
+      "size_bytes": 2485,
+      "sha256": "350f75f16d38f566dec5d5f535b9e57bbbe477c61ef89cfb086d907e58e03565",
+      "description": "Just-in-time refactoring and concurrency patterns for Standard 11X. Use when resolving cyclomatic/cognitive complexity or parameter-count violations, isolating external network ports offline, or implementing transactional outbox, atomic idempotency, and WebSocket pub/sub."
     }
   ]
 }

@@ -10,7 +10,7 @@ import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import {
   DEFAULT_BREAKER_MAX_STREAK, EXIT_BREAKER_42, extractPathsFromPorcelainLine,
   isDocFilePath, isEphemeralQaArtifactPath, type RawFindingInput,
-  recordQaStageEvidence, recordQaStageFindingsState,
+  recordQaStageEvidence, recordQaStageFindingsState, recordRedPhaseEvidence,
 } from '../services/qa-evidence.js';
 import type { QaExecutionResult } from '../types.js';
 import {
@@ -35,15 +35,26 @@ import {
   teardownWorkspaceComposeOnAbort,
 } from './ephemeral-runner/dockerGuardrails.js';
 import {
+  type ExternalSarifScanner,
+  type ExternalSarifScanResult,
+  PINNED_SEMGREP_SARIF_IMAGE,
+  PINNED_TRIVY_SARIF_IMAGE,
+  type RunExternalSarifScannerOptions,
+  runExternalSarifScannerInDocker,
+} from './ephemeral-runner/externalScannerRunner.js';
+import {
   expandMakefileVariables, hasUnquotedShellSyntax, resolveMakefileDockerRecipes,
   tokenizeCommandArgs, type ResolveMakefileRecursionOptions,
 } from './ephemeral-runner/makefileParser.js';
 
 export {
   ensureCoverageCacheDir, expandMakefileVariables, harvestCoverageReports,
-  hasUnquotedShellSyntax, resolveComposeDirectFallback, resolveMakefileDockerRecipes,
+  hasUnquotedShellSyntax, PINNED_SEMGREP_SARIF_IMAGE, PINNED_TRIVY_SARIF_IMAGE,
+  resolveComposeDirectFallback, resolveMakefileDockerRecipes, runExternalSarifScannerInDocker,
   tokenizeCommandArgs,
-  type RecipeResolutionResult, type ResolveMakefileRecursionOptions, type RunEphemeralQaOptions,
+  type ExternalSarifScanner, type ExternalSarifScanResult, type RecipeResolutionResult,
+  type ResolveMakefileRecursionOptions, type RunEphemeralQaOptions,
+  type RunExternalSarifScannerOptions,
 };
 
 
@@ -58,6 +69,7 @@ async function executeDockerFallbackSequence(
     timeoutSeconds,
     startTime,
     execFileSyncFn,
+    expectRed,
     signal,
     prepDirs,
   } = ctx;
@@ -115,7 +127,7 @@ async function executeDockerFallbackSequence(
   } else {
     parsed.tail_log = `[Fallback Rule Zero sin GNU make -> docker] ${parsed.tail_log}`.trim();
   }
-  return applyStageTrackingAndEvidence(resolvedPath, stage, parsed, execFileSyncFn);
+  return applyStageTrackingAndEvidence(resolvedPath, stage, parsed, { execFileSyncFn, expectRed });
 }
 
 function extractStageFindings(parsed: QaExecutionResult): RawFindingInput[] {
@@ -148,12 +160,58 @@ function extractStageFindings(parsed: QaExecutionResult): RawFindingInput[] {
   return combined;
 }
 
-function applyStageTrackingAndEvidence(
+function applyExpectRedPhaseOutcome(
   resolvedPath: string,
   stage: string,
   parsed: QaExecutionResult,
   execFileSyncFn?: typeof execFileSync
 ): QaExecutionResult {
+  if (parsed.exit_code === EXIT_TEMPFAIL || parsed.exit_code === 124) {
+    return parsed;
+  }
+  if (parsed.status === 'PASSED') {
+    const tautologyMsg =
+      '[TDD-TAUTOLOGY] expect_red=true pero 0 pruebas fallaron; el test nuevo no reproduce el caso RED.';
+    return {
+      ...parsed,
+      status: STATUS_FAILED,
+      exit_code: 1,
+      red_phase_verified: false,
+      failed_tests: [
+        ...parsed.failed_tests,
+        { test_name: `tdd:${stage}:expect_red`, error_summary: tautologyMsg },
+      ],
+      tail_log: `${tautologyMsg}\n${parsed.tail_log}`.trim(),
+    };
+  }
+  const failedCount = Math.max(1, parsed.failed_tests.length);
+  recordRedPhaseEvidence(resolvedPath, stage, failedCount, execFileSyncFn);
+  recordStageCmdCheckpoint(
+    resolvedPath,
+    {
+      cmdName: `qa-${stage}:red`,
+      exitCode: parsed.exit_code,
+      summary1Line: `RED_VERIFIED: stage=${stage} failed=${failedCount}`,
+    },
+    execFileSyncFn
+  );
+  return {
+    ...parsed,
+    red_phase_verified: true,
+    tail_log: `✔ [TDD RED VERIFIED] El fallo esperado (${failedCount} prueba(s)) quedó certificado sin penalizar BREAKER-42.\n${parsed.tail_log}`.trim(),
+  };
+}
+
+function applyStageTrackingAndEvidence(
+  resolvedPath: string,
+  stage: string,
+  parsed: QaExecutionResult,
+  trackingOpts?: { execFileSyncFn?: typeof execFileSync; expectRed?: boolean }
+): QaExecutionResult {
+  const execFileSyncFn = trackingOpts?.execFileSyncFn;
+  if (trackingOpts?.expectRed) {
+    return applyExpectRedPhaseOutcome(resolvedPath, stage, parsed, execFileSyncFn);
+  }
   if (fs.existsSync(resolvedPath) && parsed.exit_code !== EXIT_TEMPFAIL) {
     const findings = extractStageFindings(parsed);
     const breaker = recordQaStageFindingsState(resolvedPath, stage, findings, {
@@ -213,12 +271,13 @@ interface FallbackRunnerContext {
   readonly timeoutSeconds: number;
   readonly startTime: number;
   readonly execFileSyncFn?: typeof execFileSync;
+  readonly expectRed?: boolean;
   readonly makefilePath?: string;
   readonly signal?: AbortSignal;
 }
 
 async function runMissingMakefileFallback(ctx: FallbackRunnerContext): Promise<QaExecutionResult> {
-  const { executor, resolvedPath, stage, timeoutSeconds, startTime, execFileSyncFn, signal } =
+  const { executor, resolvedPath, stage, timeoutSeconds, startTime, execFileSyncFn, expectRed, signal } =
     ctx;
   const directCommands = resolveComposeDirectFallback(resolvedPath, stage);
   if (directCommands) {
@@ -230,6 +289,7 @@ async function runMissingMakefileFallback(ctx: FallbackRunnerContext): Promise<Q
       timeoutSeconds,
       startTime,
       execFileSyncFn,
+      expectRed,
       signal,
     });
   }
@@ -261,6 +321,7 @@ async function runMakeEnoentFallback(ctx: FallbackRunnerContext): Promise<QaExec
     timeoutSeconds,
     startTime,
     execFileSyncFn,
+    expectRed,
     signal,
   } = ctx;
   const makefileContent = fs.readFileSync(makefilePath as string, 'utf8');
@@ -274,6 +335,7 @@ async function runMakeEnoentFallback(ctx: FallbackRunnerContext): Promise<QaExec
       timeoutSeconds,
       startTime,
       execFileSyncFn,
+      expectRed,
       signal,
       prepDirs: recipeResolution.prepDirs,
     });
@@ -288,6 +350,7 @@ async function runMakeEnoentFallback(ctx: FallbackRunnerContext): Promise<QaExec
       timeoutSeconds,
       startTime,
       execFileSyncFn,
+      expectRed,
       signal,
     });
   }
@@ -420,6 +483,7 @@ async function executeQaStageCore(input: CoreStageExecInput): Promise<QaExecutio
       timeoutSeconds,
       startTime,
       execFileSyncFn,
+      expectRed: options?.expectRed,
       signal,
     });
   }
@@ -444,6 +508,7 @@ async function executeQaStageCore(input: CoreStageExecInput): Promise<QaExecutio
       timeoutSeconds,
       startTime,
       execFileSyncFn,
+      expectRed: options?.expectRed,
       signal,
     });
   }
@@ -463,7 +528,10 @@ async function executeQaStageCore(input: CoreStageExecInput): Promise<QaExecutio
     parsed.status = STATUS_FAILED;
     parsed.tail_log = `[TIMEOUT] La ejecución de 'make ${target}' excedió el límite configurado de ${timeoutSeconds}s.\n${parsed.tail_log}`;
   }
-  return applyStageTrackingAndEvidence(resolvedPath, stage, parsed, execFileSyncFn);
+  return applyStageTrackingAndEvidence(resolvedPath, stage, parsed, {
+    execFileSyncFn,
+    expectRed: options?.expectRed,
+  });
 }
 
 export async function runEphemeralQa(

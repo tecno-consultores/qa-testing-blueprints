@@ -1,10 +1,9 @@
 ---
 name: refactoring-ui
 description: >-
-  Visual hierarchy, spacing, type, color, depth and polish rules from Refactoring UI (Wathan & Schoger),
-  aligned with QA 11X WCAG 2.1 AA, Anti-JSDOM geometry, and Lighthouse CI. Use when building or restyling
-  an interface, when a UI looks unpolished or cluttered and the cause is unclear, or when picking concrete
-  values for a spacing scale, type scale, color palette or shadow set.
+  Frontend visual design, hierarchy, and WCAG 2.1 AA layout skill. Use when building or restyling UI components,
+  diagnosing cluttered or unpolished interfaces, preventing fixed-footer viewport collisions, or selecting spacing,
+  typography, color, and dark-mode tokens.
 ---
 
 # Refactoring UI (QA 11X Frontend Edition)

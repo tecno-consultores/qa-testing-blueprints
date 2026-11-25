@@ -245,7 +245,7 @@ describe('Wave C Audit Remediation Contracts (CLI Catalog, Hints, StructuredCont
       homeDir: fakeHome,
       cwd: fakeProject,
       platform: 'linux',
-      dockerProbeFn: () => null,
+      dockerProbeFn: () => '27.5.1',
     });
     expect(res.exitCode).toBe(0);
     const parsed = JSON.parse(res.output) as {
@@ -370,7 +370,7 @@ describe('Wave C Audit Remediation Contracts (CLI Catalog, Hints, StructuredCont
       homeDir: fakeHome,
       cwd: fakeProject,
       platform: 'linux',
-      dockerProbeFn: () => null,
+      dockerProbeFn: () => '27.5.1',
     });
     expect(pinnedRes.exitCode).toBe(0);
     const pinnedParsed = JSON.parse(pinnedRes.output) as {

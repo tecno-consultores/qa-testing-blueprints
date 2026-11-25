@@ -204,6 +204,7 @@ export interface RunEphemeralQaOptions {
   execFileFn?: typeof execFile;
   execFileSyncFn?: typeof execFileSync;
   skipIfDocsOnly?: boolean;
+  expectRed?: boolean;
   signal?: AbortSignal;
   guardrails?: DockerGuardrailDeps;
 }

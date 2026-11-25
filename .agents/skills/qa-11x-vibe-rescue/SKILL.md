@@ -1,10 +1,8 @@
 ---
 name: qa-11x-vibe-rescue
 description: >-
-  5-stage Vibe-to-Enterprise rescue and hardening sub-skill for Standard 11X. Audits and hardens
-  AI-generated prototypes (Bolt.new, Lovable, v0, Replit Agent, rapid vibe-coding scaffolds) without
-  destroying their UX, enforcing secret quarantine, PostgreSQL 17 RLS, strict typing (CC <= 5),
-  non-root Docker Rule Zero (>= 95% coverage), and 10/10 gate closure.
+  Prototype-to-enterprise hardening sub-skill for Standard 11X. Use whenever rescuing, auditing, or productionizing
+  AI-generated scaffolds (Bolt.new, Lovable, v0, Replit Agent, or rapid vibe-coded prototypes) without breaking their UX.
 ---
 
 # QA 11X Vibe-to-Enterprise Rescue (`qa-11x-vibe-rescue`)

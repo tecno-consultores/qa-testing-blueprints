@@ -8,6 +8,9 @@ All notable changes to the `@sinfallas/mcp-qa-11x` npm package and MCP server ar
 
 ## [Unreleased]
 
+### Added
+- **Mandatory Docker `Rule Zero` Blocker, Companion MCP Discovery, Federated SARIF, `Superpowers` Gates & `--toolset`:** Enforced active Docker Engine in `doctor` (`exitCode = 1`, `docker_daemon_ok: false`, `[RULE-ZERO]` blocker when `docker info` fails); added `externalScannerRunner.ts` (non-root `--rm --restart=no --network none` SARIF execution under `QA_MAX_CONCURRENT_CONTAINERS=1`), `companionMcpDetector.ts`, `sarifIngester.ts`, static `confidence` + audited `qa-11x-ignore <RULE>: <reason>`, dual `lint`+`unit` fresh dirty-tree evidence in `certify_11x_gate` (`--require-unit-evidence`), `expect_red` TDD stamp in `run_ephemeral_qa`, and `--toolset core|auto|full` (`QA_11X_TOOLSET`).
+
 ## [3.7.0] - 2026-11-25
 
 ### Added

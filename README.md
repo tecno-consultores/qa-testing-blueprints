@@ -21,6 +21,9 @@
 
 ## ⚡ 30-Second Zero-Friction Quickstart
 
+> [!IMPORTANT]
+> **Mandatory Physical Prerequisite — Docker Engine (`Rule Zero` is Non-Negotiable):** Every developer workstation or CI runner **MUST** have an active Docker daemon to run `qa-11x` (`qa-11x doctor` fails hard with `exit 1` if Docker is missing or stopped). Even when delegating SAST/SCA work to external scanners (`Semgrep`, `Trivy`, `CodeQL`) without a live Companion MCP, execution runs **exclusively inside non-root ephemeral containers** (`--rm --restart=no --network none`) serialized under `QA_MAX_CONCURRENT_CONTAINERS=1`.
+
 Bootstrap any repository in 30 seconds without cloning this monorepo:
 
 ```bash

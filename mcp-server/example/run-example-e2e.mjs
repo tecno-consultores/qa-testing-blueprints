@@ -9,7 +9,7 @@
 // temporal aislada del proyecto híbrido Full-Stack mcp-server/example/.
 
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -814,6 +814,26 @@ async function verifyCliAndBackgroundAutoSync(ctx) {
   );
   assert.equal(versionJson.mcp_version, expectedVersion);
 
+  // Sin daemon Docker en el contenedor clean-room, doctor bloquea con exit 1 ([RULE-ZERO]); con shim Docker pasa con exit 0
+  const doctorNoDocker = spawnSync(
+    process.execPath,
+    [DIST_INDEX_JS, 'doctor', projectDir, '--offline', '--json'],
+    { cwd: projectDir, env: { ...baseEnv, PATH: '/usr/local/bin:/usr/bin:/bin' }, encoding: 'utf8', timeout: 5000 }
+  );
+  if (!fs.existsSync('/usr/bin/docker') && !fs.existsSync('/usr/local/bin/docker')) {
+    assert.equal(doctorNoDocker.status, 1, 'doctor debe devolver exit 1 cuando Docker no está operativo');
+    const blockedDoc = JSON.parse(doctorNoDocker.stdout);
+    assert.equal(blockedDoc.docker_daemon_ok, false);
+    assert.ok(blockedDoc.blockers.some((b) => b.includes('[RULE-ZERO]')));
+  }
+
+  const dockerShimPath = path.join(path.dirname(baseEnv.PATH.split(path.delimiter)[0] + '/x'), 'docker');
+  fs.writeFileSync(
+    dockerShimPath,
+    '#!/usr/bin/env sh\nif [ "${1:-}" = "info" ] || [ "${1:-}" = "--version" ] || [ "${1:-}" = "version" ]; then echo "27.5.1"; exit 0; fi\nexit 0\n',
+    { mode: 0o755 }
+  );
+
   const doctorJson = JSON.parse(
     execFileSync(process.execPath, [DIST_INDEX_JS, 'doctor', projectDir, '--offline', '--json'], {
       cwd: projectDir,
@@ -823,8 +843,14 @@ async function verifyCliAndBackgroundAutoSync(ctx) {
     })
   );
   assert.equal(doctorJson.mcp_version, expectedVersion);
-  if (doctorJson.docker_version !== null) {
-    assert.ok(doctorJson.docker_health && Array.isArray(doctorJson.docker_health.restarting_containers));
+  assert.equal(doctorJson.docker_daemon_ok, true);
+  assert.equal(doctorJson.companion_mcps.detected_any, true);
+  assert.equal(
+    doctorJson.companion_mcps.capabilities.find((c) => c.category === 'browser_live')?.detected,
+    true
+  );
+  if (doctorJson.docker_version !== null && doctorJson.docker_health) {
+    assert.ok(Array.isArray(doctorJson.docker_health.restarting_containers));
     assert.equal(typeof doctorJson.docker_health.orphan_bridge_networks, 'number');
   }
 

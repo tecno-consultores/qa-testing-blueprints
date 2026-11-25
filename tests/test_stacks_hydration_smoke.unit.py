@@ -895,6 +895,10 @@ class TestStacksHydrationSmoke(unittest.TestCase):
         self.assertNotIn(dup_cmd, hooks_sh)
         self.assertIn(sync_cmd, lefthook_text)
         self.assertIn(sync_cmd, hooks_sh)
+        self.assertIn(
+            "mobile-appium:/mobile-appium:ro", str(commands["mcp-lint"]["run"])
+        )
+        self.assertIn("MCP_PRECOMMIT_VOLS", hooks_sh)
 
     def test_mandatory_existing_test_sync_directive_across_governance(self) -> None:
         """Garantiza invariante QA-TEST-SYNC-01 en ambas capas y SKILL.md < 12KB."""

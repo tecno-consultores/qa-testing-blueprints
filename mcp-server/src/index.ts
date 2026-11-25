@@ -19,8 +19,10 @@ import {
   getRegisteredServerSurface,
   getServerDispatcherRegistry,
   getToolExecutionHints,
+  parseToolsetMode,
   wrapReadResourceDispatcher,
   type RawGenericHandler,
+  type ToolsetMode,
 } from './server.js';
 import { guardToolCallInput, type PromptGuardOptions } from './security/promptGuard.js';
 import { resolveSubcommandHelpText, runCli } from './cli.js';
@@ -83,6 +85,38 @@ function dispatchSingleCoreArg(arg1: string, args: readonly string[]): CoreDispa
   return { handled: false };
 }
 
+function extractStdioToolsetArgs(args: readonly string[]): {
+  readonly isStdioOnly: boolean;
+  readonly forcedStdio: boolean;
+  readonly toolset?: ToolsetMode;
+} | null {
+  let forcedStdio = false;
+  let rawToolset: string | undefined;
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i] ?? '';
+    if (arg === '--stdio') {
+      forcedStdio = true;
+      continue;
+    }
+    if (arg === '--toolset') {
+      const nextVal = args[i + 1];
+      if (!nextVal || nextVal.startsWith('-')) {
+        throw new Error("La opción '--toolset' requiere un valor: core | auto | full.");
+      }
+      rawToolset = nextVal;
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith('--toolset=')) {
+      rawToolset = arg.slice('--toolset='.length);
+      continue;
+    }
+    return null;
+  }
+  const toolset = rawToolset !== undefined ? parseToolsetMode(rawToolset) : undefined;
+  return { isStdioOnly: true, forcedStdio, toolset };
+}
+
 function dispatchCoreFlag(
   arg1: string | undefined,
   args: readonly string[]
@@ -90,8 +124,18 @@ function dispatchCoreFlag(
   if (!arg1) {
     return { handled: true, outcome: STDIO_MODE };
   }
-  if (args.length === 1) {
+  if (args.length === 1 && isRootHelpToken(arg1)) {
     return dispatchSingleCoreArg(arg1, args);
+  }
+  const stdioSpec = extractStdioToolsetArgs(args);
+  if (stdioSpec?.isStdioOnly) {
+    if (stdioSpec.toolset !== undefined) {
+      process.env.QA_11X_TOOLSET = stdioSpec.toolset;
+    }
+    return {
+      handled: true,
+      outcome: stdioSpec.forcedStdio ? STDIO_FORCED_MODE : STDIO_MODE,
+    };
   }
   return { handled: false };
 }
@@ -158,9 +202,18 @@ export function getRegisteredSurfaceCounts(mcpServer: McpServer): McpSurfaceCoun
 /** Creates an McpServer wrapped with promptGuard and returns its live surface counts. */
 export function createConfiguredMcpServer(options?: {
   fetcher?: GitHubFetcher;
+  toolset?: ToolsetMode;
+  projectPath?: string;
   guardOptions?: AttachGuardOptions;
 }): { server: McpServer; counts: McpSurfaceCounts } {
-  const server = attachPromptGuard(createMcpServer({ fetcher: options?.fetcher }), options?.guardOptions);
+  const server = attachPromptGuard(
+    createMcpServer({
+      fetcher: options?.fetcher,
+      toolset: options?.toolset,
+      projectPath: options?.projectPath,
+    }),
+    options?.guardOptions
+  );
   return { server, counts: getRegisteredSurfaceCounts(server) };
 }
 

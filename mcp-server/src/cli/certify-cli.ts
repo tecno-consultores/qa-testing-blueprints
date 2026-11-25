@@ -26,6 +26,8 @@ const FLAG_PROJECT_PATH_SHORT = '-p';
 const FLAG_STRICT = '--strict';
 const FLAG_REQUIRE_LINT = '--require-lint-evidence';
 const FLAG_NO_REQUIRE_LINT = '--no-require-lint-evidence';
+const FLAG_REQUIRE_UNIT = '--require-unit-evidence';
+const FLAG_NO_REQUIRE_UNIT = '--no-require-unit-evidence';
 const FLAG_ALLOW_EXAMPLES = '--allow-unmerged-examples';
 const FLAG_RELEASE_GATE = '--release-gate';
 const FLAG_JUNIT_XML = '--junit-xml';
@@ -44,6 +46,7 @@ interface ParsedCertifyArgs {
   rawDir: string | undefined;
   strict: boolean;
   requireLintEvidence: boolean;
+  requireUnitEvidence: boolean;
   allowUnmergedExamples: boolean;
   releaseGate: boolean;
   junitXmlPath: string | undefined;
@@ -60,6 +63,12 @@ const CERTIFY_BOOL_FLAGS: Readonly<Record<string, (state: ParsedCertifyArgs) => 
   },
   [FLAG_NO_REQUIRE_LINT]: (state) => {
     state.requireLintEvidence = false;
+  },
+  [FLAG_REQUIRE_UNIT]: (state) => {
+    state.requireUnitEvidence = true;
+  },
+  [FLAG_NO_REQUIRE_UNIT]: (state) => {
+    state.requireUnitEvidence = false;
   },
   [FLAG_ALLOW_EXAMPLES]: (state) => {
     state.allowUnmergedExamples = true;
@@ -125,6 +134,7 @@ function parseCertifyArgs(args: readonly string[]): ParsedCertifyArgs {
     rawDir: undefined,
     strict: false,
     requireLintEvidence: true,
+    requireUnitEvidence: true,
     allowUnmergedExamples: false,
     releaseGate: false,
     junitXmlPath: undefined,
@@ -202,6 +212,7 @@ export async function runCertifyCli(
     const certifyResult = await certify11xGate(projectPath, {
       strict: parsed.strict,
       requireLintEvidence: parsed.requireLintEvidence || parsed.strict,
+      requireUnitEvidence: parsed.requireUnitEvidence || parsed.strict,
       allowUnmergedExamples: parsed.allowUnmergedExamples,
       updateOptions: {
         homeDir: deps.homeDir,

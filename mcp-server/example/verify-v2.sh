@@ -108,11 +108,40 @@ EOF
 printf '{"service":"cleanroom-api"}\n' >"${PROJ_DIR}/sample.json"
 printf 'print("api_%s = %s_123456")\n' "key" "cleanroom_exposed_secret" >"${PROJ_DIR}/app.py"
 
+if ! command -v docker >/dev/null 2>&1; then
+  DOCTOR_BLOCKED_JSON=""
+  DOCTOR_RC=0
+  DOCTOR_BLOCKED_JSON="$(node "${BIN_JS}" doctor "${PROJ_DIR}" --offline --json)" || DOCTOR_RC=$?
+  if [ "${DOCTOR_RC}" -ne 1 ]; then
+    echo "FAIL [doctor Rule Zero] Se esperaba exitCode=1 sin daemon Docker, obtenido ${DOCTOR_RC}" >&2
+    exit 1
+  fi
+  node --input-type=module - "${DOCTOR_BLOCKED_JSON}" <<'EOF'
+import assert from 'node:assert/strict';
+const parsed = JSON.parse(process.argv[2]);
+assert.equal(parsed.docker_daemon_ok, false);
+assert.ok(Array.isArray(parsed.blockers) && parsed.blockers.some((b) => b.includes('[RULE-ZERO]')));
+EOF
+  SHIM_BIN_DIR="${WORK_DIR}/shim-bin"
+  mkdir -p "${SHIM_BIN_DIR}"
+  cat >"${SHIM_BIN_DIR}/docker" <<'SHIM'
+#!/usr/bin/env sh
+if [ "${1:-}" = "info" ] || [ "${1:-}" = "--version" ] || [ "${1:-}" = "version" ]; then
+  echo "27.5.1"
+  exit 0
+fi
+exit 0
+SHIM
+  chmod 755 "${SHIM_BIN_DIR}/docker"
+  export PATH="${SHIM_BIN_DIR}:${PATH}"
+fi
+
 DOCTOR_JSON="$(node "${BIN_JS}" doctor "${PROJ_DIR}" --offline --json)"
 node --input-type=module - "${DOCTOR_JSON}" "${EXPECTED_PKG_VERSION}" <<'EOF'
 import assert from 'node:assert/strict';
 const parsed = JSON.parse(process.argv[2]);
 assert.equal(parsed.mcp_version, process.argv[3]);
+assert.equal(parsed.docker_daemon_ok, true);
 EOF
 
 STATUS_JSON="$(node "${BIN_JS}" status "${PROJ_DIR}" --offline --json)"

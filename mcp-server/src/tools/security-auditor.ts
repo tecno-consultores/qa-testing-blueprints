@@ -4,8 +4,15 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
-import type { GroupedSecurityFinding, SecurityAuditResult, SecurityFinding } from '../types.js';
+import type {
+  FindingConfidence,
+  GroupedSecurityFinding,
+  SecurityAuditResult,
+  SecurityFinding,
+  SuppressedSecurityFinding,
+} from '../types.js';
 import { pickAt, reportDebugCatchError } from '../utils/diagnosticFormatter.js';
+import { ingestExternalSarifReports } from '../utils/sarifIngester.js';
 import {
   checkSec08Oshp, checkSec09Npmrc, checkSec11AuditSemanticIntegrity,
   checkUi11x01VisualGeometry, checkUi11x02DualRefreshAndSemanticElse, isNonHttpNodeCliEntry,
@@ -60,18 +67,113 @@ function checkProjectLevelRules(
   ];
 }
 
+const HEURISTIC_CONFIDENCE_RULES = new Set([
+  'SEC-01',
+  'SEC-05',
+  'SEC-06',
+  'SEC-11',
+  'UI-11X-01',
+  'UI-11X-02',
+]);
+
+const HIGH_CONFIDENCE_RULES = new Set([
+  'SEC-08',
+  'SEC-09',
+  'SEC-10',
+  'SEC-CI-ACTION-REF',
+  'QA-COV-01',
+  'QA-MYPY-01',
+  'QA-PG17-RLS',
+  'QA-DOCKER-LOCK-01',
+  'QA-DOCKER-LOOP-01',
+  'QA-DOCKER-TTY-01',
+  'QA-PLAYWRIGHT-PIN-01',
+  'QA-MAKE-CURDIR-01',
+  'QA-CI-ESCAPE-01',
+  'QA-STRYKER-CFG-01',
+  'UI-11X-03',
+]);
+
+const QA_11X_IGNORE_MARKER = 'qa-11x-ignore';
+const MIN_IGNORE_REASON_CHARS = 12;
+
+function resolveRuleConfidence(ruleId: string, existing?: FindingConfidence): FindingConfidence {
+  if (existing) return existing;
+  if (HIGH_CONFIDENCE_RULES.has(ruleId) || ruleId.startsWith('SARIF:')) return 'HIGH';
+  if (HEURISTIC_CONFIDENCE_RULES.has(ruleId)) return 'HEURISTIC';
+  return 'MEDIUM';
+}
+
+function enrichFindingMetadata(finding: SecurityFinding): SecurityFinding {
+  return {
+    ...finding,
+    confidence: resolveRuleConfidence(finding.rule_id, finding.confidence),
+    source: finding.source ?? 'qa-11x-native',
+  };
+}
+
+function stripTrailingCommentCloser(raw: string): string {
+  let out = raw.trim();
+  if (out.endsWith('*/')) {
+    out = out.slice(0, -2).trim();
+  } else if (out.endsWith('-->')) {
+    out = out.slice(0, -3).trim();
+  }
+  return out;
+}
+
+function matchInlineSuppressionReason(lineText: string, ruleId: string): string | null {
+  const lower = lineText.toLowerCase();
+  const markerIdx = lower.indexOf(QA_11X_IGNORE_MARKER);
+  if (markerIdx === -1) return null;
+  const afterMarker = lineText.slice(markerIdx + QA_11X_IGNORE_MARKER.length);
+  const colonIdx = afterMarker.indexOf(':');
+  if (colonIdx === -1) return null;
+  const rulesSegment = afterMarker.slice(0, colonIdx).trim();
+  const reason = stripTrailingCommentCloser(afterMarker.slice(colonIdx + 1));
+  if (rulesSegment.length === 0 || reason.length < MIN_IGNORE_REASON_CHARS) return null;
+  const declaredRules = rulesSegment
+    .split(',')
+    .map((entry) => entry.trim().toUpperCase())
+    .filter((entry) => entry.length > 0);
+  return declaredRules.includes(ruleId.toUpperCase()) ? reason : null;
+}
+
+function partitionInlineSuppressions(
+  findings: readonly SecurityFinding[],
+  lines: readonly string[]
+): { active: SecurityFinding[]; suppressed: SuppressedSecurityFinding[] } {
+  const active: SecurityFinding[] = [];
+  const suppressed: SuppressedSecurityFinding[] = [];
+  for (const item of findings) {
+    const lineText = item.line >= 1 && item.line <= lines.length ? (lines[item.line - 1] ?? '') : '';
+    const justification = matchInlineSuppressionReason(lineText, item.rule_id);
+    if (justification !== null) {
+      suppressed.push({
+        rule_id: item.rule_id,
+        file: item.file,
+        line: item.line,
+        justification,
+      });
+    } else {
+      active.push(item);
+    }
+  }
+  return { active, suppressed };
+}
+
 function scanSingleFile(
   absPath: string,
   relPath: string,
   options?: AuditSecurityOptions
-): SecurityFinding[] {
+): { active: SecurityFinding[]; suppressed: SuppressedSecurityFinding[] } {
   let content: string;
   try {
     content = fs.readFileSync(absPath, 'utf8');
   } catch (err: unknown) {
     // Archivo inaccesible o enlace simbólico roto durante recorrido del proyecto; omitir solo ese archivo
     reportDebugCatchError('security-auditor.scanSingleFile', err);
-    return [];
+    return { active: [], suppressed: [] };
   }
 
   const lines = content.split(/\r?\n/);
@@ -107,11 +209,13 @@ function scanSingleFile(
     ...checkQaStrykerCfg01(effectiveRel, lines),
     ...checkSecWsPubsub01(effectiveRel, lines),
   ];
-  return effectiveRel === relPath
-    ? rawFindings
-    : rawFindings.map((finding) =>
-        finding.file === effectiveRel ? { ...finding, file: relPath } : finding
-      );
+  const normalized =
+    effectiveRel === relPath
+      ? rawFindings
+      : rawFindings.map((finding) =>
+          finding.file === effectiveRel ? { ...finding, file: relPath } : finding
+        );
+  return partitionInlineSuppressions(normalized, lines);
 }
 
 function countSeverities(findings: SecurityFinding[]): {
@@ -142,6 +246,7 @@ export function groupFindingsByRule(
       groups.set(f.rule_id, {
         rule_id: f.rule_id,
         severity: f.severity,
+        confidence: resolveRuleConfidence(f.rule_id, f.confidence),
         stig_owasp_ref: f.stig_owasp_ref,
         message: f.message,
         remediation: f.remediation,
@@ -171,6 +276,18 @@ function sortFindingsBySeverity(findings: SecurityFinding[]): SecurityFinding[] 
   return [...findings].sort((a, b) => SEVERITY_SORT_RANK[a.severity] - SEVERITY_SORT_RANK[b.severity]);
 }
 
+function resolveAuditSecurityFlags(
+  maxFindingsOrOptions?: number | AuditSecurityOptions,
+  extraOptions?: Omit<AuditSecurityOptions, 'maxFindings'>
+): { maxFindings?: number; includeExamples: boolean; ingestExternalSarif: boolean } {
+  const objOpts = typeof maxFindingsOrOptions === 'object' ? maxFindingsOrOptions : undefined;
+  return {
+    maxFindings: typeof maxFindingsOrOptions === 'number' ? maxFindingsOrOptions : objOpts?.maxFindings,
+    includeExamples: objOpts?.includeExamples ?? extraOptions?.includeExamples ?? false,
+    ingestExternalSarif: objOpts?.ingestExternalSarif ?? extraOptions?.ingestExternalSarif ?? true,
+  };
+}
+
 /**
  * Tool 5: audit_security_stig_owasp
  * Audita estáticamente el código fuente frente a los 22 patrones DISA ASD STIG V6R5 y OWASP v4.2.
@@ -180,31 +297,35 @@ export async function auditSecurityStigOwasp(
   maxFindingsOrOptions?: number | AuditSecurityOptions,
   extraOptions?: Omit<AuditSecurityOptions, 'maxFindings'>
 ): Promise<SecurityAuditResult> {
-  const maxFindings =
-    typeof maxFindingsOrOptions === 'number'
-      ? maxFindingsOrOptions
-      : maxFindingsOrOptions?.maxFindings;
-  const includeExamples =
-    (typeof maxFindingsOrOptions === 'object' ? maxFindingsOrOptions?.includeExamples : undefined) ??
-    extraOptions?.includeExamples ??
-    false;
+  const { maxFindings, includeExamples, ingestExternalSarif } = resolveAuditSecurityFlags(
+    maxFindingsOrOptions,
+    extraOptions
+  );
 
   return Promise.resolve().then(() => {
     const resolvedPath = resolveSafeProjectPath(projectPath);
     if (!fs.existsSync(resolvedPath) || !fs.statSync(resolvedPath).isDirectory()) {
       throw new Error(`La ruta del proyecto no existe o no es un directorio: ${resolvedPath}`);
     }
-    const auditOptions: AuditSecurityOptions = { includeExamples };
+    const auditOptions: AuditSecurityOptions = { includeExamples, ingestExternalSarif };
     const allAbsoluteFiles = collectFiles(resolvedPath, auditOptions);
     const allRelFiles = allAbsoluteFiles.map((abs) => path.relative(resolvedPath, abs));
     const rawFindings: SecurityFinding[] = [];
+    const suppressedFindings: SuppressedSecurityFinding[] = [];
 
     for (const [i, absPath] of allAbsoluteFiles.entries()) {
-      rawFindings.push(...scanSingleFile(absPath, pickAt(allRelFiles, i), auditOptions));
+      const scanned = scanSingleFile(absPath, pickAt(allRelFiles, i), auditOptions);
+      rawFindings.push(...scanned.active);
+      suppressedFindings.push(...scanned.suppressed);
     }
 
     rawFindings.push(...checkProjectLevelRules(resolvedPath, allRelFiles, auditOptions));
-    const findings = sortFindingsBySeverity(rawFindings);
+    const sarifSummary = ingestExternalSarif
+      ? ingestExternalSarifReports(resolvedPath)
+      : { files_ingested: [], skipped_files: [], findings: [] };
+    rawFindings.push(...sarifSummary.findings);
+
+    const findings = sortFindingsBySeverity(rawFindings.map((f) => enrichFindingMetadata(f)));
 
     const counts = countSeverities(findings);
     const passed = counts.CRITICAL === 0 && counts.HIGH === 0;
@@ -226,6 +347,15 @@ export async function auditSecurityStigOwasp(
       findings: returnedFindings,
       grouped_findings: groupedFindings,
       ...(truncatedCount !== undefined ? { truncated_findings_count: truncatedCount } : {}),
+      ...(suppressedFindings.length > 0
+        ? {
+            suppressed_findings_count: suppressedFindings.length,
+            suppressed_findings: suppressedFindings,
+          }
+        : {}),
+      ...(sarifSummary.files_ingested.length > 0
+        ? { external_sarif_files: sarifSummary.files_ingested }
+        : {}),
     };
   });
 }

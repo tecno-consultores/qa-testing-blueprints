@@ -864,9 +864,8 @@ async function handleVersionCommandDispatch(
   if (hasJson || hasVerbose) {
     const doctorArgs = ['--offline', ...(hasJson ? [FLAG_JSON] : [])];
     const outcome = await handleLazySubcommand(CMD_DOCTOR, doctorArgs, deps);
-    return (
-      outcome ?? { exitCode: 1, command: CMD_VERSION, errorMessage: 'Doctor handler unavailable.' }
-    );
+    const resolved = outcome ?? { exitCode: 1, command: CMD_VERSION, errorMessage: 'Doctor handler unavailable.' };
+    return resolved.errorMessage ? resolved : { ...resolved, exitCode: 0 };
   }
   log(MCP_SERVER_VERSION);
   return { exitCode: 0, command: CMD_VERSION, parsed };

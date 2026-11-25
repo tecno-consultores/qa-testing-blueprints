@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 QA Testing Blueprints Contributors
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -714,19 +714,33 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
     }).trim();
     expect(versionOut).toBe(MCP_SERVER_VERSION);
 
-    const doctorOut = execFileSync(process.execPath, [distEntry, 'doctor', wsDir, '--offline', '--json'], {
-      cwd: wsDir,
-      env: childEnv,
-      encoding: 'utf8',
-    });
+    const doctorProc = spawnSync(
+      process.execPath,
+      [distEntry, 'doctor', wsDir, '--offline', '--json'],
+      {
+        cwd: wsDir,
+        env: childEnv,
+        encoding: 'utf8',
+      }
+    );
+    const doctorOut = doctorProc.stdout || '';
     const doctorParsed = JSON.parse(doctorOut) as {
       mcp_version: string;
       project_path: string;
       graphify_graph_present: boolean;
+      docker_daemon_ok: boolean;
+      blockers: string[];
     };
     expect(doctorParsed.mcp_version).toBe(MCP_SERVER_VERSION);
     expect(doctorParsed.project_path).toBe(fs.realpathSync(wsDir));
     expect(doctorParsed.graphify_graph_present).toBe(true);
+    if (doctorParsed.docker_daemon_ok) {
+      expect(doctorProc.status).toBe(0);
+      expect(doctorParsed.blockers).toEqual([]);
+    } else {
+      expect(doctorProc.status).toBe(1);
+      expect(doctorParsed.blockers[0]).toContain('[RULE-ZERO]');
+    }
 
     const completionOut = execFileSync(process.execPath, [distEntry, 'completion', 'fish'], {
       cwd: wsDir,

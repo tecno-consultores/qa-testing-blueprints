@@ -56,11 +56,18 @@ describe('certify-gate', () => {
     expect(result.checks.zero_orphan_api_endpoints).toBe(false);
     expect(result.checks.ast_topology_clean).toBe(false);
     expect(result.checks.lint_evidence_verified).toBe(false);
+    expect(result.checks.unit_evidence_verified).toBe(false);
     expect(result.check_statuses?.zero_orphan_api_endpoints).toBe('SKIPPED');
     expect(result.check_statuses?.ast_topology_clean).toBe('SKIPPED');
     expect(result.check_statuses?.lint_evidence_verified).toBe('SKIPPED');
+    expect(result.check_statuses?.unit_evidence_verified).toBe('SKIPPED');
     expect(result.skipped_checks).toEqual(
-      expect.arrayContaining(['zero_orphan_api_endpoints', 'ast_topology_clean', 'lint_evidence_verified'])
+      expect.arrayContaining([
+        'zero_orphan_api_endpoints',
+        'ast_topology_clean',
+        'lint_evidence_verified',
+        'unit_evidence_verified',
+      ])
     );
     expect(result.blockers.length).toBe(0);
   });
@@ -462,6 +469,7 @@ describe('certify-gate', () => {
       return '';
     }) as unknown as typeof execFileSync;
     recordQaStageEvidence(tempDir, 'lint', 'PASSED', mockGit);
+    recordQaStageEvidence(tempDir, 'unit', 'PASSED', mockGit);
 
     const strictPassed = await certify11xGate(tempDir, { strict: true, execFileSyncFn: mockGit });
     expect(strictPassed.gate_passed).toBe(true);
@@ -570,7 +578,7 @@ describe('certify-gate', () => {
     expect(missingDirRes.gate_passed).toBe(false);
     expect(missingDirRes.blockers.length).toBeGreaterThan(0);
     expect(Object.values(missingDirRes.check_statuses ?? {})).toEqual(
-      Array.from({ length: 10 }, () => 'SKIPPED')
+      Array.from({ length: 11 }, () => 'SKIPPED')
     );
   });
 

@@ -54,3 +54,12 @@ Verify all 7 cross-artifact invariants before writing production code:
 
 - **Modular Monolith + Hexagonal Default:** Isolate contexts via `.agents/boundaries.json` (`layers`, `independence`, `forbidden` in `verify_topological_health.py`) unless 6-dimension quantitative evidence (deploy cadence, autonomy, blast radius, data ownership, scaling asymmetry, latency) justifies splitting.
 - **ADR Rigor:** Evaluate **"Do nothing"** explicitly and prove the data seam (`outbox` / schema ownership) before splitting any module.
+
+---
+
+## 6. Two-Stage Clean-Context Subagent Review (`0` Docker — `QA-DOCKER-LOOP-01`)
+
+Before running `certify_task_completion.sh` on `FULL_11X` tasks, eliminate author confirmation bias by auditing `git diff` in a clean read-only subagent context (`research`, **strictly `0` `docker run` / `make qa-*` executions**):
+
+1. **Stage A — Spec Compliance Gate:** Compare `REQ-NNN` & approved plan vs `git diff`. Flag missing requirements, unrequested YAGNI features, or undocumented contract drift before inspecting style.
+2. **Stage B — 11X Quality, Anti-Silo & Security Gate:** Only after Stage A passes, verify `CC <= 5`, `QA-TEST-SYNC-01` co-evolution, 11 Anti-Silo invariants, RLS/WORM/RBAC rules, and `fp-check` AST reachability on any `qa-11x-ignore` pragma.

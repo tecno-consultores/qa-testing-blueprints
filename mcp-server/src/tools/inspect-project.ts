@@ -10,6 +10,7 @@ import {
   evaluateUpdateStatus,
   type EvaluateUpdateOptions,
 } from '../services/version-manager.js';
+import { detectCompanionMcps } from '../utils/companionMcpDetector.js';
 import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 import { getBrowserMcpCandidatePaths } from '../utils/ideConfigPaths.js';
 import { CANONICAL_IGNORED_DIRS } from '../utils/ignoredDirs.js';
@@ -498,6 +499,7 @@ export async function inspectProjectConfig(
   inspectAiEvalsStack(resolvedPath, files, detectedStacks);
   inspectVibeRescueStack(resolvedPath, detectedStacks);
 
+  const companionMcps = detectCompanionMcps(homeDir);
   const browserReadiness = evaluateBrowserTestingReadiness(
     resolvedPath,
     files,
@@ -514,6 +516,7 @@ export async function inspectProjectConfig(
   return {
     project_path: resolvedPath,
     detected_stacks: detectedStacks.length > 0 ? detectedStacks : fallbackStacks,
+    docker_daemon_required: true,
     has_docker_compose_qa: fs.existsSync(path.join(resolvedPath, 'docker-compose.qa.yml')),
     has_makefile: fs.existsSync(path.join(resolvedPath, 'Makefile')),
     has_lefthook: fs.existsSync(path.join(resolvedPath, 'lefthook.yml')),
@@ -524,6 +527,7 @@ export async function inspectProjectConfig(
     missing_11x_files: missing11xFiles,
     recommended_next_tool: 'fetch_blueprint_bundle',
     browser_testing_readiness: browserReadiness,
+    companion_mcps: companionMcps,
     update_available: updateAvailable,
   };
 }

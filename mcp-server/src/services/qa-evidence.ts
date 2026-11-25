@@ -22,7 +22,7 @@ const MAX_BREAKER_HISTORY_RUNS = 10;
 const BREAKER_CODE = 'BREAKER_42' as const;
 const UNKNOWN_TOKEN = '<unknown>';
 const TMP_MASK = '/tmp/<tmp>';
-const TRACKABLE_BREAKER_STAGES = new Set(['lint', 'unit', 'integration', 'ci', 'all']);
+const TRACKABLE_BREAKER_STAGES = new Set(['lint', 'unit', 'integration', 'ci', 'all', 'sarif']);
 const CONTAINER_PREFIXES = ['/app/', '/workspace/', '/repo/', './'] as const;
 const COLON_LINE_COL_SUFFIX_RE = /:\d{1,10}:\d{1,10}$/;
 const COLON_LINE_SUFFIX_RE = /:\d{1,10}$/;
@@ -258,9 +258,16 @@ interface QaStageStamp {
   recorded_at: string;
 }
 
+interface QaRedStageStamp {
+  fingerprint: string;
+  recorded_at: string;
+  failed_count: number;
+}
+
 interface QaEvidenceDocument {
   version: 1;
   stages: Record<string, QaStageStamp>;
+  red_verified?: Record<string, QaRedStageStamp>;
 }
 
 const RECORDABLE_STAGES = new Set(['lint', 'unit', 'migration', 'integration', 'ci', 'all']);
@@ -284,7 +291,11 @@ function readEvidenceDocument(evidencePath: string): QaEvidenceDocument {
     if (fs.existsSync(evidencePath)) {
       const parsed = JSON.parse(fs.readFileSync(evidencePath, 'utf8')) as Partial<QaEvidenceDocument>;
       if (parsed && typeof parsed === 'object' && parsed.stages && typeof parsed.stages === 'object') {
-        return { version: 1, stages: { ...parsed.stages } };
+        const redMap =
+          parsed.red_verified && typeof parsed.red_verified === 'object'
+            ? { ...parsed.red_verified }
+            : undefined;
+        return { version: 1, stages: { ...parsed.stages }, ...(redMap ? { red_verified: redMap } : {}) };
       }
     }
   } catch (err: unknown) {
@@ -292,6 +303,36 @@ function readEvidenceDocument(evidencePath: string): QaEvidenceDocument {
     reportDebugCatchError(`qaEvidence.readEvidenceDocument(${evidencePath})`, err);
   }
   return { version: 1, stages: {} };
+}
+
+export function recordRedPhaseEvidence(
+  projectPath: string,
+  stage: string,
+  failedCount: number,
+  execFileSyncFn: typeof execFileSync = execFileSync
+): void {
+  if (failedCount <= 0) {
+    return;
+  }
+  const state = computeCodeStateFingerprint(projectPath, execFileSyncFn);
+  if (!state.gitRoot) {
+    return;
+  }
+  try {
+    const evidencePath = resolveSafeEvidenceTarget(state.gitRoot, QA_EVIDENCE_REL_PATH);
+    fs.mkdirSync(path.dirname(evidencePath), { recursive: true });
+    const doc = readEvidenceDocument(evidencePath);
+    const nextRed = { ...(doc.red_verified ?? {}) };
+    nextRed[stage] = {
+      fingerprint: state.fingerprint ?? 'CLEAN_HEAD',
+      recorded_at: new Date().toISOString(),
+      failed_count: failedCount,
+    };
+    doc.red_verified = nextRed;
+    fs.writeFileSync(evidencePath, JSON.stringify(doc, null, 2), 'utf8');
+  } catch (err: unknown) {
+    reportDebugCatchError('qaEvidence.recordRedPhaseEvidence', err);
+  }
 }
 
 export function recordQaStageEvidence(
@@ -341,6 +382,21 @@ export function checkLintEvidenceForDirtyCode(
   projectPath: string,
   execFileSyncFn: typeof execFileSync = execFileSync
 ): LintEvidenceCheckResult {
+  return checkStageEvidenceForDirtyCode(projectPath, 'lint', execFileSyncFn);
+}
+
+export function checkUnitEvidenceForDirtyCode(
+  projectPath: string,
+  execFileSyncFn: typeof execFileSync = execFileSync
+): LintEvidenceCheckResult {
+  return checkStageEvidenceForDirtyCode(projectPath, 'unit', execFileSyncFn);
+}
+
+function checkStageEvidenceForDirtyCode(
+  projectPath: string,
+  stage: 'lint' | 'unit',
+  execFileSyncFn: typeof execFileSync = execFileSync
+): LintEvidenceCheckResult {
   const state = computeCodeStateFingerprint(projectPath, execFileSyncFn);
   if (!state.gitRoot || !state.fingerprint) {
     return { passed: false, status: 'SKIPPED', blockers: [] };
@@ -348,9 +404,9 @@ export function checkLintEvidenceForDirtyCode(
 
   const evidencePath = resolveSafeEvidenceTarget(state.gitRoot, QA_EVIDENCE_REL_PATH);
   const doc = readEvidenceDocument(evidencePath);
-  const lintStamp = doc.stages.lint;
+  const stageStamp = doc.stages[stage];
 
-  if (lintStamp && lintStamp.fingerprint === state.fingerprint) {
+  if (stageStamp && stageStamp.fingerprint === state.fingerprint) {
     return { passed: true, status: 'PASSED', blockers: [] };
   }
 
@@ -360,7 +416,7 @@ export function checkLintEvidenceForDirtyCode(
     passed: false,
     status: 'FAILED',
     blockers: [
-      `Falta evidencia vigente de run_ephemeral_qa(stage="lint") para el árbol de código modificado (${sampleFiles}${suffix}). Ejecuta stage="lint" antes de certificar pre-push.`,
+      `Falta evidencia vigente de run_ephemeral_qa(stage="${stage}") para el árbol de código modificado (${sampleFiles}${suffix}). Ejecuta stage="${stage}" (o stage="ci"/"all") en Docker antes de certificar.`,
     ],
   };
 }

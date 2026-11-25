@@ -1,10 +1,8 @@
 ---
 name: qa-11x-screenplay-builder
 description: >-
-  Proportional E2E and acceptance architecture sub-skill for Standard 11X. Enforces the Screenplay Pattern
-  (Actors, Abilities, Tasks, Interactions, Questions) on multi-role RBAC, multi-tenant, and hybrid UI+API+Mobile
-  flows, lightweight composed POM on small single-role apps (<= 10 tests, <= 3 pages), semantic self-healing
-  ARIA locators, Anti-JSDOM geometry, Anti-Silo cross-module Questions, and 3-phase temporal assertions.
+  Acceptance and E2E test architecture sub-skill for Standard 11X. Use whenever creating, refactoring, or reviewing
+  Playwright, WebdriverIO/Appium, or UI/API acceptance suites across single-role or multi-role RBAC and multi-tenant apps.
 ---
 
 # QA 11X Screenplay Builder (`qa-11x-screenplay-builder`)

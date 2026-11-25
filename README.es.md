@@ -21,6 +21,9 @@
 
 ## ⚡ Inicio Rápido en 30 Segundos (Fricción Cero)
 
+> [!IMPORTANT]
+> **Prerrequisito Físico Obligatorio — Docker Engine (`Rule Zero` es Innegociable):** Toda estación de trabajo o runner CI **DEBE** contar con un demonio Docker activo para ejecutar `qa-11x` (`qa-11x doctor` bloquea con `exit 1` si Docker no está instalado o está detenido). Incluso al delegar análisis SAST/SCA a herramientas externas (`Semgrep`, `Trivy`, `CodeQL`) sin un MCP compañero activo, toda ejecución CLI corre **exclusivamente en contenedores efímeros no-root** (`--rm --restart=no --network none`) serializados bajo `QA_MAX_CONCURRENT_CONTAINERS=1`.
+
 Inicializa y protege cualquier repositorio en 30 segundos sin clonar este monorepo:
 
 ```bash

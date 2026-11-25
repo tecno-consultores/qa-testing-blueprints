@@ -89,7 +89,11 @@ for sfile in "${STAGED_FILES[@]+"${STAGED_FILES[@]}"}"; do
 	esac
 done
 if [ "${#MCP_TS_STAGED[@]}" -gt 0 ] && [ -f "./mcp-server/package.json" ]; then
-	docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "$(pwd)/mcp-server:/app" -w /app sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60 \
+	MCP_PRECOMMIT_VOLS=()
+	if [ -d "./mobile-appium" ]; then
+		MCP_PRECOMMIT_VOLS+=(-v "$(pwd)/mobile-appium:/mobile-appium:ro")
+	fi
+	docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "$(pwd)/mcp-server:/app" ${MCP_PRECOMMIT_VOLS[@]+"${MCP_PRECOMMIT_VOLS[@]}"} -w /app sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60 \
 		bash -c 'pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && npx eslint --max-warnings 0 "$@" && pnpm --silent run typecheck' _ "${MCP_TS_STAGED[@]}"
 fi
 if [ "${#SH_STAGED[@]}" -gt 0 ] && { [ -f "./docker-compose.qa.yml" ] || [ -f "./lefthook.yml" ] || [ -f "./manifest.json" ]; }; then

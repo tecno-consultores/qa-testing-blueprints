@@ -4,6 +4,9 @@
 
 Esta guía proporciona instrucciones paso a paso para configurar **`@sinfallas/mcp-qa-11x`**, sus **28 conectores declarativos de agentes IA**, la negociación bilingüe de recursos MCP (`?lang=es|en`) y las **skills corporativas QA-11X** (incluyendo pruebas móviles E2E sobre `sinfallas/base-mobile-appium:26`) en IDEs, CLIs, agentes autónomos y entornos *vibe-coding*.
 
+> [!IMPORTANT]
+> **Prerrequisito Físico Obligatorio (`Rule Zero`):** Contar con **Docker Engine** operativo es estrictamente obligatorio en toda máquina que ejecute `qa-11x` (`qa-11x doctor` devuelve `exit 1` si el demonio Docker no responde). `qa-11x` detecta automáticamente MCPs compañeros en tu IDE (`Playwright`/`Chrome DevTools` para DOM en vivo, `Semgrep`/`SonarQube`/`Snyk` para SAST *taint* inter-archivo, `Trivy` para CVE/IaC, `Serena` para refactorización LSP en vivo, `Appium` para móvil); cuando no existe un MCP compañero activo, cualquier escáner externo por CLI se ejecuta **exclusivamente en contenedores Docker efímeros no-root** (`--rm --restart=no --network none`) serializados bajo `QA_MAX_CONCURRENT_CONTAINERS=1`. Puedes usar `--toolset core|auto|full` (o `QA_11X_TOOLSET`) en clientes con ventana reducida para exponer solo las 8 herramientas núcleo (`core`) o las aplicables al stack (`auto`).
+
 ---
 
 ## 📋 Paso 1: Instalación Universal de Skills, Conectores (`AGENTS.md`) y Política de Idioma (`--lang auto|es|en`)

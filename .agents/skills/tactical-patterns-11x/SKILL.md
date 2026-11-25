@@ -1,15 +1,16 @@
 ---
 name: tactical-patterns-11x
 description: >-
-  JIT tactical patterns for QA-11X: complexity rescue (CC <= 5, SonarJS <= 15, max-params <= 4,
-  max-depth <= 3), offline Port/Adapter (--network none), atomic outbox/idempotency/RLS, and anti-overengineering.
+  Just-in-time refactoring and concurrency patterns for Standard 11X. Use when resolving cyclomatic/cognitive
+  complexity or parameter-count violations, isolating external network ports offline, or implementing transactional
+  outbox, atomic idempotency, and WebSocket pub/sub.
 ---
 
 # Tactical Patterns (`tactical-patterns-11x`)
 
-> **OUTPUT:** Respond in **user's prompt language** (unless `AGENTS.md` fixes it); docs/commits match `README.md`/`CHANGELOG.md` (Spec 19; `.agents/**` English).
+> **OUTPUT:** User prompt language; docs match README/CHANGELOG (Spec 19; `.agents/**` EN).
 
-## 1. Complexity Rescue (`Radon CC>5` | `SonarJS>15` | `PHP Cog>9` | `max-params>4`)
+## 1. Complexity Rescue (`CC <= 5` | `SonarJS <= 15` | `PHP Cog <= 9` | `max-params <= 4`)
 - `depth > 3` -> **Guard Clauses** (early return; main path at indent 0).
 - `>= 3` state/type branches -> **Dispatch Table / Handler Map** (`dict[Enum, Callable]`, `Record<K, Handler>`, PHP 8.2+ `match`).
 - Sequential transforms -> **Pure Pipeline** (stateless functions).

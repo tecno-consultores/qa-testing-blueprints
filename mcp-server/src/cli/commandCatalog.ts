@@ -448,8 +448,8 @@ export const CLI_COMMAND_CATALOG: readonly CliSubcommandSpec[] = [
     aliases: [],
     usageArgs: USAGE_DIR_OPTIONS,
     summary: {
-      en: 'Headless 10-check 11X gate & release readiness verdict (--strict, --release-gate)',
-      es: 'Compuerta headless 11X de 10 controles y veredicto Release Readiness (--strict, --release-gate)',
+      en: 'Headless 11-check 11X gate & release readiness verdict (--strict, --release-gate)',
+      es: 'Compuerta headless 11X de 11 controles y veredicto Release Readiness (--strict, --release-gate)',
     },
     flags: [
       COMMON_PROJECT_FLAG,
@@ -472,6 +472,20 @@ export const CLI_COMMAND_CATALOG: readonly CliSubcommandSpec[] = [
         desc: {
           en: 'Opt out of fresh lint evidence enforcement on dirty trees',
           es: 'Desactiva la exigencia de evidencia reciente de lint en árboles sucios',
+        },
+      },
+      {
+        long: '--require-unit-evidence',
+        desc: {
+          en: 'Require fresh unit test evidence on dirty trees (enabled by default; matches MCP)',
+          es: 'Exige evidencia reciente de pruebas unitarias en árboles sucios (activo por defecto; paridad MCP)',
+        },
+      },
+      {
+        long: '--no-require-unit-evidence',
+        desc: {
+          en: 'Opt out of fresh unit test evidence enforcement on dirty trees',
+          es: 'Desactiva la exigencia de evidencia reciente de pruebas unitarias en árboles sucios',
         },
       },
       {
@@ -717,6 +731,16 @@ export const CLI_COMMAND_CATALOG: readonly CliSubcommandSpec[] = [
           es: 'Usa etiqueta flotante @sinfallas/mcp-qa-11x@latest en vez de versión fija',
         },
       },
+      {
+        long: '--toolset',
+        argLabel: '<core|auto|full>',
+        values: ['core', 'auto', 'full'],
+        zshMeta: 'toolset',
+        desc: {
+          en: 'MCP toolset exposure profile: core (8) | auto | full (19, default)',
+          es: 'Perfil de exposición de herramientas MCP: core (8) | auto | full (19, por defecto)',
+        },
+      },
       COMMON_DRY_RUN_FLAG,
       COMMON_JSON_FLAG,
       COMMON_HELP_FLAG,
@@ -759,6 +783,16 @@ export const CLI_GLOBAL_META_FLAGS: readonly CliFlagSpec[] = [
     desc: {
       en: 'Force JSON-RPC stdio transport',
       es: 'Fuerza transporte JSON-RPC sobre stdio',
+    },
+  },
+  {
+    long: '--toolset',
+    argLabel: '<core|auto|full>',
+    values: ['core', 'auto', 'full'],
+    zshMeta: 'toolset',
+    desc: {
+      en: 'Select MCP toolset profile for stdio server (core | auto | full)',
+      es: 'Selecciona el perfil de herramientas MCP en modo stdio (core | auto | full)',
     },
   },
   {

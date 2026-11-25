@@ -167,6 +167,7 @@ export function registerCoreAnalysisTools(
         await auditSecurityStigOwasp(safePath, {
           maxFindings: args.max_findings,
           includeExamples: args.include_examples,
+          ingestExternalSarif: args.ingest_external_sarif,
         })
       );
     }
@@ -178,7 +179,7 @@ export function registerQaGovernanceTools(server: McpServer, fetcher: GitHubFetc
     'run_ephemeral_qa',
     {
       description:
-        'Safely runs a Makefile QA target (lint, unit, bdd, e2e, perf, chaos, profile, all) inside ephemeral Docker containers (Rule Zero) with atomic cross-process FIFO slot serialization (QA_MAX_CONCURRENT_CONTAINERS=1, COMPOSE_PARALLEL_LIMIT=1), passive Linux RAM/thermal guards (exit_code=75 exempt from BREAKER-42), pre-flight CrashLoop detection/remediation, guaranteed Compose teardown on timeout/abort, and token-saving log parsers.',
+        'Safely runs a Makefile QA target (lint, unit, bdd, e2e, perf, chaos, profile, all) inside ephemeral Docker containers (Rule Zero) with atomic cross-process FIFO slot serialization (QA_MAX_CONCURRENT_CONTAINERS=1, COMPOSE_PARALLEL_LIMIT=1), passive Linux RAM/thermal guards (exit_code=75 exempt from BREAKER-42), TDD RED-phase verification (expect_red), pre-flight CrashLoop detection/remediation, guaranteed Compose teardown on timeout/abort, and token-saving log parsers.',
       inputSchema: RunEphemeralQaInputSchema,
       annotations: getToolAnnotations('run_ephemeral_qa'),
     },
@@ -187,6 +188,7 @@ export function registerQaGovernanceTools(server: McpServer, fetcher: GitHubFetc
       return toJsonToolResult(
         await runEphemeralQa(safePath, args.stage, args.timeout_seconds, {
           skipIfDocsOnly: args.skip_if_docs_only,
+          expectRed: args.expect_red,
           signal: extra.signal,
         })
       );
@@ -197,7 +199,7 @@ export function registerQaGovernanceTools(server: McpServer, fetcher: GitHubFetc
     'certify_11x_gate',
     {
       description:
-        'Executes 11X certification gates (secrets, JSON, orphan UI/API, ORM parity, lint evidence, STIG audit, docs) and checks version/skill update status before git push.',
+        'Executes 11X certification gates (secrets, JSON, orphan UI/API, ORM parity, fresh lint+unit evidence, STIG + external SARIF audit, docs) and checks version/skill update status before local git commit.',
       inputSchema: CertifyGateInputSchema,
       annotations: getToolAnnotations('certify_11x_gate'),
     },
@@ -206,6 +208,7 @@ export function registerQaGovernanceTools(server: McpServer, fetcher: GitHubFetc
       return toJsonToolResult(
         await certify11xGate(safePath, {
           requireLintEvidence: args.require_lint_evidence,
+          requireUnitEvidence: args.require_unit_evidence,
           strict: args.strict,
           allowUnmergedExamples: args.allow_unmerged_examples,
           updateOptions: { fetcher },

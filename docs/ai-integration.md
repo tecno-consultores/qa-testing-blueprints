@@ -4,6 +4,8 @@
 
 This document details how to evolve from manual interaction into an automated workflow where Artificial Intelligence agents ingest, enforce, and execute the QA blueprints autonomously.
 
+> **Mandatory Docker Requirement (`Rule Zero`):** Every workstation or agent sandbox running `qa-11x` MUST have an operational Docker daemon (`qa-11x doctor` enforces this as a hard blocker). `inspect_project_config` discovers installed Companion MCPs (`semgrep`, `serena`, `playwright`, `trivy`, `appium`) for live delegation and ingests `.agents/.cache/sarif/*.sarif` generated inside serialized (`QA_MAX_CONCURRENT_CONTAINERS=1`) non-root ephemeral containers (`--rm --restart=no --network none`).
+
 ## 1. Rule Ingestion via MCP (Model Context Protocol)
 For an agent to understand corporate constraints in real time, blueprints must be exposed as dynamic resources.
 
@@ -106,7 +108,7 @@ npx -y @sinfallas/mcp-qa-11x@latest upgrade [--cache-only] [--dry-run]  # alias:
 npx -y @sinfallas/mcp-qa-11x@latest mcp-config --client <id> [--print|--install] [--pin-version]
 npx -y @sinfallas/mcp-qa-11x@latest completion <fish|bash|zsh>
 
-# Headless CI/CD gates (10-check certification, SARIF v2.1.0 audit & AST differential PR routing):
+# Headless CI/CD gates (11-check certification, SARIF v2.1.0 audit & AST differential PR routing):
 npx -y @sinfallas/mcp-qa-11x@latest certify [dir] [--strict] [--release-gate] [--junit-xml <path>] [--json]
 npx -y @sinfallas/mcp-qa-11x@latest audit [dir] --mode <security|pyramid|vibe|calm|all> [--sarif|--json] [--fail-on high]
 npx -y @sinfallas/mcp-qa-11x@latest blast-radius [symbol] [--changed-since origin/main] [--git-signals] [--auto-build] [--json]

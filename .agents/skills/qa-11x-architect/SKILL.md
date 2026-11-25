@@ -1,10 +1,9 @@
 ---
 name: qa-11x-architect
 description: >-
-  Master QA 11X & DevSecOps Architect (qa-testing-blueprints v3.7+). Use whenever the user asks to
-  initialize or integrate QA in a project, merge .example templates, write or audit unit/BDD/mutation/E2E
-  tests, enforce >=95% coverage, apply DISA ASD STIG V6R5 and OWASP v4.2 security controls, run ephemeral
-  Docker QA suites (Rule Zero), optimize context token consumption, or update TESTING.md and CHANGELOG.md.
+  Master QA 11X & DevSecOps orchestrator (@sinfallas/mcp-qa-11x). Use whenever initializing or auditing QA in a
+  repository, merging .example blueprints, writing or updating unit/BDD/mutation/E2E tests, enforcing STIG/OWASP
+  controls, running ephemeral Docker QA, or certifying tasks before local commit.
 ---
 
 # Master QA-11X v3.7 Routing Orchestrator (`qa-11x-architect`)

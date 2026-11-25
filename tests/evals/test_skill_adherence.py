@@ -223,12 +223,42 @@ def _validate_skill_name(name_val: str, skill_dir: str) -> list[str]:
     return []
 
 
+CSO_TRIGGER_PHRASE_RE = re.compile(r"\bUse\s+(?:when|whenever|before)\b")
+
+
 def _validate_skill_desc(desc_val: str, skill_dir: str) -> list[str]:
     if not desc_val or len(desc_val) > 1024:
         return [
             f"{skill_dir}: campo 'description' vacío o > 1024 chars ({len(desc_val)})"
         ]
     return []
+
+
+def verify_cso_trigger_only_frontmatters(repo_root: Path = REPO_ROOT) -> list[str]:
+    """Verifica CSO en las 11 skills (Use when/whenever/before sin pasos numerados)."""
+    skills_dir = repo_root / ".agents" / "skills"
+    violations: list[str] = []
+    for skill_path in sorted(skills_dir.glob("*/SKILL.md")):
+        skill_name = skill_path.parent.name
+        match = FRONTMATTER_RE.match(skill_path.read_text(encoding="utf-8"))
+        if not match:
+            continue
+        loaded = yaml.safe_load(match.group(1))
+        desc = (
+            str(loaded.get("description", "")).strip()
+            if isinstance(loaded, Mapping)
+            else ""
+        )
+        if not CSO_TRIGGER_PHRASE_RE.search(desc):
+            violations.append(
+                f"{skill_name}: description carece de disparador CSO "
+                "('Use when/whenever/before')"
+            )
+        if re.search(r"(?:^|\s)(?:1\.|2\.|Step\s+1)(?:\s|$)", desc):
+            violations.append(
+                f"{skill_name}: description resume pasos numerados (viola CSO)"
+            )
+    return violations
 
 
 def _validate_frontmatter_fields(
@@ -1064,3 +1094,24 @@ def test_strict_agent_skills_frontmatter_schema_validation() -> None:
         "qa-11x-demo",
     )
     assert any("inválido" in e for e in null_name_errs)
+
+
+def test_cso_trigger_only_frontmatters_and_pressure_matrix(tmp_path: Path) -> None:
+    """Certifica descripciones CSO (sin pasos numerados) y escenario de presión."""
+    assert verify_cso_trigger_only_frontmatters(REPO_ROOT) == []
+
+    bad_repo = tmp_path / "bad_cso"
+    bad_skill = bad_repo / ".agents" / "skills" / "demo-skill"
+    bad_skill.mkdir(parents=True)
+    (bad_skill / "SKILL.md").write_text(
+        "---\nname: demo-skill\ndescription: 1. Run tests 2. Commit\n---\n# Demo\n",
+        encoding="utf-8",
+    )
+    bad_violations = verify_cso_trigger_only_frontmatters(bad_repo)
+    assert any("carece de disparador CSO" in v for v in bad_violations)
+    assert any("pasos numerados" in v for v in bad_violations)
+
+    matrix_path = REPO_ROOT / "tests" / "evals" / "promptfoo_skills_matrix.yaml"
+    matrix_text = matrix_path.read_text(encoding="utf-8")
+    assert "Anti-Racionalización" in matrix_text
+    assert "expect_red" in matrix_text

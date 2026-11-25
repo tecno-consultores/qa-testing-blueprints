@@ -20,6 +20,12 @@ import {
   registerExtensionResources,
 } from './server/resourcesRegistry.js';
 import {
+  CORE_TOOLSET_NAMES,
+  parseToolsetMode,
+  resolveAllowedToolNames,
+  type ToolsetMode,
+} from './server/toolsetFilter.js';
+import {
   V2_TOOL_REGISTRATIONS,
   registerV2Tools,
   validateV2ToolWorkspaceArgs,
@@ -39,6 +45,12 @@ export {
   toStructuredRecord,
   type ToolExecutionHints,
 } from './server/toolResults.js';
+export {
+  CORE_TOOLSET_NAMES,
+  parseToolsetMode,
+  resolveAllowedToolNames,
+  type ToolsetMode,
+};
 export {
   V2_TOOL_REGISTRATIONS,
   validateV2ToolWorkspaceArgs,
@@ -211,13 +223,35 @@ export function getDeclaredSurfaceCounts(): { readonly tools: number; readonly r
   };
 }
 
+function attachToolsetAllowlist(server: McpServer, allowedTools: ReadonlySet<string>): void {
+  const wrapFilter = (methodName: 'registerTool' | 'tool'): void => {
+    const orig = (Reflect.get(server, methodName) as (...args: readonly unknown[]) => unknown).bind(
+      server
+    );
+    Reflect.set(server, methodName, (...args: readonly unknown[]) => {
+      if (!allowedTools.has(String(args[0]))) {
+        return undefined;
+      }
+      return orig(...args);
+    });
+  };
+  wrapFilter('registerTool');
+  wrapFilter('tool');
+}
+
 export function createMcpServer(options?: {
   fetcher?: GitHubFetcher;
   merger?: SurgicalMerger;
+  toolset?: ToolsetMode;
+  projectPath?: string;
 }): McpServer {
   const fetcher = options?.fetcher || new GitHubFetcher();
   const merger = options?.merger || new SurgicalMerger();
   const resources = new BlueprintResources(fetcher);
+  const allowedTools = resolveAllowedToolNames(
+    parseToolsetMode(options?.toolset),
+    options?.projectPath
+  );
 
   const server = new McpServer({
     name: '@sinfallas/mcp-qa-11x',
@@ -226,6 +260,9 @@ export function createMcpServer(options?: {
 
   attachDispatcherTracking(server);
   attachRegistrationTracking(server);
+  if (allowedTools !== null) {
+    attachToolsetAllowlist(server, allowedTools);
+  }
 
   registerCoreResources(server, resources);
   registerExtensionResources(server, resources, fetcher);

@@ -9,6 +9,7 @@ import { CANONICAL_IGNORED_DIRS } from '../../utils/ignoredDirs.js';
 export interface AuditSecurityOptions {
   maxFindings?: number;
   includeExamples?: boolean;
+  ingestExternalSarif?: boolean;
 }
 
 export const IGNORED_DIRS = CANONICAL_IGNORED_DIRS;
