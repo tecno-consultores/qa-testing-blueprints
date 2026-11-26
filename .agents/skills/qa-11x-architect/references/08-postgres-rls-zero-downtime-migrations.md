@@ -203,8 +203,8 @@ Never execute destructive or table-locking DDL statements directly on live table
 1. **Preventing `MissingGreenlet` After Commit/Rollback:**
    - By default, SQLAlchemy expires ORM attributes upon `await db.commit()` or `await db.rollback()`. Accessing `obj.id` or lazy relationships afterward in async code triggers `sqlalchemy.exc.MissingGreenlet`.
    - Configure `expire_on_commit=False` on `async_sessionmaker`, capture primitive values before `rollback()`, or explicitly call `await db.refresh(obj)` before accessing attributes post-commit.
-2. **`JSON`/`JSONB` Serialization & `Numeric(p, s)` `Decimal` Parity in Unit Tests:**
-   - In unit tests using `MockDbSession`, `add()` / `flush()` / `commit()` MUST validate all `JSON` / `JSONB` columns (`AuditLog.before_state`, `AuditLog.after_state`, `metadata_json`) by calling `json.dumps(val)` **without `default=str`** (matching PostgreSQL `asyncpg`'s strict JSON serializer).
+2. **`JSON`/`JSONB` Serialization & `Numeric(p, s)` `Decimal` Parity in `.unit.*` Tests:**
+   - In isolated `.unit.*` tests using `MockDbSession` (strictly forbidden in integration/Anti-Silo suites), `add()` / `flush()` / `commit()` MUST validate all `JSON` / `JSONB` columns (`AuditLog.before_state`, `AuditLog.after_state`, `metadata_json`) by calling `json.dumps(val)` **without `default=str`** (matching PostgreSQL `asyncpg`'s strict JSON serializer).
    - Always populate ORM `Numeric(p, s)` fields in test fixtures with `decimal.Decimal("...")` instances (never `float` or `int`), ensuring `TypeError: Object of type Decimal is not JSON serializable` is caught during unit testing if a service forgets to convert `Decimal` before writing to `JSONB`.
 
 ---

@@ -28,9 +28,17 @@ _GIT_GATE_DOCS: tuple[str, ...] = (
 )
 
 
+def _is_upstream_repo(root: Path) -> bool:
+    return (root / "scripts" / "generar-manifiesto.py").is_file() and (
+        root / "manifest.json"
+    ).is_file()
+
+
 def _run_doc_validators(root: Path, errors: list[str]) -> None:
     for rel_script in _GOVERNANCE_SCRIPTS:
         script_path = root / rel_script
+        if not script_path.is_file():
+            continue
         res = subprocess.run(
             [sys.executable, str(script_path)],
             cwd=root,
@@ -38,8 +46,14 @@ def _run_doc_validators(root: Path, errors: list[str]) -> None:
             text=True,
             check=False,
         )
-        if res.returncode != 0:
-            errors.append((res.stdout + res.stderr).strip() or f"Fallo en {rel_script}")
+        is_roadmap_skipped = (
+            rel_script.endswith("verify_roadmap_consistency.py")
+            and res.returncode == 20
+        )
+        if res.returncode != 0 and not is_roadmap_skipped:
+            errors.append(
+                (res.stdout + res.stderr).strip() or f"Fallo en {rel_script}"
+            )
 
 
 def _check_git_gate_doc(root: Path, rel_doc: str, errors: list[str]) -> None:
@@ -61,15 +75,18 @@ def run_lint_docs(root: Path) -> list[str]:
     """Ejecuta todos los validadores de lint-docs y retorna errores."""
     errors: list[str] = []
     _run_doc_validators(root, errors)
-    gate_rule = root / ".agents" / "rules" / "git_closure_gate.md"
-    if not gate_rule.is_file() or "QA-GIT-GATE-01" not in gate_rule.read_text(
-        encoding="utf-8"
-    ):
-        errors.append(
-            ".agents/rules/git_closure_gate.md ausente o sin QA-GIT-GATE-01"
-        )
-    for rel_doc in _GIT_GATE_DOCS:
-        _check_git_gate_doc(root, rel_doc, errors)
+    if _is_upstream_repo(root):
+        gate_rule = root / ".agents" / "rules" / "git_closure_gate.md"
+        if not gate_rule.is_file() or "QA-GIT-GATE-01" not in gate_rule.read_text(
+            encoding="utf-8"
+        ):
+            errors.append(
+                ".agents/rules/git_closure_gate.md ausente o sin QA-GIT-GATE-01"
+            )
+        for rel_doc in _GIT_GATE_DOCS:
+            _check_git_gate_doc(root, rel_doc, errors)
+    elif (root / "AGENTS.md").is_file():
+        _check_git_gate_doc(root, "AGENTS.md", errors)
     return errors
 
 

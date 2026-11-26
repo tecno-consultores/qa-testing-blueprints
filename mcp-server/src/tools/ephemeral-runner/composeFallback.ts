@@ -295,9 +295,9 @@ export function resolveComposeDirectFallback(
         '-e',
         'HOME=/tmp',
         primaryService,
-        'composer',
-        'run-script',
-        `qa:${stage}`,
+        'sh',
+        '-c',
+        `php -d allow_url_fopen=1 "$(command -v composer)" run-script qa:${stage}`,
       ],
     ];
   }

@@ -482,7 +482,7 @@ EOF
   local prof_log="${BATS_TEST_TMPDIR}/calm_prof_docker.log"
   _populate_minimal_bin "${prof_bin}"
   cat >"${prof_bin}/docker" <<EOF
-#!/usr/bin/env bash
+#!/bin/sh
 printf '%s\n' "\$*" >>"${prof_log}"
 exit 0
 EOF
@@ -496,5 +496,65 @@ EOF
   run env QA_IN_CONTAINER=0 PATH="${prof_bin}" LC_ALL=C bash "${CALM_SCRIPT}" --profile qa-11x-self
   assert_success
   run grep -F "CALM_PROFILE=qa-11x-self" "${prof_log}"
+  assert_success
+}
+
+@test "validate_calm_architecture.sh (Hito 33): omite con SKIPPED en consumidor non-enterprise sin CALM y autodetecta architecture/*.calm.json" {
+  local work="${BATS_TEST_TMPDIR}/consumer_calm_ws"
+  local fake_bin="${BATS_TEST_TMPDIR}/consumer_calm_bin"
+  local docker_log="${BATS_TEST_TMPDIR}/consumer_calm_docker.log"
+  mkdir -p "${work}/.agents/scripts"
+  cp "${CALM_SCRIPT}" "${work}/.agents/scripts/validate_calm_architecture.sh"
+  chmod +x "${work}/.agents/scripts/validate_calm_architecture.sh"
+  _populate_minimal_bin "${fake_bin}"
+  cat >"${fake_bin}/docker" <<EOF
+#!/bin/sh
+printf '%s\n' "\$*" >>"${docker_log}"
+exit 0
+EOF
+  chmod +x "${fake_bin}/docker"
+
+  # 0. Consumidor sin .qa-11x.json -> default standard -> SKIPPED (exit 0)
+  run env QA_IN_CONTAINER=0 PATH="${fake_bin}" LC_ALL=C bash "${work}/.agents/scripts/validate_calm_architecture.sh"
+  assert_success
+  assert_output --partial "SKIPPED"
+
+  # 1. Consumidor standard sin architecture/*.calm.json -> SKIPPED (exit 0)
+  printf '{"schemaVersion":3,"tier":"standard"}\n' >"${work}/.qa-11x.json"
+  run env QA_IN_CONTAINER=0 PATH="${fake_bin}" LC_ALL=C bash "${work}/.agents/scripts/validate_calm_architecture.sh"
+  assert_success
+  assert_output --partial "SKIPPED"
+  [ ! -s "${docker_log}" ]
+
+  # 2. Consumidor enterprise sin architecture/*.calm.json -> falla (exit 1)
+  printf '{"schemaVersion":3,"tier":"enterprise"}\n' >"${work}/.qa-11x.json"
+  run env QA_IN_CONTAINER=0 PATH="${fake_bin}" LC_ALL=C bash "${work}/.agents/scripts/validate_calm_architecture.sh"
+  assert_failure 1
+
+  # 2b. Upstream sin architecture/ -> cae a default architecture/qa-11x.calm.json (sin docker en PATH ejecuta inner_exec sin declare -f)
+  local nodk_bin="${BATS_TEST_TMPDIR}/consumer_calm_nodk_bin"
+  _populate_minimal_bin "${nodk_bin}"
+  cat >"${nodk_bin}/node" <<'EOF'
+#!/bin/sh
+printf 'MOCK_NODE_ARCH=%s\n' "${ARCH_INPUT:-}" >&2
+exit 1
+EOF
+  chmod +x "${nodk_bin}/node"
+  mkdir -p "${work}/scripts"
+  printf '# stub\n' >"${work}/scripts/generar-manifiesto.py"
+  printf '{}\n' >"${work}/manifest.json"
+  run env QA_IN_CONTAINER=0 PATH="${nodk_bin}" LC_ALL=C bash "${work}/.agents/scripts/validate_calm_architecture.sh"
+  assert_failure 1
+  assert_output --partial "MOCK_NODE_ARCH=architecture/qa-11x.calm.json"
+  rm -f "${work}/scripts/generar-manifiesto.py" "${work}/manifest.json"
+
+  # 3. Consumidor con architecture/mi-app.calm.json -> --arch explícito y autodetección
+  mkdir -p "${work}/architecture"
+  printf '{"nodes":[],"relationships":[]}\n' >"${work}/architecture/mi-app.calm.json"
+  run env QA_IN_CONTAINER=0 PATH="${nodk_bin}" LC_ALL=C bash "${work}/.agents/scripts/validate_calm_architecture.sh" --arch architecture/mi-app.calm.json --profile invalid
+  assert_failure 1
+  run env QA_IN_CONTAINER=0 PATH="${fake_bin}" LC_ALL=C bash "${work}/.agents/scripts/validate_calm_architecture.sh"
+  assert_success
+  run grep -F "architecture/mi-app.calm.json" "${docker_log}"
   assert_success
 }

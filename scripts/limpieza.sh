@@ -66,7 +66,7 @@ clean_scope_dir() {
     "${dir}/.phpunit.cache" "${dir}/.psalm" "${dir}/htmlcov" "${dir}/coverage_report" "${dir}/.bats-battery" \
     "${dir}/mutants" "${dir}/.mutmut-cache" "${dir}/target" "${dir}/test/target" "${dir}/.trivycache" \
     "${dir}/allure-results" "${dir}/allure-report" "${dir}/.allure" "${dir}/.deepeval" "${dir}/.promptfoo" \
-    "${dir}/.agents/tmp" "${dir}/.agents/.cache/coverage" "${dir}/.agents/.cache/tmp" "${dir}/.agents/artifacts" "${dir}/dist-ssr" "${dir}/.nuxt" "${dir}/.next" "${dir}/.output" "${dir}/.svelte-kit" \
+    "${dir}/.agents/tmp" "${dir}/.agents/.cache/tmp" "${dir}/.agents/artifacts" "${dir}/dist-ssr" "${dir}/.nuxt" "${dir}/.next" "${dir}/.output" "${dir}/.svelte-kit" \
     "${dir}/.vite" "${dir}/.vite-ssg-temp" "${dir}/.parcel-cache" "${dir}/storybook-static" \
     "${dir}/coverage" "${dir}/.nyc_output" "${dir}/.stryker-tmp" "${dir}/.clinic" \
     "${dir}/test-results" "${dir}/playwright-report" "${dir}/blob-report" "${dir}/playwright/.cache" \
@@ -230,7 +230,7 @@ if command -v docker >/dev/null 2>&1; then
            /workspace/allure-results /workspace/allure-report /workspace/.allure \
            /workspace/.deepeval /workspace/.promptfoo /workspace/.nyc_output \
            /workspace/mcp-server/coverage /workspace/mcp-server/test/target \
-           /workspace/.agents/.cache/coverage /workspace/.agents/.cache/tmp /workspace/*/.agents/.cache/coverage /workspace/*/.agents/.cache/tmp /workspace/*/.agents/artifacts \
+           /workspace/.agents/.cache/tmp /workspace/*/.agents/.cache/tmp /workspace/*/.agents/artifacts \
            /workspace/mobile-appium/wdio-logs /workspace/mobile-appium/errorShots /workspace/mobile-appium/coverage \
            /workspace/vibe-rescue/.pytest_cache /workspace/vibe-rescue/.mypy_cache /workspace/vibe-rescue/.ruff_cache \
            /workspace/backend/.pytest_cache /workspace/backend/.mypy_cache /workspace/backend/.ruff_cache /workspace/backend/htmlcov \
@@ -250,8 +250,9 @@ fi
 
 if [ "${DEEP_CLEAN}" = true ]; then
   rm -rf .agents/backups .agents/proposals .agents/.qa-evidence.json \
-    .agents/.cache .agents/artifacts \
-    ./*/.agents/backups ./*/.agents/proposals ./*/.agents/.qa-evidence.json ./*/.agents/.cache \
+    .agents/.cache/coverage .agents/.cache/tmp .agents/.cache/sarif .agents/artifacts \
+    ./*/.agents/backups ./*/.agents/proposals ./*/.agents/.qa-evidence.json \
+    ./*/.agents/.cache/coverage ./*/.agents/.cache/tmp ./*/.agents/.cache/sarif \
     "${HOME}/.cache/qa-11x-blueprints" "${tmp_base}/.qa11x_trivy_cache_"* /tmp/.qa11x_trivy_cache_* 2>/dev/null || true
   find . \
     \( -name ".git" -o -name "node_modules" -o -name ".venv" -o -name "venv" -o -name "vendor" \) -prune \

@@ -26,7 +26,7 @@ All AI coding assistants and developers in this monorepo MUST enforce Level-11X 
 
 ## 2. Rule Zero: Mandatory Ephemeral Docker Execution
 
-Docker Engine is a **mandatory, non-negotiable physical prerequisite** (`qa-11x doctor` fails hard if the daemon is absent). **NEVER** execute tests, migrations, compilers, linters, or external SAST/SCA scanners (`semgrep`, `trivy`, `codeql`) directly on host OS (`Ubuntu`/`macOS`/`Windows`). Unless delegated to an active user-configured Companion MCP (`semgrep`, `serena`, `playwright`), execute exclusively in non-root ephemeral Docker containers (`Makefile` / `docker-compose.qa.yml` / `run_ephemeral_qa`) **serialized 1 container at a time** (`QA_MAX_CONCURRENT_CONTAINERS=1`; no parallel `/teamwork` `docker run` fan-out; pass `--rm --restart=no --network none` on offline commands; `QA-DOCKER-LOOP-01`).
+Docker Engine is a **mandatory, non-negotiable physical prerequisite** (`qa-11x doctor` fails hard if the daemon is absent). **NEVER** execute tests, migrations, compilers, linters, or external SAST/SCA scanners (`semgrep`, `trivy`, `codeql`) directly on host OS (`Ubuntu`/`macOS`/`Windows`). Unless delegated to an active user-configured Companion MCP (`playwright`, `chrome-devtools`, `semgrep`, `serena`, `sonarqube`, `snyk`, `trivy`), execute exclusively in non-root ephemeral Docker containers (`Makefile` / `docker-compose.qa.yml` / `run_ephemeral_qa`) **serialized 1 container at a time** (`QA_MAX_CONCURRENT_CONTAINERS=1`; no parallel `/teamwork` `docker run` fan-out; pass `--rm --restart=no --network none` on offline commands, and frozen-lockfile installs `uv sync --frozen` / `pnpm install --frozen-lockfile --prefer-offline` honoring `QA_OFFLINE=1`; `QA-DOCKER-LOOP-01`).
 
 ---
 

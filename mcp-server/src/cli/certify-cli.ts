@@ -173,9 +173,11 @@ function formatCertifyText(
   certifyResult: CertifyGateResult,
   releaseGateResult: ReleaseGateEvaluationResult | undefined
 ): string {
+  const bannerLine = certifyResult.qa_11x_banner ? [certifyResult.qa_11x_banner] : [];
   if (exitCode === 0) {
     const gateNote = releaseGateResult ? ` | release=${releaseGateResult.decision}` : '';
     const lines = [
+      ...bannerLine,
       `✔ [Pass-Quiet] stage=certify_11x_gate | project=${certifyResult.project_path}${gateNote} | exitCode=0`,
     ];
     if (certifyResult.update_available?.agent_notice) {
@@ -185,6 +187,7 @@ function formatCertifyText(
   }
 
   const lines = [
+    ...bannerLine,
     `❌ [Fail-Verbose] stage=certify_11x_gate | project=${certifyResult.project_path} | exitCode=${exitCode}`,
   ];
   for (const blocker of certifyResult.blockers) {

@@ -353,9 +353,9 @@ describe('ephemeral-runner', () => {
       '-e',
       'HOME=/tmp',
       'qa-php',
-      'composer',
-      'run-script',
-      'qa:unit',
+      'sh',
+      '-c',
+      'php -d allow_url_fopen=1 "$(command -v composer)" run-script qa:unit',
     ]);
 
     const bddDirect = await runEphemeralQa(tempDir, 'bdd', 60, { execFileFn: mockDockerOk });
@@ -398,9 +398,9 @@ describe('ephemeral-runner', () => {
       '-e',
       'HOME=/tmp',
       'qa-php',
-      'composer',
-      'run-script',
-      'qa:lint',
+      'sh',
+      '-c',
+      'php -d allow_url_fopen=1 "$(command -v composer)" run-script qa:lint',
     ]);
 
     // Sin docker-compose.qa.yml ni receta Docker válida -> rechaza por Regla Cero en ENOENT

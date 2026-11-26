@@ -275,7 +275,7 @@ JSON
   cd "${empty_auto}"
   run env QA_BLUEPRINTS_LOCAL_PATH="${mini_repo}" HOME="${empty_auto}" LC_ALL=C bash "${INSTALL_SCRIPT}" --dry-run
   assert_success
-  assert_output --partial ".gemini/config/skills"
+  assert_output --partial ".agents/skills"
 
   cd "${dry_ws}"
   run env QA_BLUEPRINTS_LOCAL_PATH="${mini_repo}" HOME="${pop_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target all --dry-run
@@ -317,14 +317,15 @@ JSON
   [ -f "${fake_home_all}/.codex/skills/qa-11x-architect/SKILL.md" ]
   [ -f "${fake_home_all}/.gemini/GEMINI.md" ]
 
-  # Preservar .trivy.yaml preexistente (copy_if_missing), crear instalar-hooks.sh, ACTIVE_TASK.md, y fusionar AGENTS.md (append + update)
+  # Preservar .trivy.yaml preexistente (copy_if_missing), crear instalar-hooks.sh, ACTIVE_TASK.md.example (sin escribir ACTIVE_TASK.md), y fusionar AGENTS.md (append + update)
   printf '# custom-trivy-keep\n' >"${fake_ws}/.trivy.yaml"
   printf '# Custom Header\n' >"${fake_ws}/AGENTS.md"
   cd "${fake_ws}"
   run env QA_BLUEPRINTS_LOCAL_PATH="${mini_repo}" HOME="${fake_home}" LC_ALL=C bash "${INSTALL_SCRIPT}" --target workspace --include-scripts --init-agents
   assert_success
   [ -f "${fake_ws}/.agents/skills/qa-11x-architect/SKILL.md" ]
-  [ -f "${fake_ws}/.agents/ACTIVE_TASK.md" ]
+  [ -f "${fake_ws}/.agents/ACTIVE_TASK.md.example" ]
+  [ ! -f "${fake_ws}/.agents/ACTIVE_TASK.md" ]
   [ -f "${fake_ws}/AGENTS.md" ]
   [ -f "${fake_ws}/instalar-hooks.sh" ]
   [ -x "${fake_ws}/instalar-hooks.sh" ]
@@ -474,6 +475,7 @@ manifest = {
     ],
     "common_files": [
         {"path": "scripts/ok.sh", "target_name": "scripts/ok.sh", "merge_strategy": "copy_or_overwrite", "sha256": sha(ok_p), "size_bytes": ok_p.stat().st_size},
+        {"path": ".agents/cfg.yml", "target_name": ".agents/cfg.yml", "merge_strategy": "copy_or_overwrite", "sha256": sha(yml_p), "size_bytes": yml_p.stat().st_size},
     ],
 }
 (root / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")

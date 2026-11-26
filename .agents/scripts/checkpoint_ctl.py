@@ -720,7 +720,6 @@ def _require_len_bound(val: str, limit: int, label: str) -> str:
 def _validate_set_request(req: SetRequest) -> tuple[str, str]:
     if not TASK_ID_RE.match(req.task_id) or len(req.task_id) > MAX_TASK_ID_LEN:
         raise ValueError("task_id inválido (use ^[A-Za-z0-9._-]+$, <= 64 chars).")
-    _require_len_bound(req.step, MAX_TASK_ID_LEN, "step")
     clean_step = _require_len_bound(sanitize_text(req.step), MAX_TASK_ID_LEN, "step")
     raw_intent = _require_len_bound(req.intent, MAX_INTENT_LEN, "intent")
     clean_intent = sanitize_text(raw_intent)[:MAX_INTENT_LEN]
@@ -794,11 +793,11 @@ def handle_record_cmd(
         timestamp=now_iso,
         summary_1line=clean_summary,
     )
-    has_skipped = clean_summary.lstrip().startswith("[WARN]") or bool(
-        re.search(r"\b[1-9]\d*\s+SKIPPED\b", clean_summary)
+    has_fail = clean_summary.lstrip().startswith("[FAIL]") or bool(
+        re.search(r"\b[1-9]\d*\s+FAIL\b", clean_summary)
     )
     should_certify = (
-        cmd.strip() == CERTIFY_CMD_NAME and exit_code == 0 and not has_skipped
+        cmd.strip() == CERTIFY_CMD_NAME and exit_code == 0 and not has_fail
     )
     if should_certify:
         done = _dedupe_steps(

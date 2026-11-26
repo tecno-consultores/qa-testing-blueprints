@@ -205,63 +205,66 @@ describe('T5.1: Quickstart CLI & PR-Aware Composite GitHub Action', () => {
         agents: 'cursor',
       });
       expect(result.dryRun).toBe(true);
-      expect(result.tier).toBe('starter');
+      expect(result.tier).toBe('standard');
+      expect(result.tierConfirmedByUser).toBe(false);
+      expect(result.qa11xBanner).toBe('[QA-11X | Tier: standard | Path: FULL_11X]');
       expect(result.lang).toBe('auto');
       expect(result.detectedStacks).toEqual(['generic']);
       expect(result.plannedFiles).toEqual([
         '.qa-11x.json',
         'AGENTS.md',
         '.cursor/rules/qa-11x.mdc',
-        '.agents/ACTIVE_TASK.md',
         '.github/workflows/qa-11x-pr.yml',
       ]);
       expect(fs.readdirSync(tmpDir)).toEqual([]);
 
       const textSummary = formatQuickstartOutput(result, false);
+      expect(textSummary).toContain('[QA-11X | Tier: standard | Path: FULL_11X]');
       expect(textSummary).toContain('✔ [quickstart:dry-run]');
-      expect(textSummary).toContain('tier=starter');
+      expect(textSummary).toContain('schema=v3');
+      expect(textSummary).toContain('tier=standard');
     });
 
-    it('creates starter, standard (7 gates), and enterprise (13 gates) setups and stays idempotent', async () => {
+    it('creates starter (3 gates), standard (7 gates), and enterprise (13 gates) v3 setups and stays idempotent', async () => {
       writeProjectFile(tmpDir, 'pyproject.toml', '[project]\ndependencies = ["fastapi"]\n');
-      const starter = await runQuickstart({ dir: tmpDir, agents: ['copilot'] });
+      fs.mkdirSync(path.join(tmpDir, '.git'), { recursive: true });
+      const starter = await runQuickstart({ dir: tmpDir, tier: 'starter', agents: ['copilot'] });
       expect(starter.activeGates).toHaveLength(3);
       expect(starter.activeGates).toEqual(QUICKSTART_TIER_PROFILES.starter);
+      expect(starter.tierConfirmedByUser).toBe(true);
       expect(fs.existsSync(path.join(tmpDir, '.qa-11x.json'))).toBe(true);
       expect(fs.existsSync(path.join(tmpDir, 'AGENTS.md'))).toBe(true);
       expect(fs.existsSync(path.join(tmpDir, '.github/copilot-instructions.md'))).toBe(true);
-      expect(fs.existsSync(path.join(tmpDir, '.agents/ACTIVE_TASK.md'))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, '.agents/ACTIVE_TASK.md'))).toBe(false);
+      expect(fs.existsSync(path.join(tmpDir, '.gitignore'))).toBe(true);
       expect(fs.existsSync(path.join(tmpDir, '.github/workflows/qa-11x-pr.yml'))).toBe(true);
+
+      const rawDiskCfg = JSON.parse(
+        fs.readFileSync(path.join(tmpDir, '.qa-11x.json'), 'utf8')
+      ) as Record<string, unknown>;
+      expect(rawDiskCfg.schemaVersion).toBe(3);
+      expect(rawDiskCfg.stacks).toEqual(['fastapi']);
+      expect(rawDiskCfg.tierConfirmedByUser).toBe(true);
+      expect(rawDiskCfg.activeGates).toBeUndefined();
+      expect(rawDiskCfg.detectedStacks).toBeUndefined();
 
       const auditAfterQuickstart = await auditSecurityStigOwasp(tmpDir);
       expect(
         auditAfterQuickstart.findings.filter((f) => f.rule_id === 'SEC-CI-ACTION-REF')
       ).toHaveLength(0);
 
-      const activeTaskLines = fs
-        .readFileSync(path.join(tmpDir, '.agents/ACTIVE_TASK.md'), 'utf8')
-        .split(/\r?\n/);
-      expect(activeTaskLines.length).toBeLessThanOrEqual(40);
-
-      // Customize workflow, ACTIVE_TASK, and .qa-11x.json extra metadata
-      writeProjectFile(tmpDir, '.agents/ACTIVE_TASK.md', '# Custom Task\n- **Estado:** `IN_PROGRESS`\n');
+      // Customize workflow with non-managed content and .qa-11x.json extra metadata
       writeProjectFile(tmpDir, '.github/workflows/qa-11x-pr.yml', 'name: Custom PR Check\n');
-      const existingCfg = JSON.parse(
-        fs.readFileSync(path.join(tmpDir, '.qa-11x.json'), 'utf8')
-      ) as Record<string, unknown>;
       writeProjectFile(
         tmpDir,
         '.qa-11x.json',
-        JSON.stringify({ ...existingCfg, customTeamOwner: 'platform-qa' }, null, 2)
+        JSON.stringify({ ...rawDiskCfg, customTeamOwner: 'platform-qa' }, null, 2)
       );
 
-      // Upgrade to standard without --force: preserves customized task/workflow/metadata
+      // Upgrade to standard without --force: preserves custom non-managed workflow & extra metadata
       const standard = await runQuickstart({ dir: tmpDir, tier: 'standard', lang: 'es' });
-      expect(standard.activeGates).toHaveLength(7);
+      expect(standard.activeGates).toHaveLength(QUICKSTART_TIER_PROFILES.standard.length);
       expect(standard.lang).toBe('es');
-      expect(standard.files.find((f) => f.relativePath === '.agents/ACTIVE_TASK.md')?.action).toBe(
-        'preserved'
-      );
       expect(standard.files.find((f) => f.relativePath === '.github/workflows/qa-11x-pr.yml')?.action).toBe(
         'preserved'
       );
@@ -277,22 +280,79 @@ describe('T5.1: Quickstart CLI & PR-Aware Composite GitHub Action', () => {
       expect(preservedRun.lang).toBe('es');
       expect(preservedRun.files.find((f) => f.relativePath === '.qa-11x.json')?.action).toBe('preserved');
 
-      // Run with --force and enterprise tier: refreshes managed files & removes custom keys
+      // Run with --force and enterprise tier: refreshes managed workflow & removes custom keys
       const enterprise = await runQuickstart({
         dir: tmpDir,
         tier: 'enterprise',
         force: true,
         ci: 'github',
       });
-      expect(enterprise.activeGates).toHaveLength(13);
+      expect(enterprise.activeGates).toHaveLength(QUICKSTART_TIER_PROFILES.enterprise.length);
       expect(enterprise.nextCommand).toBe('make validate-calm && make certify');
-      expect(enterprise.files.find((f) => f.relativePath === '.agents/ACTIVE_TASK.md')?.action).toBe(
+      expect(enterprise.files.find((f) => f.relativePath === '.github/workflows/qa-11x-pr.yml')?.action).toBe(
         'updated'
       );
       const forcedCfg = JSON.parse(
         fs.readFileSync(path.join(tmpDir, '.qa-11x.json'), 'utf8')
       ) as { customTeamOwner?: string };
       expect(forcedCfg.customTeamOwner).toBeUndefined();
+
+      // Downgrade tier without --force updates managed qa-11x-pr.yml tier line in place
+      const downgraded = await runQuickstart({ dir: tmpDir, tier: 'standard', ci: 'github' });
+      expect(downgraded.files.find((f) => f.relativePath === '.github/workflows/qa-11x-pr.yml')?.action).toBe(
+        'updated'
+      );
+      expect(
+        fs.readFileSync(path.join(tmpDir, '.github/workflows/qa-11x-pr.yml'), 'utf8')
+      ).toContain('tier: standard');
+    });
+
+    it('prompts once on interactive TTY when tier is unconfirmed and skips prompt once confirmed', async () => {
+      const promptSpy = vi.fn(() => Promise.resolve('3'));
+      const interactiveRes = await runQuickstart({
+        dir: tmpDir,
+        ci: 'none',
+        isStdinTty: true,
+        promptTierFn: promptSpy,
+      });
+      expect(promptSpy).toHaveBeenCalledTimes(1);
+      expect(interactiveRes.tier).toBe('enterprise');
+      expect(interactiveRes.tierConfirmedByUser).toBe(true);
+
+      // Second run should NOT re-prompt once confirmed
+      const secondRes = await runQuickstart({
+        dir: tmpDir,
+        ci: 'none',
+        isStdinTty: true,
+        promptTierFn: promptSpy,
+      });
+      expect(promptSpy).toHaveBeenCalledTimes(1);
+      expect(secondRes.tier).toBe('enterprise');
+
+      // Empty Enter selects default standard; invalid answer throws
+      const defaultDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-qs-tty-def-'));
+      try {
+        const enterRes = await runQuickstart({
+          dir: defaultDir,
+          ci: 'none',
+          isStdinTty: true,
+          promptTierFn: () => Promise.resolve(''),
+        });
+        expect(enterRes.tier).toBe('standard');
+        expect(enterRes.tierConfirmedByUser).toBe(true);
+
+        await expect(
+          runQuickstart({
+            dir: defaultDir,
+            force: true,
+            ci: 'none',
+            isStdinTty: true,
+            promptTierFn: () => Promise.resolve('platinum'),
+          })
+        ).rejects.toThrow('Invalid tier selection');
+      } finally {
+        fs.rmSync(defaultDir, { recursive: true, force: true });
+      }
     });
 
     it('detects pre-existing Spanish AGENTS.md and supports --ci none', async () => {
@@ -310,12 +370,12 @@ describe('T5.1: Quickstart CLI & PR-Aware Composite GitHub Action', () => {
     it('recovers safely if existing .qa-11x.json has invalid tier, non-object JSON, or corrupt JSON, and supports projectPath option', async () => {
       writeProjectFile(tmpDir, '.qa-11x.json', JSON.stringify({ tier: 'invalid-tier' }));
       const res = await runQuickstart({ projectPath: tmpDir, ci: 'none' });
-      expect(res.tier).toBe('starter');
+      expect(res.tier).toBe('standard');
 
       writeProjectFile(tmpDir, '.qa-11x.json', '[]');
       writeProjectFile(tmpDir, 'AGENTS.md', '# English Directives\nRespond in English.\n');
       const resArr = await runQuickstart({ dir: tmpDir, ci: 'github' });
-      expect(resArr.tier).toBe('starter');
+      expect(resArr.tier).toBe('standard');
       expect(resArr.lang).toBe('en');
 
       // Re-run with --force when workflow content is already identical -> preserved
@@ -326,7 +386,7 @@ describe('T5.1: Quickstart CLI & PR-Aware Composite GitHub Action', () => {
 
       writeProjectFile(tmpDir, '.qa-11x.json', '{corrupt');
       const res2 = await runQuickstart({ dir: tmpDir, ci: 'none' });
-      expect(res2.tier).toBe('starter');
+      expect(res2.tier).toBe('standard');
 
       writeProjectFile(tmpDir, '.qa-11x.json', JSON.stringify({ lang: 'auto' }));
       const resAutoCfg = await runQuickstart({ dir: tmpDir, ci: 'none' });
@@ -387,7 +447,7 @@ describe('T5.1: Quickstart CLI & PR-Aware Composite GitHub Action', () => {
       expect(() => resolveQuickstartTargetDir(sysSymlink)).toThrow('SEC-PATH-01');
       fs.unlinkSync(sysSymlink);
 
-      expect(validateQuickstartTier()).toBe('starter');
+      expect(validateQuickstartTier()).toBe('standard');
       expect(validateQuickstartCi()).toBe('github');
       expect(() => validateQuickstartTier('gold')).toThrow('Unsupported tier');
       expect(() => validateQuickstartCi('jenkins')).toThrow('Unsupported CI target');
@@ -445,9 +505,9 @@ describe('T5.1: Quickstart CLI & PR-Aware Composite GitHub Action', () => {
         nextCommand?: string;
       };
       expect(parsedJson.tier).toBe('enterprise');
-      expect(parsedJson.activeGates).toHaveLength(13);
+      expect(parsedJson.activeGates).toHaveLength(QUICKSTART_TIER_PROFILES.enterprise.length);
       expect(parsedJson.nextCommand).toBe('npx -y @sinfallas/mcp-qa-11x@latest audit --mode vibe');
-      expect(QUICKSTART_HELP_TEXT).toContain('(default: starter)');
+      expect(QUICKSTART_HELP_TEXT).toContain('(default: standard)');
 
       if (!jsonRun.quickstartResult) {
         throw new Error('Expected quickstartResult to be defined');

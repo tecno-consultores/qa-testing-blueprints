@@ -53,10 +53,17 @@ Thumbs.db
 *.sw?
 
 # QA-11X governance and contracts
+graphify-out/
 .agents/ACTIVE_TASK.md
-.agents/.cache/
-.agents/artifacts/
 .agents/.qa-evidence.json
+.agents/.qa-11x-version
+.agents/.cache/
+.agents/backups/
+.agents/proposals/
+.agents/artifacts/
+.agents/tmp/
+.agents/mcp_config.json
 pacts/
 *.11x-backup
 *.11x-incoming
+.agents/**/*.bak

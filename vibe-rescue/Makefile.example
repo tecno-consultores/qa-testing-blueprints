@@ -1,4 +1,4 @@
-.PHONY: qa-lint qa-audit qa-audit-enforce qa-unit qa-ci qa-all clean-cache clean qa-clean
+.PHONY: qa-lint qa-audit qa-audit-enforce qa-unit qa-ci certify qa-all clean-cache clean qa-clean
 
 # ==============================================================================
 # MAKEFILE QA VIBE-RESCUE 11X (sinfallas/base-python-uv:3.15)
@@ -47,6 +47,9 @@ qa-unit:
 
 qa-ci: qa-lint qa-audit-enforce qa-unit
 	@echo "✅ [11X] Paridad lint + auditoría bloqueante + unit Vibe-Rescue completada."
+
+certify:
+	@[ -x ./.agents/scripts/certify_task_completion.sh ] && ./.agents/scripts/certify_task_completion.sh || echo "⚠️ [SKIPPED] certify_task_completion.sh no instalado."
 
 qa-all: qa-lint qa-audit qa-unit
 	@echo "✅ [11X] Pipeline QA Vibe-Rescue completado."

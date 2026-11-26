@@ -18,11 +18,11 @@ branding:
 
 inputs:
   tier:
-    description: 'QA-11X adoption tier (starter | standard | enterprise). Controls gate depth alongside blast-plan-tier (docs-only | pr-targeted | nightly-full | full-regression).'
+    description: 'QA-11X adoption tier (auto | starter | standard | enterprise). When auto, reads .qa-11x.json tier (fallback: standard). Controls gate depth alongside blast-plan-tier (docs-only | pr-targeted | nightly-full | full-regression).'
     required: false
-    default: 'starter'
+    default: 'auto'
   lang:
-    description: 'Output language policy for QA-11X reports (auto | en | es)'
+    description: 'Output language policy for QA-11X reports (auto | en | es). When auto, reads .qa-11x.json lang if present.'
     required: false
     default: 'auto'
   base-ref:
@@ -82,9 +82,9 @@ runs:
         set -euo pipefail
 
         case "${INPUT_TIER}" in
-          starter|standard|enterprise) ;;
+          auto|starter|standard|enterprise) ;;
           *)
-            echo "::error::Unsupported tier '${INPUT_TIER}'. Allowed: starter | standard | enterprise." >&2
+            echo "::error::Unsupported tier '${INPUT_TIER}'. Allowed: auto | starter | standard | enterprise." >&2
             exit 1
             ;;
         esac
@@ -123,6 +123,22 @@ runs:
         fi
 
         cd "${INPUT_WORKDIR}"
+        EFFECTIVE_TIER="${INPUT_TIER}"
+        if [ "${EFFECTIVE_TIER}" = "auto" ]; then
+          EFFECTIVE_TIER="standard"
+          if [ -f ".qa-11x.json" ]; then
+            PARSED_CFG_TIER="$(sed -nE 's/.*"tier"[[:space:]]*:[[:space:]]*"(starter|standard|enterprise)".*/\1/p' .qa-11x.json | head -n 1 || true)"
+            [ -n "${PARSED_CFG_TIER}" ] && EFFECTIVE_TIER="${PARSED_CFG_TIER}"
+          fi
+        fi
+
+        EFFECTIVE_LANG="${INPUT_LANG}"
+        if [ "${EFFECTIVE_LANG}" = "auto" ] && [ -f ".qa-11x.json" ]; then
+          PARSED_CFG_LANG="$(sed -nE 's/.*"lang"[[:space:]]*:[[:space:]]*"(auto|en|es)".*/\1/p' .qa-11x.json | head -n 1 || true)"
+          [ -n "${PARSED_CFG_LANG}" ] && EFFECTIVE_LANG="${PARSED_CFG_LANG}"
+        fi
+
+        printf '[QA-11X | Tier: %s | Path: CI]\n' "${EFFECTIVE_TIER}"
         QA_TMP_DIR="$(mktemp -d "${RUNNER_TEMP:-/tmp}/qa-11x-ci.XXXXXX")"
         chmod 0700 "${QA_TMP_DIR}"
         cleanup_diff_on_error() {
@@ -164,13 +180,15 @@ runs:
         fi
 
         if [ -n "${GITHUB_OUTPUT:-}" ]; then
-          printf 'tier=%s\n' "${INPUT_TIER}" >> "${GITHUB_OUTPUT}"
+          printf 'tier=%s\n' "${EFFECTIVE_TIER}" >> "${GITHUB_OUTPUT}"
+          printf 'lang=%s\n' "${EFFECTIVE_LANG}" >> "${GITHUB_OUTPUT}"
           printf 'event-name=%s\n' "${NORM_EVENT}" >> "${GITHUB_OUTPUT}"
           printf 'tmp-dir=%s\n' "${QA_TMP_DIR}" >> "${GITHUB_OUTPUT}"
         fi
 
     - name: Cache Graphify AST graph
       id: cache-graph
+      if: ${{ steps.compute-pr-diff.outputs.tier != 'starter' }}
       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: ${{ inputs.working-directory }}/graphify-out
@@ -182,6 +200,7 @@ runs:
       id: blast-radius-plan
       shell: bash
       env:
+        EFFECTIVE_TIER: ${{ steps.compute-pr-diff.outputs.tier }}
         INPUT_WORKDIR: ${{ inputs.working-directory }}
         INPUT_PYTHON_IMAGE: ${{ inputs.python-image }}
         INPUT_BASE_REF: ${{ inputs.base-ref }}
@@ -216,7 +235,7 @@ runs:
         SAVINGS_PCT="50"
         GRAPH_STATUS="SKIPPED"
 
-        if [ -f ".agents/scripts/select_tests_by_blast_radius.py" ] || [ -f ".agents/scripts/inspect_blast_radius.py" ]; then
+        if [ "${EFFECTIVE_TIER:-standard}" != "starter" ] && { [ -f ".agents/scripts/select_tests_by_blast_radius.py" ] || [ -f ".agents/scripts/inspect_blast_radius.py" ]; }; then
           if [ "${CACHE_HIT:-false}" != "true" ] || [ ! -s "graphify-out/graph.json" ]; then
             if ! docker run --rm --restart=no --network none \
               --security-opt=no-new-privileges:true \
@@ -240,7 +259,18 @@ runs:
           pull_request_target|merge_group) NORM_EVENT="pull_request" ;;
         esac
 
-        if [ -f ".agents/scripts/select_tests_by_blast_radius.py" ]; then
+        if [ "${EFFECTIVE_TIER:-standard}" = "starter" ]; then
+          if [ "${NORM_EVENT}" = "schedule" ] || [ "${NORM_EVENT}" = "workflow_dispatch" ]; then
+            BLAST_TIER="nightly-full"
+            SAVINGS_PCT="0"
+          elif [ -s "${CHANGED_FILE}" ]; then
+            NON_DOC_COUNT="$(awk 'NF && ($0 ~ /^(\.agents|catalogs)\// || $0 ~ /^(AGENTS|AI_MASTER_PROMPT(\.es)?|SECURITY(\.es)?)\.md$/ || $0 ~ /^(python|fastapi|node-backend|vue3|react-frontend|bash-scripts|php|mobile-appium|ai-evals|vibe-rescue)\/README(\.es)?\.md$/ || ($0 !~ /\.md$/ && $0 !~ /^docs\//)) { c++ } END { print c + 0 }' "${CHANGED_FILE}")"
+            if [ "${NON_DOC_COUNT}" -eq 0 ]; then
+              BLAST_TIER="docs-only"
+              SAVINGS_PCT="85"
+            fi
+          fi
+        elif [ -f ".agents/scripts/select_tests_by_blast_radius.py" ]; then
           if [ "${GRAPH_STATUS}" != "PASS" ]; then
             echo "::warning::[graph=SKIPPED] graphify-out/graph.json unavailable; blast selector using prefix fallback." >&2
           fi
@@ -317,8 +347,8 @@ runs:
       id: run-proportional-gates
       shell: bash
       env:
-        INPUT_TIER: ${{ inputs.tier }}
-        INPUT_LANG: ${{ inputs.lang }}
+        INPUT_TIER: ${{ steps.compute-pr-diff.outputs.tier }}
+        INPUT_LANG: ${{ steps.compute-pr-diff.outputs.lang }}
         INPUT_WORKDIR: ${{ inputs.working-directory }}
         INPUT_PYTHON_IMAGE: ${{ inputs.python-image }}
         INPUT_NODE_IMAGE: ${{ inputs.node-image }}
@@ -329,6 +359,7 @@ runs:
       run: |
         set -euo pipefail
         cd "${INPUT_WORKDIR}"
+        printf '[QA-11X | Tier: %s | Path: %s]\n' "${INPUT_TIER:-standard}" "${BLAST_PLAN_TIER:-pr-targeted}"
 
         GATE_TMP_DIR="$(mktemp -d "${RUNNER_TEMP:-/tmp}/qa-11x-ci.XXXXXX")"
         chmod 0700 "${GATE_TMP_DIR}"

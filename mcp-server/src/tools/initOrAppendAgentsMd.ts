@@ -7,28 +7,37 @@ import { resolveRealTarget, resolveSafeProjectPath } from '../security/workspace
 import { inspectProjectConfig } from './inspect-project.js';
 import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 import {
+  AIDER_BRIDGE_END,
+  AIDER_BRIDGE_START,
+  BRIDGE_END_MARKER,
+  BRIDGE_START_MARKER,
   CONNECTOR_START_MARKER,
   CONNECTOR_END_MARKER,
   buildAgentsMdConnectorBlock,
+  buildCanonicalAiderBridgeBlock,
+  buildCanonicalMarkdownBridgeBlock,
   detectConnectorLang,
+  hasYamlReadKeyOutsideBridge,
   mergeAgentsMdContent,
   replaceDelimitedSection,
   resolveProjectDisplayName,
   type ConnectorLang,
   type ConnectorMergeAction,
 } from '../services/agents-connector.js';
+import { readQa11xConfig } from '../services/qa11xConfig.js';
 
 export {
+  AIDER_BRIDGE_END,
+  AIDER_BRIDGE_START,
+  BRIDGE_END_MARKER,
+  BRIDGE_START_MARKER,
   CONNECTOR_START_MARKER,
   CONNECTOR_END_MARKER,
   buildAgentsMdConnectorBlock,
+  hasYamlReadKeyOutsideBridge,
   mergeAgentsMdContent,
   resolveProjectDisplayName,
 };
-export const BRIDGE_START_MARKER = '<!-- QA_11X_BRIDGE_START -->';
-export const BRIDGE_END_MARKER = '<!-- QA_11X_BRIDGE_END -->';
-export const AIDER_BRIDGE_START = '# QA_11X_BRIDGE_START';
-export const AIDER_BRIDGE_END = '# QA_11X_BRIDGE_END';
 
 const UTF8 = 'utf-8';
 const AGENTS_MD_FILENAME = 'AGENTS.md';
@@ -372,12 +381,6 @@ export const SUPPORTED_AGENT_IDS: readonly SupportedAiAgentId[] = Object.freeze(
   Object.keys(SUPPORTED_AI_AGENTS) as SupportedAiAgentId[]
 );
 
-const BRIDGE_LANG_SUMMARIES: Readonly<Record<SupportedLang, string>> = Object.freeze({
-  auto: "Mirror the user's prompt language and README/CHANGELOG language; keep `.agents/` rules in concise English.",
-  es: 'Respond and write user-facing docs/commits in Spanish (`es`); keep `.agents/` rules in concise English.',
-  en: 'Respond and write user-facing docs/commits in English (`en`); keep `.agents/` rules in concise English.',
-});
-
 const CURSOR_MDC_HEADER = [
   '---',
   'description: QA 11X Standard Thin-Repo Bridge pointing to AGENTS.md',
@@ -526,28 +529,13 @@ export function resolveTargetAgentIds(
   return Array.from(unique);
 }
 
-function buildMarkdownBridgeBlock(
-  agentLabels: readonly string[],
-  stacksLabel: string,
-  lang: SupportedLang
-): string {
-  return [
-    BRIDGE_START_MARKER,
-    `# QA 11X Thin-Repo Bridge (${agentLabels.join(', ')})`,
-    `Follow \`AGENTS.md\` and \`.agents/\` directives (stacks: \`${stacksLabel}\`, lang: \`${lang}\`).`,
-    `Language: ${BRIDGE_LANG_SUMMARIES[lang]}`,
-    'Rule Zero: execute tests in ephemeral Docker (`run_ephemeral_qa`), inspect AST first, never run auto `git push` (`QA-GIT-GATE-01`).',
-    BRIDGE_END_MARKER,
-  ].join('\n');
-}
-
 function mergeMarkdownBridge(
   existingContent: string,
   agentLabels: readonly string[],
   stacksLabel: string,
   lang: SupportedLang
 ): { finalContent: string; action: MergeAction } {
-  const block = buildMarkdownBridgeBlock(agentLabels, stacksLabel, lang);
+  const block = buildCanonicalMarkdownBridgeBlock(agentLabels, stacksLabel, lang);
   return replaceDelimitedSection(existingContent, {
     startMarker: BRIDGE_START_MARKER,
     endMarker: BRIDGE_END_MARKER,
@@ -563,7 +551,7 @@ function mergeMdcBridge(
   stacksLabel: string,
   lang: SupportedLang
 ): { finalContent: string; action: MergeAction } {
-  const block = buildMarkdownBridgeBlock(agentLabels, stacksLabel, lang);
+  const block = buildCanonicalMarkdownBridgeBlock(agentLabels, stacksLabel, lang);
   if (!existingContent.trim()) {
     return { finalContent: `${CURSOR_MDC_HEADER}\n\n${block}\n`, action: ACTION_CREATED };
   }
@@ -580,32 +568,13 @@ function mergeMdcBridge(
   return merged;
 }
 
-export function hasYamlReadKeyOutsideBridge(existingContent: string): boolean {
-  const startIdx = existingContent.indexOf(AIDER_BRIDGE_START);
-  const endIdx = existingContent.indexOf(AIDER_BRIDGE_END);
-  const outside =
-    startIdx !== -1 && endIdx > startIdx
-      ? `${existingContent.slice(0, startIdx)}\n${existingContent.slice(endIdx + AIDER_BRIDGE_END.length)}`
-      : existingContent;
-  return outside.split(/\r?\n/).some((line) => line.trimStart().startsWith('read:'));
-}
-
 function mergeAiderYamlBridge(
   existingContent: string,
   _agentLabels: readonly string[],
   _stacksLabel: string,
   lang: SupportedLang
 ): { finalContent: string; action: MergeAction } {
-  const includeReadKey = !hasYamlReadKeyOutsideBridge(existingContent);
-  const blockLines = [
-    AIDER_BRIDGE_START,
-    `# QA 11X Thin-Repo Bridge (lang: ${lang}, QA-GIT-GATE-01: no auto git push)`,
-    ...(includeReadKey
-      ? ['read:', `  - ${AGENTS_MD_FILENAME}`]
-      : [`# Existing read: key detected — keep ${AGENTS_MD_FILENAME} referenced in read:`]),
-    AIDER_BRIDGE_END,
-  ];
-  const block = blockLines.join('\n');
+  const block = buildCanonicalAiderBridgeBlock(existingContent, lang);
   return replaceDelimitedSection(existingContent, {
     startMarker: AIDER_BRIDGE_START,
     endMarker: AIDER_BRIDGE_END,
@@ -727,10 +696,11 @@ export async function initOrAppendAgentsMd(
 
   const agentsMdPath = resolveSafeBridgePath(resolvedPath, AGENTS_MD_FILENAME);
   const existingAgentsMd = fs.existsSync(agentsMdPath) ? fs.readFileSync(agentsMdPath, UTF8) : '';
+  const persistedConfig = readQa11xConfig(resolvedPath);
   const lang =
     options.lang !== undefined
       ? validateSupportedLang(options.lang)
-      : (detectConnectorLang(existingAgentsMd) ?? 'auto');
+      : (detectConnectorLang(existingAgentsMd) ?? persistedConfig.lang ?? 'auto');
   const mergedAgentsMd = mergeAgentsMdContent(existingAgentsMd, projectName, detectedStacks, {
     lang,
     projectDir: resolvedPath,

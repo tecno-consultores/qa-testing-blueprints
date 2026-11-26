@@ -396,6 +396,7 @@ describe('Companion MCPs, Federated SARIF, Rule Zero Blocker, expect_red & --too
     // 3. CLI certify --no-require-unit-evidence & --require-unit-evidence flags
     writeText(path.join(projDir, 'TESTING.md'), '# Testing\nCoverage >= 95%\n');
     writeText(path.join(projDir, 'CHANGELOG.md'), '# Changelog\n\n## [Unreleased]\n- Item\n');
+    writeText(path.join(projDir, 'SECURITY.md'), '# Security\n');
     writeText(path.join(projDir, '.npmrc'), 'ignore-scripts=true\n');
     writeText(
       path.join(projDir, 'graphify-out', 'graph.json'),
@@ -449,11 +450,11 @@ describe('Companion MCPs, Federated SARIF, Rule Zero Blocker, expect_red & --too
     expect(autoAllowed?.has('propose_skill_evolution_pr')).toBe(true);
 
     const coreServer = createConfiguredMcpServer({ toolset: 'core', projectPath: projDir });
-    expect(coreServer.counts.tools).toBe(9);
+    expect(coreServer.counts.tools).toBe(13);
     expect(coreServer.counts.resources).toBe(13);
 
     const autoServer = createConfiguredMcpServer({ toolset: 'auto', projectPath: projDir });
-    expect(autoServer.counts.tools).toBe(18);
+    expect(autoServer.counts.tools).toBe(19);
 
     const fullServer = createConfiguredMcpServer({ toolset: 'full', projectPath: projDir });
     expect(fullServer.counts.tools).toBe(19);
@@ -503,7 +504,8 @@ describe('Companion MCPs, Federated SARIF, Rule Zero Blocker, expect_red & --too
     const markerTools = resolveAllowedToolNames('auto', pkgProj);
     expect(markerTools?.has('audit_vibe_prototype')).toBe(true);
     expect(markerTools?.has('evaluate_agent_trajectory')).toBe(true);
-    expect(markerTools?.has('propose_skill_evolution_pr')).toBe(false);
+    expect(markerTools?.has('propose_skill_evolution_pr')).toBe(true);
+    expect(markerTools?.has('validate_calm_architecture')).toBe(false);
 
     const pyOnlyProj = path.join(tmpRoot, 'py-deepeval-only');
     writeText(path.join(pyOnlyProj, 'pyproject.toml'), 'dependencies = ["deepeval"]\n');

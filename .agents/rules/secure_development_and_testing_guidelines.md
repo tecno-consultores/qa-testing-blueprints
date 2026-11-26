@@ -10,7 +10,7 @@
 1. **ORM vs DB Parity & `AsyncSession` Safety:**
    - Every ORM model/column/constraint change requires a versioned migration (`revision <= 32` chars for `alembic_version`) validated against a real DB container.
    - SQLAlchemy 2.0 `AsyncSession`: never read expired ORM attributes after `commit()`/`rollback()` without `await db.refresh(model)` or capturing primitives beforehand.
-   - `MockDbSession` parity: populate `Numeric(p, s)` fixtures with `decimal.Decimal` (never `float`) and validate `JSON`/`JSONB` columns via `json.dumps()` without `default=str`.
+   - `MockDbSession` parity (`.unit.*` ONLY — strictly forbidden in integration/Anti-Silo tests): populate `Numeric(p, s)` fixtures with `decimal.Decimal` (never `float`) and validate `JSON`/`JSONB` columns via `json.dumps()` without `default=str`.
 2. **Anti-JSDOM Layout & Multi-Viewport Ergonomics:** JSDOM returns `0x0` bounding boxes. Enforce in-flow layouts (`margin-top: auto`), semantic landmarks (`<footer>` outside `<main>`), and zero horizontal overflow (`scrollWidth <= innerWidth`) across `375x667`, `768x1024`, and `1440x900` in real Playwright/Karate UI browsers.
 3. **Fresh `Idempotency-Key` per Mutation:** Never reuse a static `Idempotency-Key` across sequential mutations against KeyDB/Redis. In Karate BDD, inject `And header Idempotency-Key = java.util.UUID.randomUUID() + ''` unless explicitly testing missing-header `400` or same-scenario replay/`409` conflict.
 

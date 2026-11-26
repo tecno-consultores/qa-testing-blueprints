@@ -187,6 +187,7 @@ ACTIVE_TASK.md
 .agents/ACTIVE_TASK.md
 .agents/.qa-evidence.json
 **/.agents/.qa-evidence.json
+.agents/.qa-11x-version
 .qa-11x-version
 **/.qa-11x-version
 .agents/backups/
@@ -198,6 +199,8 @@ ACTIVE_TASK.md
 .agents/.cache/
 **/.agents/.cache/
 .agents/artifacts/
+.agents/mcp_config.json
+.agents/**/*.bak
 **/.agents/artifacts/
 /propuestas/
 .agents/*.scratchpad.md

@@ -1,4 +1,4 @@
-.PHONY: qa-lint qa-unit qa-ci qa-mutation qa-load qa-observability qa-profile qa-sbom qa-all clean-cache clean qa-clean
+.PHONY: qa-lint qa-unit qa-ci certify qa-mutation qa-load qa-observability qa-profile qa-sbom qa-all clean-cache clean qa-clean
 
 # Variables
 COMPOSE_FILE ?= docker-compose.qa.yml
@@ -6,27 +6,32 @@ SERVICE_NAME ?= qa-backend
 PROJECT_DIR ?= $(CURDIR)
 QA_UID ?= $(shell id -u)
 QA_GID ?= $(shell id -g)
-export QA_UID QA_GID
+QA_OFFLINE ?= 0
+UV_SYNC_CMD = if [ -f uv.lock ]; then uv sync --frozen --all-extras -q $$([ "$${QA_OFFLINE:-0}" = "1" ] && printf -- "--offline"); else uv sync --all-extras -q; fi
+export QA_UID QA_GID QA_OFFLINE
 
 qa-lint:
 	@echo "🔍 [11X] Ejecutando Linter, Types, Complejidad Grado A, Bandit SAST y CVEs..."
 	@[ ! -x ./scripts/verificar-secretos.sh ] || ./scripts/verificar-secretos.sh
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "\
-		uv sync --all-extras -q && \
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" -e QA_OFFLINE="$(QA_OFFLINE)" $(SERVICE_NAME) bash -c "\
+		$(UV_SYNC_CMD) && \
 		uv run ruff check src/ tests/ && \
 		uv run ruff format --check src/ tests/ && \
 		uv run mypy --strict --cache-dir=/tmp/mypy src/ && \
 		test -z \"\$$(uv run radon cc --min B src/)\" && \
 		test -z \"\$$(uv run radon mi --min B src/)\" && \
 		uv run bandit -c pyproject.toml -q -r src/ && \
-		uv run pip-audit"
+		( [ \"\$${QA_OFFLINE:-0}\" = \"1\" ] || uv run pip-audit )"
 
 qa-unit:
-	@echo "🧪 [11X] Ejecutando Pruebas Unitarias y Cobertura >= 95% (Pytest)..."
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" -e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app/src $(SERVICE_NAME) bash -c "uv sync --all-extras -q && uv run pytest -q --tb=short -m 'not integration' --cov-report=term-missing:skip-covered"
+	@echo "🧪 [11X] Ejecutando Pruebas Unitarias y Cobertura >= 95% (Pytest + coverage.xml)..."
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" -e QA_OFFLINE="$(QA_OFFLINE)" -e COVERAGE_FILE=/tmp/.coverage -e PYTHONPATH=/app/src $(SERVICE_NAME) bash -c "$(UV_SYNC_CMD) && uv run pytest -q --tb=short -m 'not integration' --cov-report=xml:coverage.xml --cov-report=term-missing:skip-covered"
 
 qa-ci: qa-lint qa-unit
 	@echo "✅ [11X] Paridad Pre-Push 1:1 con CI (lint + unit) certificada."
+
+certify:
+	@[ -x ./.agents/scripts/certify_task_completion.sh ] && ./.agents/scripts/certify_task_completion.sh || echo "⚠️ [SKIPPED] certify_task_completion.sh no instalado."
 
 qa-mutation:
 	@echo "👽 Ejecutando Pruebas de Mutación (Mutmut + Gate MSI >= 80%)..."

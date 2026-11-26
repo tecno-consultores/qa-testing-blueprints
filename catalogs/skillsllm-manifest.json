@@ -118,8 +118,8 @@
       "name": "qa-11x-architect",
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-architect/SKILL.md",
-      "size_bytes": 12094,
-      "sha256": "ac796952dbdd3f1a0dbecefe8db9b810717edd0ee7e4f4c2e2a6df0d84a71b99",
+      "size_bytes": 11805,
+      "sha256": "ab263995a824fd8875c5fa6962595b667f53a7c31c05c29f82591398605a1622",
       "description": "Master QA 11X & DevSecOps orchestrator (@sinfallas/mcp-qa-11x). Use whenever initializing or auditing QA in a repository, merging .example blueprints, writing or updating unit/BDD/mutation/E2E tests, enforcing STIG/OWASP controls, running ephemeral Docker QA, or certifying tasks before local commit."
     },
     {
@@ -127,8 +127,8 @@
       "name": "qa-11x-devsecops-hardener",
       "path": ".agents/skills/qa-11x-devsecops-hardener/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-devsecops-hardener/SKILL.md",
-      "size_bytes": 15307,
-      "sha256": "9d630f0812b402a6fc761e8c0c39793bbcb602430c6e7636c176196e5d681a6a",
+      "size_bytes": 15522,
+      "sha256": "59f62732f633ae9c0331a04644c9acf3131f9958d5d0f060ea91df46a33685cc",
       "description": "Security-by-design hardening sub-skill for Standard 11X. Use whenever designing, auditing, or modifying multi-tenant PostgreSQL RLS schemas, authentication/MFA/session flows, secret vaults, WORM audit logs, mutating MCP/JSON-RPC tools, SARIF security findings, or non-root Docker containers."
     },
     {
@@ -172,8 +172,8 @@
       "name": "qa-11x-docker-certifier",
       "path": ".agents/skills/qa-11x-docker-certifier/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-docker-certifier/SKILL.md",
-      "size_bytes": 12957,
-      "sha256": "652e496131a8cff173c185449cbe1565def685dd96fc0590a7af9c3cad4f7cd5",
+      "size_bytes": 13612,
+      "sha256": "bcd01bf1af19d0f7b84c30fa2f9ec672bcdc96e3b7e6d2a21936c95fd4825d44",
       "description": "Ephemeral Docker QA execution and certification sub-skill for Standard 11X. Use whenever running linters, typecheckers, unit/integration/mutation/E2E suites, accessibility checks, external SARIF scanners, or workspace cleanups under mandatory non-root Docker Rule Zero."
     },
     {
@@ -208,8 +208,8 @@
       "name": "tactical-patterns-11x",
       "path": ".agents/skills/tactical-patterns-11x/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/tactical-patterns-11x/SKILL.md",
-      "size_bytes": 2485,
-      "sha256": "350f75f16d38f566dec5d5f535b9e57bbbe477c61ef89cfb086d907e58e03565",
+      "size_bytes": 2518,
+      "sha256": "85081732d1907ceebb7ae7680305139a935182b81361d19ca2458f17f6fd1a68",
       "description": "Just-in-time refactoring and concurrency patterns for Standard 11X. Use when resolving cyclomatic/cognitive complexity or parameter-count violations, isolating external network ports offline, or implementing transactional outbox, atomic idempotency, and WebSocket pub/sub."
     }
   ]

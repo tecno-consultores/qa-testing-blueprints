@@ -10,6 +10,10 @@ const UTF8 = 'utf-8';
 
 export const CONNECTOR_START_MARKER = '<!-- QA_11X_MCP_CONNECTOR_START -->';
 export const CONNECTOR_END_MARKER = '<!-- QA_11X_MCP_CONNECTOR_END -->';
+export const BRIDGE_START_MARKER = '<!-- QA_11X_BRIDGE_START -->';
+export const BRIDGE_END_MARKER = '<!-- QA_11X_BRIDGE_END -->';
+export const AIDER_BRIDGE_START = '# QA_11X_BRIDGE_START';
+export const AIDER_BRIDGE_END = '# QA_11X_BRIDGE_END';
 export const GLOBAL_CONNECTOR_MAX_BYTES = 1_536;
 export const PROJECT_CONNECTOR_MAX_BYTES = 1_536;
 
@@ -275,25 +279,84 @@ export function replaceDelimitedSection(
   return { finalContent: `${trimmed}${appendSeparator}${block}\n`, action: 'appended' };
 }
 
+const BRIDGE_LANG_SUMMARIES: Readonly<Record<OutputLanguageMode, string>> = Object.freeze({
+  auto: "Mirror the user's prompt language and README/CHANGELOG language; keep `.agents/` rules in concise English.",
+  es: 'Respond and write user-facing docs/commits in Spanish (`es`); keep `.agents/` rules in concise English.',
+  en: 'Respond and write user-facing docs/commits in English (`en`); keep `.agents/` rules in concise English.',
+});
+
+export function buildCanonicalMarkdownBridgeBlock(
+  agentLabels: readonly string[],
+  stacksLabel: string,
+  lang: OutputLanguageMode
+): string {
+  const safeStacks = stacksLabel.trim() || 'general';
+  return [
+    BRIDGE_START_MARKER,
+    `# QA 11X Thin-Repo Bridge (${agentLabels.join(', ')})`,
+    `Follow \`AGENTS.md\` and \`.agents/\` directives (stacks: \`${safeStacks}\`, lang: \`${lang}\`).`,
+    `Language: ${BRIDGE_LANG_SUMMARIES[lang]}`,
+    'Rule Zero: execute tests in ephemeral Docker (`run_ephemeral_qa`), inspect AST first, never run auto `git push` (`QA-GIT-GATE-01`).',
+    BRIDGE_END_MARKER,
+  ].join('\n');
+}
+
+export function hasYamlReadKeyOutsideBridge(existingContent: string): boolean {
+  const startIdx = existingContent.indexOf(AIDER_BRIDGE_START);
+  const endIdx = existingContent.indexOf(AIDER_BRIDGE_END);
+  const outside =
+    startIdx !== -1 && endIdx > startIdx
+      ? `${existingContent.slice(0, startIdx)}\n${existingContent.slice(endIdx + AIDER_BRIDGE_END.length)}`
+      : existingContent;
+  return outside.split(/\r?\n/).some((line) => line.trimStart().startsWith('read:'));
+}
+
+export function buildCanonicalAiderBridgeBlock(
+  existingContent: string,
+  lang: OutputLanguageMode
+): string {
+  const includeReadKey = !hasYamlReadKeyOutsideBridge(existingContent);
+  return [
+    AIDER_BRIDGE_START,
+    `# QA 11X Thin-Repo Bridge (lang: ${lang}, QA-GIT-GATE-01: no auto git push)`,
+    ...(includeReadKey
+      ? ['read:', '  - AGENTS.md']
+      : ['# Existing read: key detected — keep AGENTS.md referenced in read:']),
+    AIDER_BRIDGE_END,
+  ].join('\n');
+}
+
 export function detectConnectorLang(content: string): OutputLanguageMode | undefined {
   if (
     content.includes('Conector Global Thin-Client QA 11X') ||
     content.includes('strictly in **Spanish**') ||
-    content.includes('estrictamente en **Español**')
+    content.includes('estrictamente en **Español**') ||
+    content.includes('in Spanish (`es`)') ||
+    /\blang:\s*`?es`?\b/i.test(content)
   ) {
     return 'es';
   }
-  if (content.includes('strictly in **English**')) {
+  if (
+    content.includes('strictly in **English**') ||
+    content.includes('in English (`en`)') ||
+    /\blang:\s*`?en`?\b/i.test(content)
+  ) {
     return 'en';
   }
-  if (content.includes("user's prompt language") || content.includes(CONNECTOR_START_MARKER)) {
+  if (
+    content.includes("user's prompt language") ||
+    /\blang:\s*`?auto`?\b/i.test(content) ||
+    content.includes(CONNECTOR_START_MARKER) ||
+    content.includes(BRIDGE_START_MARKER) ||
+    content.includes(AIDER_BRIDGE_START)
+  ) {
     return 'auto';
   }
   return undefined;
 }
 
 export function detectExistingStacks(content: string): string[] {
-  const match = /\(stacks:\s*`([^`\r\n]+)`\)/.exec(content);
+  const match = /\(stacks:\s*`([^`\r\n]+)`/.exec(content);
   if (!match?.[1]) return [];
   return match[1]
     .split(',')
@@ -376,8 +439,8 @@ export function buildThinConnectorBlock(
     `Project \`${projectName}\` enforces **Standard QA-11X** (stacks: \`${stacksLabel}\`). Do NOT duplicate global skills/rules into local \`.agents/skills/\` or \`.agents/rules/\`.`,
     '',
     `- **Language Policy:** ${buildLanguagePolicyLine(lang)}`,
-    '- **Routing (`qa-11x-architect` + MCP `qa-11x`):** Classify every task as `DOCS_ONLY` (`0` Docker QA / `0` AST rebuild), `MICRO_CHANGE` (`<=3` files, `<5` callers: 3-line plan + stack Docker QA), or `FULL_11X` (`/plan` + `session_flight_recorder` + full 11-step workflow from `qa-11x-architect`).',
-    '- **Hard Gates:** (1) **Rule Zero** — run all tests/linters/migrations in non-root ephemeral Docker (`run_ephemeral_qa` / `make`, serialized 1 container at a time; zero parallel subagent `docker run`; `--rm --restart=no --network none` offline); (2) **AST-First & Objective Critique** — query `inspect_ast_blast_radius` (`graphify-out/graph.json`) before `grep`/edits, skip praise openers, and verify non-trivial premises/simpler options before coding (without debating routine commands); (3) **`QA-TEST-SYNC-01`** — update & re-run all affected unit (`>=95%`), integration, BATS, and Karate `.feature` suites; (4) **`QA-GIT-GATE-01`** — run `certify_11x_gate` and stop at local `git commit` (NEVER auto-`git push`).',
+    '- **Tier & Routing (`qa-11x-architect` + MCP `qa-11x`):** Open mutating tasks with `[QA-11X | Tier: <tier> | Path: <DOCS_ONLY|MICRO_CHANGE|FULL_11X>]` (`.qa-11x.json` v3; default `standard`; ask once if `!tierConfirmedByUser`). Classify: `DOCS_ONLY` (`0` Docker/AST), `MICRO_CHANGE` (`<=3` files, `<5` callers), `FULL_11X` (`/plan` + `session_flight_recorder` + 11-step flow).',
+    '- **Hard Gates:** (1) **Rule Zero** — run tests/linters/migrations in non-root ephemeral Docker (`run_ephemeral_qa`/`make`, serialized 1 container at a time; zero parallel subagent `docker run`; `--rm --restart=no --network none` offline); (2) **AST-First & Objective Critique** — query `inspect_ast_blast_radius` before edits, skip praise, verify non-trivial premises (never debate routine cmds); (3) **`QA-TEST-SYNC-01`** — co-evolve affected unit (`>=95%`), integration, BATS & Karate suites; (4) **`QA-GIT-GATE-01`** — run `certify_11x_gate`, stop at local `git commit` (NEVER auto-`git push`).',
     CONNECTOR_END_MARKER,
   ].join('\n');
 }
@@ -390,10 +453,10 @@ export function buildGlobalConnectorBlock(lang: OutputLanguageMode = 'auto'): st
       CONNECTOR_START_MARKER,
       '## 🤖 Conector Global Thin-Client QA 11X (`@sinfallas/mcp-qa-11x`)',
       '',
-      '- **Idioma y Economía Cognitiva:** Razonar, responder, hacer commits y documentar estrictamente en **Español** (`AGENTS.md`/`.agents/**` en inglés conciso). Usar 3-Tier Disclosure, lecturas `40–80L` (sin `>150L` a ciegas), Zero Redundant Re-Read, lotes paralelos y resúmenes `<=20L`.',
-      '- **Crítica Técnica Objetiva (Sin Adulación):** Omitir elogios. Verificar propuestas no triviales/ambiguas contra AST/archivos/budgets; señalar fallos, duplicación o alternativas más simples (o no actuar), o aprobar directo si es sólido; no debatir órdenes rutinarias.',
-      '- **Rule Zero Supremo y Graphify AST-First:** Ejecutar TODOS los tests, linters, migraciones e installs en Docker efímero sin root (`run_ephemeral_qa`/`make`, en serie 1 contenedor a la vez; sin `docker run` paralelo en subagentes; `--rm --restart=no --network none` offline). Consultar `graphify-out/graph.json` (`inspect_ast_blast_radius`; `./scripts/actualizar-grafos-graphify.sh`) ANTES de `grep`/`read_file`.',
-      '- **Skills Globales, `QA-TEST-SYNC-01` y `QA-GIT-GATE-01`:** Enrutar vía `qa-11x-architect` sin duplicación local (`reconcile_agents_governance`); co-evolucionar tests (`QA-TEST-SYNC-01`), detenerse en `git commit` local (NUNCA auto-`git push`) y reportar brechas (`propose_skill_evolution_pr`).',
+      '- **Idioma, Tier y Economía Cognitiva:** Responder/documentar/comitear en **Español** (`AGENTS.md`/`.agents/**` inglés). Mostrar `[QA-11X | Tier: <tier> | Path: <ruta>]` (`.qa-11x.json` v3, default `standard`; preguntar 1 vez si `!tierConfirmedByUser`). Usar 3-Layer Disclosure, lecturas `40–80L`, lotes paralelos y resúmenes `<=20L`.',
+      '- **Crítica Técnica Objetiva (Sin Adulación):** Omitir elogios; verificar propuestas no triviales vs AST/archivos/budgets; señalar fallos o alternativas simples, o aprobar directo; no debatir órdenes rutinarias.',
+      '- **Rule Zero Supremo y Graphify AST-First:** Ejecutar tests/linters/migraciones/installs en Docker efímero sin root (`run_ephemeral_qa`/`make`, en serie 1 contenedor a la vez; sin `docker run` paralelo en subagentes; `--rm --restart=no --network none` offline). Consultar `inspect_ast_blast_radius` ANTES de `grep`/`read_file`.',
+      '- **Skills Globales, `QA-TEST-SYNC-01` y `QA-GIT-GATE-01`:** Enrutar vía `qa-11x-architect` sin duplicación local (`reconcile_agents_governance`); co-evolucionar tests (`QA-TEST-SYNC-01`), cerrar en `git commit` local (NUNCA auto-`git push`) y reportar brechas (`propose_skill_evolution_pr`).',
       CONNECTOR_END_MARKER,
     ].join('\n');
   }
@@ -401,16 +464,16 @@ export function buildGlobalConnectorBlock(lang: OutputLanguageMode = 'auto'): st
   const langDirective =
     lang === 'en'
       ? 'Interact, write commits & docs strictly in **English**.'
-      : "Interact in user's prompt language; commits/human docs match README.md/CHANGELOG.md (AGENTS.md/.agents/** concise English).";
+      : "Interact in user's prompt language; commits/human docs match README.md/CHANGELOG.md (AGENTS.md/.agents/** EN).";
 
   return [
     CONNECTOR_START_MARKER,
     '## 🤖 Global Thin-Client QA 11X Connector (`@sinfallas/mcp-qa-11x`)',
     '',
-    `- **Language & Token Economy:** ${langDirective} Apply 3-Tier Disclosure, \`40–80L\` reads (no blind \`>150L\`), Zero Redundant Re-Read, parallel batching & \`<=20L\` summaries.`,
-    '- **Objective Technical Critique (No Sycophancy):** Skip praise openers. Verify non-trivial/ambiguous proposals against live AST/files/budgets; cite flaws, duplication, or simpler options (incl. doing nothing), or approve directly when solid; never debate routine commands.',
-    '- **Rule Zero Supreme & Graphify AST-First:** Run ALL tests/linters/migrations/installs in non-root ephemeral Docker (`run_ephemeral_qa`/`make`, serialized 1 container at a time; zero parallel subagent `docker run`; `--rm --restart=no --network none` offline). Query `graphify-out/graph.json` (`inspect_ast_blast_radius`; `./scripts/actualizar-grafos-graphify.sh`) BEFORE `grep`/`read_file`.',
-    '- **Global Skills, `QA-TEST-SYNC-01` & `QA-GIT-GATE-01`:** Route via `qa-11x-architect` & global skills without local duplication (`reconcile_agents_governance`); co-evolve affected tests (`QA-TEST-SYNC-01`), stop at local `git commit` (NEVER auto-`git push`) & log gaps (`propose_skill_evolution_pr`).',
+    `- **Language, Tier & Token Economy:** ${langDirective} Show \`[QA-11X | Tier: <tier> | Path: <path>]\` (\`.qa-11x.json\` v3, default \`standard\`; ask once if \`!tierConfirmedByUser\`). Use 3-Layer Disclosure, \`40–80L\` reads, parallel batching & \`<=20L\` summaries.`,
+    '- **Objective Technical Critique (No Sycophancy):** Skip praise openers. Verify non-trivial proposals vs AST/files/budgets; cite flaws/duplication/simpler options (incl. doing nothing), or approve directly; never debate routine commands.',
+    '- **Rule Zero Supreme & Graphify AST-First:** Run ALL tests/linters/migrations/installs in non-root ephemeral Docker (`run_ephemeral_qa`/`make`, serialized 1 container at a time; zero parallel subagent `docker run`; `--rm --restart=no --network none` offline). Query `inspect_ast_blast_radius` (`graphify-out/graph.json`) BEFORE `grep`/`read_file`.',
+    '- **Global Skills, `QA-TEST-SYNC-01` & `QA-GIT-GATE-01`:** Route via `qa-11x-architect` without local duplication (`reconcile_agents_governance`); co-evolve tests (`QA-TEST-SYNC-01`), stop at local `git commit` (NEVER auto-`git push`) & log gaps (`propose_skill_evolution_pr`).',
     CONNECTOR_END_MARKER,
   ].join('\n');
 }

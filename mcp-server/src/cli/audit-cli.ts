@@ -4,6 +4,10 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
+  formatQa11xStatusBanner,
+  readQa11xConfig,
+} from '../services/qa11xConfig.js';
+import {
   type AuditVibePrototypeResult,
   auditVibePrototype,
 } from '../tools/auditVibePrototype.js';
@@ -375,12 +379,14 @@ interface FormatAuditTextInput {
   readonly exitCode: number;
   readonly audits: ExecutedAudits;
   readonly sarifFindings: readonly SarifFindingInput[];
+  readonly qa11xBanner: string;
 }
 
 function formatAuditText(input: FormatAuditTextInput): string {
-  const { projectPath, parsed, exitCode, audits, sarifFindings } = input;
+  const { projectPath, parsed, exitCode, audits, sarifFindings, qa11xBanner } = input;
   const icon = exitCode === 0 ? '✔' : '❌';
   const lines: string[] = [
+    qa11xBanner,
     `${icon} [audit] mode=${parsed.mode} | fail-on=${parsed.failOn} | findings=${sarifFindings.length} | exitCode=${exitCode} | project=${projectPath}`,
   ];
   if (audits.security) {
@@ -538,6 +544,8 @@ export async function runAuditCli(
   try {
     const parsed = parseAuditArgs(args);
     const projectPath = resolveCliProjectPath(parsed.rawDir, deps.cwd ?? process.cwd());
+    const loadedTierCfg = readQa11xConfig(projectPath);
+    const qa11xBanner = formatQa11xStatusBanner(loadedTierCfg.effectiveTier, 'FULL_11X');
     const audits = await executeRequestedAudits(projectPath, parsed);
     const sarifFindings = collectSarifFindings(audits);
     const exitCode = shouldFailAudit(parsed.failOn, sarifFindings, audits) ? 1 : 0;
@@ -548,13 +556,23 @@ export async function runAuditCli(
     } else if (parsed.format === FORMAT_JSON) {
       output = formatCliJson({
         project_path: projectPath,
+        effective_tier: loadedTierCfg.effectiveTier,
+        tier_confirmed_by_user: loadedTierCfg.tierConfirmedByUser,
+        qa_11x_banner: qa11xBanner,
         mode: parsed.mode,
         fail_on: parsed.failOn,
         exit_code: exitCode,
         ...audits,
       });
     } else {
-      output = formatAuditText({ projectPath, parsed, exitCode, audits, sarifFindings });
+      output = formatAuditText({
+        projectPath,
+        parsed,
+        exitCode,
+        audits,
+        sarifFindings,
+        qa11xBanner,
+      });
     }
 
     return { exitCode, output };

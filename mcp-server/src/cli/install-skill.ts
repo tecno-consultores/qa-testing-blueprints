@@ -14,6 +14,7 @@ import { assertNoSymlinkSegments, assertNotSymlinkPath } from '../security/pathR
 import { initOrAppendAgentsMd, syncGlobalAgentConnectors } from './init-agents-md.js';
 import { parseAgentsOption } from '../tools/initOrAppendAgentsMd.js';
 import { reconcileAgentsGovernance } from './reconcile-agents.js';
+import { consolidateLooseBackups } from './reconcile/repoHygiene.js';
 import { pickAt, reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import {
@@ -245,12 +246,12 @@ function resolveSafeWorkspaceSkillsDir(cwd: string): string {
   return safeSkills;
 }
 
-function resolveGlobalOrFallbackTargets(homeDir: string, cwd: string): string[] {
+function resolveGlobalOrFallbackTargets(homeDir: string): string[] {
   const globalDirs = detectInstalledGlobalAgentDirs(homeDir);
   if (globalDirs.length > 0) {
     return Array.from(new Set(globalDirs));
   }
-  return [resolveSafeWorkspaceSkillsDir(cwd)];
+  return [resolveSafeGlobalSkillDir(homeDir, path.join(AGENTS_DIR_NAME, SKILLS_DIR_NAME))];
 }
 
 function resolveAllGlobalAgentDirs(homeDir: string): string[] {
@@ -315,7 +316,7 @@ function resolveDestinationDirs(targetArg: string, homeDir: string, cwd: string)
     return Array.from(new Set(resolveAllGlobalAgentDirs(homeDir)));
   }
   if (targetArg === 'auto') {
-    return resolveGlobalOrFallbackTargets(homeDir, cwd);
+    return resolveGlobalOrFallbackTargets(homeDir);
   }
   return [resolveSafeWorkspaceSkillsDir(cwd)];
 }
@@ -459,7 +460,6 @@ async function handleSpecialScriptStrategy(
     const exampleFullPath = resolveSafeChildPath(cwd, entry.path);
     assertNoSymlinkSegments(cwd, entry.path);
     fs.writeFileSync(exampleFullPath, content, UTF8);
-    if (!fs.existsSync(fullPath)) fs.writeFileSync(fullPath, content, UTF8);
     return true;
   }
   if (entry.merge_strategy === 'copy_if_missing') {
@@ -646,6 +646,16 @@ async function runProjectInstallHooks(params: {
     );
   }
   await runOptionalInitAgentsHook(params.opts, params.cwd, params.log);
+  if (params.opts.reconcile && params.opts.includeScripts) {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupDir = path.join(params.cwd, AGENTS_DIR_NAME, 'backups', timestamp);
+    const consolidated = consolidateLooseBackups(params.cwd, false, backupDir);
+    if (consolidated.consolidatedBackups.length > 0) {
+      params.log(
+        `✔ [Reconcile 11X] ${consolidated.consolidatedBackups.length} respaldo(s) suelto(s) consolidado(s) en ${backupDir}.`
+      );
+    }
+  }
 }
 
 async function applyPostSkillInstallSteps(params: {

@@ -325,7 +325,11 @@ async function runMakeEnoentFallback(ctx: FallbackRunnerContext): Promise<QaExec
     signal,
   } = ctx;
   const makefileContent = fs.readFileSync(makefilePath as string, 'utf8');
-  const recipeResolution = resolveMakefileDockerRecipes(makefileContent, `qa-${stage}`, resolvedPath);
+  const primaryResolution = resolveMakefileDockerRecipes(makefileContent, `qa-${stage}`, resolvedPath);
+  const secondaryResolution = primaryResolution.ok
+    ? primaryResolution
+    : resolveMakefileDockerRecipes(makefileContent, stage, resolvedPath);
+  const recipeResolution = secondaryResolution.ok ? secondaryResolution : primaryResolution;
   if (recipeResolution.ok) {
     return executeDockerFallbackSequence({
       executor,
@@ -467,12 +471,38 @@ interface CoreStageExecInput {
   readonly options?: RunEphemeralQaOptions;
 }
 
+function makefileDefinesTarget(content: string, target: string): boolean {
+  for (const line of content.split(/\r?\n/)) {
+    if (!line.startsWith(target)) continue;
+    const rest = line.slice(target.length).trimStart();
+    if (rest.startsWith(':') && !rest.startsWith(':=')) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function resolveMakefileStageTarget(makefilePath: string, stage: string): string {
+  const prefixed = `qa-${stage}`;
+  try {
+    const content = fs.readFileSync(makefilePath, 'utf8');
+    if (makefileDefinesTarget(content, prefixed)) {
+      return prefixed;
+    }
+    if (makefileDefinesTarget(content, stage)) {
+      return stage;
+    }
+  } catch (err: unknown) {
+    reportDebugCatchError('ephemeralRunner.resolveMakefileStageTarget', err);
+  }
+  return prefixed;
+}
+
 async function executeQaStageCore(input: CoreStageExecInput): Promise<QaExecutionResult> {
   const { resolvedPath, stage, timeoutSeconds, startTime, executor, options } = input;
   const execFileSyncFn = options?.execFileSyncFn;
   const signal = options?.signal;
   const makefilePath = path.join(resolvedPath, 'Makefile');
-  const target = `qa-${stage}`;
   const timeoutMs = timeoutSeconds * 1000;
 
   if (!fs.existsSync(makefilePath)) {
@@ -488,6 +518,7 @@ async function executeQaStageCore(input: CoreStageExecInput): Promise<QaExecutio
     });
   }
 
+  const target = resolveMakefileStageTarget(makefilePath, stage);
   prepareCoverageCacheForStage(resolvedPath, stage);
 
   const makeRes = await execCommand({

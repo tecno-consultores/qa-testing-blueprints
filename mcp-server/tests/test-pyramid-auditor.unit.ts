@@ -498,11 +498,18 @@ services:
       path.join(projectDir, '.gitignore'),
       [
         '.agents/ACTIVE_TASK.md',
+        '.agents/.qa-evidence.json',
+        '.agents/.qa-11x-version',
         '.agents/.cache/',
         '.agents/backups/',
         '.agents/proposals/',
+        '.agents/artifacts/',
+        '.agents/tmp/',
+        '.agents/mcp_config.json',
         'graphify-out/',
         '*.11x-backup',
+        '*.11x-incoming',
+        '.agents/**/*.bak',
       ].join('\n') + '\n',
       'utf-8'
     );

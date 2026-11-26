@@ -33,6 +33,7 @@ describe('Paridad Pre-Push 1:1 con CI (QA Evidence, Stages integration/ci, Dynam
   function setupMinimalCompliantProject(dir: string): void {
     fs.writeFileSync(path.join(dir, 'TESTING.md'), '# Testing QA 11X\nCoverage >= 95%\n', 'utf8');
     fs.writeFileSync(path.join(dir, 'CHANGELOG.md'), '# Changelog\n\n## [Unreleased]\n- Update\n', 'utf8');
+    fs.writeFileSync(path.join(dir, 'SECURITY.md'), '# Security\n', 'utf8');
     fs.writeFileSync(path.join(dir, '.npmrc'), 'ignore-scripts=true\n', 'utf8');
     fs.writeFileSync(path.join(dir, 'Makefile'), 'qa-lint:\n\t@echo ok\n', 'utf8');
     fs.mkdirSync(path.join(dir, 'graphify-out'), { recursive: true });

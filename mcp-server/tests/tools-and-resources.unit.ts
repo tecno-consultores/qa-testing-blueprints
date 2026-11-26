@@ -993,7 +993,7 @@ describe('Tools and Resources Integration Suite', () => {
           fs.existsSync(path.join(fakeWorkspace, '.agents/skills/qa-11x-architect/SKILL.md'))
         ).toBe(false);
 
-        // 4. Invocación en directorio aislado sin .git y con home aislado: fallback a isolatedCwd/.agents/skills
+        // 4. Invocación en directorio aislado sin .git y con home aislado: fallback a $HOME/.agents/skills (sin contaminar cwd)
         const isolatedHome = path.join(tmpDir, 'isolated-home');
         fs.mkdirSync(isolatedHome, { recursive: true });
         process.env.HOME = isolatedHome;
@@ -1002,8 +1002,11 @@ describe('Tools and Resources Integration Suite', () => {
         process.chdir(isolatedCwd);
         await runInstallSkillCli([], fetcher);
         expect(
-          fs.existsSync(path.join(isolatedCwd, '.agents/skills/qa-11x-architect/SKILL.md'))
+          fs.existsSync(path.join(isolatedHome, '.agents/skills/qa-11x-architect/SKILL.md'))
         ).toBe(true);
+        expect(
+          fs.existsSync(path.join(isolatedCwd, '.agents/skills/qa-11x-architect/SKILL.md'))
+        ).toBe(false);
 
         // 5. Invocación con --target cursor cuando .cursor NO existe previamente: crea ~/.cursor/skills globalmente sin contaminar cwd
         const cleanCwdForCursor = path.join(tmpDir, 'clean-cwd-cursor');
@@ -1039,7 +1042,7 @@ describe('Tools and Resources Integration Suite', () => {
           fs.existsSync(path.join(testDir, '.agents/scripts/verify_roadmap_consistency.py'))
         ).toBe(true);
         expect(fs.existsSync(path.join(testDir, '.agents/ACTIVE_TASK.md.example'))).toBe(true);
-        expect(fs.existsSync(path.join(testDir, '.agents/ACTIVE_TASK.md'))).toBe(true);
+        expect(fs.existsSync(path.join(testDir, '.agents/ACTIVE_TASK.md'))).toBe(false);
         // --include-scripts no debe copiar las 8 reglas canónicas .agents/rules/*.md dentro del proyecto consumidor
         expect(fs.existsSync(path.join(testDir, '.agents/rules'))).toBe(false);
 
@@ -1337,13 +1340,13 @@ describe('Tools and Resources Integration Suite', () => {
         ).rejects.toThrow(/symlink|confinamiento/i);
         expect(fs.existsSync(path.join(outsideDir, 'skills'))).toBe(false);
 
-        await expect(
-          runInstallSkillCli(['--target', 'auto', '--project-path', wsEsc], fetcher, {
-            cwd: wsEsc,
-            homeDir: emptyHome,
-            log: () => {},
-          })
-        ).rejects.toThrow(/symlink|confinamiento/i);
+        // --target auto en home vacío usa $HOME/.agents/skills (no escribe en wsEsc/.agents)
+        await runInstallSkillCli(['--target', 'auto', '--project-path', wsEsc], fetcher, {
+          cwd: wsEsc,
+          homeDir: emptyHome,
+          log: () => {},
+        });
+        expect(fs.existsSync(path.join(emptyHome, '.agents', 'skills', 'qa-11x-architect', 'SKILL.md'))).toBe(true);
         expect(fs.existsSync(path.join(outsideDir, 'skills'))).toBe(false);
 
         // Preserves valid non-workspace global targets even if ws/.agents is symlinked
@@ -1619,7 +1622,7 @@ describe('Tools and Resources Integration Suite', () => {
       expect(resNormal.removed_targets).toContain('allure-results');
       expect(resNormal.removed_targets).toContain('.deepeval');
       expect(resNormal.removed_targets).toContain('.promptfoo');
-      expect(resNormal.removed_targets).toContain('.agents/.cache/coverage');
+      expect(resNormal.removed_targets).not.toContain('.agents/.cache/coverage');
       expect(resNormal.removed_targets).toContain('release-readiness.json');
       expect(resNormal.removed_targets).toContain('.DS_Store');
       expect(resNormal.removed_targets).toContain('ACTIVE_TASK.md');
@@ -1632,7 +1635,8 @@ describe('Tools and Resources Integration Suite', () => {
       expect(res.dry_run).toBe(false);
       expect(res.deep_prune).toBe(true);
       expect(res.removed_targets).toContain('.agents/.qa-evidence.json');
-      expect(res.removed_targets).toContain('.agents/.cache');
+      expect(res.removed_targets).toContain('.agents/.cache/coverage');
+      expect(fs.existsSync(validCheckpoint)).toBe(true);
       expect(res.removed_targets).toContain('.agents/backups');
       expect(res.removed_targets).not.toContain(path.join('.agents', 'backups', 'keep.bak'));
       expect(res.removed_targets).toContain('AGENTS.md.bak');

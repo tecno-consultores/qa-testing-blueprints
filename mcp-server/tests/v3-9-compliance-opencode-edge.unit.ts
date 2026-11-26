@@ -76,14 +76,22 @@ describe('QA-11X v3.9.0 — Compliance Audit, AST Auto-Build, OpenCode, Email Te
     const readiness = audit.standard_11x_readiness;
     expect(readiness).toBeDefined();
     expect(readiness?.declared_tier).toBeNull();
-    expect(readiness?.effective_tier).toBe('enterprise');
+    expect(readiness?.effective_tier).toBe('standard');
+    expect(readiness?.tier_confirmed_by_user).toBe(false);
+    expect(readiness?.qa_11x_banner).toBe('[QA-11X | Tier: standard | Path: AUTO]');
     expect(readiness?.ast_graph_present).toBe(false);
     expect(readiness?.missing_mandatory_pillars).toContain('graphify_ast');
     expect(readiness?.missing_mandatory_pillars).toContain('thin_repo_governance');
-    expect(readiness?.missing_mandatory_pillars).toContain('calm_architecture');
+    expect(readiness?.missing_mandatory_pillars).not.toContain('calm_architecture');
     expect(readiness?.recommended_audit_sequence).toContain('inspect_ast_blast_radius(auto_build_if_missing: true)');
     expect(readiness?.recommended_audit_sequence).toContain('audit_test_pyramid_gaps');
     expect(readiness?.recommended_audit_sequence).toContain('certify_11x_gate');
+
+    // Explicit enterprise tier requires calm_architecture
+    fs.writeFileSync(path.join(tmpDir, '.qa-11x.json'), JSON.stringify({ tier: 'enterprise' }), 'utf-8');
+    const entReadiness = evaluateStandard11xReadiness(tmpDir, ['vue3'], ['src/app.ts']);
+    expect(entReadiness.effective_tier).toBe('enterprise');
+    expect(entReadiness.missing_mandatory_pillars).toContain('calm_architecture');
 
     // Declare starter tier + add recursive graphify-out/graph.json + connector + gitignore
     fs.writeFileSync(path.join(tmpDir, '.qa-11x.json'), JSON.stringify({ tier: 'starter' }), 'utf-8');
@@ -127,6 +135,7 @@ describe('QA-11X v3.9.0 — Compliance Audit, AST Auto-Build, OpenCode, Email Te
   it('certify11xGate auto-builds missing AST graph when source exists, hard-fails if builder fails, and skips on docs-only', async () => {
     fs.writeFileSync(path.join(tmpDir, 'TESTING.md'), '# Testing\n', 'utf-8');
     fs.writeFileSync(path.join(tmpDir, 'CHANGELOG.md'), '## [Unreleased]\n', 'utf-8');
+    fs.writeFileSync(path.join(tmpDir, 'SECURITY.md'), '# Security\n', 'utf-8');
 
     // 1. Docs-only project (0 source files) -> SKIPPED + skipped_remediations
     const docsOnly = await certify11xGate(tmpDir, {
@@ -633,7 +642,21 @@ describe('QA-11X v3.9.0 — Compliance Audit, AST Auto-Build, OpenCode, Email Te
     fs.writeFileSync(path.join(upDir, '.agents', 'ACTIVE_TASK.md'), '# active\n', 'utf-8');
     fs.writeFileSync(
       path.join(upDir, '.gitignore'),
-      '.agents/ACTIVE_TASK.md\n.agents/.cache/\n.agents/backups/\n.agents/proposals/\ngraphify-out/\n*.11x-backup\n',
+      [
+        '.agents/ACTIVE_TASK.md',
+        '.agents/.qa-evidence.json',
+        '.agents/.qa-11x-version',
+        '.agents/.cache/',
+        '.agents/backups/',
+        '.agents/proposals/',
+        '.agents/artifacts/',
+        '.agents/tmp/',
+        '.agents/mcp_config.json',
+        'graphify-out/',
+        '*.11x-backup',
+        '*.11x-incoming',
+        '.agents/**/*.bak',
+      ].join('\n') + '\n',
       'utf-8'
     );
     const missingAgentsSnap = evaluateStandard11xReadiness(upDir, [], []);

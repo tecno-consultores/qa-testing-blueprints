@@ -701,10 +701,14 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             fake_repo / "ACTIVE_TASK.md",
             fake_repo / "graphify-out" / "cache",
             fake_repo / "graphify-out" / "stray.tmp",
-            fake_repo / ".agents" / ".cache" / "coverage",
         )
         for p in purged:
             self.assertFalse(p.exists(), f"Debió purgarse: {p}")
+
+        self.assertTrue(
+            (fake_repo / ".agents" / ".cache" / "coverage").is_dir(),
+            "Limpieza normal debe preservar .agents/.cache/coverage para diff-cov",
+        )
 
         preserved = (
             fake_repo / "mcp-server" / "dist" / "index.js",
@@ -804,7 +808,13 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             )
             self.assertEqual(proc_deep.returncode, 0, msg=proc_deep.stderr)
             self.assertFalse((fake_repo / ".agents" / "proposals").exists())
-            self.assertFalse((fake_repo / ".agents" / ".cache").exists())
+            self.assertFalse((fake_repo / ".agents" / ".cache" / "coverage").exists())
+            self.assertTrue(
+                (fake_repo / ".agents" / ".cache" / "certify_state.json").is_file()
+            )
+            self.assertTrue(
+                (fake_repo / ".agents" / ".cache" / "session_checkpoint.json").is_file()
+            )
             self.assertFalse((fake_home / ".cache" / "qa-11x-blueprints").exists())
             self.assertTrue((fake_repo / "mcp-server" / "dist" / "index.js").is_file())
             self.assertTrue((fake_repo / ".qa-11x-version").is_file())

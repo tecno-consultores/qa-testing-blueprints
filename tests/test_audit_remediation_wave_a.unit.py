@@ -513,7 +513,7 @@ class TestDiffCoverageAndStandaloneGuards(unittest.TestCase):
             ws = Path(tmp)
             cases: tuple[tuple[str, list[str], int], ...] = (
                 ("lint_workflows.py", ["--workspace", str(ws)], 1),
-                ("lint_docs_gate.py", ["--workspace", str(ws)], 1),
+                ("lint_docs_gate.py", ["--workspace", str(ws)], 0),
                 (
                     "normalize_kcov_cobertura.py",
                     [
@@ -535,6 +535,31 @@ class TestDiffCoverageAndStandaloneGuards(unittest.TestCase):
                 ):
                     runpy.run_path(str(script_path), run_name="__main__")
                 self.assertEqual(ctx.exception.code, expected_code)
+
+    def test_lint_docs_gate_consumer_safe_and_roadmap_exit20_skipped(self) -> None:
+        ld = _import_script("lint_docs_gate")
+        with tempfile.TemporaryDirectory(prefix="qa11x_ld_h33_") as tmp:
+            ws = Path(tmp)
+            # Consumer repo with valid AGENTS.md + roadmap exit 20 (SKIPPED) -> 0 errors
+            (ws / "AGENTS.md").write_text(
+                "# Agents\nEnforce QA-GIT-GATE-01.\n", encoding="utf-8"
+            )
+            scripts_dir = ws / ".agents" / "scripts"
+            scripts_dir.mkdir(parents=True, exist_ok=True)
+            (scripts_dir / "verify_roadmap_consistency.py").write_text(
+                "import sys\nsys.exit(20)\n", encoding="utf-8"
+            )
+            self.assertEqual(ld.run_lint_docs(ws), [])
+
+            # Upstream repo missing git_closure_gate.md & AI_MASTER_PROMPT -> errors
+            (ws / "scripts").mkdir(parents=True, exist_ok=True)
+            (ws / "scripts" / "generar-manifiesto.py").write_text(
+                "# gen\n", encoding="utf-8"
+            )
+            (ws / "manifest.json").write_text("{}\n", encoding="utf-8")
+            up_errors = ld.run_lint_docs(ws)
+            self.assertTrue(any("git_closure_gate.md" in e for e in up_errors))
+            self.assertTrue(any("AI_MASTER_PROMPT.md" in e for e in up_errors))
 
     def test_docs_invariants_helper_edge_branches_and_router_leak(self) -> None:
         bilingual = _import_script("_docs_invariants_bilingual")

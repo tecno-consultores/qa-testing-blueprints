@@ -7,7 +7,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 CALM_DOCKER_IMAGE="${QA_NODE_IMAGE:-sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60}"
-ARCH_ARG="architecture/qa-11x.calm.json"
+ARCH_ARG=""
+ARCH_EXPLICIT=0
 PROFILE_ARG="auto"
 
 usage() {
@@ -26,6 +27,7 @@ while [ "$#" -gt 0 ]; do
         exit 1
       fi
       ARCH_ARG="$2"
+      ARCH_EXPLICIT=1
       shift 2
       ;;
     --arch=*)
@@ -34,6 +36,7 @@ while [ "$#" -gt 0 ]; do
         printf '❌ [CALM] Falta argumento para --arch=\n' >&2
         exit 1
       fi
+      ARCH_EXPLICIT=1
       shift
       ;;
     --profile)
@@ -68,6 +71,7 @@ while [ "$#" -gt 0 ]; do
         exit 1
       fi
       ARCH_ARG="$1"
+      ARCH_EXPLICIT=1
       POSITIONAL_SET=1
       shift
       ;;
@@ -78,6 +82,56 @@ if [[ "${PROFILE_ARG}" != "auto" && "${PROFILE_ARG}" != "generic" && "${PROFILE_
   printf '❌ [CALM] Perfil no soportado: %s (use auto, generic o qa-11x-self)\n' "${PROFILE_ARG}" >&2
   exit 1
 fi
+
+detect_declared_tier() {
+  local cfg="${REPO_ROOT}/.qa-11x.json"
+  if [ -f "${cfg}" ]; then
+    local matched
+    matched="$(sed -n 's/.*"tier"[[:space:]]*:[[:space:]]*"\([a-zA-Z]*\)".*/\1/p' "${cfg}" | head -n 1 | tr '[:upper:]' '[:lower:]')"
+    case "${matched}" in
+      starter | standard | enterprise)
+        printf '%s' "${matched}"
+        return 0
+        ;;
+    esac
+  fi
+  printf 'standard'
+}
+
+resolve_default_calm_arch() {
+  if [ "${ARCH_EXPLICIT}" -eq 1 ]; then
+    return 0
+  fi
+  if [ -f "${REPO_ROOT}/architecture/qa-11x.calm.json" ]; then
+    ARCH_ARG="architecture/qa-11x.calm.json"
+    return 0
+  fi
+  local first_calm=""
+  if [ -d "${REPO_ROOT}/architecture" ]; then
+    first_calm="$(find "${REPO_ROOT}/architecture" -maxdepth 2 -type f -name '*.calm.json' | LC_ALL=C sort | head -n 1 || true)"
+  fi
+  if [ -n "${first_calm}" ]; then
+    ARCH_ARG="${first_calm#"${REPO_ROOT}/"}"
+    return 0
+  fi
+  local is_upstream=0
+  if [ "${PROFILE_ARG}" = "qa-11x-self" ] || { [ -f "${REPO_ROOT}/scripts/generar-manifiesto.py" ] && [ -f "${REPO_ROOT}/manifest.json" ]; }; then
+    is_upstream=1
+  fi
+  local effective_tier
+  effective_tier="$(detect_declared_tier)"
+  if [ "${is_upstream}" -eq 0 ] && [ "${effective_tier}" != "enterprise" ]; then
+    printf '⚠️ [SKIPPED] Sin archivo architecture/*.calm.json (tier=%s; CALM obligatorio solo en enterprise).\n' "${effective_tier}"
+    exit 0
+  fi
+  if [ "${is_upstream}" -eq 0 ] && [ "${effective_tier}" = "enterprise" ]; then
+    printf '❌ [CALM] Tier enterprise requiere architecture/*.calm.json y no se encontró ninguno en %s/architecture.\n' "${REPO_ROOT}" >&2
+    exit 1
+  fi
+  ARCH_ARG="architecture/qa-11x.calm.json"
+}
+
+resolve_default_calm_arch
 
 run_calm_validation_payload() {
   node - <<'JSEOF'

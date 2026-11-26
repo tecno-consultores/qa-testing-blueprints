@@ -69,7 +69,6 @@ const CANDIDATE_DIR_NAMES = [
   '.pnpm-store',
   '.turbo',
   '.agents/tmp',
-  '.agents/.cache/coverage',
   '.agents/.cache/tmp',
   '.agents/artifacts',
 ];
@@ -80,8 +79,14 @@ const DEEP_PRUNE_DIR_NAMES = [
   '.agents/backups',
   '.agents/proposals',
   '.agents/.qa-evidence.json',
-  '.agents/.cache',
+  '.agents/.cache/coverage',
+  '.agents/.cache/sarif',
 ];
+
+const PROTECTED_BREAKER_REL_PATHS = new Set<string>([
+  '.agents/.cache/certify_state.json',
+  '.agents/.cache/session_checkpoint.json',
+]);
 
 const CANDIDATE_FILE_PATTERNS = [
   'karate.jar',
@@ -242,16 +247,21 @@ export function removeTarget(
   baseDir: string,
   relPath: string
 ): { removed: boolean; error?: unknown } {
+  const normalizedRel = relPath.replace(/\\/g, '/');
   if (
     !relPath ||
     relPath.includes('\0') ||
     path.isAbsolute(relPath) ||
     relPath.split(/[\\/]/).includes('..') ||
+    PROTECTED_BREAKER_REL_PATHS.has(normalizedRel) ||
+    normalizedRel.endsWith('/.agents/.cache/certify_state.json') ||
+    normalizedRel === '.agents/.cache' ||
+    normalizedRel.endsWith('/.agents/.cache') ||
     hasSymlinkAncestorSegment(baseDir, relPath)
   ) {
     return {
       removed: false,
-      error: new Error(`Ruta insegura o symlink ancestral rechazado: ${relPath}`),
+      error: new Error(`Ruta insegura, protegida (BREAKER-42) o symlink ancestral rechazado: ${relPath}`),
     };
   }
   const fullPath = path.join(baseDir, relPath);

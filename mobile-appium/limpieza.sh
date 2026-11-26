@@ -12,12 +12,31 @@ cd "${SCRIPT_DIR}"
 
 QUIET=false
 DEEP_PRUNE=false
+DOCKER_PRUNE=false
+PRUNE_YES=false
 for arg in "$@"; do
   case "${arg}" in
+    -h | --help)
+      echo "Uso: ./limpieza.sh [-q|--quiet] [--deep] [--docker-prune] [-y|--yes]"
+      exit 0
+      ;;
     -q | --quiet) QUIET=true ;;
-    --deep | --docker-prune) DEEP_PRUNE=true ;;
+    --deep) DEEP_PRUNE=true ;;
+    --docker-prune) DOCKER_PRUNE=true ;;
+    -y | --yes) PRUNE_YES=true ;;
+    *)
+      echo "❌ ERROR: Opción no reconocida en limpieza.sh: ${arg}" >&2
+      exit 1
+      ;;
   esac
 done
+if [ "${DOCKER_PRUNE}" = true ]; then
+  if [ "${PRUNE_YES}" != true ]; then
+    echo "❌ [Clean 11X] --docker-prune rechazado: añade -y|--yes para confirmar la poda Docker." >&2
+    exit 1
+  fi
+  DEEP_PRUNE=true
+fi
 
 if command -v docker >/dev/null 2>&1; then
   down_flags=(--remove-orphans)

@@ -382,6 +382,7 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
     it('validates bidirectional API parity, manifest SHA-256 drift, and ROADMAP 100% consistency', async () => {
       fs.writeFileSync(path.join(tmpDir, 'TESTING.md'), '# Testing\n', 'utf8');
       fs.writeFileSync(path.join(tmpDir, 'CHANGELOG.md'), '# Changelog\n\n## [Unreleased]\n- Ok\n', 'utf8');
+      fs.writeFileSync(path.join(tmpDir, 'SECURITY.md'), '# Security\n', 'utf8');
 
       // 1. Bidirectional API parity: backend route without frontend consumer
       const apiDir = path.join(tmpDir, 'fastapi', 'src', 'api', 'v1');

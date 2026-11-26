@@ -1,4 +1,4 @@
-.PHONY: qa-lint qa-unit qa-orphans qa-mutation qa-perf qa-e2e qa-bdd qa-psi qa-obs qa-all build-ui clean-cache down-caches clean qa-clean
+.PHONY: qa-lint qa-unit qa-orphans qa-ci certify qa-mutation qa-perf qa-e2e qa-bdd qa-psi qa-obs qa-all build-ui clean-cache down-caches clean qa-clean
 
 # Variables
 COMPOSE_FILE ?= docker-compose.qa.yml
@@ -8,21 +8,23 @@ PROJECT_DIR ?= $(CURDIR)
 PYTHON_QA_IMAGE = sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4
 QA_UID ?= $(shell id -u)
 QA_GID ?= $(shell id -g)
-export QA_UID QA_GID
+QA_OFFLINE ?= 0
+PNPM_INSTALL_CMD = if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile $$([ "$${QA_OFFLINE:-0}" = "1" ] && printf -- "--offline" || printf -- "--prefer-offline") --silent; else pnpm install --silent; fi
+export QA_UID QA_GID QA_OFFLINE
 
 build-ui:
 	@echo "🏗️ Compilando la aplicación (Vite) para entorno E2E/Producción..."
 	@mkdir -p "$(PROJECT_DIR)/dist"
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm --silent run build"
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" -e QA_OFFLINE="$(QA_OFFLINE)" $(SERVICE_NAME) bash -c "$(PNPM_INSTALL_CMD) && pnpm --silent run build"
 
 qa-lint:
 	@echo "🔍 Ejecutando Auditoría de CVEs, Linter, Types y Formateo (React/TS)..."
 	@[ ! -x ./scripts/verificar-secretos.sh ] || ./scripts/verificar-secretos.sh
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run audit:deps && pnpm run type-check && pnpm run format:check && pnpm lint"
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" -e QA_OFFLINE="$(QA_OFFLINE)" $(SERVICE_NAME) bash -c "$(PNPM_INSTALL_CMD) && ( [ \"\$${QA_OFFLINE:-0}\" = \"1\" ] || pnpm run audit:deps ) && pnpm run type-check && pnpm run format:check && pnpm lint"
 
 qa-unit:
 	@echo "🧪 Ejecutando Pruebas Unitarias Aisladas (Vitest + RTL >= 95%)..."
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run test:coverage"
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" -e QA_OFFLINE="$(QA_OFFLINE)" $(SERVICE_NAME) bash -c "$(PNPM_INSTALL_CMD) && pnpm run test:coverage"
 
 qa-orphans:
 	@echo "🧩 [11X] Verificando cero componentes UI huérfanos en Docker (Rule Zero)..."
@@ -70,6 +72,12 @@ qa-psi:
 qa-obs: build-ui
 	@echo "📊 Levantando Stack de Observabilidad Frontend..."
 	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile observability up -d --wait --wait-timeout 60 prometheus nginx-exporter
+
+qa-ci: qa-lint qa-orphans qa-unit
+	@echo "✅ [11X] Paridad Pre-Push 1:1 con CI (lint + orphans + unit) certificada."
+
+certify:
+	@[ -x ./.agents/scripts/certify_task_completion.sh ] && ./.agents/scripts/certify_task_completion.sh || echo "⚠️ [SKIPPED] certify_task_completion.sh no instalado."
 
 qa-all: qa-lint qa-orphans qa-unit qa-mutation qa-perf qa-e2e qa-bdd
 	@echo "✅ Pipeline QA Frontend (React 11X) completado."

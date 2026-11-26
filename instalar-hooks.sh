@@ -93,8 +93,8 @@ if [ "${#MCP_TS_STAGED[@]}" -gt 0 ] && [ -f "./mcp-server/package.json" ]; then
 	if [ -d "./mobile-appium" ]; then
 		MCP_PRECOMMIT_VOLS+=(-v "$(pwd)/mobile-appium:/mobile-appium:ro")
 	fi
-	docker run --rm --restart=no --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "$(pwd)/mcp-server:/app" ${MCP_PRECOMMIT_VOLS[@]+"${MCP_PRECOMMIT_VOLS[@]}"} -w /app sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60 \
-		bash -c 'pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && npx eslint --max-warnings 0 "$@" && pnpm --silent run typecheck' _ "${MCP_TS_STAGED[@]}"
+	docker run --rm --restart=no --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -e QA_OFFLINE="${QA_OFFLINE:-0}" -v "$(pwd)/mcp-server:/app" ${MCP_PRECOMMIT_VOLS[@]+"${MCP_PRECOMMIT_VOLS[@]}"} -w /app sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60 \
+		bash -c 'PNPM_FLAGS=(--frozen-lockfile --prefer-offline --trust-lockfile --silent); [ "${QA_OFFLINE:-0}" = "1" ] && PNPM_FLAGS+=(--offline); pnpm install "${PNPM_FLAGS[@]}" && npx eslint --max-warnings 0 "$@" && pnpm --silent run typecheck' _ "${MCP_TS_STAGED[@]}"
 fi
 if [ "${#SH_STAGED[@]}" -gt 0 ] && { [ -f "./docker-compose.qa.yml" ] || [ -f "./lefthook.yml" ] || [ -f "./manifest.json" ]; }; then
 	docker run --rm --network none --restart=no --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e _USER=qa -v "$(pwd):/repo:ro" -w /repo sinfallas/base-bash-qa@sha256:2d1f579e20ef384e85da839304dbae2d28231fcdc893c21cbe79861b44d675a7 \
@@ -115,8 +115,8 @@ if [ "${#PY_STAGED[@]}" -gt 0 ]; then
 		done
 	fi
 	if [ -n "${QA_PY_SVC}" ]; then
-		QA_UID="$(id -u)" QA_GID="$(id -g)" docker compose -f docker-compose.qa.yml run --rm -T ${QA_PY_DEPS[@]+"${QA_PY_DEPS[@]}"} --entrypoint bash -u "$(id -u):$(id -g)" -e HOME=/tmp -e UV_CACHE_DIR=/tmp/uv-cache -e UV_PROJECT_ENVIRONMENT=/tmp/qa-venv -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 "${QA_PY_SVC}" \
-			-c 'if ! mkdir -p "${UV_CACHE_DIR:-/tmp/uv-cache}" 2>/dev/null || [ ! -w "${UV_CACHE_DIR:-/tmp/uv-cache}" ]; then export UV_CACHE_DIR=/tmp/qa-uv-cache; fi; if [ -f uv.lock ]; then uv sync --frozen --all-extras -q && uv run --frozen --no-sync ruff check "$@" && uv run --frozen --no-sync ruff format --check "$@" && uv run --frozen --no-sync mypy --strict --cache-dir=/tmp/mypy "$@"; elif [ -w . ]; then uv sync --all-extras -q && uv run --no-sync ruff check "$@" && uv run --no-sync ruff format --check "$@" && uv run --no-sync mypy --strict --cache-dir=/tmp/mypy "$@"; else PATH="/tmp/qa-venv/bin:${PATH}" ruff check "$@" && PATH="/tmp/qa-venv/bin:${PATH}" ruff format --check "$@" && PATH="/tmp/qa-venv/bin:${PATH}" mypy --strict --cache-dir=/tmp/mypy "$@"; fi' _ "${PY_STAGED[@]}"
+		QA_UID="$(id -u)" QA_GID="$(id -g)" docker compose -f docker-compose.qa.yml run --rm -T ${QA_PY_DEPS[@]+"${QA_PY_DEPS[@]}"} --entrypoint bash -u "$(id -u):$(id -g)" -e HOME=/tmp -e UV_CACHE_DIR=/tmp/uv-cache -e UV_PROJECT_ENVIRONMENT=/tmp/qa-venv -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -e QA_OFFLINE="${QA_OFFLINE:-0}" "${QA_PY_SVC}" \
+			-c 'if ! mkdir -p "${UV_CACHE_DIR:-/tmp/uv-cache}" 2>/dev/null || [ ! -w "${UV_CACHE_DIR:-/tmp/uv-cache}" ]; then export UV_CACHE_DIR=/tmp/qa-uv-cache; fi; UV_OFF=(); [ "${QA_OFFLINE:-0}" = "1" ] && UV_OFF=(--offline); if [ -f uv.lock ]; then uv sync --frozen "${UV_OFF[@]}" --all-extras -q && uv run --frozen --no-sync ruff check "$@" && uv run --frozen --no-sync ruff format --check "$@" && uv run --frozen --no-sync mypy --strict --cache-dir=/tmp/mypy "$@"; elif [ -w . ]; then uv sync "${UV_OFF[@]}" --all-extras -q && uv run --no-sync ruff check "$@" && uv run --no-sync ruff format --check "$@" && uv run --no-sync mypy --strict --cache-dir=/tmp/mypy "$@"; else PATH="/tmp/qa-venv/bin:${PATH}" ruff check "$@" && PATH="/tmp/qa-venv/bin:${PATH}" ruff format --check "$@" && PATH="/tmp/qa-venv/bin:${PATH}" mypy --strict --cache-dir=/tmp/mypy "$@"; fi' _ "${PY_STAGED[@]}"
 	elif [ -f "./pytest.ini" ] || [ -f "./pyproject.toml" ]; then
 		docker run --rm --network none --restart=no --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -e MYPYPATH=/app/.agents/scripts:/app/ai-evals:/app/vibe-rescue -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4 \
 			bash -c 'ruff check --select E,F,W,I,UP,B,C901,FLY --config "lint.mccabe.max-complexity=5" "$@" && mypy --strict --cache-dir=/tmp/mypy "$@"' _ "${PY_STAGED[@]}"
@@ -147,8 +147,19 @@ cat >"${HOOKS_DIR}/pre-push" <<'EOF'
 #!/usr/bin/env bash
 # Managed by QA-11X instalar-hooks.sh
 set -euo pipefail
+QA_TIER="standard"
+if [ -f "./scripts/generar-manifiesto.py" ] && [ -f "./manifest.json" ]; then
+	QA_TIER="enterprise"
+elif [ -f "./.qa-11x.json" ]; then
+	_parsed_tier="$(sed -nE 's/.*"tier"[[:space:]]*:[[:space:]]*"(starter|standard|enterprise)".*/\1/p' ./.qa-11x.json | head -n 1)"
+	[ -n "${_parsed_tier}" ] && QA_TIER="${_parsed_tier}"
+fi
 if [ -x "./scripts/auditar-infra.sh" ]; then
-	./scripts/auditar-infra.sh
+	if [ "${QA_TIER}" = "starter" ]; then
+		echo "ℹ️ [QA-11X | Tier: starter] auditar-infra.sh omitido en pre-push."
+	else
+		./scripts/auditar-infra.sh
+	fi
 fi
 MCP_CHANGED=false
 if ! git rev-parse --verify origin/main >/dev/null 2>&1; then
@@ -164,9 +175,9 @@ if [ "${MCP_CHANGED}" = true ] && [ -f "./mcp-server/package.json" ]; then
 			MCP_EXTRA_VOLS+=(-v "$(pwd)/${dir}:/${dir}:ro")
 		fi
 	done
-	docker run --rm --restart=no --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false \
+	docker run --rm --restart=no --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -e QA_OFFLINE="${QA_OFFLINE:-0}" \
 		-v "$(pwd)/mcp-server:/app" -v "$(pwd)/.agents/.cache/coverage:/cov-out" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60 \
-		bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run lint && pnpm --silent run typecheck && pnpm --silent run test:unit && if [ -f coverage/lcov.info ]; then sed -E 's|^SF:/app/|SF:mcp-server/|; s|^SF:(src/)|SF:mcp-server/\1|' coverage/lcov.info > /cov-out/mcp-server.info; fi && rm -rf coverage .eslintcache"
+		bash -c "PNPM_FLAGS=(--frozen-lockfile --prefer-offline --trust-lockfile --silent); [ \"\${QA_OFFLINE:-0}\" = \"1\" ] && PNPM_FLAGS+=(--offline); pnpm install \"\${PNPM_FLAGS[@]}\" && pnpm --silent run lint && pnpm --silent run typecheck && pnpm --silent run test:unit && if [ -f coverage/lcov.info ]; then sed -E 's|^SF:/app/|SF:mcp-server/|; s|^SF:(src/)|SF:mcp-server/\1|' coverage/lcov.info > /cov-out/mcp-server.info; fi && rm -rf coverage .eslintcache"
 	if [ -x "./scripts/probar-mcp-example.sh" ]; then
 		./scripts/probar-mcp-example.sh --in-place
 	fi
@@ -200,7 +211,11 @@ if [ -f "./scripts/generar-manifiesto.py" ]; then
 	fi
 fi
 if [ -d "./mcp-server/test" ]; then
-	docker run --rm --network none --restart=no --security-opt=no-new-privileges:true -v "$(pwd)/mcp-server/test:/app/src/test/java/examples/test:ro" -v "$(pwd):/repo:ro" sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89 mvn -B -q clean test
+	if [ "${QA_TIER}" = "starter" ]; then
+		echo "ℹ️ [QA-11X | Tier: starter] karate-bdd-contracts omitido en pre-push."
+	else
+		docker run --rm --network none --restart=no --security-opt=no-new-privileges:true -v "$(pwd)/mcp-server/test:/app/src/test/java/examples/test:ro" -v "$(pwd):/repo:ro" sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89 mvn -B -q clean test
+	fi
 fi
 if [ -d "./bash-scripts/test" ]; then
 	if [ -f "./Makefile" ] && [ -d "./tests/bats" ] && command -v make >/dev/null 2>&1; then

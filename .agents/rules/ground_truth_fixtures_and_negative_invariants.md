@@ -11,7 +11,7 @@
 - **Silo Mock Blindness:** Testing Module A mutations (`POST`/`PUT`/`PATCH`/`DELETE`) solely via `HTTP 200/201` while mocking Consumer Module B's read state hides broken joins/projections. Suites MUST query Consumer Module B `GET` endpoints and stores live without intermediate mocks.
 - **2-State Temporal Blindness:** Testing only `scheduled` vs `cancelled` omits the live active state (`starts_at <= now <= ends_at`) and premature timer/scheduler cleanup.
 - **Instant-Mock Timeout & Batch `200 OK` Blindness:** `0 ms` mocks hide `5s–10s` HTTP timeouts aborting heavy synchronous transfers (`>= 20 MB` archives leaving `0-byte` files) and `HTTP 200 OK` batch responses carrying failed items (`results[].status == "FAILED"`). Heavy-transfer clients MUST enforce per-request `timeout >= 180s` and purge `0-byte` files (verified via `call_args`); batch callers MUST inspect per-item `results[].status`.
-- **`MockDbSession` Type Blindness:** Populate `Numeric(p, s)` ORM fields with `decimal.Decimal` (never `float`) and validate `JSON`/`JSONB` columns via `json.dumps()` without `default=str`.
+- **`MockDbSession` Type Blindness (`.unit.*` ONLY):** `MockDbSession` and inspected `write_audit_log` `AsyncMock` (asserting `call_args`) are permitted exclusively in isolated `.unit.*` tests (never in integration/Anti-Silo tests). Populate `Numeric(p, s)` ORM fields with `decimal.Decimal` (never `float`) and validate `JSON`/`JSONB` columns via `json.dumps()` without `default=str`.
 
 ## 2. Trimodal Fixture Matrix & 3-Phase Temporal Lifecycle
 

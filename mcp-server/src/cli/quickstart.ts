@@ -3,6 +3,7 @@
 
 import fs from 'node:fs';
 import * as path from 'node:path';
+import { createInterface } from 'node:readline/promises';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import {
   initOrAppendAgentsMd,
@@ -13,12 +14,27 @@ import {
   type InitOrAppendAgentsMdResult,
   type SupportedLang,
 } from '../tools/initOrAppendAgentsMd.js';
+import {
+  DEFAULT_QA_11X_TIER,
+  QA_11X_CONFIG_FILENAME,
+  QA_11X_CONFIG_SCHEMA_VERSION,
+  TIER_ENTERPRISE,
+  TIER_STANDARD,
+  TIER_STARTER,
+  TIER_ACTIVE_GATES,
+  buildQa11xConfigV3Payload,
+  deriveActiveGatesForTier,
+  findMissingCanonicalGitignoreEntries,
+  formatQa11xStatusBanner,
+  readQa11xConfig,
+  type LoadedQa11xConfig,
+} from '../services/qa11xConfig.js';
+import type { GovernanceDocDecision, Qa11xProjectConfigV3, StandardTier } from '../types.js';
 import { reportDebugCatchError, sanitizeDiagnosticText } from '../utils/diagnosticFormatter.js';
 
 const UTF8_ENCODING = 'utf8' as const;
-const SCHEMA_VERSION_2 = '2.0.0' as const;
-const CONFIG_REL_PATH = '.qa-11x.json' as const;
-const ACTIVE_TASK_REL_PATH = '.agents/ACTIVE_TASK.md' as const;
+const CONFIG_REL_PATH = QA_11X_CONFIG_FILENAME;
+const GITIGNORE_REL_PATH = '.gitignore' as const;
 const GITHUB_WORKFLOW_REL_PATH = '.github/workflows/qa-11x-pr.yml' as const;
 const AGENTS_MD_REL_PATH = 'AGENTS.md' as const;
 const PR_CHECK_ACTION_REF =
@@ -26,9 +42,7 @@ const PR_CHECK_ACTION_REF =
 const CHECKOUT_PINNED_REF =
   'actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0' as const;
 
-export const TIER_STARTER = 'starter' as const;
-export const TIER_STANDARD = 'standard' as const;
-export const TIER_ENTERPRISE = 'enterprise' as const;
+export { TIER_STARTER, TIER_STANDARD, TIER_ENTERPRISE };
 export const CI_GITHUB = 'github' as const;
 export const CI_NONE = 'none' as const;
 
@@ -51,7 +65,7 @@ export type QuickstartStackName =
   | typeof STACK_BASH_SCRIPTS
   | 'generic';
 
-export type QuickstartTier = typeof TIER_STARTER | typeof TIER_STANDARD | typeof TIER_ENTERPRISE;
+export type QuickstartTier = StandardTier;
 export type QuickstartCiProvider = typeof CI_GITHUB | typeof CI_NONE;
 export type QuickstartFileAction = 'created' | 'updated' | 'preserved' | 'planned';
 
@@ -63,28 +77,26 @@ export interface QuickstartProjectProfile {
   readonly recommendedMcpTools: readonly string[];
 }
 
+export type QuickstartPromptFn = (question: string) => Promise<string>;
+
 export interface QuickstartOptions {
   readonly dir?: string;
   readonly projectPath?: string;
   readonly baseBoundaryDir?: string;
   readonly tier?: QuickstartTier;
+  readonly tierConfirmedByUser?: boolean;
+  readonly isStdinTty?: boolean;
+  readonly promptTierFn?: QuickstartPromptFn;
   readonly lang?: SupportedLang;
   readonly agents?: readonly string[] | string;
   readonly ci?: QuickstartCiProvider;
   readonly dryRun?: boolean;
   readonly force?: boolean;
   readonly json?: boolean;
+  readonly governanceDocs?: Readonly<Record<string, GovernanceDocDecision>>;
 }
 
-export interface QuickstartConfig {
-  readonly schemaVersion: typeof SCHEMA_VERSION_2;
-  readonly tier: QuickstartTier;
-  readonly lang: SupportedLang;
-  readonly detectedStacks: readonly QuickstartStackName[];
-  readonly ruleZeroEphemeralDocker: true;
-  readonly activeGates: readonly string[];
-  readonly vibePrototypeDetected: boolean;
-}
+export type QuickstartConfig = Qa11xProjectConfigV3;
 
 export interface QuickstartFileRecord {
   readonly relativePath: string;
@@ -94,6 +106,8 @@ export interface QuickstartFileRecord {
 export interface QuickstartResult {
   readonly projectPath: string;
   readonly tier: QuickstartTier;
+  readonly tierConfirmedByUser: boolean;
+  readonly qa11xBanner: string;
   readonly lang: SupportedLang;
   readonly ci: QuickstartCiProvider;
   readonly dryRun: boolean;
@@ -111,39 +125,8 @@ export interface QuickstartResult {
   readonly nextCommand: string;
 }
 
-const STARTER_GATES: readonly string[] = Object.freeze([
-  'secret-hygiene',
-  'rule-zero-ephemeral-docker',
-  'ai-agent-connectors',
-]);
-
-const STANDARD_EXTRA_GATES: readonly string[] = Object.freeze([
-  'unit-coverage-95',
-  'ast-blast-radius-ci',
-  'ui-antipattern-linter',
-  'lightweight-contracts',
-]);
-
-const ENTERPRISE_GATES: readonly string[] = Object.freeze([
-  ...STARTER_GATES,
-  'static-analysis-cc5',
-  'unit-coverage-95',
-  'ast-blast-radius-ci',
-  'postgres17-rls-worm-stig',
-  'pact-cdct-karate-bdd',
-  'ui-screenplay-wcag-anti-jsdom',
-  'mutation-testing',
-  'k6-performance-trivy-sbom',
-  'calm-architecture-validation',
-  'dual-ai-evals-release-gate',
-]);
-
 export const QUICKSTART_TIER_PROFILES: Readonly<Record<QuickstartTier, readonly string[]>> =
-  Object.freeze({
-    [TIER_STARTER]: STARTER_GATES,
-    [TIER_STANDARD]: Object.freeze([...STARTER_GATES, ...STANDARD_EXTRA_GATES]),
-    [TIER_ENTERPRISE]: ENTERPRISE_GATES,
-  });
+  TIER_ACTIVE_GATES;
 
 const FORBIDDEN_SYSTEM_ROOTS: readonly string[] = Object.freeze([
   '/',
@@ -304,7 +287,7 @@ function resolveContainedFile(projectRoot: string, relPath: string): string {
 
 export function validateQuickstartTier(rawTier?: string): QuickstartTier {
   if (rawTier === undefined) {
-    return TIER_STARTER;
+    return DEFAULT_QA_11X_TIER;
   }
   const normalized = rawTier.normalize('NFKC').trim().toLowerCase();
   if (normalized === TIER_STARTER || normalized === TIER_STANDARD || normalized === TIER_ENTERPRISE) {
@@ -576,26 +559,16 @@ export function detectProjectStackProfile(projectDir: string): QuickstartProject
 
 function resolveEffectiveTier(
   requestedTier: QuickstartTier | undefined,
-  existingConfig: Record<string, unknown> | null,
+  loadedConfig: LoadedQa11xConfig,
   force: boolean
 ): QuickstartTier {
   if (requestedTier !== undefined) {
     return validateQuickstartTier(requestedTier);
   }
-  if (!force && existingConfig !== null && typeof existingConfig.tier === 'string') {
-    try {
-      return validateQuickstartTier(existingConfig.tier);
-    } catch (err: unknown) {
-      // Unrecognized persisted tier in optional .qa-11x.json safely defaults to starter
-      reportDebugCatchError('quickstart.resolveEffectiveTier', err);
-      return TIER_STARTER;
-    }
+  if (!force && loadedConfig.declaredTier !== null) {
+    return loadedConfig.declaredTier;
   }
-  return TIER_STARTER;
-}
-
-function isSupportedLangValue(value: unknown): value is SupportedLang {
-  return value === 'auto' || value === 'es' || value === 'en';
+  return DEFAULT_QA_11X_TIER;
 }
 
 function detectAgentsMdLang(agentsMd: string | null): SupportedLang {
@@ -611,13 +584,13 @@ function detectAgentsMdLang(agentsMd: string | null): SupportedLang {
 function resolveEffectiveLang(
   projectRoot: string,
   requestedLang: SupportedLang | undefined,
-  existingConfig: Record<string, unknown> | null
+  loadedConfig: LoadedQa11xConfig
 ): SupportedLang {
   if (requestedLang !== undefined) {
     return validateSupportedLang(requestedLang);
   }
-  if (existingConfig !== null && isSupportedLangValue(existingConfig.lang)) {
-    return existingConfig.lang;
+  if (loadedConfig.lang !== undefined) {
+    return loadedConfig.lang;
   }
   return detectAgentsMdLang(readTextSafe(path.join(projectRoot, AGENTS_MD_REL_PATH)));
 }
@@ -633,23 +606,27 @@ function resolveAgentsSpec(rawAgents?: readonly string[] | string): AgentsTarget
   return resolved;
 }
 
-function buildCompactActiveTaskContent(
-  tier: QuickstartTier,
-  stacks: readonly QuickstartStackName[],
-  lang: SupportedLang
-): string {
-  return [
-    '# Active Task Diary — QA 11X',
-    '<!-- AUTO-GENERATED BY checkpoint_ctl.py — DO NOT EDIT MANUALLY -->',
-    '',
-    `- **Task:** QA-11X Quickstart Adoption (\`tier=${tier}\`, \`lang=${lang}\`, \`stacks=${stacks.join(', ')}\`)`,
-    '- **Status:** `IN_PROGRESS (0%)`',
-    '',
-    '## Checklist',
-    '- [x] Bootstrap `.qa-11x.json`, `AGENTS.md`, and CI PR check.',
-    '- [ ] Execute first ephemeral Rule Zero verification (`run_ephemeral_qa` / `certify_11x_gate`).',
-    '',
-  ].join('\n');
+function syncQuickstartGitignore(
+  projectRoot: string,
+  dryRun: boolean
+): QuickstartFileRecord | null {
+  const safePath = resolveContainedFile(projectRoot, GITIGNORE_REL_PATH);
+  const existing = readTextSafe(safePath);
+  const hasGitDir = fs.existsSync(path.join(projectRoot, '.git'));
+  if (existing === null && !hasGitDir) {
+    return null;
+  }
+  const missing = findMissingCanonicalGitignoreEntries(existing);
+  if (missing.length === 0) {
+    return { relativePath: GITIGNORE_REL_PATH, action: 'preserved' };
+  }
+  if (dryRun) {
+    return { relativePath: GITIGNORE_REL_PATH, action: 'planned' };
+  }
+  const prefix = existing && existing.length > 0 ? `${existing.trimEnd()}\n\n` : '';
+  const block = `# QA-11X Ephemeral & Governance Hygiene\n${missing.join('\n')}\n`;
+  fs.writeFileSync(safePath, `${prefix}${block}`, UTF8_ENCODING);
+  return { relativePath: GITIGNORE_REL_PATH, action: existing === null ? 'created' : 'updated' };
 }
 
 function buildGithubWorkflowContent(tier: QuickstartTier, lang: SupportedLang): string {
@@ -686,6 +663,54 @@ function buildGithubWorkflowContent(tier: QuickstartTier, lang: SupportedLang): 
   ].join('\n');
 }
 
+function syncManagedWorkflowFile(
+  projectRoot: string,
+  tier: QuickstartTier,
+  lang: SupportedLang,
+  options: { readonly dryRun: boolean; readonly force: boolean; readonly tierChanged: boolean }
+): QuickstartFileRecord {
+  const safePath = resolveContainedFile(projectRoot, GITHUB_WORKFLOW_REL_PATH);
+  const existing = readTextSafe(safePath);
+  const generated = buildGithubWorkflowContent(tier, lang);
+  if (existing === null) {
+    return syncManagedTextFile(projectRoot, GITHUB_WORKFLOW_REL_PATH, generated, {
+      dryRun: options.dryRun,
+      force: options.force,
+      overwriteExisting: true,
+    });
+  }
+  const isManagedWorkflow = existing.includes('qa-11x-pr-check');
+  if (options.force) {
+    return syncManagedTextFile(projectRoot, GITHUB_WORKFLOW_REL_PATH, generated, {
+      dryRun: options.dryRun,
+      force: true,
+      overwriteExisting: true,
+    });
+  }
+  if (isManagedWorkflow && options.tierChanged) {
+    let replacedTier = false;
+    const updated = existing
+      .split('\n')
+      .map((line) => {
+        if (!replacedTier && line.trimStart().startsWith('tier:')) {
+          replacedTier = true;
+          const indentLen = line.length - line.trimStart().length;
+          return `${line.slice(0, indentLen)}tier: ${tier}`;
+        }
+        return line;
+      })
+      .join('\n');
+    if (updated !== existing) {
+      return syncManagedTextFile(projectRoot, GITHUB_WORKFLOW_REL_PATH, updated, {
+        dryRun: options.dryRun,
+        force: false,
+        overwriteExisting: true,
+      });
+    }
+  }
+  return { relativePath: GITHUB_WORKFLOW_REL_PATH, action: 'preserved' };
+}
+
 function syncManagedTextFile(
   projectRoot: string,
   relPath: string,
@@ -711,8 +736,10 @@ function syncManagedTextFile(
 
 interface BuildConfigPayloadArgs {
   readonly tier: QuickstartTier;
+  readonly tierConfirmedByUser: boolean;
   readonly lang: SupportedLang;
   readonly profile: QuickstartProjectProfile;
+  readonly governanceDocs?: Readonly<Record<string, GovernanceDocDecision>>;
   readonly existingConfig: Record<string, unknown> | null;
   readonly force: boolean;
 }
@@ -720,18 +747,16 @@ interface BuildConfigPayloadArgs {
 function buildConfigPayload(
   args: BuildConfigPayloadArgs
 ): { readonly canonical: QuickstartConfig; readonly serialized: string } {
-  const canonical: QuickstartConfig = {
-    schemaVersion: SCHEMA_VERSION_2,
+  return buildQa11xConfigV3Payload({
     tier: args.tier,
+    tierConfirmedByUser: args.tierConfirmedByUser,
     lang: args.lang,
-    detectedStacks: args.profile.stacks,
-    ruleZeroEphemeralDocker: true,
-    activeGates: QUICKSTART_TIER_PROFILES[args.tier],
+    stacks: args.profile.stacks,
+    governanceDocs: args.governanceDocs,
     vibePrototypeDetected: args.profile.vibePrototypeDetected,
-  };
-  const merged =
-    !args.force && args.existingConfig !== null ? { ...args.existingConfig, ...canonical } : canonical;
-  return { canonical, serialized: `${JSON.stringify(merged, null, 2)}\n` };
+    existingRaw: args.existingConfig,
+    force: args.force,
+  });
 }
 
 function mapAgentsAction(action: InitOrAppendAgentsMdResult['action']): QuickstartFileAction {
@@ -766,6 +791,75 @@ function computeNextCommand(
   return 'npx -y @sinfallas/mcp-qa-11x install-skill --include-scripts --reconcile';
 }
 
+const TIER_PROMPT_CHOICES: Readonly<Record<string, QuickstartTier>> = Object.freeze({
+  '': DEFAULT_QA_11X_TIER,
+  '1': TIER_STARTER,
+  starter: TIER_STARTER,
+  '2': TIER_STANDARD,
+  standard: TIER_STANDARD,
+  '3': TIER_ENTERPRISE,
+  enterprise: TIER_ENTERPRISE,
+});
+
+function parseInteractiveTierAnswer(raw: string): QuickstartTier {
+  const key = raw.trim().toLowerCase();
+  const mapped = Object.hasOwn(TIER_PROMPT_CHOICES, key) ? TIER_PROMPT_CHOICES[key] : undefined;
+  if (mapped !== undefined) {
+    return mapped;
+  }
+  throw new Error(
+    `Invalid tier selection '${raw.trim()}'. Choose 1 (starter), 2 (standard), or 3 (enterprise).`
+  );
+}
+
+export async function defaultInteractiveTierPrompt(
+  question: string,
+  input: NodeJS.ReadableStream = process.stdin,
+  output: NodeJS.WritableStream = process.stderr
+): Promise<string> {
+  const rl = createInterface({ input, output });
+  try {
+    return await rl.question(question);
+  } finally {
+    rl.close();
+  }
+}
+
+async function resolveQuickstartTierSelection(
+  options: QuickstartOptions,
+  loadedConfig: LoadedQa11xConfig,
+  flags: { readonly dryRun: boolean; readonly force: boolean }
+): Promise<{ readonly tier: QuickstartTier; readonly tierConfirmedByUser: boolean }> {
+  if (options.tier !== undefined) {
+    return {
+      tier: validateQuickstartTier(options.tier),
+      tierConfirmedByUser: options.tierConfirmedByUser ?? true,
+    };
+  }
+  const canPromptTty =
+    !flags.dryRun &&
+    !options.json &&
+    (options.isStdinTty ?? Boolean(process.stdin.isTTY)) &&
+    (flags.force || !loadedConfig.tierConfirmedByUser);
+
+  if (canPromptTty) {
+    const promptFn = options.promptTierFn ?? defaultInteractiveTierPrompt;
+    const answer = await promptFn(
+      'Select QA-11X adoption tier [1=starter, 2=standard (default), 3=enterprise]: '
+    );
+    return {
+      tier: parseInteractiveTierAnswer(answer),
+      tierConfirmedByUser: options.tierConfirmedByUser ?? true,
+    };
+  }
+
+  return {
+    tier: resolveEffectiveTier(undefined, loadedConfig, flags.force),
+    tierConfirmedByUser:
+      options.tierConfirmedByUser ?? (!flags.force && loadedConfig.tierConfirmedByUser),
+  };
+}
+
 export async function runQuickstart(options: QuickstartOptions = {}): Promise<QuickstartResult> {
   const rawDir = options.dir ?? options.projectPath ?? process.cwd();
   const projectPath = resolveQuickstartTargetDir(rawDir, options.baseBoundaryDir);
@@ -774,18 +868,30 @@ export async function runQuickstart(options: QuickstartOptions = {}): Promise<Qu
   const ci = validateQuickstartCi(options.ci);
 
   const configPath = resolveContainedFile(projectPath, CONFIG_REL_PATH);
-  const existingConfig = readJsonRecordSafe(configPath);
-  const tier = resolveEffectiveTier(options.tier, existingConfig, force);
-  const lang = resolveEffectiveLang(projectPath, options.lang, existingConfig);
+  const loadedConfig = readQa11xConfig(projectPath);
+  const { tier, tierConfirmedByUser } = await resolveQuickstartTierSelection(options, loadedConfig, {
+    dryRun,
+    force,
+  });
+  const tierChanged = loadedConfig.declaredTier !== null && loadedConfig.declaredTier !== tier;
+  const lang = resolveEffectiveLang(projectPath, options.lang, loadedConfig);
   const agents = resolveAgentsSpec(options.agents);
 
   const profile = detectProjectStackProfile(projectPath);
   const { canonical, serialized } = buildConfigPayload({
     tier,
+    tierConfirmedByUser,
     lang,
     profile,
-    existingConfig,
+    governanceDocs: options.governanceDocs,
+    existingConfig: loadedConfig.raw,
     force,
+  });
+
+  const configRecord = syncManagedTextFile(projectPath, CONFIG_REL_PATH, serialized, {
+    dryRun,
+    force,
+    overwriteExisting: true,
   });
 
   const agentsResult = await initOrAppendAgentsMd({
@@ -795,41 +901,36 @@ export async function runQuickstart(options: QuickstartOptions = {}): Promise<Qu
     dryRun,
   });
 
-  const configRecord = syncManagedTextFile(projectPath, CONFIG_REL_PATH, serialized, {
-    dryRun,
-    force,
-    overwriteExisting: true,
-  });
-  const activeTaskRecord = syncManagedTextFile(
-    projectPath,
-    ACTIVE_TASK_REL_PATH,
-    buildCompactActiveTaskContent(tier, profile.stacks, lang),
-    { dryRun, force, overwriteExisting: false }
-  );
-
   const fileRecords: QuickstartFileRecord[] = [
     configRecord,
     ...collectAgentFileRecords(agentsResult),
-    activeTaskRecord,
   ];
 
+  const gitignoreRecord = syncQuickstartGitignore(projectPath, dryRun);
+  if (gitignoreRecord) {
+    fileRecords.push(gitignoreRecord);
+  }
+
   if (ci === CI_GITHUB) {
-    const ciRecord = syncManagedTextFile(
-      projectPath,
-      GITHUB_WORKFLOW_REL_PATH,
-      buildGithubWorkflowContent(tier, lang),
-      { dryRun, force, overwriteExisting: false }
-    );
+    const ciRecord = syncManagedWorkflowFile(projectPath, tier, lang, {
+      dryRun,
+      force,
+      tierChanged: tierChanged || options.tier !== undefined,
+    });
     fileRecords.push(ciRecord);
   }
 
   const plannedFiles = fileRecords
     .filter((entry) => entry.action !== 'preserved')
     .map((entry) => entry.relativePath);
+  const activeGates = deriveActiveGatesForTier(tier);
+  const qa11xBanner = formatQa11xStatusBanner(tier, 'FULL_11X');
 
   return {
     projectPath,
     tier,
+    tierConfirmedByUser,
+    qa11xBanner,
     lang,
     ci,
     dryRun,
@@ -837,7 +938,7 @@ export async function runQuickstart(options: QuickstartOptions = {}): Promise<Qu
     detectedStacks: profile.stacks,
     vibePrototypeDetected: profile.vibePrototypeDetected,
     vibeMarkers: profile.vibeMarkers,
-    activeGates: QUICKSTART_TIER_PROFILES[tier],
+    activeGates,
     recommendedMcpTools: profile.recommendedMcpTools,
     configPath,
     config: canonical,
@@ -858,7 +959,8 @@ export function formatQuickstartOutput(
   const modeTag = result.dryRun ? 'dry-run' : 'ready';
   const changedCount = result.files.filter((f) => f.action !== 'preserved').length;
   const lines = [
-    `✔ [quickstart:${modeTag}] tier=${result.tier} lang=${result.lang} stacks=${result.detectedStacks.join(',')} gates=${result.activeGates.length} files=${changedCount}`,
+    result.qa11xBanner,
+    `✔ [quickstart:${modeTag}] schema=v${QA_11X_CONFIG_SCHEMA_VERSION} tier=${result.tier} lang=${result.lang} stacks=${result.detectedStacks.join(',')} gates=${result.activeGates.length} files=${changedCount}`,
   ];
   if (result.vibePrototypeDetected) {
     lines.push(

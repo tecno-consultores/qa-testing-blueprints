@@ -70,7 +70,7 @@ setup() {
   [ ! -f "${FAKE_ROOT}/src/edit.swp" ]
   [ ! -f "${FAKE_ROOT}/src/old.bak" ]
   [ ! -f "${FAKE_ROOT}/ACTIVE_TASK.md" ]
-  [ ! -d "${FAKE_ROOT}/.agents/.cache/coverage" ]
+  [ -f "${FAKE_ROOT}/.agents/.cache/coverage/py.xml" ]
   [ ! -d "${FAKE_ROOT}/.agents/artifacts" ]
   [ ! -f "${FAKE_ROOT}/graphify-out/junk.tmp" ]
   [ ! -d "${FAKE_ROOT}/graphify-out/cache" ]
@@ -92,12 +92,15 @@ setup() {
   [ -d "${FAKE_ROOT}/.agents/proposals" ]
 }
 
-@test "limpieza.sh --deep: purga proposals, backups, .agents/.cache y .qa-evidence.json preservando .agents/ACTIVE_TASK.md y mcp-server/dist" {
-  mkdir -p "${FAKE_ROOT}/mcp-server/dist" "${FAKE_ROOT}/.agents/proposals" "${FAKE_ROOT}/.agents/backups" "${FAKE_ROOT}/.agents/.cache"
+@test "limpieza.sh --deep: purga proposals, backups, coverage/sarif y .qa-evidence.json preservando BREAKER-42, ACTIVE_TASK.md y mcp-server/dist" {
+  mkdir -p "${FAKE_ROOT}/mcp-server/dist" "${FAKE_ROOT}/.agents/proposals" "${FAKE_ROOT}/.agents/backups" "${FAKE_ROOT}/.agents/.cache/coverage" "${FAKE_ROOT}/.agents/.cache/sarif"
   echo "// dist" >"${FAKE_ROOT}/mcp-server/dist/index.js"
   echo "# active" >"${FAKE_ROOT}/.agents/ACTIVE_TASK.md"
   echo '{"evidence":true}' >"${FAKE_ROOT}/.agents/.qa-evidence.json"
   echo '{"status":"IN_PROGRESS"}' >"${FAKE_ROOT}/.agents/.cache/session_checkpoint.json"
+  echo '{"sessions":{}}' >"${FAKE_ROOT}/.agents/.cache/certify_state.json"
+  echo "<cov/>" >"${FAKE_ROOT}/.agents/.cache/coverage/py.xml"
+  echo "{}" >"${FAKE_ROOT}/.agents/.cache/sarif/scan.sarif"
   echo "# draft" >"${FAKE_ROOT}/.agents/proposals/p.md"
   echo "bak" >"${FAKE_ROOT}/.agents/backups/b.md"
 
@@ -107,7 +110,10 @@ setup() {
   [ ! -d "${FAKE_ROOT}/.agents/proposals" ]
   [ ! -d "${FAKE_ROOT}/.agents/backups" ]
   [ ! -f "${FAKE_ROOT}/.agents/.qa-evidence.json" ]
-  [ ! -d "${FAKE_ROOT}/.agents/.cache" ]
+  [ ! -d "${FAKE_ROOT}/.agents/.cache/coverage" ]
+  [ ! -d "${FAKE_ROOT}/.agents/.cache/sarif" ]
+  [ -f "${FAKE_ROOT}/.agents/.cache/certify_state.json" ]
+  [ -f "${FAKE_ROOT}/.agents/.cache/session_checkpoint.json" ]
   [ -f "${FAKE_ROOT}/.agents/ACTIVE_TASK.md" ]
   [ -f "${FAKE_ROOT}/mcp-server/dist/index.js" ]
 }
@@ -154,6 +160,16 @@ EOF
     echo "nm" >"${stack_dir}/node_modules/pkg.txt"
     echo "vn" >"${stack_dir}/vendor/pkg.txt"
 
+    run env HOME="${FAKE_HOME}" TMPDIR="${FAKE_TMP}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C "${stack_dir}/limpieza.sh" --help
+    assert_success
+    assert_output --partial "Uso:"
+
+    run env HOME="${FAKE_HOME}" TMPDIR="${FAKE_TMP}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C "${stack_dir}/limpieza.sh" --opcion-invalida
+    assert_failure 1
+
+    run env HOME="${FAKE_HOME}" TMPDIR="${FAKE_TMP}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C "${stack_dir}/limpieza.sh" --docker-prune --quiet
+    assert_failure 1
+
     run env HOME="${FAKE_HOME}" TMPDIR="${FAKE_TMP}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C "${stack_dir}/limpieza.sh" --quiet
     assert_success
     [ ! -d "${stack_dir}/.trivycache" ]
@@ -179,6 +195,8 @@ EOF
     [ -d "${stack_dir}/vendor" ]
 
     run env HOME="${FAKE_HOME}" TMPDIR="${FAKE_TMP}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C "${stack_dir}/limpieza.sh" --deep --quiet
+    assert_success
+    run env HOME="${FAKE_HOME}" TMPDIR="${FAKE_TMP}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C "${stack_dir}/limpieza.sh" --docker-prune --yes --quiet
     assert_success
     [ ! -d "${stack_dir}/.agents/proposals" ]
     [ ! -d "${stack_dir}/.agents/backups" ]

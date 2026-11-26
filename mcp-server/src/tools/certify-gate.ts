@@ -13,14 +13,31 @@ import {
   evaluateUpdateStatus,
   type EvaluateUpdateOptions,
 } from '../services/version-manager.js';
+import {
+  TIER_ENTERPRISE,
+  TIER_STANDARD,
+  TIER_STARTER,
+  formatQa11xStatusBanner,
+  isTierAtLeast,
+  readQa11xConfig,
+  type LoadedQa11xConfig,
+} from '../services/qa11xConfig.js';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { resolveSafeChildPath } from '../services/github-fetcher.js';
 import { auditSecurityStigOwasp } from './security-auditor.js';
 import { defaultGraphifyBuilder } from './blast-radius.js';
 import { hasAnalyzableSourceCode } from './standardReadiness.js';
-import { CertifyGateResult, GateCheckStatus } from '../types.js';
+import { validateCalmArchitecture } from './validateCalmArchitecture.js';
+import { CertifyGateResult, GateCheckStatus, StandardTier } from '../types.js';
 import { pickAt, reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 import { CANONICAL_IGNORED_DIRS } from '../utils/ignoredDirs.js';
+import {
+  type BoundaryRuleEntry,
+  evaluateDeclarativeBoundaryEdge,
+  loadProjectBoundaryRules,
+  validateBilingualRoadmapFiles,
+  validateSingleRoadmapFile,
+} from './certifyHelpers.js';
 
 const GATE_STATUS_PASSED: GateCheckStatus = 'PASSED';
 const GATE_STATUS_FAILED: GateCheckStatus = 'FAILED';
@@ -355,8 +372,19 @@ function isUiTestFile(fileName: string): boolean {
   return /\.(unit|spec|test|e2e)\.(ts|tsx|js|jsx)$/i.test(fileName);
 }
 
+function isUiUnitTestFile(fileName: string): boolean {
+  return /\.(unit|spec|test)\.(ts|tsx|js|jsx)$/i.test(fileName) && !/\.e2e\./i.test(fileName);
+}
+
+const EXEMPT_REACT_UI_BASENAMES = new Set(['main.tsx', 'main.jsx', 'index.tsx', 'index.jsx']);
+const REACT_HOOK_FILE_RE = /^use[A-Z0-9_].*\.(tsx|jsx)$/;
+
+function isExemptReactUiFile(fileName: string): boolean {
+  return EXEMPT_REACT_UI_BASENAMES.has(fileName) || REACT_HOOK_FILE_RE.test(fileName);
+}
+
 function isUiComponentFile(fileName: string): boolean {
-  if (isUiTestFile(fileName)) return false;
+  if (isUiTestFile(fileName) || isExemptReactUiFile(fileName)) return false;
   return fileName.endsWith('.vue') || fileName.endsWith('.tsx') || fileName.endsWith('.jsx');
 }
 
@@ -457,7 +485,7 @@ function checkOrphanUiComponents(projectPath: string): GateCheckOutcome {
     new Set(
       testRoots
         .flatMap((r) => collectFilesWithExtensions(r, ['.ts', '.tsx', '.js', '.jsx']))
-        .filter((f) => isUiTestFile(path.basename(f)))
+        .filter((f) => isUiUnitTestFile(path.basename(f)))
     )
   );
   const testContentsCache = new Map<string, string>();
@@ -823,18 +851,44 @@ function checkZeroOrphanApiEndpoints(projectPath: string): GateCheckOutcome {
   return buildCheckOutcome(blockers.length === 0 ? GATE_STATUS_PASSED : GATE_STATUS_FAILED, blockers);
 }
 
+const SQLALCHEMY_MODEL_RE =
+  /\b__tablename__\s*=|\bDeclarativeBase\b|\bdeclarative_base\s*\(|\bclass\s+\w+\([^)]*\bSQLModel\b/;
+
+function fileContainsSqlAlchemyModel(filePath: string): boolean {
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    return SQLALCHEMY_MODEL_RE.test(content);
+  } catch (err: unknown) {
+    reportDebugCatchError(`certifyGate.fileContainsSqlAlchemyModel(${filePath})`, err);
+    return false;
+  }
+}
+
+function pathContainsSqlAlchemyModels(candidatePath: string): boolean {
+  if (!fs.existsSync(candidatePath)) return false;
+  const stat = fs.statSync(candidatePath);
+  if (stat.isFile()) {
+    return candidatePath.endsWith('.py') && fileContainsSqlAlchemyModel(candidatePath);
+  }
+  if (!stat.isDirectory()) return false;
+  const pyFiles = collectFilesWithExtensions(candidatePath, ['.py']);
+  return pyFiles.some((pyFile) => fileContainsSqlAlchemyModel(pyFile));
+}
+
 function checkOrmParity(projectPath: string): GateCheckOutcome {
   const blockers: string[] = [];
   const modelPaths = [
     path.join(projectPath, 'src', 'models'),
+    path.join(projectPath, 'app', 'models'),
     path.join(projectPath, 'fastapi', 'src', 'models'),
     path.join(projectPath, 'backend', 'src', 'models'),
     path.join(projectPath, 'src', 'models.py'),
+    path.join(projectPath, 'app', 'models.py'),
     path.join(projectPath, 'fastapi', 'src', 'models.py'),
     path.join(projectPath, 'backend', 'src', 'models.py'),
   ];
 
-  const hasModels = modelPaths.some((p) => fs.existsSync(p));
+  const hasModels = modelPaths.some((p) => pathContainsSqlAlchemyModels(p));
   if (!hasModels) {
     return buildCheckOutcome(GATE_STATUS_SKIPPED);
   }
@@ -899,25 +953,10 @@ function resolveWithParentFallback(projectPath: string, ...segments: string[]): 
 const ACTIVE_TASK_CLOSED_STATE_RE =
   /(?:Estado|Status):\*{0,2}\s*`?(?:COMPLETED|CERTIFIED_CLEAN)`?/i;
 
-const VALID_CHECKPOINT_STATUSES = new Set<string>([
-  'IN_PROGRESS',
-  'PAUSED',
-  'BLOCKED',
-  'CERTIFIED_CLEAN',
-  'COMPLETED',
-  'COMPLETED (100%)',
-]);
+const VALID_CHECKPOINT_STATUSES = new Set<string>(['IN_PROGRESS', 'CERTIFIED_CLEAN']);
 
 function isClosedCheckpointStatus(status: unknown): boolean {
-  if (typeof status !== 'string') {
-    return false;
-  }
-  const normalized = status.trim().toUpperCase();
-  return (
-    normalized === 'CERTIFIED_CLEAN' ||
-    normalized === 'COMPLETED' ||
-    normalized === 'COMPLETED (100%)'
-  );
+  return typeof status === 'string' && status.trim().toUpperCase() === 'CERTIFIED_CLEAN';
 }
 
 function isValidCheckpointStatus(status: unknown): status is string {
@@ -1158,7 +1197,32 @@ function detectAstGraphCycles(
     .map((cycle) => `Ciclo de dependencia AST en ${relGraph}: ${cycle}`);
 }
 
-function inspectSingleGraphTopology(projectPath: string, gPath: string): string[] {
+function collectSingleLinkBlockers(
+  link: RawGraphLink,
+  nodeFileMap: ReadonlyMap<string, string>,
+  boundaryRules: readonly BoundaryRuleEntry[],
+  relGraph: string
+): string[] {
+  if (STRUCTURAL_RELATIONS.has(link.relation ?? '')) {
+    return [];
+  }
+  const srcRef = link.source_file ?? nodeFileMap.get(link.source ?? '') ?? link.source ?? '';
+  const tgtRef = nodeFileMap.get(link.target ?? '') ?? link.target ?? '';
+  const blockers: string[] = [];
+  if (isUiToDbLink(srcRef, tgtRef)) {
+    blockers.push(`Violación topológica AST en ${relGraph}: ${srcRef} -> ${tgtRef}`);
+  }
+  if (boundaryRules.length > 0 && !GRAPH_TEST_PATH_RE.test(srcRef) && !GRAPH_TEST_PATH_RE.test(tgtRef)) {
+    blockers.push(...evaluateDeclarativeBoundaryEdge(boundaryRules, srcRef, tgtRef, relGraph));
+  }
+  return blockers;
+}
+
+function inspectSingleGraphTopology(
+  projectPath: string,
+  gPath: string,
+  boundaryRules: readonly BoundaryRuleEntry[] = []
+): string[] {
   if (!fs.existsSync(gPath)) return [];
   const relGraph = path.relative(projectPath, gPath);
   const blockers: string[] = [];
@@ -1168,15 +1232,10 @@ function inspectSingleGraphTopology(projectPath: string, gPath: string): string[
       nodes?: RawGraphNode[];
       links?: RawGraphLink[];
     };
-    const nodes = parsed.nodes ?? [];
     const links = parsed.links ?? [];
-    const nodeFileMap = resolveGraphNodeFiles(nodes);
+    const nodeFileMap = resolveGraphNodeFiles(parsed.nodes ?? []);
     for (const link of links) {
-      const srcRef = link.source_file ?? nodeFileMap.get(link.source ?? '') ?? link.source ?? '';
-      const tgtRef = nodeFileMap.get(link.target ?? '') ?? link.target ?? '';
-      if (isUiToDbLink(srcRef, tgtRef)) {
-        blockers.push(`Violación topológica AST en ${relGraph}: ${srcRef} -> ${tgtRef}`);
-      }
+      blockers.push(...collectSingleLinkBlockers(link, nodeFileMap, boundaryRules, relGraph));
     }
     blockers.push(...detectAstGraphCycles(links, nodeFileMap, relGraph));
   } catch (err: unknown) {
@@ -1184,7 +1243,7 @@ function inspectSingleGraphTopology(projectPath: string, gPath: string): string[
     blockers.push(`Archivo de grafo AST corrupto: ${relGraph}`);
   }
 
-  return blockers;
+  return Array.from(new Set(blockers));
 }
 
 function registerGraphCandidate(graphDir: string, seenReal: Set<string>, collected: string[]): void {
@@ -1230,9 +1289,75 @@ interface AstTopologyOutcome extends GateCheckOutcome {
   readonly autoBuilt: boolean;
 }
 
+interface CertifyTierContext {
+  readonly loadedConfig: LoadedQa11xConfig;
+  readonly effectiveTier: StandardTier;
+  readonly tierConfirmedByUser: boolean;
+  readonly qa11xBanner: string;
+}
+
+function isUpstreamBlueprintsRepoLocal(projectPath: string): boolean {
+  return (
+    fs.existsSync(path.join(projectPath, 'manifest.json')) &&
+    fs.existsSync(path.join(projectPath, '.agents', 'scripts', 'sync_governance.py'))
+  );
+}
+
+function resolveCertifyTierContext(projectPath: string): CertifyTierContext {
+  const loadedConfig = readQa11xConfig(projectPath);
+  const effectiveTier: StandardTier =
+    !loadedConfig.exists && isUpstreamBlueprintsRepoLocal(projectPath)
+      ? TIER_ENTERPRISE
+      : loadedConfig.effectiveTier;
+  return {
+    loadedConfig,
+    effectiveTier,
+    tierConfirmedByUser: loadedConfig.tierConfirmedByUser,
+    qa11xBanner: formatQa11xStatusBanner(effectiveTier, 'FULL_11X'),
+  };
+}
+
+function findFirstCalmArchRelPath(projectPath: string): string | null {
+  const archDir = path.join(projectPath, 'architecture');
+  if (!fs.existsSync(archDir)) {
+    return null;
+  }
+  if (fs.existsSync(path.join(archDir, 'qa-11x.calm.json'))) {
+    return 'architecture/qa-11x.calm.json';
+  }
+  try {
+    const match = fs
+      .readdirSync(archDir)
+      .filter((name) => name.endsWith('.calm.json'))
+      .sort((a, b) => a.localeCompare(b))[0];
+    return match ? `architecture/${match}` : null;
+  } catch (err: unknown) {
+    reportDebugCatchError('certifyGate.findFirstCalmArchRelPath', err);
+    return null;
+  }
+}
+
+function checkCalmForTier(projectPath: string, effectiveTier: StandardTier): string[] {
+  const calmRel = findFirstCalmArchRelPath(projectPath);
+  if (calmRel) {
+    const res = validateCalmArchitecture({ workspaceRoot: projectPath, architecturePath: calmRel });
+    if (res.valid) {
+      return [];
+    }
+    return res.violations.map((v) => `[CALM] ${v.code} (${v.subject}): ${v.message}`);
+  }
+  if (effectiveTier === TIER_ENTERPRISE) {
+    return [
+      'Falta archivo de arquitectura FINOS CALM (architecture/*.calm.json) requerido en tier enterprise.',
+    ];
+  }
+  return [];
+}
+
 async function checkAstTopology(
   projectPath: string,
-  options?: CertifyGateOptions
+  options: CertifyGateOptions | undefined,
+  effectiveTier: StandardTier
 ): Promise<AstTopologyOutcome> {
   const blockers: string[] = [];
   const existingGraphs: string[] = [];
@@ -1240,7 +1365,7 @@ async function checkAstTopology(
   let autoBuilt = false;
 
   if (existingGraphs.length === 0) {
-    if (!hasAnalyzableSourceCode(projectPath)) {
+    if (effectiveTier === TIER_STARTER || !hasAnalyzableSourceCode(projectPath)) {
       return { ...buildCheckOutcome(GATE_STATUS_SKIPPED), autoBuilt: false };
     }
     const builder = options?.astGraphBuilder ?? defaultGraphifyBuilder;
@@ -1259,8 +1384,12 @@ async function checkAstTopology(
     }
   }
 
+  const loadedBoundaries = loadProjectBoundaryRules(projectPath);
+  if (loadedBoundaries.error) {
+    blockers.push(loadedBoundaries.error);
+  }
   for (const gPath of existingGraphs) {
-    blockers.push(...inspectSingleGraphTopology(projectPath, gPath));
+    blockers.push(...inspectSingleGraphTopology(projectPath, gPath, loadedBoundaries.rules));
   }
 
   return {
@@ -1358,44 +1487,24 @@ function checkManifestCryptographicParity(projectPath: string): string[] {
   return blockers;
 }
 
-const ROADMAP_MILESTONE_PREFIX_RE = /\b(?:hito|milestone)\s+([0-9.]+)/i;
-
-function extractRoadmapMilestoneId(line: string): string | null {
-  const match = ROADMAP_MILESTONE_PREFIX_RE.exec(line);
-  if (!match?.[1]) return null;
-  const raw = match[1].endsWith('.') ? match[1].slice(0, -1) : match[1];
-  return raw.split('.').every((seg) => /^\d+$/.test(seg)) ? raw.toLowerCase() : null;
-}
-
-function collectCompletedHitosFromSummary(lines: string[]): Set<string> {
-  const summaryComplete = new Set<string>();
-  for (const line of lines) {
-    if (!line.trimStart().startsWith('|') || !line.includes('100%')) continue;
-    const hitoId = extractRoadmapMilestoneId(line);
-    if (hitoId) summaryComplete.add(hitoId);
+function checkRoadmapConsistency(
+  projectPath: string,
+  loadedConfig?: LoadedQa11xConfig
+): string[] {
+  if (loadedConfig?.governanceDocs['ROADMAP.md'] === 'legacy_preserved') {
+    return [];
   }
-  return summaryComplete;
-}
-
-function checkRoadmapConsistency(projectPath: string): string[] {
   const roadmapPath = resolveWithParentFallback(projectPath, 'ROADMAP.md');
-  if (!fs.existsSync(roadmapPath)) return [];
+  const roadmapEsPath = resolveWithParentFallback(projectPath, 'ROADMAP.es.md');
   const blockers: string[] = [];
   try {
-    const lines = fs.readFileSync(roadmapPath, 'utf8').split(/\r?\n/);
-    const summaryComplete = collectCompletedHitosFromSummary(lines);
-    let activeHito: string | null = null;
-    for (const line of lines) {
-      const secHito = line.startsWith('##') ? extractRoadmapMilestoneId(line) : null;
-      if (secHito) {
-        activeHito = secHito;
-        continue;
-      }
-      if (activeHito && summaryComplete.has(activeHito) && /^\s*-\s*\[\s\]/.test(line)) {
-        blockers.push(`ROADMAP.md declara Milestone/Hito ${activeHito} al 100% pero contiene tareas pendientes (- [ ]).`);
-        summaryComplete.delete(activeHito);
-      }
+    if (fs.existsSync(roadmapPath)) {
+      blockers.push(...validateSingleRoadmapFile(roadmapPath, 'ROADMAP.md'));
     }
+    if (fs.existsSync(roadmapEsPath)) {
+      blockers.push(...validateSingleRoadmapFile(roadmapEsPath, 'ROADMAP.es.md'));
+    }
+    blockers.push(...validateBilingualRoadmapFiles(roadmapPath, roadmapEsPath));
   } catch (err: unknown) {
     // Fail-secure: an existing ROADMAP.md that cannot be read blocks certification
     reportDebugCatchError('certifyGate.checkRoadmapConsistency', err);
@@ -1404,48 +1513,70 @@ function checkRoadmapConsistency(projectPath: string): string[] {
   return blockers;
 }
 
-function checkDocumentationSync(projectPath: string): GateCheckOutcome {
+function checkChangelogFile(changelogMd: string, requireCoreDocs: boolean): string[] {
+  if (!fs.existsSync(changelogMd)) {
+    return requireCoreDocs ? ['Falta archivo de historial CHANGELOG.md en la raíz.'] : [];
+  }
   const blockers: string[] = [];
+  try {
+    const content = fs.readFileSync(changelogMd, 'utf8');
+    if (!content.includes('## [Unreleased]')) {
+      blockers.push('CHANGELOG.md carece de la sección obligatoria ## [Unreleased].');
+    }
+    blockers.push(...checkDuplicateVersionHeaders(content));
+  } catch (err: unknown) {
+    reportDebugCatchError('certifyGate.checkDocumentationSync(CHANGELOG.md)', err);
+    blockers.push('No se pudo leer CHANGELOG.md.');
+  }
+  return blockers;
+}
+
+function checkDocumentationSync(
+  projectPath: string,
+  tierCtx: CertifyTierContext
+): GateCheckOutcome {
+  const blockers: string[] = [];
+  const requireCoreDocs = isTierAtLeast(tierCtx.effectiveTier, TIER_STANDARD);
   const testingMd = resolveWithParentFallback(projectPath, 'TESTING.md');
   const changelogMd = resolveWithParentFallback(projectPath, 'CHANGELOG.md');
+  const securityMd = resolveWithParentFallback(projectPath, 'SECURITY.md');
 
-  if (!fs.existsSync(testingMd)) {
+  const hasTesting = fs.existsSync(testingMd);
+  const hasChangelog = fs.existsSync(changelogMd);
+  const hasSecurity = fs.existsSync(securityMd);
+
+  if (!hasTesting && requireCoreDocs) {
     blockers.push('Falta archivo de aseguramiento de calidad TESTING.md en la raíz.');
   }
-
-  if (!fs.existsSync(changelogMd)) {
-    blockers.push('Falta archivo de historial CHANGELOG.md en la raíz.');
-  } else {
-    try {
-      const content = fs.readFileSync(changelogMd, 'utf8');
-      if (!content.includes('## [Unreleased]')) {
-        blockers.push('CHANGELOG.md carece de la sección obligatoria ## [Unreleased].');
-      }
-      blockers.push(...checkDuplicateVersionHeaders(content));
-    } catch (err: unknown) {
-      reportDebugCatchError('certifyGate.checkDocumentationSync(CHANGELOG.md)', err);
-      blockers.push('No se pudo leer CHANGELOG.md.');
-    }
+  blockers.push(...checkChangelogFile(changelogMd, requireCoreDocs));
+  if (!hasSecurity && requireCoreDocs) {
+    blockers.push('Falta archivo de política de seguridad SECURITY.md en la raíz.');
   }
 
   blockers.push(...checkActiveTaskGovernance(projectPath));
   blockers.push(...checkManifestCryptographicParity(projectPath));
-  blockers.push(...checkRoadmapConsistency(projectPath));
+  blockers.push(...checkRoadmapConsistency(projectPath, tierCtx.loadedConfig));
+  blockers.push(...checkCalmForTier(projectPath, tierCtx.effectiveTier));
 
+  if (!requireCoreDocs && blockers.length === 0 && !hasTesting && !hasChangelog && !hasSecurity) {
+    return buildCheckOutcome(GATE_STATUS_SKIPPED);
+  }
   return buildCheckOutcome(blockers.length === 0 ? GATE_STATUS_PASSED : GATE_STATUS_FAILED, blockers);
 }
 
 function collectSecurityOutcome(
-  securityAudit: Awaited<ReturnType<typeof auditSecurityStigOwasp>>
+  securityAudit: Awaited<ReturnType<typeof auditSecurityStigOwasp>>,
+  effectiveTier: StandardTier
 ): { secretsExposed: boolean; blockers: string[] } {
   const blockers: string[] = [];
   let secretsExposed = false;
+  const blockHigh = isTierAtLeast(effectiveTier, TIER_STANDARD);
 
   for (const finding of securityAudit.findings) {
     if (finding.rule_id === 'SEC-10') {
       secretsExposed = true;
       blockers.push(`Secreto detectado (${finding.file}:${finding.line}): ${finding.message}`);
-    } else if (finding.severity === 'CRITICAL' || finding.severity === 'HIGH') {
+    } else if (finding.severity === 'CRITICAL' || (blockHigh && finding.severity === 'HIGH')) {
       blockers.push(
         `Vulnerabilidad ${finding.severity} (${finding.rule_id} en ${finding.file}:${finding.line}): ${finding.message}`
       );
@@ -1507,6 +1638,9 @@ async function buildMissingDirCertifyResult(
   return {
     gate_passed: false,
     project_path: resolvedPath,
+    effective_tier: TIER_STANDARD,
+    tier_confirmed_by_user: false,
+    qa_11x_banner: formatQa11xStatusBanner(TIER_STANDARD, 'FULL_11X'),
     checks: mapCheckStatusesToBooleans(skippedStatuses),
     check_statuses: skippedStatuses,
     skipped_checks: [...ALL_GATE_CHECK_KEYS],
@@ -1518,10 +1652,12 @@ async function buildMissingDirCertifyResult(
 
 function evaluateDirtyCodeEvidences(
   resolvedPath: string,
-  options?: CertifyGateOptions
+  options: CertifyGateOptions | undefined,
+  effectiveTier: StandardTier
 ): { readonly lintEvidence: GateCheckOutcome; readonly unitEvidence: GateCheckOutcome } {
-  const requireLint = options?.requireLintEvidence ?? true;
-  const requireUnit = options?.requireUnitEvidence ?? true;
+  const tierRequiresEvidence = isTierAtLeast(effectiveTier, TIER_STANDARD);
+  const requireLint = tierRequiresEvidence && (options?.requireLintEvidence ?? true);
+  const requireUnit = tierRequiresEvidence && (options?.requireUnitEvidence ?? true);
   return {
     lintEvidence: requireLint
       ? checkLintEvidenceForDirtyCode(resolvedPath, options?.execFileSyncFn)
@@ -1562,6 +1698,25 @@ function buildSkippedRemediations(skippedChecks: readonly string[]): Record<stri
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
+function evaluateStandardOnlyChecks(
+  resolvedPath: string,
+  isStandardPlus: boolean
+): {
+  readonly orphanUi: GateCheckOutcome;
+  readonly orphanApi: GateCheckOutcome;
+  readonly ormCheck: GateCheckOutcome;
+} {
+  if (!isStandardPlus) {
+    const skipped = buildCheckOutcome(GATE_STATUS_SKIPPED);
+    return { orphanUi: skipped, orphanApi: skipped, ormCheck: skipped };
+  }
+  return {
+    orphanUi: checkOrphanUiComponents(resolvedPath),
+    orphanApi: checkZeroOrphanApiEndpoints(resolvedPath),
+    ormCheck: checkOrmParity(resolvedPath),
+  };
+}
+
 export async function certify11xGate(
   projectPath: string,
   options?: CertifyGateOptions
@@ -1576,18 +1731,26 @@ export async function certify11xGate(
     return buildMissingDirCertifyResult(resolvedPath, options);
   }
 
+  const tierCtx = resolveCertifyTierContext(resolvedPath);
+  const isStandardPlus = isTierAtLeast(tierCtx.effectiveTier, TIER_STANDARD);
+
   const unmerged = checkUnmergedExamples(resolvedPath, options?.allowUnmergedExamples);
   const jsonCheck = checkJsonIntegrity(resolvedPath);
-  const orphanUi = checkOrphanUiComponents(resolvedPath);
-  const orphanApi = checkZeroOrphanApiEndpoints(resolvedPath);
-  const ormCheck = checkOrmParity(resolvedPath);
-  const astTopology = await checkAstTopology(resolvedPath, options);
-  const { lintEvidence, unitEvidence } = evaluateDirtyCodeEvidences(resolvedPath, options);
-  const docCheck = checkDocumentationSync(resolvedPath);
+  const { orphanUi, orphanApi, ormCheck } = evaluateStandardOnlyChecks(resolvedPath, isStandardPlus);
+  const astTopology = await checkAstTopology(resolvedPath, options, tierCtx.effectiveTier);
+  const { lintEvidence, unitEvidence } = evaluateDirtyCodeEvidences(
+    resolvedPath,
+    options,
+    tierCtx.effectiveTier
+  );
+  const docCheck = checkDocumentationSync(resolvedPath, tierCtx);
 
   throwIfCertifyAborted(signal);
   const securityAudit = await auditSecurityStigOwasp(resolvedPath);
-  const { secretsExposed, blockers: securityBlockers } = collectSecurityOutcome(securityAudit);
+  const { secretsExposed, blockers: securityBlockers } = collectSecurityOutcome(
+    securityAudit,
+    tierCtx.effectiveTier
+  );
 
   const checkStatuses: Record<string, GateCheckStatus> = {
     zero_unmerged_examples: unmerged.status,
@@ -1599,7 +1762,7 @@ export async function certify11xGate(
     ast_topology_clean: astTopology.status,
     lint_evidence_verified: lintEvidence.status,
     unit_evidence_verified: unitEvidence.status,
-    security_stig_owasp_clean: securityAudit.passed ? GATE_STATUS_PASSED : GATE_STATUS_FAILED,
+    security_stig_owasp_clean: securityBlockers.length === 0 ? GATE_STATUS_PASSED : GATE_STATUS_FAILED,
     documentation_synced: docCheck.status,
   };
 
@@ -1637,6 +1800,9 @@ export async function certify11xGate(
   return {
     gate_passed: gatePassed,
     project_path: resolvedPath,
+    effective_tier: tierCtx.effectiveTier,
+    tier_confirmed_by_user: tierCtx.tierConfirmedByUser,
+    qa_11x_banner: tierCtx.qa11xBanner,
     checks,
     check_statuses: checkStatuses,
     skipped_checks: skippedChecks,

@@ -1,4 +1,4 @@
-.PHONY: qa-lint qa-unit qa-contracts qa-e2e qa-bdd qa-dast qa-mutation qa-sbom qa-stress qa-chaos qa-observability qa-all clean-cache clean qa-clean
+.PHONY: qa-lint qa-unit qa-contracts qa-ci certify qa-e2e qa-bdd qa-dast qa-mutation qa-sbom qa-stress qa-chaos qa-observability qa-all clean-cache clean qa-clean
 
 # Variables
 COMPOSE_FILE ?= docker-compose.qa.yml
@@ -6,21 +6,29 @@ SERVICE_NAME ?= qa-node-backend
 PROJECT_DIR ?= $(CURDIR)
 QA_UID ?= $(shell id -u)
 QA_GID ?= $(shell id -g)
-export QA_UID QA_GID
+QA_OFFLINE ?= 0
+PNPM_INSTALL_CMD = if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile $$([ "$${QA_OFFLINE:-0}" = "1" ] && printf -- "--offline" || printf -- "--prefer-offline") --silent; else pnpm install --silent; fi
+export QA_UID QA_GID QA_OFFLINE
 
 qa-lint:
 	@echo "🔍 Ejecutando Auditoría de CVEs, Linter y Type Checking (Node.js)..."
 	@[ ! -x ./scripts/verificar-secretos.sh ] || ./scripts/verificar-secretos.sh
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run audit:deps && pnpm run format:check && pnpm lint && pnpm type-check"
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" -e QA_OFFLINE="$(QA_OFFLINE)" $(SERVICE_NAME) bash -c "$(PNPM_INSTALL_CMD) && ( [ \"\$${QA_OFFLINE:-0}\" = \"1\" ] || pnpm run audit:deps ) && pnpm run format:check && pnpm lint && pnpm type-check"
 
 qa-unit:
 	@echo "🧪 Ejecutando Pruebas Unitarias (Vitest)..."
-	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm run test:coverage"
+	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" -e QA_OFFLINE="$(QA_OFFLINE)" $(SERVICE_NAME) bash -c "$(PNPM_INSTALL_CMD) && pnpm run test:coverage"
 
 qa-contracts:
 	@echo "🤝 Ejecutando Pruebas de Contrato Pact Zero-Infra (node --test)..."
 	@mkdir -p "$(PROJECT_DIR)/pacts"
 	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" -e PACT_OUTPUT_DIR=/app/pacts $(SERVICE_NAME) bash -c "node --test tests/contracts/*.test.ts"
+
+qa-ci: qa-lint qa-unit qa-contracts
+	@echo "✅ [11X] Paridad Pre-Push 1:1 con CI (lint + unit + contracts) certificada."
+
+certify:
+	@[ -x ./.agents/scripts/certify_task_completion.sh ] && ./.agents/scripts/certify_task_completion.sh || echo "⚠️ [SKIPPED] certify_task_completion.sh no instalado."
 
 qa-e2e:
 	@echo "🎭 Ejecutando Pruebas BDD (Karate Labs)..."

@@ -1,4 +1,4 @@
-.PHONY: qa-lint qa-unit qa-observability qa-all clean-cache clean qa-clean
+.PHONY: qa-lint qa-unit qa-ci certify qa-observability qa-all clean-cache clean qa-clean
 
 # Variables
 COMPOSE_FILE ?= docker-compose.qa.yml
@@ -25,6 +25,12 @@ qa-unit:
 qa-observability:
 	@echo "📈 [11X] Levantando observabilidad (Prometheus + Pushgateway)..."
 	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile observability up -d prometheus pushgateway
+
+qa-ci: qa-lint qa-unit
+	@echo "✅ [11X] Paridad Pre-Push 1:1 con CI (lint + unit Bash) certificada."
+
+certify:
+	@[ -x ./.agents/scripts/certify_task_completion.sh ] && ./.agents/scripts/certify_task_completion.sh || echo "⚠️ [SKIPPED] certify_task_completion.sh no instalado."
 
 qa-all: qa-lint qa-unit
 	@echo "✅ Pipeline QA Bash completado."

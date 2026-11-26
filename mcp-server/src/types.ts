@@ -320,6 +320,21 @@ export interface CompanionMcpDiscoverySummary {
 
 export type StandardTier = 'starter' | 'standard' | 'enterprise';
 
+export type Qa11xExecutionPath = 'DOCS_ONLY' | 'MICRO_CHANGE' | 'FULL_11X' | 'AUTO';
+
+export type GovernanceDocDecision = 'enabled' | 'declined' | 'legacy_preserved';
+
+export interface Qa11xProjectConfigV3 {
+  readonly schemaVersion: 3;
+  readonly tier: StandardTier;
+  readonly tierConfirmedByUser: boolean;
+  readonly lang: OutputLanguageMode;
+  readonly stacks: readonly string[];
+  readonly governanceDocs: Readonly<Record<string, GovernanceDocDecision>>;
+  readonly ruleZeroEphemeralDocker: true;
+  readonly vibePrototypeDetected?: boolean;
+}
+
 export type StandardPillarStatus = 'PRESENT' | 'PARTIAL' | 'MISSING' | 'PENDING_VERIFICATION';
 
 export interface StandardReadinessPillar {
@@ -335,6 +350,8 @@ export interface StandardReadinessPillar {
 export interface Standard11xReadiness {
   readonly declared_tier: StandardTier | null;
   readonly effective_tier: StandardTier;
+  readonly tier_confirmed_by_user?: boolean;
+  readonly qa_11x_banner?: string;
   readonly ast_graph_present: boolean;
   readonly ast_graph_files: string[];
   readonly has_graphify_script: boolean;
@@ -628,6 +645,9 @@ export interface QaExecutionResult {
 export interface CertifyGateResult {
   gate_passed: boolean;
   project_path: string;
+  effective_tier?: StandardTier;
+  tier_confirmed_by_user?: boolean;
+  qa_11x_banner?: string;
   checks: {
     zero_unmerged_examples: boolean;
     zero_secrets_exposed: boolean;
@@ -680,6 +700,7 @@ export interface PyramidLayerAudit {
   layer_id: string; // ej. "L03_UNIT_ISOLATED"
   layer_name: string; // Nombre en español de la capa 11X
   status: PyramidLayerStatus;
+  required_for_tier?: boolean;
   applicable_stacks: StackName[];
   detected_evidence: string[]; // Archivos o scripts detectados (ej. ["tests/auth.unit.py", "Makefile:qa-unit"])
   missing_requirements: string[]; // Qué falta para llegar a COVERED
@@ -738,6 +759,9 @@ export interface TestPyramidMetaGateAudit {
 
 export interface TestPyramidGapResult {
   project_path: string;
+  effective_tier?: StandardTier;
+  tier_confirmed_by_user?: boolean;
+  qa_11x_banner?: string;
   detected_stacks: StackName[];
   pyramid_score_pct: number; // Porcentaje ponderado (0 a 100%) sobre las capas aplicables
   summary_counts: {
@@ -815,8 +839,7 @@ export const InitAgentsMdInputSchema = z.object({
     .describe('If true (default), simulates AGENTS.md injection without writing to disk.'),
   lang: OutputLanguageModeSchema
     .optional()
-    .default('auto')
-    .describe('Human output language policy injected into AGENTS.md: auto (mirror prompt & README/CHANGELOG), es (Spanish), or en (English).'),
+    .describe('Human output language policy injected into AGENTS.md: auto (mirror prompt & README/CHANGELOG), es (Spanish), or en (English). Preserves existing language when omitted.'),
   agents: z
     .union([z.enum(['auto', 'all']), z.array(z.string().min(1)).min(1)])
     .optional()

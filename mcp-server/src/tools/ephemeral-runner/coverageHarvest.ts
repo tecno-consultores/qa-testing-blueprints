@@ -37,12 +37,16 @@ export const PREFERRED_QA_SERVICES = [
   'qa-php',
   'qa-backend',
   'qa-fastapi',
+  'qa-node-backend',
   'qa-node',
-  'qa-vue3',
   'qa-frontend',
+  'qa-vue3',
   'qa-mobile',
   'qa-python',
   'qa-bash',
+  'qa-evals',
+  'qa-vibe-rescue',
+  'mcp-server',
 ];
 export const COMPOSER_STAGE_SET = new Set(['lint', 'unit', 'mutation', 'sbom']);
 export const COVERAGE_STAGE_SET = new Set(['unit', 'ci', 'all']);

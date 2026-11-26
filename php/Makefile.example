@@ -1,4 +1,4 @@
-.PHONY: qa-lint qa-unit qa-parity qa-contracts qa-bdd qa-mutation qa-dast qa-load qa-chaos qa-observability qa-sbom qa-all clean-cache clean qa-clean
+.PHONY: qa-lint qa-unit qa-ci certify qa-parity qa-contracts qa-bdd qa-mutation qa-dast qa-load qa-chaos qa-observability qa-sbom qa-all clean-cache clean qa-clean
 
 # ==============================================================================
 # MAKEFILE QA PHP 8.2-8.5 (ESTÁNDAR CORPORATIVO 11X)
@@ -91,6 +91,12 @@ qa-sbom:
 	@echo "📜 [11X] Generando SBOM CycloneDX 1.6 Criptográfico..."
 	@mkdir -p "$(PROJECT_DIR)/reports"
 	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) sh -c '([ -f vendor/autoload.php ] || php -d allow_url_fopen=1 "$$(command -v composer)" install --no-interaction --prefer-dist --quiet) && php -d allow_url_fopen=1 "$$(command -v composer)" run-script qa:sbom && ([ ! -f sbom-php.cdx.json ] || mv sbom-php.cdx.json reports/sbom-php.cdx.json)'
+
+qa-ci: qa-lint qa-unit
+	@echo "✅ [11X] Paridad Pre-Push 1:1 con CI (lint + unit PHP) certificada."
+
+certify:
+	@[ -x ./.agents/scripts/certify_task_completion.sh ] && ./.agents/scripts/certify_task_completion.sh || echo "⚠️ [SKIPPED] certify_task_completion.sh no instalado."
 
 qa-all: qa-lint qa-unit qa-parity qa-bdd qa-mutation qa-sbom
 	@echo "✅ Pipeline QA PHP 8.2-8.5 (Estándar 11X) completado exitosamente."

@@ -3,7 +3,14 @@
 
 import * as fs from 'node:fs';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
-import type { MissingTestInventory, PyramidLayerAudit, StackName, TestPyramidGapResult } from '../types.js';
+import { TIER_ENTERPRISE, TIER_STANDARD } from '../services/qa11xConfig.js';
+import type {
+  MissingTestInventory,
+  PyramidLayerAudit,
+  StackName,
+  StandardTier,
+  TestPyramidGapResult,
+} from '../types.js';
 import { collectProjectFiles, inspectProjectConfig } from './inspect-project.js';
 import { buildPyramidMetaGatesAudit, evaluateStandard11xReadiness } from './standardReadiness.js';
 import {
@@ -37,6 +44,27 @@ export {
 // ============================================================================
 // 🚀 Orquestador Principal: auditTestPyramidGaps
 // ============================================================================
+
+function isLayerRequiredForTier(layerNumber: number, tier: StandardTier): boolean {
+  if (tier === TIER_ENTERPRISE) {
+    return true;
+  }
+  if (tier === TIER_STANDARD) {
+    return layerNumber <= 4;
+  }
+  return layerNumber <= 1;
+}
+
+function applyTierRequirementsToLayers(
+  layers: PyramidLayerAudit[],
+  tier: StandardTier
+): PyramidLayerAudit[] {
+  return layers.map((layer) => ({
+    ...layer,
+    required_for_tier:
+      layer.status !== STATUS_NOT_APPLICABLE && isLayerRequiredForTier(layer.layer_number, tier),
+  }));
+}
 
 export async function auditTestPyramidGaps(
   projectPathInput: string,
@@ -119,9 +147,13 @@ export async function auditTestPyramidGaps(
   };
 
   const standardReadiness = evaluateStandard11xReadiness(resolvedPath, detectedStacks, files);
+  const tieredLayersAudit = applyTierRequirementsToLayers(
+    layersAudit,
+    standardReadiness.effective_tier
+  );
   const metaGatesAudit = buildPyramidMetaGatesAudit(standardReadiness);
   const prioritizedPlan = buildPrioritizedActionPlan(
-    layersAudit,
+    tieredLayersAudit,
     fullMissingInventory,
     metaGatesAudit,
     detectedStacks
@@ -152,10 +184,13 @@ export async function auditTestPyramidGaps(
 
   return {
     project_path: resolvedPath,
+    effective_tier: standardReadiness.effective_tier,
+    tier_confirmed_by_user: standardReadiness.tier_confirmed_by_user,
+    qa_11x_banner: standardReadiness.qa_11x_banner,
     detected_stacks: detectedStacks,
     pyramid_score_pct: pyramidScorePct,
     summary_counts: summaryCounts,
-    layers_audit: layersAudit,
+    layers_audit: tieredLayersAudit,
     meta_gates_audit: metaGatesAudit,
     missing_test_inventory: missingInventory,
     prioritized_action_plan: prioritizedPlan,

@@ -17,9 +17,9 @@ description: >-
 - **FORBIDDEN:** Micro-helpers (`> 4` params) or mutating shared dicts; use immutable DTOs (`@dataclass(frozen=True)`, Pydantic `frozen=True`, TS `readonly`, PHP `readonly class`).
 
 ## 2. Anti-Mock & Offline Boundary (`--network none`)
-- Domain vs. Persistence -> **Functional Core, Imperative Shell** (pure core; thin shell hitting real ephemeral PostgreSQL 17 & KeyDB).
-- External APIs / 3P / Hardware -> **Port & Adapter** (`Protocol`/`interface`) *only* at external edges for deterministic offline doubles (`respx`, `nock`, `MockHandler`) under `--network none`.
-- **FORBIDDEN:** Fake `Repository` interfaces mocking SQLAlchemy, Prisma, Doctrine, or `write_audit_log`.
+- Domain vs. Persistence -> **Functional Core, Imperative Shell** (pure core; thin shell hitting ephemeral PG17 & KeyDB).
+- External APIs/3P/HW -> **Port & Adapter** (`Protocol`/`interface`) *only* at external edges for offline doubles (`respx`, `nock`, `MockHandler`) under `--network none`.
+- **FORBIDDEN:** Fake `Repository` / DB / audit mocks in integration/Anti-Silo (`MockDbSession` & `call_args`-asserted `write_audit_log` `AsyncMock` allowed ONLY in `.unit.*`).
 
 ## 3. Distributed Consistency, Security & Multi-Tenancy (STIG V6R5 / OWASP v4.2)
 - DB write + side effect (KeyDB/queues/webhooks) -> **Transactional Outbox** in same PG transaction (no dual-write).

@@ -19,6 +19,7 @@ import {
   validateQuickstartCi,
   validateQuickstartTier,
   type QuickstartCiProvider,
+  type QuickstartPromptFn,
   type QuickstartResult,
   type QuickstartTier,
 } from './cli/quickstart.js';
@@ -137,6 +138,7 @@ export interface CliDeps {
   readonly homeDir?: string;
   readonly baseBoundaryDir?: string;
   readonly isStdinTty?: boolean;
+  readonly promptTierFn?: QuickstartPromptFn;
   readonly fetcher?: GitHubFetcher;
   readonly fetchFn?: typeof fetch;
   readonly dockerProbeFn?: () => string | null;
@@ -794,6 +796,8 @@ async function handleQuickstartCommand(
       dir: parsed.projectPath,
       baseBoundaryDir: deps.baseBoundaryDir,
       tier: parsed.tier,
+      isStdinTty: deps.isStdinTty,
+      promptTierFn: deps.promptTierFn,
       lang: parsed.lang,
       agents: parsed.agents,
       ci: parsed.ci,

@@ -902,23 +902,34 @@ def test_wave3_warn_skipped_non_certify_clear_no_resurrect_and_pending_compact(
         )
     )
 
-    # [11]: record-cmd certify_task_completion con rc=0 y [WARN]/SKIPPED NO certifica
+    # [11]: record-cmd certify_task_completion con rc=1 o FAIL>0 NO certifica
+    ctl.handle_record_cmd(
+        repo,
+        cmd="certify_task_completion",
+        exit_code=1,
+        summary="[FAIL] CERTIFY-STATE | 8/10 PASS, 1 SKIPPED, 1 FAIL",
+    )
+    after_fail = ctl.load_checkpoint(repo, snap)
+    assert after_fail is not None
+    assert after_fail.status == ctl.STATUS_IN_PROGRESS
+
+    # L011: paso pendiente dentro de ventana compactada mantiene prefijo `- [ ]`
+    lines_with_pending = ctl._build_step_lines(after_fail, budget=1)
+    assert len(lines_with_pending) == 1
+    assert lines_with_pending[0].startswith("- [ ] ")
+
+    # REQ-33-03: rc=0 con 0 FAIL (aun con SKIPPED) promueve a CERTIFIED_CLEAN
     ctl.handle_record_cmd(
         repo,
         cmd="certify_task_completion",
         exit_code=0,
         summary="[WARN] CERTIFY-STATE | 7/10 PASS, 3 SKIPPED, 0 FAIL",
     )
-    after_warn = ctl.load_checkpoint(repo, snap)
-    assert after_warn is not None
-    assert after_warn.status == ctl.STATUS_IN_PROGRESS
+    after_warn_pass = ctl.load_checkpoint(repo, snap)
+    assert after_warn_pass is not None
+    assert after_warn_pass.status == ctl.STATUS_CERTIFIED_CLEAN
 
-    # L011: paso pendiente dentro de ventana compactada mantiene prefijo `- [ ]`
-    lines_with_pending = ctl._build_step_lines(after_warn, budget=1)
-    assert len(lines_with_pending) == 1
-    assert lines_with_pending[0].startswith("- [ ] ")
-
-    # [11]: [PASS] con 0 SKIPPED sí promueve a CERTIFIED_CLEAN
+    # [11]: [PASS] con 0 SKIPPED tambien mantiene CERTIFIED_CLEAN
     ctl.handle_record_cmd(
         repo,
         cmd="certify_task_completion",

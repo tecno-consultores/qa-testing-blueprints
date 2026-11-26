@@ -265,10 +265,10 @@ function collectLiveGitSnapshot(realRoot: string, execFileSyncFn: typeof execFil
 function normalizeSchemaTaskId(rawTaskId: string): string {
   const mapped = sanitizeSingleLineSec06(rawTaskId).replace(/[^A-Za-z0-9._-]+/g, '-');
   let start = 0;
-  let end = mapped.length;
-  while (start < end && mapped[start] === '-') start += 1;
+  while (start < mapped.length && mapped[start] === '-') start += 1;
+  let end = Math.min(mapped.length, start + 64);
   while (end > start && mapped[end - 1] === '-') end -= 1;
-  const clean = mapped.slice(start, end).slice(0, 64);
+  const clean = mapped.slice(start, end);
   return clean.length > 0 ? clean : 'TASK-11X';
 }
 
@@ -436,8 +436,8 @@ function buildPythonCliArgs(
     scriptArg,
     'set',
     `${WORKSPACE_FLAG}=${workspaceArg}`,
-    `--task-id=${sanitizeSingleLineSec06(args.task_id as string)}`,
-    `--step=${sanitizeSingleLineSec06(args.active_step as string)}`,
+    `--task-id=${normalizeSchemaTaskId(args.task_id as string)}`,
+    `--step=${normalizeSchemaActiveStep(args.active_step as string, 'STEP-1')}`,
     `--intent=${sanitizeSingleLineSec06(args.intent_140chars as string)}`,
   ];
   if (args.completed_steps && args.completed_steps.length > 0) {

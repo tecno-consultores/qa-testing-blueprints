@@ -3,12 +3,14 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { readQa11xConfig, TIER_ENTERPRISE } from '../services/qa11xConfig.js';
 import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 
 export type ToolsetMode = 'core' | 'auto' | 'full';
 
 export const CORE_TOOLSET_NAMES: ReadonlySet<string> = new Set([
   'inspect_project_config',
+  'fetch_blueprint_bundle',
   'audit_test_pyramid_gaps',
   'inspect_ast_blast_radius',
   'bootstrap_or_merge_11x',
@@ -16,6 +18,9 @@ export const CORE_TOOLSET_NAMES: ReadonlySet<string> = new Set([
   'run_ephemeral_qa',
   'certify_11x_gate',
   'clean_workspace_11x',
+  'init_or_append_agents_md',
+  'reconcile_agents_governance',
+  'propose_skill_evolution_pr',
   'session_flight_recorder',
 ]);
 
@@ -59,19 +64,19 @@ function hasAnyWorkspacePath(projectDir: string, relPaths: readonly string[]): b
   return relPaths.some((relPath) => fs.existsSync(path.join(projectDir, relPath)));
 }
 
-function hasGovernanceMarkers(projectDir: string): boolean {
-  return hasAnyWorkspacePath(projectDir, ['.agents', 'AGENTS.md', '.qa-11x.json']);
-}
-
 function detectAutoExtensionTools(projectDir: string): string[] {
   const extra: string[] = [];
   const pkgText = safeReadPkgText(projectDir);
   const pyText = safeReadPyprojectText(projectDir);
+  const loadedCfg = readQa11xConfig(projectDir);
 
   if (hasAnyWorkspacePath(projectDir, ['.bolt', '.lovable']) || pkgText.includes('lovable-tagger')) {
     extra.push('audit_vibe_prototype');
   }
-  if (fs.existsSync(path.join(projectDir, 'architecture'))) {
+  if (
+    fs.existsSync(path.join(projectDir, 'architecture')) ||
+    loadedCfg.effectiveTier === TIER_ENTERPRISE
+  ) {
     extra.push('validate_calm_architecture');
   }
   if (
@@ -81,15 +86,8 @@ function detectAutoExtensionTools(projectDir: string): string[] {
   ) {
     extra.push('evaluate_agent_trajectory', 'run_llm_red_team');
   }
-  if (fs.existsSync(path.join(projectDir, '.qa-11x.json'))) {
+  if (loadedCfg.exists) {
     extra.push('evaluate_release_gate', 'sync_enterprise_tms');
-  }
-  if (hasGovernanceMarkers(projectDir)) {
-    extra.push(
-      'init_or_append_agents_md',
-      'reconcile_agents_governance',
-      'propose_skill_evolution_pr'
-    );
   }
   return extra;
 }

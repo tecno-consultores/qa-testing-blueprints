@@ -3,6 +3,11 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import {
+  detectConnectorLang,
+  detectExistingStacks,
+} from '../services/agents-connector.js';
+import { readQa11xConfig } from '../services/qa11xConfig.js';
 import { GitHubFetcher } from '../services/github-fetcher.js';
 import { SurgicalMerger } from '../services/surgical-merger.js';
 import { mergeOrAppendAgentsMdContent } from '../cli/init-agents-md.js';
@@ -23,7 +28,13 @@ function injectAgentsConnectorIfMissingFromBundle(input: AgentsConnectorInjectio
   const hadAgentsFile = fs.existsSync(agentsPath);
   const existingAgents = hadAgentsFile ? fs.readFileSync(agentsPath, 'utf-8') : '';
   const projectName = path.basename(resolvedPath) || 'Project';
-  const agentsRes = mergeOrAppendAgentsMdContent(existingAgents, projectName, [stack], {
+  const persistedConfig = readQa11xConfig(resolvedPath);
+  const preservedLang = detectConnectorLang(existingAgents) ?? persistedConfig.lang ?? 'auto';
+  const mergedStacks = Array.from(
+    new Set([...detectExistingStacks(existingAgents), stack])
+  );
+  const agentsRes = mergeOrAppendAgentsMdContent(existingAgents, projectName, mergedStacks, {
+    lang: preservedLang,
     projectDir: resolvedPath,
   });
 

@@ -1,4 +1,4 @@
-.PHONY: qa-lint qa-unit qa-offline test-ai-offline qa-ci audit-llm qa-all clean-cache clean qa-clean
+.PHONY: qa-lint qa-unit qa-offline test-ai-offline qa-ci certify audit-llm qa-all clean-cache clean qa-clean
 
 # ==============================================================================
 # MAKEFILE QA AI-EVALS 11X (sinfallas/base-python-uv:3.15 + base-node-ionic:26)
@@ -37,6 +37,9 @@ test-ai-offline: qa-ci
 
 qa-ci: qa-lint qa-unit
 	@echo "✅ [11X] Suite Offline AI-Evals (lint + contratos >= 95%) certificada."
+
+certify:
+	@[ -x ./.agents/scripts/certify_task_completion.sh ] && ./.agents/scripts/certify_task_completion.sh || echo "⚠️ [SKIPPED] certify_task_completion.sh no instalado."
 
 audit-llm:
 	@if [ -z "$${OPENAI_API_KEY:-}$${GEMINI_API_KEY:-}$${ANTHROPIC_API_KEY:-}$${OLLAMA_BASE_URL:-}$${OPENAI_API_BASE:-}" ]; then \

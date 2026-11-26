@@ -2384,3 +2384,77 @@ EOF
   assert_success
   assert_output --partial "PUBLICACIÓN EXITOSA"
 }
+
+@test "certify_task_completion.sh (Hito 33): tiers starter/enterprise, QA11X_TIER, CALM en Gate 6 y GITHUB_BASE_REF en Gate 10" {
+  local work="${BATS_TEST_TMPDIR}/tier_cert_ws"
+  local bin_dir="${BATS_TEST_TMPDIR}/tier_cert_bin"
+  mkdir -p "${work}/.agents/scripts" "${work}/scripts" "${work}/app" "${bin_dir}"
+  cp "${REPO_ROOT}/.agents/scripts/certify_task_completion.sh" "${work}/.agents/scripts/certify_task_completion.sh"
+  chmod +x "${work}/.agents/scripts/certify_task_completion.sh"
+
+  for tool in bash git grep sed awk sort head tail tr cut wc find mkdir rm cp mv chmod cat printf dirname basename mktemp env id date stat uname readlink realpath python3; do
+    resolved="$(command -v "${tool}" || true)"
+    [ -n "${resolved}" ] && ln -sf "${resolved}" "${bin_dir}/${tool}"
+  done
+
+  cat >"${work}/scripts/verificar-secretos.sh" <<'EOF'
+#!/usr/bin/env bash
+echo "✔ [Secretos] stub OK"
+EOF
+  cat >"${work}/scripts/auditar-infra.sh" <<'EOF'
+#!/usr/bin/env bash
+echo "✔ [Trivy] stub OK"
+EOF
+  cat >"${work}/.agents/scripts/validate_calm_architecture.sh" <<'EOF'
+#!/usr/bin/env bash
+echo "✅ [CALM] stub OK"
+EOF
+  chmod +x "${work}/scripts/verificar-secretos.sh" "${work}/scripts/auditar-infra.sh" "${work}/.agents/scripts/validate_calm_architecture.sh"
+
+  for stub_py in \
+    verify_json_no_duplicate_keys.py \
+    verify_zero_orphan_vue_components.py \
+    verify_no_orphan_api_endpoints.py \
+    verify_topological_health.py \
+    verify_alembic_orm_parity.py \
+    verify_roadmap_consistency.py \
+    verify_docs_invariants.py; do
+    printf 'print("✔ [%s] stub OK")\n' "${stub_py}" >"${work}/.agents/scripts/${stub_py}"
+  done
+
+  # 1. Starter via .qa-11x.json -> omite Gate 2, Gate 6 AST, gates standard y Gate 10 diff/docs
+  printf '{"schemaVersion":3,"tier":"starter","tierConfirmedByUser":true}\n' >"${work}/.qa-11x.json"
+  printf 'x = 1\n' >"${work}/app/service.py"
+  git -C "${work}" init -q -b main
+  git -C "${work}" config user.name "QA Bot"
+  git -C "${work}" config user.email "qa@example.com"
+  git -C "${work}" add .
+  git -C "${work}" commit -q -m "chore: init"
+
+  run env QA_IN_CONTAINER=1 PATH="${bin_dir}" LC_ALL=C bash "${work}/.agents/scripts/certify_task_completion.sh"
+  assert_success
+  assert_output --partial "Tier: starter"
+  assert_output --partial "Trivy IaC omitido en tier starter"
+  assert_output --partial "Grafo AST omitido en tier starter"
+  assert_output --partial "Doc & Test Sync / cobertura diferencial omitido en tier starter"
+
+  # 2. Enterprise via QA11X_TIER + GITHUB_BASE_REF branch diff (app/service.py + test + docs) + CALM en Gate 6
+  mkdir -p "${work}/graphify-out" "${work}/tests"
+  printf '{"nodes":[],"links":[]}\n' >"${work}/graphify-out/graph.json"
+  git -C "${work}" checkout -q -b feat/hito33
+  printf 'x = 2\n' >"${work}/app/service.py"
+  printf 'def test_ok(): assert True\n' >"${work}/tests/test_service.py"
+  printf '# Notes\n' >"${work}/CHANGELOG.md"
+  git -C "${work}" add .
+  git -C "${work}" commit -q -m "feat: update service"
+
+  run env QA_IN_CONTAINER=1 QA11X_TIER=enterprise GITHUB_BASE_REF=main PATH="${bin_dir}" LC_ALL=C bash "${work}/.agents/scripts/certify_task_completion.sh"
+  assert_success
+  assert_output --partial "Tier: enterprise"
+  assert_output --partial "✅ [CALM] stub OK"
+
+  # 3. También cubre origin/${GITHUB_BASE_REF} cuando existe ref remota
+  git -C "${work}" update-ref refs/remotes/origin/main refs/heads/main
+  run env QA_IN_CONTAINER=1 QA11X_TIER=enterprise GITHUB_BASE_REF=main PATH="${bin_dir}" LC_ALL=C bash "${work}/.agents/scripts/certify_task_completion.sh"
+  assert_success
+}

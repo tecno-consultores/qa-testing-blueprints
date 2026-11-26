@@ -25,6 +25,7 @@ describe('certify-gate', () => {
   function setupNominalProject(dir: string): void {
     fs.writeFileSync(path.join(dir, 'TESTING.md'), '# Testing QA 11X\nCoverage >= 95%');
     fs.writeFileSync(path.join(dir, 'CHANGELOG.md'), '# Changelog\n\n## [Unreleased]\n- Initial feature\n');
+    fs.writeFileSync(path.join(dir, 'SECURITY.md'), '# Security Policy\nDISA STIG V6R5\n');
     fs.writeFileSync(path.join(dir, '.npmrc'), 'ignore-scripts=true\n');
     fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'app' }, null, 2));
 
@@ -35,7 +36,10 @@ describe('certify-gate', () => {
 
     const modelDir = path.join(dir, 'src', 'models');
     fs.mkdirSync(modelDir, { recursive: true });
-    fs.writeFileSync(path.join(modelDir, 'user.py'), '# user model');
+    fs.writeFileSync(
+      path.join(modelDir, 'user.py'),
+      'from sqlalchemy.orm import DeclarativeBase\nclass User(DeclarativeBase):\n    __tablename__ = "users"\n'
+    );
     const alembicDir = path.join(dir, 'alembic', 'versions');
     fs.mkdirSync(alembicDir, { recursive: true });
     fs.writeFileSync(path.join(alembicDir, '001_init.py'), '# migration');
@@ -609,7 +613,7 @@ describe('certify-gate', () => {
     expect(okClean.gate_passed).toBe(true);
     expect(okClean.blockers).toEqual([]);
 
-    // Checkpoint legado COMPLETED (100%) + ACTIVE_TASK COMPLETED (100%) también pasa
+    // REQ-33-03: Checkpoint con estado legado COMPLETED (100%) es rechazado (solo IN_PROGRESS | CERTIFIED_CLEAN)
     fs.writeFileSync(
       path.join(agentsDir, 'ACTIVE_TASK.md'),
       '# Active Task\n- **Estado:** COMPLETED (100%)\n- [x] Paso 1\n',
@@ -619,9 +623,9 @@ describe('certify-gate', () => {
       path.join(cacheDir, 'session_checkpoint.json'),
       JSON.stringify({ status: 'COMPLETED (100%)', intent_140chars: 'Legado completado', planned_steps: [] })
     );
-    const okLegacy = await certify11xGate(tempDir);
-    expect(okLegacy.gate_passed).toBe(true);
-    expect(okLegacy.blockers).toEqual([]);
+    const rejectedLegacy = await certify11xGate(tempDir);
+    expect(rejectedLegacy.gate_passed).toBe(false);
+    expect(rejectedLegacy.blockers.some((b) => b.includes('status inválido'))).toBe(true);
 
     // 22 líneas con contenido + 20 líneas en blanco = 42 líneas totales -> bloquea (> 40)
     const blankPadded = [

@@ -23,8 +23,13 @@ import {
   readVersionStamp,
   readVersionStampData,
 } from '../services/version-manager.js';
+import {
+  TIER_STANDARD,
+  formatQa11xStatusBanner,
+  readQa11xConfig,
+} from '../services/qa11xConfig.js';
 import { inspectProjectConfig } from '../tools/inspect-project.js';
-import type { CompanionMcpDiscoverySummary, ProjectAuditResult } from '../types.js';
+import type { CompanionMcpDiscoverySummary, ProjectAuditResult, StandardTier } from '../types.js';
 import { detectCompanionMcps } from '../utils/companionMcpDetector.js';
 import { pickAt, reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 import {
@@ -104,6 +109,9 @@ export interface DoctorReport {
   readonly binary_origin: BinaryOrigin;
   readonly home_dir: string;
   readonly project_path: string;
+  readonly effective_tier: StandardTier;
+  readonly tier_confirmed_by_user: boolean;
+  readonly qa_11x_banner: string;
   readonly npx_cache: {
     readonly entries: readonly NpxCacheEntry[];
     readonly multiple_npx_caches: boolean;
@@ -527,8 +535,10 @@ function formatDoctorText(report: DoctorReport): string {
   const companionSummary =
     detectedCompanions.length > 0 ? detectedCompanions.join(', ') : 'ninguno';
   const lines: string[] = [
+    report.qa_11x_banner,
     `🩺 [QA-11X Doctor] MCP v${report.mcp_version} | origin=${report.binary_origin} | node=${report.node_version}`,
     projectLine,
+    `  Tier activo: ${report.effective_tier} (${report.tier_confirmed_by_user ? 'confirmado' : 'por defecto; ejecuta quickstart --tier <starter|standard|enterprise>'})`,
     `  Docker (Rule Zero obligatorio): ${report.docker_version ?? 'NO DETECTADO (BLOQUEANTE)'} | Graphify AST: ${report.graphify_graph_present ? 'presente' : 'ausente'}`,
     `  Companion MCPs: ${companionSummary}`,
     `  Cachés _npx: ${report.npx_cache.entries.length}${multiCacheNote}`,
@@ -595,6 +605,40 @@ function resolveDoctorDockerHealth(
   return undefined;
 }
 
+function resolveDoctorTierSummary(
+  inHomeMode: boolean,
+  projectPath: string,
+  projectInspection: ProjectAuditResult
+): {
+  readonly effective_tier: StandardTier;
+  readonly tier_confirmed_by_user: boolean;
+  readonly qa_11x_banner: string;
+} {
+  const readiness = projectInspection.standard_11x_readiness;
+  if (readiness) {
+    return {
+      effective_tier: readiness.effective_tier,
+      tier_confirmed_by_user: readiness.tier_confirmed_by_user ?? false,
+      qa_11x_banner: readiness.qa_11x_banner ?? formatQa11xStatusBanner(readiness.effective_tier, 'AUTO'),
+    };
+  }
+  const loadedCfg = inHomeMode ? null : readQa11xConfig(projectPath);
+  const effectiveTier = loadedCfg?.effectiveTier ?? TIER_STANDARD;
+  return {
+    effective_tier: effectiveTier,
+    tier_confirmed_by_user: loadedCfg?.tierConfirmedByUser ?? false,
+    qa_11x_banner: formatQa11xStatusBanner(effectiveTier, 'AUTO'),
+  };
+}
+
+function buildDoctorBlockers(dockerDaemonOk: boolean): string[] {
+  return dockerDaemonOk
+    ? []
+    : [
+        '[RULE-ZERO] Docker Engine operativo es obligatorio e innegociable para QA-11X (`docker info` falló). Instala o inicia el daemon Docker antes de ejecutar QA-11X.',
+      ];
+}
+
 async function buildDoctorReport(
   parsed: ParsedDoctorArgs,
   deps: DoctorCliDeps
@@ -631,11 +675,7 @@ async function buildDoctorReport(
   const dockerHealth = resolveDoctorDockerHealth(deps, dockerVersion);
   const companionMcps =
     projectInspection.companion_mcps ?? detectCompanionMcps(homeDir, deps.platform);
-  const blockers: string[] = dockerDaemonOk
-    ? []
-    : [
-        '[RULE-ZERO] Docker Engine operativo es obligatorio e innegociable para QA-11X (`docker info` falló). Instala o inicia el daemon Docker antes de ejecutar QA-11X.',
-      ];
+  const tierSummary = resolveDoctorTierSummary(inHomeMode, projectPath, projectInspection);
 
   return {
     mcp_version: MCP_SERVER_VERSION,
@@ -645,6 +685,7 @@ async function buildDoctorReport(
     binary_origin: detectBinaryOrigin(entryScriptPath, projectPath),
     home_dir: homeDir,
     project_path: projectPath,
+    ...tierSummary,
     npx_cache: {
       entries: npxEntries,
       multiple_npx_caches: npxEntries.length > 1,
@@ -659,7 +700,7 @@ async function buildDoctorReport(
     docker_daemon_ok: dockerDaemonOk,
     ...(dockerHealth ? { docker_health: dockerHealth } : {}),
     companion_mcps: companionMcps,
-    blockers,
+    blockers: buildDoctorBlockers(dockerDaemonOk),
     graphify_graph_present:
       !inHomeMode && fs.existsSync(path.join(projectPath, 'graphify-out', 'graph.json')),
     project_inspection: projectInspection,

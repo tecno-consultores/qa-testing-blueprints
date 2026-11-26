@@ -149,8 +149,8 @@ export const CLI_COMMAND_CATALOG: readonly CliSubcommandSpec[] = [
         values: ['starter', 'standard', 'enterprise'],
         zshMeta: 'tier',
         desc: {
-          en: 'Quickstart gate profile (default: starter)',
-          es: 'Perfil de compuertas quickstart (por defecto: starter)',
+          en: 'Quickstart gate profile (default: standard)',
+          es: 'Perfil de compuertas quickstart (por defecto: standard)',
         },
       },
       LANG_FLAG,

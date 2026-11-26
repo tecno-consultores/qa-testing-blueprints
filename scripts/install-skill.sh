@@ -372,10 +372,8 @@ resolve_destination_dirs() {
       _detected="$(detect_global_agent_dirs || true)"
       if [ -n "${_detected}" ]; then
         printf '%s\n' "${_detected}"
-      elif [ "${IN_HOME_DIR}" -eq 1 ]; then
-        emit_gemini_skill_dirs
       else
-        printf "%s/.agents/skills\n" "${_pwd}"
+        printf "%s/.agents/skills\n" "${HOME_DIR}"
       fi
       ;;
   esac
@@ -584,10 +582,10 @@ write_global_connector_block() {
 <!-- QA_11X_MCP_CONNECTOR_START -->
 ## 🤖 Conector Global Thin-Client QA 11X (`@sinfallas/mcp-qa-11x`)
 
-- **Idioma y Economía Cognitiva:** Razonar, responder, hacer commits y documentar estrictamente en **Español** (`AGENTS.md`/`.agents/**` en inglés conciso). Usar 3-Tier Disclosure, lecturas `40–80L` (sin `>150L` a ciegas), Zero Redundant Re-Read, lotes paralelos y resúmenes `<=20L`.
-- **Crítica Técnica Objetiva (Sin Adulación):** Omitir elogios. Verificar propuestas no triviales/ambiguas contra AST/archivos/budgets; señalar fallos, duplicación o alternativas más simples (o no actuar), o aprobar directo si es sólido; no debatir órdenes rutinarias.
-- **Rule Zero Supremo y Graphify AST-First:** Ejecutar TODOS los tests, linters, migraciones e installs en Docker efímero sin root (`run_ephemeral_qa`/`make`, en serie 1 contenedor a la vez; sin `docker run` paralelo en subagentes; `--rm --restart=no --network none` offline). Consultar `graphify-out/graph.json` (`inspect_ast_blast_radius`; `./scripts/actualizar-grafos-graphify.sh`) ANTES de `grep`/`read_file`.
-- **Skills Globales, `QA-TEST-SYNC-01` y `QA-GIT-GATE-01`:** Enrutar vía `qa-11x-architect` sin duplicación local (`reconcile_agents_governance`); co-evolucionar tests (`QA-TEST-SYNC-01`), detenerse en `git commit` local (NUNCA auto-`git push`) y reportar brechas (`propose_skill_evolution_pr`).
+- **Idioma, Tier y Economía Cognitiva:** Responder/documentar/comitear en **Español** (`AGENTS.md`/`.agents/**` inglés). Mostrar `[QA-11X | Tier: <tier> | Path: <ruta>]` (`.qa-11x.json` v3, default `standard`; preguntar 1 vez si `!tierConfirmedByUser`). Usar 3-Layer Disclosure, lecturas `40–80L`, lotes paralelos y resúmenes `<=20L`.
+- **Crítica Técnica Objetiva (Sin Adulación):** Omitir elogios; verificar propuestas no triviales vs AST/archivos/budgets; señalar fallos o alternativas simples, o aprobar directo; no debatir órdenes rutinarias.
+- **Rule Zero Supremo y Graphify AST-First:** Ejecutar tests/linters/migraciones/installs en Docker efímero sin root (`run_ephemeral_qa`/`make`, en serie 1 contenedor a la vez; sin `docker run` paralelo en subagentes; `--rm --restart=no --network none` offline). Consultar `inspect_ast_blast_radius` ANTES de `grep`/`read_file`.
+- **Skills Globales, `QA-TEST-SYNC-01` y `QA-GIT-GATE-01`:** Enrutar vía `qa-11x-architect` sin duplicación local (`reconcile_agents_governance`); co-evolucionar tests (`QA-TEST-SYNC-01`), cerrar en `git commit` local (NUNCA auto-`git push`) y reportar brechas (`propose_skill_evolution_pr`).
 <!-- QA_11X_MCP_CONNECTOR_END -->
 EOF
       ;;
@@ -596,10 +594,10 @@ EOF
 <!-- QA_11X_MCP_CONNECTOR_START -->
 ## 🤖 Global Thin-Client QA 11X Connector (`@sinfallas/mcp-qa-11x`)
 
-- **Language & Token Economy:** Interact, write commits & docs strictly in **English**. Apply 3-Tier Disclosure, `40–80L` reads (no blind `>150L`), Zero Redundant Re-Read, parallel batching & `<=20L` summaries.
-- **Objective Technical Critique (No Sycophancy):** Skip praise openers. Verify non-trivial/ambiguous proposals against live AST/files/budgets; cite flaws, duplication, or simpler options (incl. doing nothing), or approve directly when solid; never debate routine commands.
-- **Rule Zero Supreme & Graphify AST-First:** Run ALL tests/linters/migrations/installs in non-root ephemeral Docker (`run_ephemeral_qa`/`make`, serialized 1 container at a time; zero parallel subagent `docker run`; `--rm --restart=no --network none` offline). Query `graphify-out/graph.json` (`inspect_ast_blast_radius`; `./scripts/actualizar-grafos-graphify.sh`) BEFORE `grep`/`read_file`.
-- **Global Skills, `QA-TEST-SYNC-01` & `QA-GIT-GATE-01`:** Route via `qa-11x-architect` & global skills without local duplication (`reconcile_agents_governance`); co-evolve affected tests (`QA-TEST-SYNC-01`), stop at local `git commit` (NEVER auto-`git push`) & log gaps (`propose_skill_evolution_pr`).
+- **Language, Tier & Token Economy:** Interact, write commits & docs strictly in **English**. Show `[QA-11X | Tier: <tier> | Path: <path>]` (`.qa-11x.json` v3, default `standard`; ask once if `!tierConfirmedByUser`). Use 3-Layer Disclosure, `40–80L` reads, parallel batching & `<=20L` summaries.
+- **Objective Technical Critique (No Sycophancy):** Skip praise openers. Verify non-trivial proposals vs AST/files/budgets; cite flaws/duplication/simpler options (incl. doing nothing), or approve directly; never debate routine commands.
+- **Rule Zero Supreme & Graphify AST-First:** Run ALL tests/linters/migrations/installs in non-root ephemeral Docker (`run_ephemeral_qa`/`make`, serialized 1 container at a time; zero parallel subagent `docker run`; `--rm --restart=no --network none` offline). Query `inspect_ast_blast_radius` (`graphify-out/graph.json`) BEFORE `grep`/`read_file`.
+- **Global Skills, `QA-TEST-SYNC-01` & `QA-GIT-GATE-01`:** Route via `qa-11x-architect` without local duplication (`reconcile_agents_governance`); co-evolve tests (`QA-TEST-SYNC-01`), stop at local `git commit` (NEVER auto-`git push`) & log gaps (`propose_skill_evolution_pr`).
 <!-- QA_11X_MCP_CONNECTOR_END -->
 EOF
       ;;
@@ -608,10 +606,10 @@ EOF
 <!-- QA_11X_MCP_CONNECTOR_START -->
 ## 🤖 Global Thin-Client QA 11X Connector (`@sinfallas/mcp-qa-11x`)
 
-- **Language & Token Economy:** Interact in user's prompt language; commits/human docs match README.md/CHANGELOG.md (AGENTS.md/.agents/** concise English). Apply 3-Tier Disclosure, `40–80L` reads (no blind `>150L`), Zero Redundant Re-Read, parallel batching & `<=20L` summaries.
-- **Objective Technical Critique (No Sycophancy):** Skip praise openers. Verify non-trivial/ambiguous proposals against live AST/files/budgets; cite flaws, duplication, or simpler options (incl. doing nothing), or approve directly when solid; never debate routine commands.
-- **Rule Zero Supreme & Graphify AST-First:** Run ALL tests/linters/migrations/installs in non-root ephemeral Docker (`run_ephemeral_qa`/`make`, serialized 1 container at a time; zero parallel subagent `docker run`; `--rm --restart=no --network none` offline). Query `graphify-out/graph.json` (`inspect_ast_blast_radius`; `./scripts/actualizar-grafos-graphify.sh`) BEFORE `grep`/`read_file`.
-- **Global Skills, `QA-TEST-SYNC-01` & `QA-GIT-GATE-01`:** Route via `qa-11x-architect` & global skills without local duplication (`reconcile_agents_governance`); co-evolve affected tests (`QA-TEST-SYNC-01`), stop at local `git commit` (NEVER auto-`git push`) & log gaps (`propose_skill_evolution_pr`).
+- **Language, Tier & Token Economy:** Interact in user's prompt language; commits/human docs match README.md/CHANGELOG.md (AGENTS.md/.agents/** EN). Show `[QA-11X | Tier: <tier> | Path: <path>]` (`.qa-11x.json` v3, default `standard`; ask once if `!tierConfirmedByUser`). Use 3-Layer Disclosure, `40–80L` reads, parallel batching & `<=20L` summaries.
+- **Objective Technical Critique (No Sycophancy):** Skip praise openers. Verify non-trivial proposals vs AST/files/budgets; cite flaws/duplication/simpler options (incl. doing nothing), or approve directly; never debate routine commands.
+- **Rule Zero Supreme & Graphify AST-First:** Run ALL tests/linters/migrations/installs in non-root ephemeral Docker (`run_ephemeral_qa`/`make`, serialized 1 container at a time; zero parallel subagent `docker run`; `--rm --restart=no --network none` offline). Query `inspect_ast_blast_radius` (`graphify-out/graph.json`) BEFORE `grep`/`read_file`.
+- **Global Skills, `QA-TEST-SYNC-01` & `QA-GIT-GATE-01`:** Route via `qa-11x-architect` without local duplication (`reconcile_agents_governance`); co-evolve tests (`QA-TEST-SYNC-01`), stop at local `git commit` (NEVER auto-`git push`) & log gaps (`propose_skill_evolution_pr`).
 <!-- QA_11X_MCP_CONNECTOR_END -->
 EOF
       ;;
@@ -688,8 +686,8 @@ sync_project_agents_md() {
 Project `__PROJ_NAME__` enforces **Standard QA-11X** (stacks: `general`). Do NOT duplicate global skills/rules into local `.agents/skills/` or `.agents/rules/`.
 
 - **Language Policy:** __LANG_LINE__
-- **Routing (`qa-11x-architect` + MCP `qa-11x`):** Classify every task as `DOCS_ONLY` (`0` Docker QA / `0` AST rebuild), `MICRO_CHANGE` (`<=3` files, `<5` callers: 3-line plan + stack Docker QA), or `FULL_11X` (`/plan` + `session_flight_recorder` + full 11-step workflow from `qa-11x-architect`).
-- **Hard Gates:** (1) **Rule Zero** — run all tests/linters/migrations in non-root ephemeral Docker (`run_ephemeral_qa` / `make`, serialized 1 container at a time; zero parallel subagent `docker run`; `--rm --restart=no --network none` offline); (2) **AST-First & Objective Critique** — query `inspect_ast_blast_radius` (`graphify-out/graph.json`) before `grep`/edits, skip praise openers, and verify non-trivial premises/simpler options before coding (without debating routine commands); (3) **`QA-TEST-SYNC-01`** — update & re-run all affected unit (`>=95%`), integration, BATS, and Karate `.feature` suites; (4) **`QA-GIT-GATE-01`** — run `certify_11x_gate` and stop at local `git commit` (NEVER auto-`git push`).
+- **Tier & Routing (`qa-11x-architect` + MCP `qa-11x`):** Open mutating tasks with `[QA-11X | Tier: <tier> | Path: <DOCS_ONLY|MICRO_CHANGE|FULL_11X>]` (`.qa-11x.json` v3; default `standard`; ask once if `!tierConfirmedByUser`). Classify: `DOCS_ONLY` (`0` Docker/AST), `MICRO_CHANGE` (`<=3` files, `<5` callers), `FULL_11X` (`/plan` + `session_flight_recorder` + 11-step flow).
+- **Hard Gates:** (1) **Rule Zero** — run tests/linters/migrations in non-root ephemeral Docker (`run_ephemeral_qa`/`make`, serialized 1 container at a time; zero parallel subagent `docker run`; `--rm --restart=no --network none` offline); (2) **AST-First & Objective Critique** — query `inspect_ast_blast_radius` before edits, skip praise, verify non-trivial premises (never debate routine cmds); (3) **`QA-TEST-SYNC-01`** — co-evolve affected unit (`>=95%`), integration, BATS & Karate suites; (4) **`QA-GIT-GATE-01`** — run `certify_11x_gate`, stop at local `git commit` (NEVER auto-`git push`).
 <!-- QA_11X_MCP_CONNECTOR_END -->
 
 EOF
@@ -885,16 +883,18 @@ if [ "${INCLUDE_SCRIPTS}" -eq 1 ]; then
       mkdir -p "./.agents"
       cp "${s_tmp}" "./.agents/ACTIVE_TASK.md.example"
       chmod 0644 "./.agents/ACTIVE_TASK.md.example"
-      if [ ! -f "./${dest_rel}" ]; then
-        mkdir -p "$(dirname "./${dest_rel}")"
-        cp "${s_tmp}" "./${dest_rel}"
-        chmod 0644 "./${dest_rel}"
-      fi
       continue
     fi
 
     mkdir -p "$(dirname "./${dest_rel}")"
     if [ -f "./${dest_rel}" ]; then
+      if [ "$(compute_sha256 "./${dest_rel}")" = "${actual_s_sha}" ]; then
+        case "${dest_rel}" in
+          *.json | */_budgets.py | *.yml | *.yaml | *.md) chmod 0644 "./${dest_rel}" ;;
+          *) chmod +x "./${dest_rel}" ;;
+        esac
+        continue
+      fi
       case "${s_strategy}" in
         surgical_merge | copy_if_missing_or_update_qa)
           assert_safe_target_file "./${dest_rel}.11x-backup" "scripts.backup"
@@ -921,13 +921,11 @@ if [ "${INCLUDE_SCRIPTS}" -eq 1 ]; then
       esac
       case "${dest_rel}" in
         scripts/*)
-          if [ "$(compute_sha256 "./${dest_rel}")" != "${actual_s_sha}" ]; then
-            assert_safe_target_file "./${dest_rel}.11x-incoming" "scripts.incoming"
-            cp "${s_tmp}" "./${dest_rel}.11x-incoming"
-            chmod 0644 "./${dest_rel}.11x-incoming"
-            log_warn "${dest_rel} tiene personalizaciones locales y se preservó; revisa ${dest_rel}.11x-incoming (usa .agents/limpieza.local.sh para extensiones)."
-            continue
-          fi
+          assert_safe_target_file "./${dest_rel}.11x-incoming" "scripts.incoming"
+          cp "${s_tmp}" "./${dest_rel}.11x-incoming"
+          chmod 0644 "./${dest_rel}.11x-incoming"
+          log_warn "${dest_rel} tiene personalizaciones locales y se preservó; revisa ${dest_rel}.11x-incoming (usa .agents/limpieza.local.sh para extensiones)."
+          continue
           ;;
       esac
     fi

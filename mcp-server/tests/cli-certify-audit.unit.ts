@@ -64,6 +64,7 @@ function buildValidCalmDoc(): Record<string, unknown> {
 function seedCleanCertifyProject(projDir: string, withGraph = true): void {
   writeFile(path.join(projDir, 'TESTING.md'), '# Testing\n');
   writeFile(path.join(projDir, 'CHANGELOG.md'), '# Changelog\n\n## [Unreleased]\n- Initial.\n');
+  writeFile(path.join(projDir, 'SECURITY.md'), '# Security\n');
   if (withGraph) {
     writeFile(path.join(projDir, 'graphify-out', 'graph.json'), '{"directed":true,"nodes":[],"links":[]}');
   }

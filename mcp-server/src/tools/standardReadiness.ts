@@ -4,6 +4,15 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { CONNECTOR_START_MARKER } from '../services/agents-connector.js';
+import {
+  TIER_ENTERPRISE,
+  TIER_STANDARD,
+  TIER_STARTER,
+  findMissingCanonicalGitignoreEntries,
+  formatQa11xStatusBanner,
+  isTierAtLeast,
+  readQa11xConfig,
+} from '../services/qa11xConfig.js';
 import type {
   Standard11xReadiness,
   StandardPillarStatus,
@@ -36,29 +45,10 @@ const STATUS_PARTIAL: StandardPillarStatus = 'PARTIAL';
 const STATUS_MISSING: StandardPillarStatus = 'MISSING';
 const STATUS_PENDING: StandardPillarStatus = 'PENDING_VERIFICATION';
 
-const TIER_STARTER: StandardTier = 'starter';
-const TIER_STANDARD: StandardTier = 'standard';
-const TIER_ENTERPRISE: StandardTier = 'enterprise';
-
-const TIER_ORDER: Readonly<Record<StandardTier, number>> = {
-  starter: 0,
-  standard: 1,
-  enterprise: 2,
-};
-
 const BASE_RULE_ZERO_SCRIPTS = [
   'scripts/verificar-secretos.sh',
   'scripts/auditar-infra.sh',
   'scripts/limpieza.sh',
-] as const;
-
-const REQUIRED_GITIGNORE_TOKENS = [
-  '.agents/ACTIVE_TASK.md',
-  '.agents/.cache/',
-  '.agents/backups/',
-  '.agents/proposals/',
-  'graphify-out/',
-  '*.11x-backup',
 ] as const;
 
 const ANALYZABLE_SOURCE_EXTS = new Set([
@@ -79,10 +69,6 @@ const FRONTEND_STACK_NAMES = new Set(['vue3', 'react-frontend']);
 
 const IGNORED_SOURCE_DIRS = new Set([...CANONICAL_IGNORED_DIRS, 'docs', 'assets', 'propuestas']);
 
-function isTierAtLeast(effectiveTier: StandardTier, minTier: StandardTier): boolean {
-  return TIER_ORDER[effectiveTier] >= TIER_ORDER[minTier];
-}
-
 function readTextSafe(filePath: string): string | null {
   try {
     return fs.existsSync(filePath) && fs.statSync(filePath).isFile()
@@ -90,24 +76,6 @@ function readTextSafe(filePath: string): string | null {
       : null;
   } catch (err: unknown) {
     reportDebugCatchError(`standardReadiness.readTextSafe(${filePath})`, err);
-    return null;
-  }
-}
-
-function parseDeclaredTier(projectPath: string): StandardTier | null {
-  const raw = readTextSafe(path.join(projectPath, QA_11X_JSON_FILE));
-  if (raw === null) {
-    return null;
-  }
-  try {
-    const parsed = JSON.parse(raw) as { tier?: unknown };
-    const tierVal = parsed.tier;
-    if (tierVal === TIER_STARTER) return TIER_STARTER;
-    if (tierVal === TIER_STANDARD) return TIER_STANDARD;
-    if (tierVal === TIER_ENTERPRISE) return TIER_ENTERPRISE;
-    return null;
-  } catch (err: unknown) {
-    reportDebugCatchError('standardReadiness.parseDeclaredTier', err);
     return null;
   }
 }
@@ -218,11 +186,7 @@ function detectLocalGovernanceDuplication(projectPath: string): boolean {
 
 function findMissingGitignoreEntries(projectPath: string): string[] {
   const content = readTextSafe(path.join(projectPath, GITIGNORE_FILE));
-  if (content === null) {
-    return [...REQUIRED_GITIGNORE_TOKENS];
-  }
-  const lines = new Set(content.split(/\r?\n/).map((l) => l.trim()));
-  return REQUIRED_GITIGNORE_TOKENS.filter((token) => !lines.has(token));
+  return findMissingCanonicalGitignoreEntries(content);
 }
 
 function hasCiWorkflow(files: readonly string[]): boolean {
@@ -243,6 +207,7 @@ function hasCalmArchitectureFile(projectPath: string, files: readonly string[]):
 interface ReadinessSnapshot {
   readonly declaredTier: StandardTier | null;
   readonly effectiveTier: StandardTier;
+  readonly tierConfirmedByUser: boolean;
   readonly astGraphFiles: string[];
   readonly hasGraphifyScript: boolean;
   readonly hasBoundariesConfig: boolean;
@@ -272,12 +237,13 @@ function collectReadinessSnapshot(
   detectedStacks: readonly string[],
   files: readonly string[]
 ): ReadinessSnapshot {
-  const declaredTier = parseDeclaredTier(projectPath);
+  const loadedCfg = readQa11xConfig(projectPath);
   const agentsMdContent = readTextSafe(path.join(projectPath, AGENTS_MD_FILE));
   const changelogContent = readTextSafe(path.join(projectPath, CHANGELOG_MD_FILE));
   return {
-    declaredTier,
-    effectiveTier: declaredTier ?? TIER_ENTERPRISE,
+    declaredTier: loadedCfg.declaredTier,
+    effectiveTier: loadedCfg.effectiveTier,
+    tierConfirmedByUser: loadedCfg.tierConfirmedByUser,
     astGraphFiles: findAstGraphFilesRecursive(projectPath),
     hasGraphifyScript: fs.existsSync(path.join(projectPath, GRAPHIFY_SCRIPT_REL)),
     hasBoundariesConfig: fs.existsSync(path.join(projectPath, BOUNDARIES_REL)),
@@ -287,7 +253,7 @@ function collectReadinessSnapshot(
     isUpstreamRepo: isUpstreamBlueprintsRepo(projectPath),
     hasAgentsMd: agentsMdContent !== null,
     hasAgentsConnector: agentsMdContent !== null && agentsMdContent.includes(CONNECTOR_START_MARKER),
-    hasQa11xConfig: fs.existsSync(path.join(projectPath, QA_11X_JSON_FILE)),
+    hasQa11xConfig: loadedCfg.exists,
     hasActiveTaskMd: fs.existsSync(path.join(projectPath, ACTIVE_TASK_REL)),
     hasLocalDuplication: detectLocalGovernanceDuplication(projectPath),
     missingGitignoreEntries: findMissingGitignoreEntries(projectPath),
@@ -358,7 +324,6 @@ function collectMissingGovernanceItems(snap: ReadinessSnapshot): string[] {
     if (!snap.hasAgentsConnector) missing.push('AGENTS.md con bloque conector QA-11X');
     if (!snap.hasQa11xConfig) missing.push(`${QA_11X_JSON_FILE} (tier de adopción)`);
   }
-  if (!snap.hasActiveTaskMd) missing.push(`${ACTIVE_TASK_REL} (Flight Recorder)`);
   if (snap.hasLocalDuplication) missing.push('Eliminar skills/reglas globales duplicadas en .agents/');
   if (snap.missingGitignoreEntries.length > 0) {
     missing.push(`.gitignore entradas 11X: ${snap.missingGitignoreEntries.join(', ')}`);
@@ -534,6 +499,8 @@ export function evaluateStandard11xReadiness(
   return {
     declared_tier: snap.declaredTier,
     effective_tier: snap.effectiveTier,
+    tier_confirmed_by_user: snap.tierConfirmedByUser,
+    qa_11x_banner: formatQa11xStatusBanner(snap.effectiveTier, 'AUTO'),
     ast_graph_present: snap.astGraphFiles.length > 0,
     ast_graph_files: snap.astGraphFiles,
     has_graphify_script: snap.hasGraphifyScript,

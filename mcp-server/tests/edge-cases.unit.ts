@@ -332,10 +332,13 @@ strict = true
   });
 
   describe('certify-gate.ts edge cases', () => {
-    it('detecta bloqueo cuando existen modelos ORM pero no directorio de migraciones', async () => {
+    it('detecta bloqueo cuando existen modelos ORM SQLAlchemy pero no directorio de migraciones', async () => {
       const modelsDir = path.join(tempDir, 'src', 'models');
       fs.mkdirSync(modelsDir, { recursive: true });
-      fs.writeFileSync(path.join(modelsDir, 'user.py'), 'class User: pass\n');
+      fs.writeFileSync(
+        path.join(modelsDir, 'user.py'),
+        'from sqlalchemy.orm import DeclarativeBase\nclass User(DeclarativeBase):\n    __tablename__ = "users"\n'
+      );
 
       const res = await certify11xGate(tempDir);
       const ormBlocker = res.blockers.find((b) => b.includes('alembic/versions'));

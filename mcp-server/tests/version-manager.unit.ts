@@ -447,6 +447,7 @@ describe('Version Manager, .qa-11x-version Stamp, 24h TTL Fail-Open & Global Aut
 
       fs.writeFileSync(path.join(projectDir, 'TESTING.md'), '# Testing\n', 'utf-8');
       fs.writeFileSync(path.join(projectDir, 'CHANGELOG.md'), '# Changelog\n\n## [Unreleased]\n- Item\n', 'utf-8');
+      fs.writeFileSync(path.join(projectDir, 'SECURITY.md'), '# Security\n', 'utf-8');
       fs.writeFileSync(path.join(projectDir, '.npmrc'), 'ignore-scripts=true\n', 'utf-8');
       fs.writeFileSync(path.join(projectDir, 'package.json'), '{"name":"app"}', 'utf-8');
 

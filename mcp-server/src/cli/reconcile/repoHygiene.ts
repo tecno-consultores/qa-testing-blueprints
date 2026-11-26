@@ -5,20 +5,25 @@ import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
-  CANONICAL_GLOBAL_SKILL_DIRS,
-  CONNECTOR_END_MARKER,
-  CONNECTOR_START_MARKER,
-  detectConnectorLang,
-  replaceDelimitedSection,
-} from '../../services/agents-connector.js';
-import {
   AIDER_BRIDGE_END,
   AIDER_BRIDGE_START,
   BRIDGE_END_MARKER,
   BRIDGE_START_MARKER,
-  hasYamlReadKeyOutsideBridge,
-  SUPPORTED_AI_AGENTS,
-} from '../../tools/initOrAppendAgentsMd.js';
+  CANONICAL_GLOBAL_SKILL_DIRS,
+  CONNECTOR_END_MARKER,
+  CONNECTOR_START_MARKER,
+  buildCanonicalAiderBridgeBlock,
+  buildCanonicalMarkdownBridgeBlock,
+  detectConnectorLang,
+  detectExistingStacks,
+  replaceDelimitedSection,
+} from '../../services/agents-connector.js';
+import {
+  findMissingCanonicalGitignoreEntries,
+  readQa11xConfig,
+} from '../../services/qa11xConfig.js';
+import { SUPPORTED_AI_AGENTS } from '../../tools/initOrAppendAgentsMd.js';
+import { CANONICAL_IGNORED_DIRS } from '../../utils/ignoredDirs.js';
 import type { ReconciledRuleItem } from '../../types.js';
 
 const UTF8 = 'utf-8';
@@ -34,18 +39,7 @@ const MONOREPO_ONLY_SCRIPTS = [
   '.agents/scripts/bump_version_11x.py',
   '.agents/scripts/sync_governance.py',
 ] as const;
-const REQUIRED_GITIGNORE_ENTRIES = [
-  '.agents/ACTIVE_TASK.md',
-  '.agents/.cache/',
-  '.agents/backups/',
-  '.agents/artifacts/',
-  '.agents/tmp/',
-  '.agents/proposals/',
-  '.agents/mcp_config.json',
-  'graphify-out/',
-  '*.11x-backup',
-  '*.11x-incoming',
-] as const;
+const LOOSE_BACKUP_SKIP_DIRS = new Set([...CANONICAL_IGNORED_DIRS, 'graphify-out', 'backups']);
 
 export function assertNoSymlinkSegmentsFromRoot(
   rootDir: string,
@@ -220,30 +214,38 @@ function extractCustomOutsideBridge(content: string, format: string): string {
   return cleaned.trim();
 }
 
-function buildCompactBridgeBlock(target: BridgeTargetInfo, existing: string): {
+function resolveProjectFallbackStacks(projectPath: string, existing: string): string {
+  const bridgeStacks = detectExistingStacks(existing);
+  if (bridgeStacks.length > 0) {
+    return bridgeStacks.join(', ');
+  }
+  const agentsMdPath = path.join(projectPath, 'AGENTS.md');
+  if (fs.existsSync(agentsMdPath)) {
+    const agentsStacks = detectExistingStacks(fs.readFileSync(agentsMdPath, UTF8));
+    if (agentsStacks.length > 0) {
+      return agentsStacks.join(', ');
+    }
+  }
+  const cfgStacks = readQa11xConfig(projectPath).stacks;
+  return cfgStacks.length > 0 ? cfgStacks.join(', ') : 'general';
+}
+
+function buildCompactBridgeBlock(
+  projectPath: string,
+  target: BridgeTargetInfo,
+  existing: string
+): {
   startMarker: string;
   endMarker: string;
   block: string;
 } {
-  const lang = detectConnectorLang(existing) ?? 'auto';
+  const lang = detectConnectorLang(existing) ?? readQa11xConfig(projectPath).lang ?? 'auto';
   if (target.format === 'aider-yaml') {
-    const includeReadKey = !hasYamlReadKeyOutsideBridge(existing);
-    const block = [
-      AIDER_BRIDGE_START,
-      `# QA 11X Thin-Repo Bridge (lang: ${lang}, QA-GIT-GATE-01: no auto git push)`,
-      ...(includeReadKey
-        ? ['read:', '  - AGENTS.md']
-        : ['# Existing read: key detected — keep AGENTS.md referenced in read:']),
-      AIDER_BRIDGE_END,
-    ].join('\n');
+    const block = buildCanonicalAiderBridgeBlock(existing, lang);
     return { startMarker: AIDER_BRIDGE_START, endMarker: AIDER_BRIDGE_END, block };
   }
-  const block = [
-    BRIDGE_START_MARKER,
-    `# QA 11X Thin-Repo Bridge (${target.labels.join(', ')})`,
-    `Follow \`AGENTS.md\` directives (lang: \`${lang}\`). Execute tests in ephemeral Docker (\`run_ephemeral_qa\`), inspect AST first, and never auto-\`git push\` (\`QA-GIT-GATE-01\`).`,
-    BRIDGE_END_MARKER,
-  ].join('\n');
+  const stacksLabel = resolveProjectFallbackStacks(projectPath, existing);
+  const block = buildCanonicalMarkdownBridgeBlock(target.labels, stacksLabel, lang);
   return { startMarker: BRIDGE_START_MARKER, endMarker: BRIDGE_END_MARKER, block };
 }
 
@@ -273,7 +275,7 @@ function compactExistingBridgeFile(params: {
   readonly dryRun: boolean;
   readonly backupDir: string;
 }): ReconciledRuleItem | null {
-  const nextSpec = buildCompactBridgeBlock(params.target, params.existing);
+  const nextSpec = buildCompactBridgeBlock(params.projectPath, params.target, params.existing);
   const merged = replaceDelimitedSection(params.existing, {
     startMarker: params.markers.start,
     endMarker: params.markers.end,
@@ -369,20 +371,45 @@ function isLooseBackupFile(entry: fs.Dirent): boolean {
   return !entry.isSymbolicLink() && entry.isFile() && LOOSE_BACKUP_RE.test(entry.name);
 }
 
-function collectLooseBackupsInRelDir(projectPath: string, relDir: string): string[] {
+function shouldSkipBackupRecurseDir(relDir: string, entryName: string): boolean {
+  if (entryName === 'backups' && relDir === '.agents') {
+    return true;
+  }
+  return LOOSE_BACKUP_SKIP_DIRS.has(entryName) && entryName !== 'backups';
+}
+
+function resolveBackupDirStat(projectPath: string, relDir: string): fs.Stats | undefined {
   const fullDir = relDir ? path.join(projectPath, relDir) : projectPath;
-  const dirStat = relDir
+  return relDir
     ? assertNoSymlinkSegmentsFromRoot(projectPath, fullDir, 'backups sueltos')
     : fs.lstatSync(fullDir, { throwIfNoEntry: false });
-  if (!dirStat || dirStat.isSymbolicLink() || !dirStat.isDirectory()) return [];
-  const matched: string[] = [];
-  for (const entry of fs.readdirSync(fullDir, { withFileTypes: true })) {
-    if (!isLooseBackupFile(entry)) continue;
-    const relPath = path.join(relDir, entry.name);
-    assertNoSymlinkSegmentsFromRoot(projectPath, path.join(projectPath, relPath), 'backup suelto');
-    matched.push(relPath);
+}
+
+function collectLooseBackupsRecursive(
+  projectPath: string,
+  relDir: string,
+  collected: string[],
+  depth = 0
+): void {
+  if (depth > 8) return;
+  const dirStat = resolveBackupDirStat(projectPath, relDir);
+  if (!dirStat || dirStat.isSymbolicLink() || !dirStat.isDirectory()) return;
+
+  const fullDir = relDir ? path.join(projectPath, relDir) : projectPath;
+  const entries = fs
+    .readdirSync(fullDir, { withFileTypes: true })
+    .filter((entry) => !entry.isSymbolicLink())
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  for (const entry of entries) {
+    const relPath = relDir ? path.join(relDir, entry.name) : entry.name;
+    if (entry.isDirectory() && !shouldSkipBackupRecurseDir(relDir, entry.name)) {
+      collectLooseBackupsRecursive(projectPath, relPath, collected, depth + 1);
+    } else if (isLooseBackupFile(entry)) {
+      assertNoSymlinkSegmentsFromRoot(projectPath, path.join(projectPath, relPath), 'backup suelto');
+      collected.push(relPath);
+    }
   }
-  return matched;
 }
 
 export function consolidateLooseBackups(
@@ -390,11 +417,8 @@ export function consolidateLooseBackups(
   dryRun: boolean,
   backupDir: string
 ): { items: ReconciledRuleItem[]; consolidatedBackups: string[] } {
-  const candidates = [
-    ...collectLooseBackupsInRelDir(projectPath, ''),
-    ...collectLooseBackupsInRelDir(projectPath, '.agents'),
-    ...collectLooseBackupsInRelDir(projectPath, 'scripts'),
-  ];
+  const candidates: string[] = [];
+  collectLooseBackupsRecursive(projectPath, '', candidates);
   const items: ReconciledRuleItem[] = [];
   for (const relPath of candidates) {
     if (!dryRun) {
@@ -411,8 +435,7 @@ export function consolidateLooseBackups(
 }
 
 function computeMissingGitignoreEntries(existingContent: string): string[] {
-  const existingLines = new Set(existingContent.split(/\r?\n/).map((l) => l.trim()));
-  return REQUIRED_GITIGNORE_ENTRIES.filter((entry) => !existingLines.has(entry));
+  return findMissingCanonicalGitignoreEntries(existingContent);
 }
 
 export function ensureGitignoreHygiene(

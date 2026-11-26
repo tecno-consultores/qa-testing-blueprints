@@ -49,6 +49,37 @@ PY_SESSION_TRIED=0
 PY_SESSION_CID_FILE="${GATE_TMP_DIR}/py_session.cid"
 PY_SESSION_CIDS_LOG="${GATE_TMP_DIR}/py_session.cids"
 
+IS_UPSTREAM_BLUEPRINTS_REPO=0
+if [ -f "${REPO_ROOT}/scripts/generar-manifiesto.py" ] && [ -f "${REPO_ROOT}/manifest.json" ]; then
+  IS_UPSTREAM_BLUEPRINTS_REPO=1
+fi
+
+detect_effective_qa_tier() {
+  if [ "${IS_UPSTREAM_BLUEPRINTS_REPO}" -eq 1 ]; then
+    printf 'enterprise'
+    return 0
+  fi
+  if [ -n "${QA11X_TIER:-}" ]; then
+    case "${QA11X_TIER}" in
+      starter | standard | enterprise)
+        printf '%s' "${QA11X_TIER}"
+        return 0
+        ;;
+    esac
+  fi
+  if [ -f "${REPO_ROOT}/.qa-11x.json" ]; then
+    local parsed_tier=""
+    parsed_tier="$(sed -nE 's/.*"tier"[[:space:]]*:[[:space:]]*"(starter|standard|enterprise)".*/\1/p' "${REPO_ROOT}/.qa-11x.json" | head -n 1 || true)"
+    if [ -n "${parsed_tier}" ]; then
+      printf '%s' "${parsed_tier}"
+      return 0
+    fi
+  fi
+  printf 'standard'
+}
+
+QA11X_EFFECTIVE_TIER="$(detect_effective_qa_tier)"
+
 ensure_py_session() {
   if [ -z "${PY_SESSION_CID}" ] && [ -s "${PY_SESSION_CID_FILE}" ]; then
     PY_SESSION_CID="$(head -n 1 "${PY_SESSION_CID_FILE}" 2>/dev/null || true)"
@@ -588,6 +619,10 @@ AWK
 }
 
 gate_02_trivy() {
+  if [ "${QA11X_EFFECTIVE_TIER}" = "starter" ]; then
+    printf '⚠️ [SKIPPED] Trivy IaC omitido en tier starter.\n'
+    return 20
+  fi
   if [ -f "${REPO_ROOT}/scripts/auditar-infra.sh" ]; then
     bash "${REPO_ROOT}/scripts/auditar-infra.sh" || return $?
   elif [ -f "${REPO_ROOT}/auditar-infra.sh" ]; then
@@ -629,6 +664,10 @@ gate_06_ast_topology() {
     -o -path '*/graphify-out/graph.json' -type f -print -quit 2>/dev/null || true)"
 
   if [ -z "${graph_found}" ]; then
+    if [ "${QA11X_EFFECTIVE_TIER}" = "starter" ]; then
+      printf '⚠️ [SKIPPED] Grafo AST omitido en tier starter (sin graphify-out/graph.json).\n'
+      return 20
+    fi
     local src_found=""
     src_found="$(find "${REPO_ROOT}" \
       \( -name node_modules -o -name .git -o -name dist -o -name .venv -o -name venv -o -name vendor -o -name target -o -name coverage -o -name mutants -o -name docs -o -name assets -o -name .agents \) -prune \
@@ -665,7 +704,20 @@ gate_06_ast_topology() {
     fi
   fi
 
-  run_validator_gate "${SCRIPT_DIR}/verify_topological_health.py"
+  run_validator_gate "${SCRIPT_DIR}/verify_topological_health.py" || return $?
+  if [ "${QA11X_EFFECTIVE_TIER}" = "enterprise" ] && [ -x "${SCRIPT_DIR}/validate_calm_architecture.sh" ]; then
+    bash "${SCRIPT_DIR}/validate_calm_architecture.sh" || return $?
+  fi
+}
+
+run_tier_validator_gate() {
+  local min_tier="$1"
+  local script_path="$2"
+  if [ "${min_tier}" = "standard" ] && [ "${QA11X_EFFECTIVE_TIER}" = "starter" ]; then
+    printf '⚠️ [SKIPPED] %s omitido en tier starter.\n' "$(basename "${script_path}")"
+    return 20
+  fi
+  run_validator_gate "${script_path}"
 }
 
 run_validator_gate() {
@@ -697,15 +749,27 @@ gate_10_doc_and_test_sync() {
   local gate10_failed
   local has_cov_reports
 
-  local used_head_fallback=0
+  local used_base_ref=""
   local git_diff_out=""
   local git_untracked_out=""
   git_diff_out="$(git -c core.quotePath=false diff --name-only HEAD 2>/dev/null || true)"
   git_untracked_out="$(git -c core.quotePath=false ls-files --others --exclude-standard 2>/dev/null || true)"
   all_changed="$(printf '%s\n%s\n' "${git_diff_out}" "${git_untracked_out}" | sed '/^$/d' | sort -u)"
+  if [ -z "${all_changed}" ] && [ -n "${GITHUB_BASE_REF:-}" ]; then
+    local cand_ref=""
+    if git rev-parse --verify "origin/${GITHUB_BASE_REF}" >/dev/null 2>&1; then
+      cand_ref="origin/${GITHUB_BASE_REF}"
+    elif git rev-parse --verify "${GITHUB_BASE_REF}" >/dev/null 2>&1; then
+      cand_ref="${GITHUB_BASE_REF}"
+    fi
+    if [ -n "${cand_ref}" ]; then
+      all_changed=$(git -c core.quotePath=false diff --name-only "${cand_ref}...HEAD" 2>/dev/null | sort -u || true)
+      [ -n "${all_changed}" ] && used_base_ref="${cand_ref}"
+    fi
+  fi
   if [ -z "${all_changed}" ] && git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
     all_changed=$(git -c core.quotePath=false diff --name-only HEAD~1..HEAD 2>/dev/null | sort -u || true)
-    [ -n "${all_changed}" ] && used_head_fallback=1
+    [ -n "${all_changed}" ] && used_base_ref="HEAD~1"
   fi
 
   local is_upstream_repo=0
@@ -726,11 +790,19 @@ gate_10_doc_and_test_sync() {
   fi
 
   local test_file_re='(\.(unit|spec|test|e2e)\.(py|ts|tsx|js|jsx)|(^|/)test_[^/]+\.py|[^/]+_test\.py|[^/]+Test\.php|\.feature(\.example)?|\.bats)$'
-  raw_code_candidates=$(printf '%s\n' "${all_changed}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|bash-scripts|php|mcp-server|mobile-appium|ai-evals|vibe-rescue|catalogs|architecture|backend|frontend|scripts|src)/|\.agents/(scripts|schemas|skills|rules)/|((.*/)?Makefile(\.example)?)$|\.github/(workflows|actions)/|(manifest\.json|llms\.txt|\.trivy\.yaml|lefthook\.yml|instalar-hooks\.sh)$)' | grep -vE '(^|/)graphify-out/' || true)
+  raw_code_candidates=$(printf '%s\n' "${all_changed}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|bash-scripts|php|mcp-server|mobile-appium|ai-evals|vibe-rescue|catalogs|architecture|backend|frontend|scripts|src|app|apps|packages|lib|server)/|\.agents/(scripts|schemas|skills|rules)/|((.*/)?Makefile(\.example)?)$|\.github/(workflows|actions)/|(manifest\.json|llms\.txt|\.trivy\.yaml|lefthook\.yml|instalar-hooks\.sh)$)' | grep -vE '(^|/)graphify-out/' || true)
   code_changes=$(printf '%s\n' "${raw_code_candidates}" | grep -vE "${test_file_re}" | awk '/^$/ {next} /^\.agents\/(skills|rules)\// {print; next} /\.md$/ {next} {print}' || true)
-  exec_src_changes=$(printf '%s\n' "${code_changes}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|php|mcp-server|mobile-appium|backend|frontend)/src/|src/|bash-scripts/|vibe-rescue/|ai-evals/|scripts/|\.agents/scripts/|instalar-hooks\.sh$)' || true)
+  exec_src_changes=$(printf '%s\n' "${code_changes}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|php|mcp-server|mobile-appium|backend|frontend)/src/|src/|app/|apps/|packages/|lib/|server/|bash-scripts/|vibe-rescue/|ai-evals/|scripts/|\.agents/scripts/|instalar-hooks\.sh$)' || true)
   test_sync_changes=$(printf '%s\n' "${code_changes}" | grep -E '^(\.agents/(schemas|skills|rules)/|(catalogs|architecture)/|(manifest\.json|llms\.txt)$)' || true)
   doc_changes=$(printf '%s\n' "${all_changed}" | grep -E '(\.md$|^docs/)' | grep -vE '^\.agents/(skills|rules)/' || true)
+
+  if [ "${QA11X_EFFECTIVE_TIER}" = "starter" ]; then
+    if [ -f "${SCRIPT_DIR}/verify_docs_invariants.py" ]; then
+      run_py_rule_zero "${SCRIPT_DIR}/verify_docs_invariants.py" || return $?
+    fi
+    printf '⚠️ [SKIPPED] Doc & Test Sync / cobertura diferencial omitido en tier starter.\n'
+    return 20
+  fi
 
   if [ -f "${SCRIPT_DIR}/verify_docs_invariants.py" ]; then
     run_py_rule_zero "${SCRIPT_DIR}/verify_docs_invariants.py" || return $?
@@ -771,8 +843,8 @@ gate_10_doc_and_test_sync() {
           return 20
         fi
         local -a diff_cov_args=(--workspace "${REPO_ROOT}" --reports-dir .agents/.cache/coverage)
-        if [ "${used_head_fallback}" -eq 1 ]; then
-          diff_cov_args+=(--base-ref HEAD~1)
+        if [ -n "${used_base_ref}" ]; then
+          diff_cov_args+=(--base-ref "${used_base_ref}")
         fi
         run_py_rule_zero "${SCRIPT_DIR}/verify_diff_coverage.py" "${diff_cov_args[@]}" || return $?
       fi
@@ -800,6 +872,7 @@ gate_10_doc_and_test_sync() {
   fi
 }
 
+printf '[QA-11X | Tier: %s | Path: FULL_11X]\n' "${QA11X_EFFECTIVE_TIER}"
 printf '🛡️ [QA 11X Gate] Ejecutando 10 validaciones de certificación...\n'
 
 run_gate 1 "Secret Audit" \
@@ -820,12 +893,12 @@ run_gate 3 "JSON Integrity" \
 run_gate 4 "Zero Orphan UI Components" \
   "Crea o actualiza el test unitario correspondiente para cada componente o vista UI detectada." \
   "python3 .agents/scripts/verify_zero_orphan_vue_components.py" \
-  run_validator_gate "${SCRIPT_DIR}/verify_zero_orphan_vue_components.py"
+  run_tier_validator_gate "standard" "${SCRIPT_DIR}/verify_zero_orphan_vue_components.py"
 
 run_gate 5 "No Orphan API Endpoints" \
   "Sincroniza el cliente frontend o router backend para eliminar rutas huérfanas." \
   "python3 .agents/scripts/verify_no_orphan_api_endpoints.py" \
-  run_validator_gate "${SCRIPT_DIR}/verify_no_orphan_api_endpoints.py"
+  run_tier_validator_gate "standard" "${SCRIPT_DIR}/verify_no_orphan_api_endpoints.py"
 
 run_gate 6 "AST Topological Health" \
   "Asegura Docker Engine activo, corrige acoplamientos inversos y regenera el grafo con ./scripts/actualizar-grafos-graphify.sh." \
@@ -835,7 +908,7 @@ run_gate 6 "AST Topological Health" \
 run_gate 7 "ORM & Migration Parity" \
   "Genera la migración de base de datos pendiente (revision <= 32 chars) y re-ejecuta verify_alembic_orm_parity.py." \
   "python3 .agents/scripts/verify_alembic_orm_parity.py" \
-  run_validator_gate "${SCRIPT_DIR}/verify_alembic_orm_parity.py"
+  run_tier_validator_gate "standard" "${SCRIPT_DIR}/verify_alembic_orm_parity.py"
 
 run_gate 8 "Manifest SHA-256 Sync" \
   "Sincroniza manifest.json ejecutando make sync-governance (o python3 .agents/scripts/sync_governance.py)." \

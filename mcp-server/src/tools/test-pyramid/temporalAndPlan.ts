@@ -516,10 +516,7 @@ function addMetaGateAndSpecializedActions(
   if (metaGates) {
     for (const spec of META_GATE_ACTION_SPECS) {
       const gate = metaGates.find((g) => g.gate_id === spec.gateId);
-      if (!gate || gate.status === 'PRESENT') {
-        continue;
-      }
-      if (!gate.required_for_tier && spec.gateId === 'calm_architecture') {
+      if (!gate || gate.status === 'PRESENT' || !gate.required_for_tier) {
         continue;
       }
       plan.push({
