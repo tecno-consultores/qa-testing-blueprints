@@ -94,7 +94,7 @@ strictly enforce these 5 test-certified invariants:
 
 1. **In-Flow Footers & Anti-JSDOM Geometry:**
    - JSDOM returns `0x0` bounding boxes and cannot detect overlapping elements.
-   - Never use `position: fixed` floating footers over operational tables or forms. Place `<footer>` in-flow (`margin-top: auto`) either as the final flex block inside `<main>` or immediately after `<main class="flex-1">` inside a `flex-col min-h-screen` layout (recommended for top-level HTML5/ARIA `contentinfo` landmark compliance in `@axe-core/playwright`).
+   - Never use `position: fixed` floating footers over operational tables or forms. Place `<footer>` in-flow (`margin-top: auto`) outside `<main>`, immediately after `<main class="flex-1">` inside a `flex-col min-h-screen` app shell, preserving top-level HTML5/ARIA `contentinfo` landmark compliance in `@axe-core/playwright`.
 2. **Multi-Viewport Zero Horizontal Overflow:**
    - Certify `document.documentElement.scrollWidth <= window.innerWidth` across Mobile (`375x667`), Tablet (`768x1024`), and Desktop (`1440x900`). Use `pointer-coarse:p-4` (`min-height: 44px`) on touch targets.
 3. **Zero CLS, Low INP (`< 200ms`) & Tabular Numbers (`tabular-nums`):**

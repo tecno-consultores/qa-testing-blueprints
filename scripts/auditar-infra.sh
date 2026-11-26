@@ -260,42 +260,17 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
+TRIVY_DOCKER_FLAGS=(run --rm --restart=no --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e TRIVY_CACHE_DIR=/tmp/trivy-cache -v "${REPO_ROOT}:/app:ro" -v "${TRIVY_CACHE_HOST_DIR}:/tmp/trivy-cache" -w /app "${TRIVY_IMAGE}")
+
 # 1. Escaneo de misconfiguraciones IaC (Pass-Quiet / Fail-Verbose)
-if ! IAC_OUT=$(docker run --rm \
-  --security-opt=no-new-privileges:true \
-  -u "$(id -u):$(id -g)" \
-  -e HOME=/tmp \
-  -e TRIVY_CACHE_DIR=/tmp/trivy-cache \
-  -v "${REPO_ROOT}:/app:ro" \
-  -v "${TRIVY_CACHE_HOST_DIR}:/tmp/trivy-cache" \
-  -w /app \
-  "${TRIVY_IMAGE}" config . \
-  --quiet \
-  "${TRIVY_CONFIG_ARGS[@]}" \
-  --severity HIGH,CRITICAL \
-  --exit-code 1 2>&1); then
+if ! IAC_OUT=$(docker "${TRIVY_DOCKER_FLAGS[@]}" config . --quiet "${TRIVY_CONFIG_ARGS[@]}" --severity HIGH,CRITICAL --exit-code 1 2>&1); then
   echo "❌ [Trivy IaC] Misconfiguraciones HIGH/CRITICAL detectadas:" >&2
   echo "${IAC_OUT}" >&2
   exit 1
 fi
 
 # 2. Escaneo de vulnerabilidades HIGH/CRITICAL (CVEs) en lockfiles y dependencias locales
-if ! FS_OUT=$(docker run --rm \
-  --security-opt=no-new-privileges:true \
-  -u "$(id -u):$(id -g)" \
-  -e HOME=/tmp \
-  -e TRIVY_CACHE_DIR=/tmp/trivy-cache \
-  -v "${REPO_ROOT}:/app:ro" \
-  -v "${TRIVY_CACHE_HOST_DIR}:/tmp/trivy-cache" \
-  -w /app \
-  "${TRIVY_IMAGE}" fs . \
-  --quiet \
-  --scanners vuln \
-  "${TRIVY_CONFIG_ARGS[@]}" \
-  --db-repository "${TRIVY_DB_REPOS}" \
-  --timeout 10m \
-  --severity HIGH,CRITICAL \
-  --exit-code 1 2>&1); then
+if ! FS_OUT=$(docker "${TRIVY_DOCKER_FLAGS[@]}" fs . --quiet --scanners vuln "${TRIVY_CONFIG_ARGS[@]}" --db-repository "${TRIVY_DB_REPOS}" --timeout 10m --severity HIGH,CRITICAL --exit-code 1 2>&1); then
   echo "❌ [Trivy FS] Vulnerabilidades HIGH/CRITICAL detectadas:" >&2
   echo "${FS_OUT}" >&2
   exit 1

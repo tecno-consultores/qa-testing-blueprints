@@ -216,7 +216,7 @@ find . \
 CURRENT_UID="$(id -u)"
 CURRENT_GID="$(id -g)"
 if command -v docker >/dev/null 2>&1; then
-  docker run --rm --network none --security-opt=no-new-privileges:true -v "${REPO_ROOT}:/workspace" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab sh -c "\
+  docker run --rm --network none --restart=no --security-opt=no-new-privileges:true -v "${REPO_ROOT}:/workspace" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab sh -c "\
     rm -rf /workspace/.coverage /workspace/.coverage.* /workspace/.pnpm-store /workspace/.turbo \
            /workspace/*/.pnpm-store /workspace/*/.turbo /workspace/mcp-server/example/.pnpm-store \
            /workspace/mobile-appium/.pnpm-store \

@@ -31,7 +31,7 @@ An ephemeral container is created dynamically with the `--rm` flag. It starts, r
 To guarantee **determinism and total isolation**. If your test depends on the internet or a third-party API that temporarily goes down, your test will fail (false negative) and break the CI/CD pipeline. Unit tests must never leave the container.
 
 ### I am testing a Bash script that formats disks or restarts services. Isn't that dangerous?
-It is **extremely dangerous and strictly forbidden**. You must use *Mocking*. The `sinfallas/base-bash-qa:latest` image includes the `bats-mock` library to intercept dangerous binaries and inject mock responses.
+It is **extremely dangerous and strictly forbidden**. You must use *Mocking*. The `sinfallas/base-bash-qa` image includes the `bats-mock` library to intercept dangerous binaries and inject mock responses.
 
 ### What is the difference between SAST (Bandit/ESLint) and DAST (OWASP ZAP)?
 *   **SAST (Static):** Scans your written source code like a book, searching for syntax or logic vulnerabilities before the program runs.

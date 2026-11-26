@@ -56,9 +56,9 @@ jobs:
           path: |
             graphify-out
             */graphify-out
-          key: ${{ runner.os }}-graphify-${{ hashFiles('**/*.py', '**/*.ts', '**/*.tsx', '**/*.js', '**/*.vue', '**/*.php', '**/*.sh') }}
+          key: ${{ runner.os }}-graphify-all-${{ hashFiles('**/*.py', '**/*.ts', '**/*.tsx', '**/*.js', '**/*.vue', '**/*.php', '**/*.sh') }}
           restore-keys: |
-            ${{ runner.os }}-graphify-
+            ${{ runner.os }}-graphify-all-
 
       - name: Refresh Graphify AST graph for Gate 6 (Rule Zero)
         if: steps.cache-graph.outputs.cache-hit != 'true'
@@ -76,7 +76,7 @@ jobs:
           elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
             DIFF_ARGS+=(--base-ref "HEAD~1")
           fi
-          docker run --rm --network none \
+          docker run --rm --restart=no --network none \
             --security-opt=no-new-privileges:true \
             -u "$(id -u):$(id -g)" \
             -e HOME=/tmp \

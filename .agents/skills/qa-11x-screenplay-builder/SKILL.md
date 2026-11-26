@@ -57,7 +57,7 @@ Resolve DOM targets strictly by accessibility semantics and business intent so l
 ### 3.2. Real-Browser Geometry & WCAG 2.1 AA Ergonomics (Anti-JSDOM)
 Because JSDOM always reports `0x0` bounding boxes and skips layout engines, validate geometry inside ephemeral real Chromium (`mcr.microsoft.com/playwright:v1.52.0-noble`):
 - **3-Viewport Sweep:** Assert `document.documentElement.scrollWidth <= window.innerWidth` (zero horizontal overflow) and `CLS = 0` at `375x667` (mobile), `768x1024` (`tablet-768x1024`), and `1440x900` (desktop).
-- **In-Flow Footer Invariant (`UI-11X-01`):** Forbid `position: fixed` or `position: sticky` bottom footers covering form inputs/tables; enforce in-flow `<footer>` inside `<main>` with `margin-top: auto`.
+- **In-Flow Footer Invariant (`UI-11X-01`):** Forbid `position: fixed` or `position: sticky` bottom footers covering form inputs/tables; place `<footer>` in-flow (`margin-top: auto`) outside `<main class="flex-1">` inside a `min-h-screen flex flex-col` shell to preserve the top-level HTML5/ARIA `contentinfo` landmark.
 - **Tabular, Contrast & Bounded Audit Budgets:** Enforce `font-variant-numeric: tabular-nums` on telemetry/KPI columns, `0` violations from `@axe-core/playwright` (WCAG 2.1 AA, scanning `<= 3` representative routes per spec or `<= 60_000ms` timeout), and Lighthouse CI (`Performance >= 90`, `Accessibility >= 95`, `'best-practice'` >= 90).
 
 ### 3.3. SSR/SSG Dual-ColorScheme Hydration Parity Gate (`QA-SSR-HYDRATION-01`)

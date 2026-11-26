@@ -99,6 +99,7 @@ services:
     entrypoint: ["bash", "-c", "mkdir -p /tmp/.corepack-bin && corepack enable --install-directory /tmp/.corepack-bin >/dev/null 2>&1 || true; exec \"$@\"", "--"]
     command: bash -c "echo 'Contenedor E2E listo. Usa docker compose run --rm -T ui-e2e [comando]'; sleep infinity"
 
+  # Nota: sinfallas/karatelabs:1.5.1 almacena caché Maven offline en /root/.m2 (0700) y /app/target (root:root); montajes host son estrictamente :ro
   karatelabs:
     image: sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89
     hostname: vue_ui_karate
@@ -109,6 +110,8 @@ services:
     pids_limit: 512
     security_opt:
       - no-new-privileges:true
+    cap_drop:
+      - ALL
     depends_on:
       ui-prod:
         condition: service_healthy

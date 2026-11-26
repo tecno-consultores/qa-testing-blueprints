@@ -114,7 +114,7 @@ Virtual DOM test environments like **JSDOM** or **HappyDOM** simulate HTML nodes
 ### The 11X Solution
 1. **In-Flow Ergonomics (Anti-Sticky Footer — `UI-11X-01`):**
    - Forbid fixed floating footers (`position: fixed`) in dense operational interfaces (`UI-11X-01`).
-   - The `<main>` container must use `display: flex; flex-direction: column; min-height: 100vh;` and the footer must use `margin-top: auto` in natural document flow, guaranteeing it never overlaps content.
+   - The root app shell must use `display: flex; flex-direction: column; min-height: 100vh;` with `<main style="flex: 1">` and a sibling `<footer>` outside `<main>` using `margin-top: auto` in natural document flow (preserving the top-level HTML5/ARIA `contentinfo` landmark and guaranteeing it never overlaps content).
 2. **Real Browser Validation (`ui-e2e` vs. HTTP BDD):**
    - Use **Playwright** (`ui-e2e`) with real headless Chromium to verify DOM geometry, `[ 🔄 Refrescar ]`, and interactive visibility (`waitFor`, `click`), ensuring elements are geometrically clickable in the viewport; reserve `sinfallas/karatelabs:1.5.1` (`--network` HTTP BDD, no browser) for HTTP/Nginx/OSHP/SSG delivery contracts.
 

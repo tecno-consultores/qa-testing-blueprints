@@ -239,7 +239,7 @@ run_manifest_py() {
   if command -v python3 >/dev/null 2>&1; then
     python3 -c "${_py_code}" "${MANIFEST_FILE}"
   elif command -v docker >/dev/null 2>&1; then
-    docker run --rm --network none --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -v "${TMP_DIR}:/qa-tmp:ro" "${_py_image}" python3 -c "${_py_code}" "/qa-tmp/manifest.json"
+    docker run --rm --network none --restart=no --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -v "${TMP_DIR}:/qa-tmp:ro" "${_py_image}" python3 -c "${_py_code}" "/qa-tmp/manifest.json"
   else
     log_error "Se requiere 'jq', 'python3' o 'docker' para analizar el manifiesto JSON."
     return 1

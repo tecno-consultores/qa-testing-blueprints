@@ -17,8 +17,11 @@ Because this repository acts as the corporate architectural blueprint and knowle
 | Version | Support Status | Infrastructure Requirements |
 | :--- | :--- | :--- |
 | **`3.9.x` (`main` / Active)** | ✅ Active Support | Docker 26+, PostgreSQL 17, Multi-Threaded KeyDB |
+| **`3.8.x`** | ⚠️ Security Fixes Only | Superseded by `3.9.x` (`upgrade recommended`) |
+| **`3.7.x`** | ⚠️ Security Fixes Only | Superseded by `3.9.x` (`upgrade recommended`) |
 | **`3.6.x`** | ⚠️ Security Fixes Only | Superseded by `3.9.x` (`upgrade recommended`) |
 | **`3.5.x`** | ⚠️ Security Fixes Only | Superseded by `3.9.x` (`upgrade recommended`) |
+| **`3.4.x`** | ⚠️ Security Fixes Only | Superseded by `3.9.x` (`upgrade recommended`) |
 | **`3.3.x`** | ⚠️ Security Fixes Only | Superseded by `3.9.x` (`upgrade recommended`) |
 | **`3.2.x`** | ⚠️ Security Fixes Only | Superseded by `3.9.x` (`upgrade recommended`) |
 | **`3.1.x`** | ⚠️ Security Fixes Only | Superseded by `3.9.x` (`upgrade recommended`) |
@@ -298,7 +301,7 @@ flowchart LR
 
 ### 5.2. Automated Daily Base Image Audit (`audit-base-images.yml`)
 - **Cadence & Scope:** The workflow [`.github/workflows/audit-base-images.yml`](.github/workflows/audit-base-images.yml) runs daily (`cron: '0 6 * * *'`), on demand (`workflow_dispatch`), and on `pull_request` changes to container/security manifests, enforcing least privilege (`permissions: contents: read`), explicit `timeout-minutes`, and immutable SHA-pinned Actions (`SEC-CI-ACTION-REF`).
-- **Official Image Scanning (`Trivy HIGH/CRITICAL = 0`):** `fail-fast: false` matrix across `sinfallas/base-python-uv:{latest,3.15}`, `sinfallas/base-node-ionic:{latest,26}`, `sinfallas/basephpcomposer:{latest,8.5}`, `sinfallas/karatelabs:{1.5.1,latest}`, `sinfallas/base-bash-qa:latest`, `sinfallas/remote-graphify:latest`, and `sinfallas/base-mobile-appium:{latest,26}` (`12` targets) with `--severity HIGH,CRITICAL --ignore-unfixed --exit-code 1`, plus non-root `smoke-mobile-appium` toolchain verification (`java`, `adb`, `appium`).
+- **Official Image Scanning (`Trivy HIGH/CRITICAL = 0`):** `fail-fast: false` matrix across the **7 SHA-256 digest-pinned official images** (`sinfallas/base-python-uv:3.15@sha256:...`, `sinfallas/base-node-ionic:26@sha256:...`, `sinfallas/basephpcomposer:8.5@sha256:...`, `sinfallas/karatelabs:1.5.1@sha256:...`, `sinfallas/base-bash-qa@sha256:...`, `sinfallas/remote-graphify@sha256:...`, and `sinfallas/base-mobile-appium:26@sha256:...`) with `--severity HIGH,CRITICAL --ignore-unfixed --exit-code 1` over a shared daily Trivy DB cache, plus non-root `smoke-mobile-appium` toolchain verification (`java`, `adb`, `appium`).
 - **Python v2 Package Audit (`pip-audit`) & SAST (`CodeQL`):** Ephemeral non-root execution (`--user 10001:10001 -e HOME=/tmp`) of `pip-audit --strict --desc` on `sinfallas/base-python-uv:3.15`, `CodeQL` analysis across `javascript-typescript`, `python`, and `actions`, and deterministic local workflow validation via `make lint-workflows`.
 
 ---

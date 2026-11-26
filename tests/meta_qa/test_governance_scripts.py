@@ -2212,7 +2212,11 @@ def test_verify_topological_health_cycle_dfs_and_structural_filter(
         ],
     }
     graph_path.write_text(json.dumps(clean_graph), encoding="utf-8")
-    violations_clean, _ = mod.audit_layers(clean_graph, graph_path)
+    violations_clean, _ = mod.audit_layers(
+        clean_graph,
+        graph_path,
+        boundary_rules=[{"kind": "layers", "layers": ["src/a.py", "src/b.py"]}],
+    )
     assert violations_clean == []
     assert mod.cli_main(["--graph", str(graph_path)]) == 0
 

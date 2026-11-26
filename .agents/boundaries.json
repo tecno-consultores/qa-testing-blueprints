@@ -1,0 +1,71 @@
+{
+  "rules_sets": [
+    {
+      "kind": "layers",
+      "root": "mcp-server/src",
+      "layers": [
+        "server",
+        "resources",
+        "security"
+      ]
+    },
+    {
+      "kind": "independence",
+      "modules": [
+        "python",
+        "fastapi",
+        "node-backend",
+        "vue3",
+        "react-frontend",
+        "php",
+        "bash-scripts",
+        "ai-evals",
+        "mobile-appium",
+        "vibe-rescue"
+      ]
+    },
+    {
+      "kind": "forbidden",
+      "rules": [
+        {
+          "source": "mcp-server/src/security",
+          "forbidden": [
+            "mcp-server/src/cli",
+            "mcp-server/src/server",
+            "mcp-server/src/tools",
+            "mcp-server/src/resources",
+            "mcp-server/src/integrations"
+          ]
+        },
+        {
+          "source": "mcp-server/src/utils",
+          "forbidden": [
+            "mcp-server/src/cli",
+            "mcp-server/src/server",
+            "mcp-server/src/tools",
+            "mcp-server/src/resources",
+            "mcp-server/src/integrations"
+          ]
+        },
+        {
+          "source": "mcp-server/src/parsers",
+          "forbidden": [
+            "mcp-server/src/cli",
+            "mcp-server/src/server",
+            "mcp-server/src/tools",
+            "mcp-server/src/resources"
+          ]
+        },
+        {
+          "source": "mcp-server/src/a2a",
+          "forbidden": [
+            "mcp-server/src/cli",
+            "mcp-server/src/server",
+            "mcp-server/src/tools",
+            "mcp-server/src/resources"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -713,6 +713,7 @@ export interface OrphanSourceFile {
 export interface UntestedUiView {
   view_file: string;
   expected_unit_test: string;
+  present_in_unit_test?: boolean;
   present_in_bdd_feature: boolean;
   present_in_e2e_spec: boolean;
 }

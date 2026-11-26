@@ -73,8 +73,8 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
   let outsideDir: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-agents27-work-'));
-    outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-agents27-outside-'));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-agents28-work-'));
+    outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-agents28-outside-'));
   });
 
   afterEach(() => {
@@ -644,10 +644,10 @@ describe('T2.8: 28 AI Agents Declarative Catalog, --lang es|en & Thin-Repo Bridg
       expect(parseAgentsArg(['--agents=cline'])).toEqual(['cline']);
       expect(parseAgentsArg(['--target', 'workspace'])).toBeUndefined();
 
-      const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-agents27-home-'));
+      const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-agents28-home-'));
       const origHome = process.env.HOME;
       const origCwd = process.cwd();
-      const fetcher = new GitHubFetcher({ cacheDir: path.join(tmpDir, 'agents27-cache') });
+      const fetcher = new GitHubFetcher({ cacheDir: path.join(tmpDir, 'agents28-cache') });
       vi.spyOn(fetcher, 'fetchManifest').mockResolvedValue({
         schema_version: '1.0.0',
         blueprint_version: '2.21.0',

@@ -114,7 +114,7 @@ Los entornos de prueba basados en DOM virtual como **JSDOM** o **HappyDOM** simu
 ### La Solución 11X
 1. **Ergonomía In-Flow (Anti-Sticky Footer — `UI-11X-01`):**
    - Prohibir pies de página flotantes fijos (`position: fixed`) en interfaces operativas densas (`UI-11X-01`).
-   - El contenedor `<main>` debe tener `display: flex; flex-direction: column; min-height: 100vh;` y el pie de página debe usar `margin-top: auto` dentro del flujo natural del documento, garantizando que nunca se superponga al contenido.
+   - El contenedor raíz de la aplicación debe usar `display: flex; flex-direction: column; min-height: 100vh;` con `<main style="flex: 1">` y un `<footer>` hermano fuera de `<main>` usando `margin-top: auto` dentro del flujo natural del documento (preservando el landmark HTML5/ARIA `contentinfo` de primer nivel y garantizando que nunca se superponga al contenido).
 2. **Validación en Navegador Real (`ui-e2e` vs. BDD HTTP):**
    - Utilizar **Playwright** (`ui-e2e`) con Chromium headless real para verificar geometría DOM, `[ 🔄 Refrescar ]` y visibilidad interactiva (`waitFor`, `click`), asegurando que los elementos sean geométricamente clicables en el viewport; reservar `sinfallas/karatelabs:1.5.1` (BDD HTTP sin navegador) para contratos HTTP/Nginx/OSHP/SSG.
 

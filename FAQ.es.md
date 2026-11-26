@@ -31,7 +31,7 @@ Un contenedor efímero se crea dinámicamente con el flag `--rm`. Nace, ejecuta 
 Para garantizar el **determinismo y el aislamiento total**. Si tu prueba depende del internet o de una API de terceros que se cae temporalmente, tu prueba fallará (falso negativo) rompiendo el pipeline de CI/CD. Las pruebas unitarias jamás deben salir del contenedor.
 
 ### Estoy probando un script en Bash que formatea discos o reinicia servicios. ¿No es peligroso?
-Es **extremadamente peligroso y está estrictamente prohibido**. Debes utilizar la técnica de *Mocking*. La imagen `sinfallas/base-bash-qa:latest` trae la librería `bats-mock` para interceptar binarios peligrosos e inyectar respuestas falsas.
+Es **extremadamente peligroso y está estrictamente prohibido**. Debes utilizar la técnica de *Mocking*. La imagen `sinfallas/base-bash-qa` trae la librería `bats-mock` para interceptar binarios peligrosos e inyectar respuestas falsas.
 
 ### ¿Qué diferencia hay entre SAST (Bandit/ESLint) y DAST (OWASP ZAP)?
 *   **SAST (Estático):** Escanea tu código fuente escrito como si fuera un libro, buscando vulnerabilidades de sintaxis o lógica antes de que el programa corra.

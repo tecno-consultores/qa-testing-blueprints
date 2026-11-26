@@ -4,22 +4,28 @@
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import os
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from _common import CANONICAL_IGNORED_DIRS, PRIVATE_CONSUMER_LEAK_PATTERNS
 from _docs_invariants_bilingual import _collect_agent_markdown_targets
 from _docs_invariants_config import (
+    _FENCED_CODE_RE,
     _HISTORICAL_SPEC_RE,
+    _HTML_COMMENT_RE,
+    CANONICAL_MCP_TOOLS,
     DOC_TARGETS,
     EXPECTED_SKILLS_COUNT,
     REQUIRED_CATALOG_FILES,
     RepoExpectedCounts,
     _load_json_strict,
     _read_mcp_server_sources,
+    is_upstream_blueprints_repo,
 )
 from _docs_invariants_counts import derive_expected_counts
 
@@ -330,6 +336,176 @@ def _validate_root_manifest(root: Path, counts: RepoExpectedCounts) -> list[str]
     ]
 
 
+def _extract_live_mcp_tool_names(root: Path) -> frozenset[str]:
+    combined = _read_mcp_server_sources(root)
+    if not combined:
+        return frozenset()
+    reg_re = r"\bserver\.(?:tool|registerTool)\(\s*['\"]([a-z0-9_-]+)['\"]"
+    v1_names = set(re.findall(reg_re, combined))
+    v2_match = re.search(
+        r"V2_TOOL_(?:DEFINITIONS|REGISTRATIONS)[^=]*=\s*\[(.*?)\];",
+        combined,
+        re.DOTALL,
+    )
+    v2_names = (
+        {
+            tok[:-5].lower()
+            for tok in re.findall(r"\b([A-Z0-9_]+_TOOL)\b", v2_match.group(1))
+        }
+        if v2_match
+        else set()
+    )
+    return frozenset(v1_names | v2_names)
+
+
+def _check_canonical_mcp_tools_sync(root: Path, tools: list[str]) -> list[str]:
+    if not is_upstream_blueprints_repo(root) or not tools:
+        return []
+    errors: list[str] = []
+    manifest_set = frozenset(tools)
+    if manifest_set != CANONICAL_MCP_TOOLS:
+        extra = sorted(CANONICAL_MCP_TOOLS - manifest_set)
+        missing = sorted(manifest_set - CANONICAL_MCP_TOOLS)
+        errors.append(
+            "CANONICAL_MCP_TOOLS desfasado vs skillsllm-manifest.json "
+            f"(sobran={extra}, faltan={missing})."
+        )
+    live_set = _extract_live_mcp_tool_names(root)
+    if live_set and live_set != CANONICAL_MCP_TOOLS:
+        extra_live = sorted(CANONICAL_MCP_TOOLS - live_set)
+        missing_live = sorted(live_set - CANONICAL_MCP_TOOLS)
+        errors.append(
+            "CANONICAL_MCP_TOOLS desfasado vs registros reales en mcp-server/src "
+            f"(sobran={extra_live}, faltan={missing_live})."
+        )
+    return errors
+
+
+def _count_dir_files(dir_path: Path, *, recursive: bool = False) -> int:
+    if not dir_path.is_dir():
+        return 0
+    it = dir_path.rglob("*") if recursive else dir_path.iterdir()
+    return sum(1 for p in it if p.is_file() and "__pycache__" not in p.parts)
+
+
+def _live_surface_file_counts(root: Path) -> tuple[int, int, int]:
+    return (
+        _count_dir_files(root / "scripts"),
+        _count_dir_files(root / ".agents" / "scripts"),
+        _count_dir_files(root / "tests", recursive=True),
+    )
+
+
+_LLMS_INVENTORY_RE = re.compile(
+    r"`(\d+)`\s+scripts in `scripts/`,\s*`(\d+)`\s+files in `\.agents/scripts/`"
+    r"[^,\n]*,\s*`(\d+)`\s+files in `tests/`"
+)
+_LLMS_DEFENSE_IN_DEPTH_RE = re.compile(r"\b(\d+)\s+defense-in-depth requirements\b")
+_SECURITY_SUBSECTION_RE = re.compile(r"^### 4\.\d+\.", re.MULTILINE)
+
+
+def _count_security_defense_subsections(sec_text: str) -> int:
+    stripped = _HTML_COMMENT_RE.sub("", _FENCED_CODE_RE.sub("", sec_text))
+    return len(_SECURITY_SUBSECTION_RE.findall(stripped))
+
+
+def _has_upstream_llms_and_security(root: Path) -> bool:
+    return (
+        is_upstream_blueprints_repo(root)
+        and (root / "llms.txt").is_file()
+        and (root / "SECURITY.md").is_file()
+    )
+
+
+def _check_llms_defense_in_depth_count(root: Path) -> list[str]:
+    if not _has_upstream_llms_and_security(root):
+        return []
+    llms_text = (root / "llms.txt").read_text(encoding="utf-8")
+    live_count = _count_security_defense_subsections(
+        (root / "SECURITY.md").read_text(encoding="utf-8")
+    )
+    match = _LLMS_DEFENSE_IN_DEPTH_RE.search(llms_text)
+    if match is not None:
+        if int(match[1]) != live_count:
+            return [
+                f"llms.txt: defense-in-depth requirements ({match[1]}) "
+                f"!= vivo en SECURITY.md ({live_count})."
+            ]
+        return []
+    if live_count > 0 and "SECURITY.md" in llms_text:
+        return [
+            "llms.txt: falta conteo '<N> defense-in-depth requirements' "
+            "para SECURITY.md."
+        ]
+    return []
+
+
+def _check_llms_and_agents_surface_counts(root: Path) -> list[str]:
+    if not is_upstream_blueprints_repo(root):
+        return []
+    exp = _live_surface_file_counts(root)
+    errors: list[str] = []
+    for rel in ("llms.txt", "AGENTS.md"):
+        doc = root / rel
+        if not doc.is_file():
+            continue
+        match = _LLMS_INVENTORY_RE.search(doc.read_text(encoding="utf-8"))
+        if match and (int(match[1]), int(match[2]), int(match[3])) != exp:
+            errors.append(
+                f"{rel}: inventario superficial ({match[1]}/{match[2]}/{match[3]}) "
+                f"!= vivo ({exp[0]}/{exp[1]}/{exp[2]})."
+            )
+    return errors
+
+
+_RES_AGENT_SCRIPTS_RE = re.compile(
+    r"\(`?\.agents/scripts/`?\s*—\s*(\d+)\s+(?:files|archivos)\)"
+)
+_RES_SCRIPTS_RE = re.compile(r"\(`?scripts/`?\s*—\s*(\d+)\s+(?:files|archivos)\)")
+
+
+def _check_single_resources_doc(
+    rel: str, text: str, script_names: list[str], exp: tuple[int, int, int]
+) -> list[str]:
+    errors: list[str] = []
+    ag_m = _RES_AGENT_SCRIPTS_RE.search(text)
+    if ag_m and int(ag_m[1]) != exp[1]:
+        errors.append(
+            f"{rel}: conteo .agents/scripts/ ({ag_m[1]}) != vivo ({exp[1]})."
+        )
+    sc_m = _RES_SCRIPTS_RE.search(text)
+    if sc_m and int(sc_m[1]) != exp[0]:
+        errors.append(f"{rel}: conteo scripts/ ({sc_m[1]}) != vivo ({exp[0]}).")
+    missing_scripts = [name for name in script_names if name not in text]
+    if missing_scripts:
+        errors.append(
+            f"{rel}: faltan scripts de scripts/ ({', '.join(missing_scripts[:3])})."
+        )
+    return errors
+
+
+def _check_resources_inventory_counts(root: Path) -> list[str]:
+    if not is_upstream_blueprints_repo(root):
+        return []
+    exp = _live_surface_file_counts(root)
+    scripts_dir = root / "scripts"
+    script_names = (
+        sorted(p.name for p in scripts_dir.iterdir() if p.is_file())
+        if scripts_dir.is_dir()
+        else []
+    )
+    errors: list[str] = []
+    for rel in ("RESOURCES.md", "RESOURCES.es.md"):
+        doc = root / rel
+        if doc.is_file():
+            errors.extend(
+                _check_single_resources_doc(
+                    rel, doc.read_text(encoding="utf-8"), script_names, exp
+                )
+            )
+    return errors
+
+
 def check_global_catalogs_and_geo(root: Path) -> list[str]:
     """Valida llms.txt y catálogos globales contra conteos reales y SHA-256."""
     if not (root / "llms.txt").is_file() and not (root / "catalogs").is_dir():
@@ -343,11 +519,15 @@ def check_global_catalogs_and_geo(root: Path) -> list[str]:
     errors = [
         *_validate_root_manifest(root, counts),
         *_validate_qaskills_pack(root, expected_ver, repo_skills, counts.skills),
+        *_check_llms_and_agents_surface_counts(root),
+        *_check_llms_defense_in_depth_count(root),
+        *_check_resources_inventory_counts(root),
     ]
     s_errors, tools, resources = _validate_skillsllm_manifest(
         root, expected_ver, repo_skills, counts
     )
     errors.extend(s_errors)
+    errors.extend(_check_canonical_mcp_tools_sync(root, tools))
     skill_tokens = repo_skills or [
         "qa-11x-architect",
         "qa-11x-devsecops-hardener",
@@ -551,17 +731,286 @@ def _collect_testing_scoreboards(
     return boards, errors
 
 
-def check_testing_scoreboard_consistency(root: Path) -> list[str]:
-    """Verifica coherencia §2 vs §4 y paridad EN/ES en TESTING.{md,es.md}."""
-    boards, errors = _collect_testing_scoreboards(root)
-    en, es = boards.get("TESTING.md"), boards.get("TESTING.es.md")
-    if en and es:
-        for key in ("tests", "suites", "statements", "branches", "functions", "lines"):
-            if en.get(key) != es.get(key):
-                errors.append(
-                    f"TESTING.md vs TESTING.es.md: desfase en {key} "
-                    f"({en.get(key)} != {es.get(key)})."
+_TESTING_TABLE_SUITES_RE = re.compile(r"Vitest\s*\(`>= 95%`,\s*(\d+)\s+suites\)")
+_TESTING_TABLE_KARATE_RE = re.compile(
+    r"Karate Labs BDD\s*\(`(\d+)`\s+(?:scenarios|escenarios)\)"
+)
+_TESTING_KARATE_BOLD_RE = re.compile(
+    r"\*\*(\d+)\s+(?:Karate BDD scenarios|escenarios BDD Karate)\*\*"
+)
+_TESTING_BATS_BOLD_RE = re.compile(
+    r"\*\*(\d+)\s+(?:BATS tests|pruebas BATS)\*\*|\*\*(\d+)\*\*\s+BATS\b"
+)
+_TESTING_PY_COMBINED_RE = re.compile(
+    r"\*\*(\d+)\s+(?:tests collected|pruebas recolectadas)\*\*"
+    r"|\*\*(\d+)\*\*\s+(?:Python unit \+ Meta-QA \+ Vibe-Rescue"
+    r"|pruebas Python unitarias \+ Meta-QA \+ Vibe-Rescue)"
+)
+_TESTING_PY_ROOT_META_RE = re.compile(
+    r"\*\*(\d+)\*\*\s+(?:Python unit & Meta-QA tests"
+    r"|pruebas Python unitarias y Meta-QA)"
+)
+_TESTING_PY_VIBE_RE = re.compile(r"\+\s*\*\*(\d+)\*\*\s+Vibe-Rescue\b")
+_KARATE_SCENARIO_LINE_RE = re.compile(r"(?m)^\s*Scenario(?: Outline)?:")
+_HEREDOC_OPEN_RE = re.compile(
+    r"(?<!<)<<(?!<)-?\s*(?:['\"\\])?([A-Za-z_][A-Za-z0-9_]*)['\"]?"
+)
+
+
+@dataclass(frozen=True)
+class _LiveTestingCounts:
+    suites: int
+    scenarios: int
+    bats_total: int
+    bats_stems: tuple[str, ...]
+    py_root_meta: int
+    py_vibe: int
+
+
+def _next_heredoc_state(line: str, end_marker: str | None) -> str | None:
+    if end_marker is not None:
+        return None if line.strip() == end_marker else end_marker
+    if line.lstrip().startswith("#"):
+        return None
+    m = _HEREDOC_OPEN_RE.search(line)
+    return m.group(1) if m else None
+
+
+def _count_bats_file_tests(text: str) -> int:
+    end_marker: str | None = None
+    count = 0
+    for line in text.splitlines():
+        if end_marker is None and line.startswith("@test "):
+            count += 1
+        end_marker = _next_heredoc_state(line, end_marker)
+    return count
+
+
+def _count_bats_tests(root: Path) -> int:
+    total = 0
+    for folder in (root / "tests" / "bats", root / "bash-scripts" / "test"):
+        if folder.is_dir():
+            for path in sorted(folder.glob("*.bats")):
+                total += _count_bats_file_tests(path.read_text(encoding="utf-8"))
+    return total
+
+
+def _assign_target_seq_len(stmt: ast.stmt) -> tuple[str, int] | None:
+    tgt: ast.expr
+    val: ast.expr | None
+    if isinstance(stmt, ast.Assign) and len(stmt.targets) == 1:
+        tgt, val = stmt.targets[0], stmt.value
+    elif isinstance(stmt, ast.AnnAssign):
+        tgt, val = stmt.target, stmt.value
+    else:
+        return None
+    if isinstance(tgt, ast.Name) and isinstance(val, (ast.List, ast.Tuple, ast.Set)):
+        return tgt.id, len(val.elts)
+    return None
+
+
+def _extract_py_const_lengths(tree: ast.Module, py_file: Path) -> dict[str, int]:
+    lengths: dict[str, int] = {}
+    seed_file = py_file.parent / "fixtures" / "broken_repo_seed.json"
+    if seed_file.is_file():
+        data, _ = _load_json_strict(seed_file)
+        sf = data.get("seeded_failures") if isinstance(data, dict) else None
+        if isinstance(sf, dict):
+            lengths["SEEDED_FAILURE_IDS"] = len(sf)
+    for stmt in tree.body:
+        pair = _assign_target_seq_len(stmt)
+        if pair is not None:
+            lengths[pair[0]] = pair[1]
+    return lengths
+
+
+def _decorator_name(func: ast.expr) -> str:
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    return func.id if isinstance(func, ast.Name) else ""
+
+
+def _parametrize_factor(dec: ast.expr, consts: dict[str, int]) -> int:
+    if not isinstance(dec, ast.Call) or len(dec.args) < 2:
+        return 1
+    if _decorator_name(dec.func) != "parametrize":
+        return 1
+    seq = dec.args[1]
+    if isinstance(seq, (ast.List, ast.Tuple, ast.Set)):
+        return max(1, len(seq.elts))
+    if isinstance(seq, ast.Name) and seq.id in consts:
+        return max(1, consts[seq.id])
+    return 1
+
+
+def _py_test_fn_cases(
+    node: ast.FunctionDef | ast.AsyncFunctionDef, consts: dict[str, int]
+) -> int:
+    factor = 1
+    for dec in node.decorator_list:
+        factor *= _parametrize_factor(dec, consts)
+    return factor
+
+
+def _is_py_test_fn(node: ast.stmt) -> bool:
+    return isinstance(
+        node, (ast.FunctionDef, ast.AsyncFunctionDef)
+    ) and node.name.startswith("test_")
+
+
+def _count_py_file_tests(py_file: Path) -> int:
+    tree = ast.parse(py_file.read_text(encoding="utf-8"))
+    consts = _extract_py_const_lengths(tree, py_file)
+    total = 0
+    for node in tree.body:
+        if _is_py_test_fn(node):
+            assert isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            total += _py_test_fn_cases(node, consts)
+        elif isinstance(node, ast.ClassDef) and node.name.startswith("Test"):
+            total += sum(
+                _py_test_fn_cases(child, consts)
+                for child in node.body
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and child.name.startswith("test_")
+            )
+    return total
+
+
+def _count_py_glob_tests(paths: list[Path]) -> int:
+    return sum(_count_py_file_tests(p) for p in paths if p.is_file())
+
+
+def _live_py_test_counts(root: Path) -> tuple[int, int]:
+    tests_dir = root / "tests"
+    meta_dir = tests_dir / "meta_qa"
+    rm_files = [
+        *(sorted(tests_dir.glob("*.unit.py")) if tests_dir.is_dir() else ()),
+        *(sorted(meta_dir.glob("test_*.py")) if meta_dir.is_dir() else ()),
+    ]
+    vibe_dir = root / "vibe-rescue" / "tests"
+    vibe_files = sorted(vibe_dir.glob("test_*.py")) if vibe_dir.is_dir() else []
+    return _count_py_glob_tests(rm_files), _count_py_glob_tests(vibe_files)
+
+
+def _live_testing_repo_counts(root: Path) -> _LiveTestingCounts:
+    mcp_tests = root / "mcp-server" / "tests"
+    suites = (
+        sum(
+            1
+            for p in mcp_tests.iterdir()
+            if p.is_file() and p.name.endswith((".unit.ts", ".test.ts", ".spec.ts"))
+        )
+        if mcp_tests.is_dir()
+        else 0
+    )
+    feat = root / "mcp-server" / "test" / "mcp_cli_test.feature"
+    scenarios = (
+        len(_KARATE_SCENARIO_LINE_RE.findall(feat.read_text(encoding="utf-8")))
+        if feat.is_file()
+        else 0
+    )
+    bats_dir = root / "tests" / "bats"
+    bats_stems = (
+        tuple(sorted(p.stem for p in bats_dir.glob("*.bats")))
+        if bats_dir.is_dir()
+        else ()
+    )
+    py_root_meta, py_vibe = _live_py_test_counts(root)
+    return _LiveTestingCounts(
+        suites=suites,
+        scenarios=scenarios,
+        bats_total=_count_bats_tests(root),
+        bats_stems=bats_stems,
+        py_root_meta=py_root_meta,
+        py_vibe=py_vibe,
+    )
+
+
+def _check_testing_regex_metric(
+    rel: str, label: str, pat: re.Pattern[str], text: str, expected: int
+) -> list[str]:
+    if expected <= 0:
+        return []
+    errors: list[str] = []
+    for m in pat.finditer(text):
+        raw_num = m.group(1) or (m.group(2) if m.lastindex and m.lastindex >= 2 else "")
+        if raw_num and int(raw_num) != expected:
+            errors.append(
+                f"{rel}: {label} declarado ({raw_num}) != vivo ({expected})."
+            )
+    return errors
+
+
+def _check_single_testing_live_counts(
+    rel: str,
+    text: str,
+    s2: dict[str, str],
+    live: _LiveTestingCounts,
+) -> list[str]:
+    errors: list[str] = []
+    if live.suites > 0 and s2.get("suites") and int(s2["suites"]) != live.suites:
+        errors.append(
+            f"{rel}: Vitest suites en §2 ({s2['suites']}) != vivo ({live.suites})."
+        )
+    py_combined = live.py_root_meta + live.py_vibe
+    for label, pat, exp in (
+        ("Vitest suites (tabla)", _TESTING_TABLE_SUITES_RE, live.suites),
+        ("Karate scenarios (tabla)", _TESTING_TABLE_KARATE_RE, live.scenarios),
+        ("Karate scenarios (§4)", _TESTING_KARATE_BOLD_RE, live.scenarios),
+        ("BATS tests", _TESTING_BATS_BOLD_RE, live.bats_total),
+        ("Python unit+Meta-QA tests", _TESTING_PY_ROOT_META_RE, live.py_root_meta),
+        ("Python Vibe-Rescue tests", _TESTING_PY_VIBE_RE, live.py_vibe),
+        ("Python total tests (§4)", _TESTING_PY_COMBINED_RE, py_combined),
+    ):
+        errors.extend(_check_testing_regex_metric(rel, label, pat, text, exp))
+    missing_bats = [stem for stem in live.bats_stems if stem not in text]
+    if missing_bats:
+        errors.append(
+            f"{rel}: faltan archivos de tests/bats/ ({', '.join(missing_bats[:3])})."
+        )
+    return errors
+
+
+def _check_en_es_scoreboard_parity(
+    en: dict[str, str] | None, es: dict[str, str] | None
+) -> list[str]:
+    if not en or not es:
+        return []
+    keys = ("tests", "suites", "statements", "branches", "functions", "lines")
+    return [
+        f"TESTING.md vs TESTING.es.md: desfase en {k} ({en.get(k)} != {es.get(k)})."
+        for k in keys
+        if en.get(k) != es.get(k)
+    ]
+
+
+def _check_upstream_live_scoreboards(
+    root: Path, boards: dict[str, dict[str, str]]
+) -> list[str]:
+    if not is_upstream_blueprints_repo(root):
+        return []
+    live = _live_testing_repo_counts(root)
+    errors: list[str] = []
+    for rel in ("TESTING.md", "TESTING.es.md"):
+        doc = root / rel
+        if doc.is_file() and rel in boards:
+            errors.extend(
+                _check_single_testing_live_counts(
+                    rel, doc.read_text(encoding="utf-8"), boards[rel], live
                 )
+            )
+    return errors
+
+
+def check_testing_scoreboard_consistency(root: Path) -> list[str]:
+    """Verifica §2 vs §4, paridad EN/ES y conteos vivos en TESTING.{md,es.md}."""
+    boards, errors = _collect_testing_scoreboards(root)
+    errors.extend(
+        _check_en_es_scoreboard_parity(
+            boards.get("TESTING.md"), boards.get("TESTING.es.md")
+        )
+    )
+    errors.extend(_check_upstream_live_scoreboards(root, boards))
     return errors
 
 

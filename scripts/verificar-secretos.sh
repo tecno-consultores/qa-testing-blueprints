@@ -88,7 +88,7 @@ if [ ! -f "${QA_DOCKERENV_FILE}" ] && [ "${QA11X_INSIDE_DOCKER:-0}" != "1" ]; th
     exit 1
   fi
   SCRIPT_ABS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
-  exec docker run --rm --network none --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e QA11X_INSIDE_DOCKER=1 -e QA11X_EXPLICIT_TARGETS="${EXPLICIT_TARGETS}" -v "${WORK_ROOT}:/repo:ro" -v "${SCRIPT_ABS}:/qa-bin/verificar-secretos.sh:ro" -w /repo "${BASH_QA_IMAGE}" bash /qa-bin/verificar-secretos.sh -- "${REL_TARGETS[@]+"${REL_TARGETS[@]}"}"
+  exec docker run --rm --network none --restart=no --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e QA11X_INSIDE_DOCKER=1 -e QA11X_EXPLICIT_TARGETS="${EXPLICIT_TARGETS}" -v "${WORK_ROOT}:/repo:ro" -v "${SCRIPT_ABS}:/qa-bin/verificar-secretos.sh:ro" -w /repo "${BASH_QA_IMAGE}" bash /qa-bin/verificar-secretos.sh -- "${REL_TARGETS[@]+"${REL_TARGETS[@]}"}"
 fi
 
 if [ "${QA11X_EXPLICIT_TARGETS:-0}" -eq 1 ]; then

@@ -299,6 +299,19 @@ VERSION_RULES: tuple[VersionRule, ...] = (
         (re.compile(r'^(\s*"version"\s*:\s*")([^"]+)(")', re.MULTILINE),),
         optional=True,
     ),
+    *_bilingual_rules(
+        (
+            "vue3/package.json.example",
+            "react-frontend/package.json.example",
+            "node-backend/package.json.example",
+            "mobile-appium/package.json.example",
+        ),
+        (re.compile(r'^(\s*"version"\s*:\s*")([^"]+)(")', re.MULTILINE),),
+    ),
+    *_bilingual_rules(
+        ("fastapi/pyproject.toml.example", "python/pyproject.toml.example"),
+        (re.compile(r'^(version\s*=\s*")([^"]+)(")', re.MULTILINE),),
+    ),
 )
 
 EDITION_RULES: tuple[VersionRule, ...] = (
@@ -351,12 +364,18 @@ EDITION_RULES: tuple[VersionRule, ...] = (
     ),
     VersionRule(
         "mcp-server/README.md",
-        (re.compile(r"(QA Testing Blueprints \()(QA-11X v\d+\.\d+)(\s—)"),),
+        (
+            re.compile(r"(QA Testing Blueprints \()(QA-11X v\d+\.\d+)(\s—)"),
+            re.compile(r"(—\s)(QA-11X v\d+\.\d+)(\))"),
+        ),
         optional=True,
     ),
     VersionRule(
         "mcp-server/README.es.md",
-        (re.compile(r"(QA Testing Blueprints \()(QA-11X v\d+\.\d+)(\s—)"),),
+        (
+            re.compile(r"(QA Testing Blueprints \()(QA-11X v\d+\.\d+)(\s—)"),
+            re.compile(r"(—\s)(QA-11X v\d+\.\d+)(\))"),
+        ),
         optional=True,
     ),
     VersionRule(

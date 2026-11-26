@@ -200,12 +200,15 @@ Vitest unit tests with `jsdom` pass at 100%, yet in a real **Playwright** (`mcr.
 JSDOM is a logical DOM tree simulator, but it **DOES NOT compute CSS Layout, coordinates, or z-index**. Fixed floating elements (`position: fixed`) or misaligned footers cover buttons in real browsers without JSDOM noticing.
 
 **The Solution:**
-1. Design all footers as in-flow elements inside `<main>` using flexbox:
+1. Design all footers as in-flow elements outside `<main>` inside a flex-column app shell (preserving the top-level ARIA `contentinfo` landmark):
 ```css
-main {
+.app-shell {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+}
+main {
+  flex: 1;
 }
 footer {
   margin-top: auto;

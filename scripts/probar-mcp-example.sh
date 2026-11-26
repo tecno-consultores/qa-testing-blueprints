@@ -66,7 +66,7 @@ run_example_backend_python_qa() {
     uv_offline_flag="--offline"
   fi
   echo "🐍 [MCP Example Backend] Ejecutando ruff, mypy --strict y FastAPI TestClient (>=95%, 0 skips) en Docker efímero..."
-  docker run --rm "${net_args[@]}" --security-opt=no-new-privileges:true \
+  docker run --rm --restart=no "${net_args[@]}" --security-opt=no-new-privileges:true \
     -u "${CURRENT_UID}:${CURRENT_GID}" \
     -e HOME=/tmp \
     -e COVERAGE_FILE=/tmp/.coverage \
@@ -134,7 +134,7 @@ if [ "${VERIFY_TARBALL_ONLY}" = true ]; then
     exit $?
   fi
   NODE_QA_IMAGE="${QA_NODE_IMAGE:-sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60}"
-  exec docker run --rm --network none --security-opt=no-new-privileges:true \
+  exec docker run --rm --network none --restart=no --security-opt=no-new-privileges:true \
     -u "${CURRENT_UID}:${CURRENT_GID}" \
     -e HOME=/tmp \
     -e QA11X_INSIDE_DOCKER=1 \
@@ -169,7 +169,7 @@ CLEANROOM_PROJECT="qa_cleanroom_$$"
 cleanup() {
   docker compose -p "${CLEANROOM_PROJECT}" -f "${CLEANROOM_DIR}/mcp-server/docker-compose.qa.yml" down --remove-orphans >/dev/null 2>&1 || true
   rm -rf "${CLEANROOM_DIR}" 2>/dev/null ||
-    docker run --rm --network none --security-opt=no-new-privileges:true -v "${CLEANROOM_DIR}:/clean" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab rm -rf /clean/* /clean/.[!.]* 2>/dev/null || true
+    docker run --rm --restart=no --network none --security-opt=no-new-privileges:true -v "${CLEANROOM_DIR}:/clean" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab rm -rf /clean/* /clean/.[!.]* 2>/dev/null || true
   rm -rf "${CLEANROOM_DIR}" 2>/dev/null || true
 }
 trap cleanup EXIT

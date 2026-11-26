@@ -53,7 +53,7 @@ AI-generated prototypes frequently deliver strong visual layouts alongside sever
    - Wrap all API inputs in Pydantic `ConfigDict(extra="forbid")` or Zod `.strict()` with Unicode `NFKC` normalization (`APSC-DV-002520`) before validation.
    - Inject `Idempotency-Key` middleware on `POST`/`PUT`/`PATCH`/`DELETE`, HMAC-SHA256 CSRF cookies (`HttpOnly; Secure; SameSite=Strict; Path=/`), `PREAUTH_PUBLIC_ROUTES` continuity (`SEC-16`), and OWASP Secure Headers (OSHP).
 3. **Split Monolithic Files Without Breaking UX:**
-   - Refactor `> 500`-line prototype components/handlers into cohesive, single-responsibility modules capped at Cyclomatic Complexity **`CC <= 5` (Grade A)** and Cognitive Complexity **`SonarJS <= 15`** while preserving Tailwind/CSS tokens, visual hierarchy (`refactoring-ui`), and in-flow layouts (`<main>` footer `margin-top: auto`, `UI-11X-01`, `CLS = 0`).
+   - Refactor `> 500`-line prototype components/handlers into cohesive, single-responsibility modules capped at Cyclomatic Complexity **`CC <= 5` (Grade A)** and Cognitive Complexity **`SonarJS <= 15`** while preserving Tailwind/CSS tokens, visual hierarchy (`refactoring-ui`), and in-flow shell layouts (`<footer>` outside `<main>` with `margin-top: auto`, `UI-11X-01`, `CLS = 0`).
    - Enforce clean architectural boundaries (`UI -> API Client -> Service -> Domain/ORM`) inside Docker (`sinfallas/base-python-uv:3.15 python3 .agents/scripts/verify_topological_health.py`).
 
 ---
@@ -89,5 +89,5 @@ AI-generated prototypes frequently deliver strong visual layouts alongside sever
 | `CREATE POLICY ... USING (true)` | Cross-tenant data leak (`QA-PG17-RLS`) | `FORCE RLS` + `tenant_id` policy + `NOBYPASSRLS` role + `after_begin`. |
 | `req.body as any` / `dict` payloads | Mass assignment / Type bypass (`SEC-01`) | Zod `.strict()` / Pydantic `extra="forbid"` + `NFKC` normalization. |
 | 900-line `App.vue` / `Dashboard.tsx` | Unmaintainable God component (`CC > 5`) | Split into domain hooks/stores + presentational widgets (`<= 150L`). |
-| `position: fixed; bottom: 0` footer | Overlaps mobile inputs (`UI-11X-01`) | `<main>` flex column + in-flow footer `margin-top: auto`. |
+| `position: fixed; bottom: 0` footer | Overlaps mobile inputs (`UI-11X-01`) | `min-h-screen flex-col` shell + `<main class="flex-1">` + sibling `<footer>` (`margin-top: auto`). |
 | Host-only tests with mocked SQL | Mock blindness (`Rule Zero`, `<95%` cov) | Ephemeral `sinfallas/*` + live `postgres:17-alpine` + `>= 95%` cov. |

@@ -7,7 +7,7 @@ test('DevicesDashboard fulfills WCAG 2.1 AA and in-flow footer geometry', async 
   await expect(page.getByRole('button', { name: /Refrescar/i })).toBeVisible();
 
   const main = page.getByRole('main');
-  const footer = page.locator('footer.in-flow-footer');
+  const footer = page.getByRole('contentinfo');
   await expect(main).toBeVisible();
   await expect(footer).toBeVisible();
 
@@ -18,8 +18,7 @@ test('DevicesDashboard fulfills WCAG 2.1 AA and in-flow footer geometry', async 
   const footerBox = await footer.boundingBox();
   expect(mainBox).not.toBeNull();
   expect(footerBox).not.toBeNull();
-  expect(footerBox!.y).toBeGreaterThanOrEqual(mainBox!.y);
-  expect(footerBox!.y + footerBox!.height).toBeLessThanOrEqual(mainBox!.y + mainBox!.height + 2);
+  expect(footerBox!.y).toBeGreaterThanOrEqual(mainBox!.y + mainBox!.height - 1);
 
   const hasOverflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth

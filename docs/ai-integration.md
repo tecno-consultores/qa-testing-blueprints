@@ -10,14 +10,14 @@ This document details how to evolve from manual interaction into an automated wo
 For an agent to understand corporate constraints in real time, blueprints must be exposed as dynamic resources.
 
 * **The Concept:** Avoid giving the AI unrestricted read access across your entire disk. Use an MCP server to expose only the rules and code it needs in compressed form.
-* **Practical Example 1 (Daemonless CLI-First Bidirectional AST Navigation):** Instead of reading full files blindly or keeping persistent HTTP servers running on port 8080, the ecosystem extracts and indexes the AST knowledge graph on demand with `sinfallas/remote-graphify:latest` and queries it via CLI or MCP (`stdio`):
+* **Practical Example 1 (Daemonless CLI-First Bidirectional AST Navigation):** Instead of reading full files blindly or keeping persistent HTTP servers running on port 8080, the ecosystem extracts and indexes the AST knowledge graph on demand with `sinfallas/remote-graphify` (digest-pinned `@sha256:08aa6a6f...`) and queries it via CLI or MCP (`stdio`):
 
 ```bash
   # 1. Extract/incrementally refresh graphify-out/{graph.json,GRAPH_REPORT.md}
   ./scripts/actualizar-grafos-graphify.sh
 
   # 2. Query exact file:L<line> location, incoming callers, and outgoing callees (Rule Zero)
-  docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "${PWD}:/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/inspect_blast_radius.py "<symbol>"
+  docker run --rm --restart=no --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "${PWD}:/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/inspect_blast_radius.py "<symbol>"
 ```
 * **CLI-First / MCP `stdio` Invariant:** Both console-capable agents (Antigravity, Claude Code, Cursor) and agents connected to `@sinfallas/mcp-qa-11x` (`inspect_ast_blast_radius`) query `graphify-out/graph.json` and `GRAPH_REPORT.md` directly without occupying TCP ports or leaving background daemons.
 * **Practical Example 2 (SHA-256 Verified Dynamic Resources):** The `@sinfallas/mcp-qa-11x` v3.9.0 MCP server exposes **13 MCP resources (`blueprint://*`: 11 static via `resources/list` + 2 dynamic templates via `resources/templates/list`)** and **19 MCP tools** covering **10 hydratable stacks + `architecture/` + `mcp-server/` (= 12 matrix environments)** (including `mobile-appium` on `sinfallas/base-mobile-appium:26`). When an agent detects a FastAPI stack, it queries `blueprint://fastapi/readme` and `blueprint://database/postgres-rls-worm`, receiving templates cryptographically verified against `manifest.json`.

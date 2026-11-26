@@ -31,6 +31,7 @@
 20. [Patrón 20: Cabeceras de Seguridad HTTP (OWASP OSHP), Estado Fail-Secure y Auto-Verificación de Seguridad](#patrón-20-cabeceras-de-seguridad-http-owasp-oshp-estado-fail-secure-y-auto-verificación-de-seguridad)
 21. [Patrón 21: Mitigación de OWASP API Security Top 10 (2023), Anti-Data-Mining y Consumo Seguro de APIs](#patrón-21-mitigación-de-owasp-api-security-top-10-2023-anti-data-mining-y-consumo-seguro-de-apis)
 22. [Patrón 22: Cadena de Suministro (CycloneDX SBOM/CBOM), Firma de Artefactos y Threat Modeling como Código](#patrón-22-cadena-de-suministro-cyclonedx-sbomcbom-firma-de-artefactos-y-threat-modeling-como-código)
+* [Anexo Operativo: Prevención de Envenenamiento de Caché de Borde y Colisión MIME en Activos SPA (`UI-11X-03`)](#anexo-operativo-prevención-de-envenenamiento-de-caché-de-borde-y-colisión-mime-en-activos-spa-ui-11x-03)
 
 ### 🧭 Mapa de Trazabilidad con el Auditor Estático (`audit_security_stig_owasp` — 37 Reglas: `SEC-01`..`SEC-16`, `QA-*`, `UI-11X-*`)
 
@@ -63,7 +64,7 @@
 | `QA-DOCKER-TTY-01` | Asignación de pseudo-TTY (`docker compose run` sin `-T`) en pipelines `CI=true` y despliegues Wrangler v4 sobre `read_only: true` sin `tmpfs` `noexec` en `.wrangler` o sin `--force` | `docs/02` §5.1 y `SECURITY.es.md` §4.25 |
 | `UI-11X-01` | `<footer>` fijo flotante robando viewport, `outline-none` sin `:focus-visible` y bajo contraste `text-white/30..50` (`WCAG 2.1 AA`, Anti-JSDOM) | `docs/02` §2 y `SECURITY.es.md` |
 | `UI-11X-02` | Fallbacks catch-all `else return 'MAINTENANCE'` en badges y fugas `setInterval` sin limpieza `clearInterval` | `docs/02` §1.1 y `SECURITY.es.md` |
-| `UI-11X-03` | Uso de `.webp`/`.svg` en `apple-touch-icon`, ausencia de `favicon.ico` (`>=48px`), `"any maskable"` combinado en `.webmanifest`, sobrescritura sin `! Header` en `_headers` o comodines `/*.ico` en `_routes.json` | `docs/02` §5.2 y `SECURITY.es.md` §4.26 |
+| `UI-11X-03` | Uso de `.webp`/`.svg` en `apple-touch-icon`, ausencia de `favicon.ico` (`>=48px`), `"any maskable"` combinado en `.webmanifest`, sobrescritura sin `! Header` en `_headers`, comodines `/*.ico` en `_routes.json`, catch-all SPA en `_redirects` sin guarda `/assets/*` 404 o entrypoints HTML con `Cache-Control: max-age` positivo | Anexo Operativo (`UI-11X-03`), `docs/02` §5.2 y `SECURITY.es.md` §4.26, §4.34 |
 | `QA-CI-ESCAPE-01` | Escapes de doble dólar `$$(...)` / `$${...}` heredados de `Makefile`/`Compose` dentro de `.github/workflows/*.yml` o `.github/actions/*/action.yml` (`bash` expande `$$` al PID y rompe montajes Docker con `exit code 125`) | `docs/02` §5.3 y `SECURITY.es.md` §4.27 |
 | `QA-MAKE-CURDIR-01` | Uso de `$(PWD)` / `${PWD}` en sub-Makefiles (`*/Makefile`, `*/Makefile.example`) invocados vía `$(MAKE) -C <subdir>` en lugar de `$(CURDIR)`, exponiendo el directorio padre al montaje del contenedor | `docs/02` §5.3 y `SECURITY.es.md` §4.27 |
 | `QA-CONTRACT-SDK-01` | Servidores MCP/JSON-RPC/ACP probados únicamente invocando handlers con `MagicMock` sin conectar el transporte/cliente real del SDK en proceso (oculta rupturas de firma como `mcp 1.x -> 2.x`) | `docs/02` §1.1 (Regla #11) y `SECURITY.es.md` §4.28 |
@@ -1230,7 +1231,7 @@ final class DisaStigSecurityGuard
 
 ---
 
-## Patrón 18: Prevención de Envenenamiento de Caché de Borde y Colisión MIME en Activos SPA (`UI-11X-03`)
+## Anexo Operativo: Prevención de Envenenamiento de Caché de Borde y Colisión MIME en Activos SPA (`UI-11X-03`)
 
 ### El Riesgo
 Servir una SPA Vite/Webpack tras Cloudflare Pages o Netlify con una regla global `/* /index.html 200` en `public/_redirects` y `Cache-Control: max-age=...` positivo en los entrypoints HTML provoca que el HTML retenido en caché solicite hashes `/assets/*.js` ya eliminados que responden `HTTP 200` (`text/html`). Bajo `X-Content-Type-Options: nosniff`, los navegadores bloquean el documento HTML como JS/CSS y dejan la aplicación rota sin estilos.

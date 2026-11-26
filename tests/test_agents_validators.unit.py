@@ -1988,3 +1988,64 @@ def test_verify_topological_health_declarative_contracts_and_metrics(
         )
     ) == 1
     mod._print_instability_table("empty", [])
+
+    # Single-graph audit on a subdirectory stack graph against root boundaries.json
+    sub_root = tmp_path / "mono"
+    sub_graph_path = sub_root / "mcp-server" / "graphify-out" / "graph.json"
+    sub_graph_path.parent.mkdir(parents=True)
+    sub_bounds_path = sub_root / ".agents" / "boundaries.json"
+    sub_bounds_path.parent.mkdir(parents=True)
+    sub_graph_path.write_text(
+        json.dumps(
+            {
+                "nodes": [
+                    {"id": "s1", "source_file": "src/server/a.ts"},
+                    {"id": "s2", "source_file": "src/security/b.ts"},
+                    {"id": "ext", "source_file": "node_modules/pkg/index.js"},
+                    {"id": "unk", "source_file": "unknown"},
+                ],
+                "links": [
+                    {
+                        "source": "s1",
+                        "target": "s2",
+                        "source_file": "src/server/a.ts",
+                        "relation": "calls",
+                    },
+                    {"source": "s1", "target": "ext", "relation": "calls"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    sub_bounds_path.write_text(
+        json.dumps(
+            {
+                "rules_sets": [
+                    {
+                        "kind": "layers",
+                        "root": "mcp-server/src",
+                        "layers": ["server", "security"],
+                    },
+                    {"kind": "independence", "modules": ["python", "fastapi"]},
+                    {
+                        "kind": "forbidden",
+                        "rules": [
+                            {
+                                "source": "mcp-server/src/security",
+                                "forbidden": ["mcp-server/src/server"],
+                            }
+                        ],
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert (
+        mod.cli_main(
+            ["--graph", str(sub_graph_path), "--boundaries", str(sub_bounds_path)]
+        )
+        == 0
+    )
+    capsys.readouterr()
+    assert mod._subgraph_rel_prefix(sub_graph_path, tmp_path / "unrelated") == ""

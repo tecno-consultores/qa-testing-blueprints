@@ -49,6 +49,6 @@ clean-cache:
 	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile appium-live down -v >/dev/null 2>&1 || true
 
 clean: clean-cache
-	@if [ -x ./limpieza.sh ]; then ./limpieza.sh; else docker run --rm --network none --security-opt=no-new-privileges:true alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab true; fi
+	@if [ -x ./limpieza.sh ]; then ./limpieza.sh; else docker run --rm --network none --restart=no --security-opt=no-new-privileges:true alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab true; fi
 
 qa-clean: clean

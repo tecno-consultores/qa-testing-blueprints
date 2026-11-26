@@ -17,3 +17,8 @@ Feature: Contratos BDD 11X para API Multi-Tenant de Telemetría
     When method get
     Then status 200
     And match response[*].id contains 'dev-bdd-01'
+
+    Given path '/health'
+    When method get
+    Then status 200
+    And match response.status == 'ok'

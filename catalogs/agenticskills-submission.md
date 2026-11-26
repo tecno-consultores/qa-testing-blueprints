@@ -116,7 +116,7 @@ Structured submission bundle ready for `https://agenticskills.io/submit` and `ht
 10. **`refactoring-ui`** (`ui`)
     - **Upstream Path:** [`.agents/skills/refactoring-ui/SKILL.md`](../.agents/skills/refactoring-ui/SKILL.md) (`https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/refactoring-ui/SKILL.md`)
     - **Summary:** Tactical spacing, type scale, OKLCH contrast (WCAG 2.1 AA), depth, and Anti-JSDOM layout rules.
-    - **Key Capabilities:** Modular design scales, `tabular-nums`, accessible OKLCH color systems, dark mode elevation, and in-flow `<main>` footer geometry.
+    - **Key Capabilities:** Modular design scales, `tabular-nums`, accessible OKLCH color systems, dark mode elevation, and in-flow `<footer>` outside `<main>` geometry.
 11. **`tactical-patterns-11x`** (`architecture`)
     - **Upstream Path:** [`.agents/skills/tactical-patterns-11x/SKILL.md`](../.agents/skills/tactical-patterns-11x/SKILL.md) (`https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/tactical-patterns-11x/SKILL.md`)
     - **Summary:** JIT tactical patterns (<= 2.5 KB): complexity rescue (CC <= 5, max-params: 4), Port/Adapter, Outbox.

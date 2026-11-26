@@ -1926,6 +1926,32 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def reactFeat55 = karate.readAsString(repoRoot + '/react-frontend/test/ui_business_flow.feature')
     * assert reactFeat55.contains('nonexistent-bundle-probe.js')
 
+  Scenario: 56. Remediación integral v3.9 — Serialización Lefthook, fronteras AST declarativas, paridad CANONICAL_MCP_TOOLS y blindaje SEC-05/SEC-10/.env
+    * def left56 = karate.readAsString(repoRoot + '/lefthook.yml')
+    * assert left56.contains('parallel: false')
+    * assert left56.split('parallel: false').length - 1 >= 2
+    * assert !left56.contains('parallel: true')
+    * def nodePkgEx56 = karate.fromString(karate.readAsString(repoRoot + '/node-backend/package.json.example'))
+    * match nodePkgEx56.engines.node == '>=26.0.0'
+    * def bound56 = karate.fromString(karate.readAsString(repoRoot + '/.agents/boundaries.json'))
+    * assert bound56.rules_sets.length >= 3
+    * def invCfg56 = karate.readAsString(repoRoot + '/.agents/scripts/_docs_invariants_config.py')
+    * assert invCfg56.contains('"audit_test_pyramid_gaps"')
+    * assert invCfg56.contains('"bootstrap_or_merge_11x"')
+    * assert invCfg56.contains('"inspect_project_config"')
+    * assert invCfg56.contains('"run_llm_red_team"')
+    * assert !invCfg56.contains('"audit_test_pyramid"')
+    * def shared56 = karate.readAsString(mcpRoot + '/src/tools/security-auditor/shared.ts')
+    * assert shared56.contains('isEnvTemplatePath')
+    * assert shared56.contains('shouldExcludeUntrackedIgnoredEnv')
+    * def ready56 = karate.readAsString(mcpRoot + '/src/tools/standardReadiness.ts')
+    * assert ready56.contains('isUpstreamRepo')
+    * def tiered56 = karate.readAsString(repoRoot + '/.github/workflows/ci-tiered-qa.yml')
+    * assert tiered56.contains('graphify-all-')
+    * assert !tiered56.contains('-graphify-${{')
+    * def devE2e56 = karate.readAsString(mcpRoot + '/example/frontend/e2e/devices.e2e.ts')
+    * assert devE2e56.contains("getByRole('contentinfo')")
+
 
 
 

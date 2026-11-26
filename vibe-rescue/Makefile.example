@@ -15,7 +15,7 @@ export QA_UID QA_GID
 
 qa-lint:
 	@echo "🔍 [11X] Verificando Ruff (CC <= 5) y Mypy --strict en Vibe-Rescue..."
-	@docker run --rm --network none --security-opt=no-new-privileges:true -u "$(QA_UID):$(QA_GID)" \
+	@docker run --rm --network none --restart=no --security-opt=no-new-privileges:true -u "$(QA_UID):$(QA_GID)" \
 		-e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e RUFF_CACHE_DIR=/tmp/ruff-cache -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -e PYTHONPATH=/app \
 		-v "$(PROJECT_DIR):/app:ro" -w /app $(PYTHON_QA_IMAGE) sh -c "\
 		ruff check --select E,F,W,I,UP,B,C901,FLY,PLR0913 --config \"lint.mccabe.max-complexity=5\" --config \"lint.pylint.max-args=4\" . && \
@@ -23,19 +23,19 @@ qa-lint:
 
 qa-audit:
 	@echo "🛡️ [11X] Ejecutando auditoría Vibe-to-Enterprise en modo dry-run..."
-	@docker run --rm --network none --security-opt=no-new-privileges:true -u "$(QA_UID):$(QA_GID)" \
+	@docker run --rm --network none --restart=no --security-opt=no-new-privileges:true -u "$(QA_UID):$(QA_GID)" \
 		-e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -e PYTHONPATH=/app \
 		-v "$(PROJECT_DIR):/app:ro" -w /app $(PYTHON_QA_IMAGE) python3 audit_vibe_prototype.py --target "$(TARGET_DIR)" --json
 
 qa-audit-enforce:
 	@echo "🚨 [11X] Ejecutando auditoría bloqueante Vibe-to-Enterprise (--enforce)..."
-	@docker run --rm --network none --security-opt=no-new-privileges:true -u "$(QA_UID):$(QA_GID)" \
+	@docker run --rm --network none --restart=no --security-opt=no-new-privileges:true -u "$(QA_UID):$(QA_GID)" \
 		-e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -e PYTHONPATH=/app \
 		-v "$(PROJECT_DIR):/app:ro" -w /app $(PYTHON_QA_IMAGE) python3 audit_vibe_prototype.py --target "$(TARGET_DIR)" --enforce
 
 qa-unit:
 	@echo "🧪 [11X] Ejecutando pruebas unitarias (>= 95% cobertura) en contenedor efímero..."
-	@docker run --rm --network none --security-opt=no-new-privileges:true -u "$(QA_UID):$(QA_GID)" \
+	@docker run --rm --network none --restart=no --security-opt=no-new-privileges:true -u "$(QA_UID):$(QA_GID)" \
 		-e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -e PYTHONPATH=/app \
 		-v "$(PROJECT_DIR):/app:ro" -w /app $(PYTHON_QA_IMAGE) sh -c "\
 		if [ -d tests ] && find tests -type f \( -name 'test_*.py' -o -name '*_test.py' -o -name '*.unit.py' -o -name '*.spec.py' \) | grep -q .; then \
@@ -56,6 +56,6 @@ clean-cache:
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" down -v >/dev/null 2>&1 || true
 
 clean: clean-cache
-	@if [ -x ./limpieza.sh ]; then ./limpieza.sh; else docker run --rm --network none --security-opt=no-new-privileges:true alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab true; fi
+	@if [ -x ./limpieza.sh ]; then ./limpieza.sh; else docker run --rm --network none --restart=no --security-opt=no-new-privileges:true alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab true; fi
 
 qa-clean: clean

@@ -146,6 +146,7 @@ services:
     working_dir: /app
     command: bash -c "echo 'Contenedor QA Backend (Python) listo para Lint, Pytest y Mutmut'; sleep infinity"
 
+  # Nota: sinfallas/karatelabs:1.5.1 almacena caché Maven offline en /root/.m2 (0700) y /app/target (root:root); montajes host son estrictamente :ro
   karatelabs:
     image: sinfallas/karatelabs:1.5.1@sha256:a9a52ca9c5491ab39b64f0b4fdc3dea879c2213c9bc995be58d6cd4b9a80cc89
     hostname: fastapi_karate
@@ -156,6 +157,8 @@ services:
     pids_limit: 512
     security_opt:
       - no-new-privileges:true
+    cap_drop:
+      - ALL
     environment:
       API_BASE_URL: ${API_BASE_URL:-http://api:8000}
     depends_on:

@@ -29,4 +29,4 @@ qa-all:
 	@$(MAKE) qa-e2e
 
 clean:
-	@rm -rf dist coverage .turbo test-results .eslintcache 2>/dev/null || docker run --rm --network none --security-opt=no-new-privileges:true -v "$(CURDIR):/app" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab rm -rf /app/dist /app/coverage /app/.turbo /app/test-results /app/.eslintcache 2>/dev/null || true
+	@rm -rf dist coverage .turbo test-results .eslintcache 2>/dev/null || docker run --rm --network none --restart=no --security-opt=no-new-privileges:true -v "$(CURDIR):/app" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab rm -rf /app/dist /app/coverage /app/.turbo /app/test-results /app/.eslintcache 2>/dev/null || true

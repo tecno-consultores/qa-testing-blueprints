@@ -135,7 +135,7 @@ run_py_rule_zero() {
   fi
 
   local -a docker_cmd=(
-    docker run --rm --network none --security-opt=no-new-privileges:true
+    docker run --rm --network none --restart=no --security-opt=no-new-privileges:true
   )
   if [ "${use_stdin}" = "true" ]; then
     docker_cmd+=(-i)
@@ -647,10 +647,10 @@ gate_06_ast_topology() {
       else
         local graphify_img="${QA_GRAPHIFY_IMAGE:-sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0}"
         mkdir -p "${REPO_ROOT}/graphify-out"
-        docker run --rm --network none --security-opt=no-new-privileges:true --cap-drop=ALL \
+        docker run --rm --network none --restart=no --security-opt=no-new-privileges:true --cap-drop=ALL \
           -u "$(id -u):$(id -g)" -e HOME=/tmp -e OLLAMA_BASE_URL="" \
           -v "${REPO_ROOT}:/app:ro" -v "${REPO_ROOT}/graphify-out:/app/graphify-out" -w /app \
-          "${graphify_img}" sh -c "graphify extract . --code-only && graphify cluster-only . && rm -rf graphify-out/cache graphify-out/20* graphify-out/.graphify_* graphify-out/.cloud-cta-shown" || {
+          "${graphify_img}" sh -c "graphify extract . --code-only --allow-dedup-shrink && graphify cluster-only . && rm -rf graphify-out/cache graphify-out/20* graphify-out/.graphify_* graphify-out/.cloud-cta-shown" || {
           printf '❌ [RULE-ZERO][AST-GRAPH] Falló la auto-construcción del grafo AST en contenedor Docker.\n' >&2
           return 1
         }

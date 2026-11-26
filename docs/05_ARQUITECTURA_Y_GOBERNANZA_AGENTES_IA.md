@@ -54,7 +54,7 @@ A common dilemma when governing AI agents is language choice versus context wind
    - Frontier tokenizers (OpenAI Tiktoken, Claude Tokenizer, Gemini Tokenizer) fragment Spanish prose into significantly more tokens than concise technical English.
    - Writing `.agents/rules/` and `.agents/skills/` in technical English saves roughly **35% of the context window**, leaving more room for source code, database schemas, and test traces.
 2. **3-Tier Progressive Disclosure & True Thin-Client Budgets:**
-   - **Tier 1 (Always loaded):** Compact True Thin-Client connector blocks (`<= 1,536 B`) across `$HOME` agent connectors (`.gemini/GEMINI.md`, `.claude/CLAUDE.md`, `.codex/AGENTS.md`, `.codeium/windsurf/memories/global_rules.md`) and `<project>/AGENTS.md` (with upstream monorepo `AGENTS.md <= 8,192 B`, while non-canonical vendor skills `>= 20 KB` in consumer repos emit non-blocking `WARN` notices).
+   - **Tier 1 (Always loaded):** Compact True Thin-Client connector blocks (`<= 1,536 B`) across `$HOME` agent connectors (`.gemini/GEMINI.md`, `.claude/CLAUDE.md`, `.codex/AGENTS.md`, `.codeium/windsurf/memories/global_rules.md`, `.config/opencode/AGENTS.md`, `.config/zed/AGENTS.md`) and `<project>/AGENTS.md` (with upstream monorepo `AGENTS.md <= 8,192 B`, while non-canonical vendor skills `>= 20 KB` in consumer repos emit non-blocking `WARN` notices).
    - **Tier 2 (On-demand upon Skill activation):** Deduplicated `SKILL.md` referencing rules instead of repeating paragraphs.
    - **Tier 3 (Just-In-Time Surgical Injection):** Files under `.agents/rules/*.md` and `references/*.md` read only when the task touches that specific domain.
 3. **3 Proportional Execution Paths (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`):**

@@ -145,8 +145,8 @@
       "name": "qa-11x-screenplay-builder",
       "path": ".agents/skills/qa-11x-screenplay-builder/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-screenplay-builder/SKILL.md",
-      "size_bytes": 11861,
-      "sha256": "aeeee011d1dffeb4fb651b015df449f49aa4758c14e40ae69a562da02b12373b",
+      "size_bytes": 11976,
+      "sha256": "2a4e8724e97f8165ae9c9a0709732ca65bd62acdf68c25f183e96e4a8a1b0951",
       "description": "Acceptance and E2E test architecture sub-skill for Standard 11X. Use whenever creating, refactoring, or reviewing Playwright, WebdriverIO/Appium, or UI/API acceptance suites across single-role or multi-role RBAC and multi-tenant apps."
     },
     {
@@ -163,8 +163,8 @@
       "name": "qa-11x-vibe-rescue",
       "path": ".agents/skills/qa-11x-vibe-rescue/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-vibe-rescue/SKILL.md",
-      "size_bytes": 9368,
-      "sha256": "8a39ed73c8abd2c18861afbbcfb35a891406092534ef79df883e7739c8cc02cf",
+      "size_bytes": 9432,
+      "sha256": "7afe2629b5a0cccde0a41c225b4a6b05d290e51dea7f9c1aeb49b71ada6755b6",
       "description": "Prototype-to-enterprise hardening sub-skill for Standard 11X. Use whenever rescuing, auditing, or productionizing AI-generated scaffolds (Bolt.new, Lovable, v0, Replit Agent, or rapid vibe-coded prototypes) without breaking their UX."
     },
     {
@@ -199,8 +199,8 @@
       "name": "refactoring-ui",
       "path": ".agents/skills/refactoring-ui/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/refactoring-ui/SKILL.md",
-      "size_bytes": 8830,
-      "sha256": "a639fb3279be1229dfb828fc54b408ea1f0836f9d39dc13f7057dfe28daeee37",
+      "size_bytes": 8795,
+      "sha256": "50a142ee7ca8140579fe1baa70a362c2afeeb16c35d9bbad70f89b8da9e173a0",
       "description": "Frontend visual design, hierarchy, and WCAG 2.1 AA layout skill. Use when building or restyling UI components, diagnosing cluttered or unpolished interfaces, preventing fixed-footer viewport collisions, or selecting spacing, typography, color, and dark-mode tokens."
     },
     {

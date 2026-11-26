@@ -67,7 +67,7 @@ if [ -f "${REPO_ROOT}/.trivy.yaml" ]; then
   TRIVY_CONFIG_ARGS=(--config /workspace/.trivy.yaml)
 fi
 
-docker run --rm \
+docker run --rm --restart=no \
   --security-opt=no-new-privileges:true \
   -u "$(id -u):$(id -g)" \
   -e HOME=/tmp \
@@ -90,7 +90,7 @@ if [ -f "${ABS_OUTPUT}" ]; then
     export QA11X_ATTESTATION_KEY
     DOCKER_ENV_ARGS+=(-e QA11X_ATTESTATION_KEY)
   fi
-  docker run --rm --network none \
+  docker run --rm --network none --restart=no \
     --security-opt=no-new-privileges:true \
     -u "$(id -u):$(id -g)" \
     -e HOME=/tmp \

@@ -11,6 +11,9 @@ Todos los cambios notables en el paquete npm y servidor MCP `@sinfallas/mcp-qa-1
 ### Añadido
 - **Metadatos de Propiedad del MCP Registry Oficial (`mcpName`):** Declarado `"mcpName": "io.github.tecno-consultores/mcp-qa-11x"` en `mcp-server/package.json` en paridad con `server.json` en la raíz (`2025-12-11/server.schema.json`) y flujo efímero Docker de validación/publicación con `mcp-publisher` (`make publish-mcp-registry-dry` / `make publish-mcp-registry`) para los próximos releases en npm.
 
+### Corregido
+- **Precisión del Auditor Estático, Readiness e Inventario de Pirámide (`audit_security_stig_owasp`, `standardReadiness`, `inventory.ts`):** Recorrida la cadena ancestro `.git`/`.gitignore` en `SEC-10` (impidiendo escapes de `.env` trackeados en subdirectorios y soportando globs `.env*.local`/`**/.env*`/comentarios y plantillas `.env.example` bajo `include_examples: true`), añadidas fronteras de directorio (`routers?`/`dto`) y exclusiones de pruebas/auditor en `SEC-05`, reconocido el monorepo canónico `qa-testing-blueprints` en `standardReadiness.ts` (`thin_repo_governance: PASS`, `has_boundaries_config`), resueltos barriles `index.ts`/`__init__.py` y suites agrupadas sin falsos negativos por `.status` en `inventory.ts`, alineada la geometría `contentinfo` en `example/frontend/e2e/devices.e2e.ts`, renombrado `tests/agents27.test.ts` a `tests/agents28.test.ts` y alineados los flags CLI en `mcp-server/README.{md,es.md}` (`795/795` pruebas Vitest en `47` suites, Escenario Karate `56`).
+
 ## [3.9.0] - 2026-11-25
 
 ### Añadido

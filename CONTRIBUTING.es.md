@@ -17,9 +17,9 @@ Para mantener la consistencia y la eficacia de estos blueprints, toda contribuci
    * `sinfallas/base-node-ionic` (`22`, `24`, `26` y `latest`) para Node.js/Vue 3/React, Promptfoo, `@finos/calm-cli` y el Servidor MCP.
    * `sinfallas/base-mobile-appium` (`26` y `latest`) para Móvil Nativo e Híbrido W3C Bridge (`mobile-appium/`: Node.js 26, `pnpm`, OpenJDK 21, Android SDK/ADB, Appium 3, `uiautomator2`, `xcuitest`, WebdriverIO v9).
    * `sinfallas/basephpcomposer` (`8.2`, `8.3`, `8.4`, `8.5` y `latest`) para PHP.
-   * `sinfallas/base-bash-qa:latest` para Bash/DevOps.
+   * `sinfallas/base-bash-qa` (fijada por digest `@sha256:2d1f579e...`) para Bash/DevOps.
    * `sinfallas/karatelabs:1.5.1` para contratos BDD/Caja Negra.
-   * `sinfallas/remote-graphify:latest` para Optimización de Contexto IA (análisis AST CLI-first).
+   * `sinfallas/remote-graphify` (fijada por digest `@sha256:08aa6a6f...`) para Optimización de Contexto IA (análisis AST CLI-first).
    * *Nota: Se permite el uso de imágenes oficiales consolidadas exclusivamente para Sidecars periféricos (ej. `prom/prometheus:v2.55.1`, `zaproxy/zap-stable:2.15.0`, `postgres:17-alpine`, `eqalpha/keydb@sha256:6537505c42355ca1f571276bddf83f5b750f760f07b2a185a676481791e388ac` (`v6.3.4` multi-arch), `mcr.microsoft.com/playwright:v1.52.0-noble`).*
    * **REGLA DE CACHÉ Y UID NO-ROOT:** Si agregas una imagen que dependa de un gestor de paquetes (`uv`, `pnpm`, `composer`), DEBES declarar obligatoriamente volúmenes nombrados compatibles con cualquier usuario no-root del host/CI (`-u "$(id -u):$(id -g)"`): ej. `/tmp/uv-cache` con `UV_CACHE_DIR=/tmp/uv-cache` y `COVERAGE_FILE=/tmp/.coverage` en Python, o `pnpm-store:/pnpm` inicializado por `pnpm-store-init` (`chmod -R a+rwX /pnpm`) junto a `HOME=/tmp` y `pnpm_config_store_dir=/pnpm/store` en `sinfallas/base-node-ionic:26` / `sinfallas/base-mobile-appium:26` (`uid=10001`).
 
@@ -42,7 +42,7 @@ Si eres un **Agente de IA** (o un desarrollador operando en conjunto con uno) co
 
 1. **Lectura de Directivas:** Lee `.agents/rules/` y `AGENTS.md` antes de generar cualquier propuesta.
 2. **Bitácora Activa:** Registra las fases de la tarea atómicamente mediante `.agents/scripts/checkpoint_ctl.py` / MCP `session_flight_recorder` (`0600` `.agents/.cache/session_checkpoint.json` -> proyección determinista `<= 40` líneas en `.agents/ACTIVE_TASK.md` + verificación Git en vivo, sin editar `ACTIVE_TASK.md` manualmente).
-3. **Inspección AST Preventiva (*Rule Zero*):** Audita el radio de impacto de símbolos compartidos dentro de un contenedor efímero de solo lectura (`docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "${PWD}:/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"`) antes de modificar código.
+3. **Inspección AST Preventiva (*Rule Zero*):** Audita el radio de impacto de símbolos compartidos dentro de un contenedor efímero de solo lectura (`docker run --rm --restart=no --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "${PWD}:/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"`) antes de modificar código.
 4. **Pirámide de Pruebas Obligatoria:** Todo código nuevo o modificado debe incorporar sus correspondientes pruebas unitarias (`>= 95%`) y escenarios BDD en Karate Labs (`api_test.feature` y `ui_business_flow.feature`), actualizando las pruebas preexistentes afectadas (`QA-TEST-SYNC-01`).
 5. **Compuerta Universal de Certificación (10/10):** Ejecuta `./.agents/scripts/certify_task_completion.sh` y asegura que las **10 etapas** pasen limpiamente (incluyendo `bump_version_11x.py --check` y `sync_governance.py --check`) antes de concluir en un `git commit` local certificado (`QA-GIT-GATE-01`).
 6. **Sincronización Criptográfica del Manifiesto:** Si agregas o modificas plantillas o archivos comunes, regenera `manifest.json` ejecutando `make sync-governance` y verifica con `make version-check`.

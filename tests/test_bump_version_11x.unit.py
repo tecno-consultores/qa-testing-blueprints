@@ -616,3 +616,61 @@ def test_server_json_version_rule_syncs_root_and_package_versions(
     synced = json.loads(server_json.read_text(encoding="utf-8"))
     assert synced["version"] == "3.10.0"
     assert synced["packages"][0]["version"] == "3.10.0"
+
+
+def test_example_manifests_and_mcp_readme_edition_headers_sync(tmp_path: Path) -> None:
+    """Sincroniza manifiestos .example y encabezados — QA-11X vX.Y)."""
+    mod = _load_mod()
+    for stack in ("vue3", "react-frontend", "node-backend", "mobile-appium"):
+        d = tmp_path / stack
+        d.mkdir(parents=True)
+        (d / "package.json.example").write_text(
+            json.dumps({"name": f"{stack}-bp", "version": "3.8.0"}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    for py_stack in ("fastapi", "python"):
+        d = tmp_path / py_stack
+        d.mkdir(parents=True)
+        (d / "pyproject.toml.example").write_text(
+            f'[project]\nname = "{py_stack}-bp"\nversion = "0.2.0"\n',
+            encoding="utf-8",
+        )
+    mcp_dir = tmp_path / "mcp-server"
+    mcp_dir.mkdir(parents=True)
+    (mcp_dir / "README.md").write_text(
+        "QA Testing Blueprints (QA-11X v3.8 — v3.8.0)\n"
+        "## 🛠️ MCP Tools (19 Tools — QA-11X v3.8)\n"
+        "## 📚 MCP Resources (13 Resources — QA-11X v3.8)\n",
+        encoding="utf-8",
+    )
+    (mcp_dir / "README.es.md").write_text(
+        "QA Testing Blueprints (QA-11X v3.8 — v3.8.0)\n"
+        "## 🛠️ Herramientas (19 herramientas — QA-11X v3.8)\n"
+        "## 📚 Recursos (13 recursos — QA-11X v3.8)\n",
+        encoding="utf-8",
+    )
+
+    ex_targets = {
+        "vue3/package.json.example",
+        "react-frontend/package.json.example",
+        "node-backend/package.json.example",
+        "mobile-appium/package.json.example",
+        "fastapi/pyproject.toml.example",
+        "python/pyproject.toml.example",
+    }
+    ex_rules = tuple(r for r in mod.VERSION_RULES if r.rel_path in ex_targets)
+    assert len(ex_rules) == 6
+    errs, _ = mod.run_rules(tmp_path, ex_rules, "3.9.0", False)
+    assert len(errs) == 6
+    assert mod.run_rules(tmp_path, ex_rules, "3.9.0", True) == ([], 6)
+    assert mod.run_rules(tmp_path, ex_rules, "3.9.0", False) == ([], 0)
+
+    ed_rules = tuple(
+        r
+        for r in mod.EDITION_RULES
+        if r.rel_path in {"mcp-server/README.md", "mcp-server/README.es.md"}
+    )
+    e_errs, _ = mod.run_rules(tmp_path, ed_rules, "QA-11X v3.9", False)
+    assert len(e_errs) == 6
+    assert mod.run_rules(tmp_path, ed_rules, "QA-11X v3.9", True) == ([], 2)
+    assert mod.run_rules(tmp_path, ed_rules, "QA-11X v3.9", False) == ([], 0)

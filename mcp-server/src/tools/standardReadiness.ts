@@ -249,6 +249,7 @@ interface ReadinessSnapshot {
   readonly hasDockerComposeQa: boolean;
   readonly hasMakefile: boolean;
   readonly missingBaseScripts: string[];
+  readonly isUpstreamRepo: boolean;
   readonly hasAgentsMd: boolean;
   readonly hasAgentsConnector: boolean;
   readonly hasQa11xConfig: boolean;
@@ -283,6 +284,7 @@ function collectReadinessSnapshot(
     hasDockerComposeQa: fs.existsSync(path.join(projectPath, DOCKER_COMPOSE_QA_FILE)),
     hasMakefile: fs.existsSync(path.join(projectPath, MAKEFILE_FILE)),
     missingBaseScripts: BASE_RULE_ZERO_SCRIPTS.filter((s) => !fs.existsSync(path.join(projectPath, s))),
+    isUpstreamRepo: isUpstreamBlueprintsRepo(projectPath),
     hasAgentsMd: agentsMdContent !== null,
     hasAgentsConnector: agentsMdContent !== null && agentsMdContent.includes(CONNECTOR_START_MARKER),
     hasQa11xConfig: fs.existsSync(path.join(projectPath, QA_11X_JSON_FILE)),
@@ -348,17 +350,26 @@ function buildRuleZeroPillar(snap: ReadinessSnapshot): StandardReadinessPillar {
   };
 }
 
-function buildGovernancePillar(snap: ReadinessSnapshot): StandardReadinessPillar {
+function collectMissingGovernanceItems(snap: ReadinessSnapshot): string[] {
   const missing: string[] = [];
-  if (!snap.hasAgentsConnector) missing.push('AGENTS.md con bloque conector QA-11X');
-  if (!snap.hasQa11xConfig) missing.push(`${QA_11X_JSON_FILE} (tier de adopción)`);
+  if (snap.isUpstreamRepo) {
+    if (!snap.hasAgentsMd) missing.push(AGENTS_MD_FILE);
+  } else {
+    if (!snap.hasAgentsConnector) missing.push('AGENTS.md con bloque conector QA-11X');
+    if (!snap.hasQa11xConfig) missing.push(`${QA_11X_JSON_FILE} (tier de adopción)`);
+  }
   if (!snap.hasActiveTaskMd) missing.push(`${ACTIVE_TASK_REL} (Flight Recorder)`);
   if (snap.hasLocalDuplication) missing.push('Eliminar skills/reglas globales duplicadas en .agents/');
   if (snap.missingGitignoreEntries.length > 0) {
     missing.push(`.gitignore entradas 11X: ${snap.missingGitignoreEntries.join(', ')}`);
   }
+  return missing;
+}
+
+function buildGovernancePillar(snap: ReadinessSnapshot): StandardReadinessPillar {
+  const missing = collectMissingGovernanceItems(snap);
   let status: StandardPillarStatus = STATUS_PRESENT;
-  if (!snap.hasAgentsMd && !snap.hasQa11xConfig) {
+  if (!snap.hasAgentsMd && !snap.hasQa11xConfig && !snap.isUpstreamRepo) {
     status = STATUS_MISSING;
   } else if (missing.length > 0) {
     status = STATUS_PARTIAL;

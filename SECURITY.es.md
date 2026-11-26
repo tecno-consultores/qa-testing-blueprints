@@ -17,8 +17,11 @@ Dado que este repositorio actúa como la plantilla arquitectónica y base de con
 | Versión | Estado de Soporte | Requisitos de Infraestructura |
 | :--- | :--- | :--- |
 | **`3.9.x` (`main` / Activa)** | ✅ Soporte Activo | Docker 26+, PostgreSQL 17, KeyDB Multi-Hilo |
+| **`3.8.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.9.x` (`actualización recomendada`) |
+| **`3.7.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.9.x` (`actualización recomendada`) |
 | **`3.6.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.9.x` (`actualización recomendada`) |
 | **`3.5.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.9.x` (`actualización recomendada`) |
+| **`3.4.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.9.x` (`actualización recomendada`) |
 | **`3.3.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.9.x` (`actualización recomendada`) |
 | **`3.2.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.9.x` (`actualización recomendada`) |
 | **`3.1.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.9.x` (`actualización recomendada`) |
@@ -298,7 +301,7 @@ flowchart LR
 
 ### 5.2. Auditoría Diaria Automatizada de Imágenes Base (`audit-base-images.yml`)
 - **Cadencia y Alcance:** El workflow [`.github/workflows/audit-base-images.yml`](.github/workflows/audit-base-images.yml) se ejecuta diariamente (`cron: '0 6 * * *'`), bajo demanda (`workflow_dispatch`) y en `pull_request` sobre manifiestos de contenedores/seguridad, aplicando mínimo privilegio (`permissions: contents: read`), `timeout-minutes` explícitos y Actions fijadas por SHA inmutable (`SEC-CI-ACTION-REF`).
-- **Escaneo de Imágenes Oficiales (`Trivy HIGH/CRITICAL = 0`):** Matriz `fail-fast: false` sobre `sinfallas/base-python-uv:{latest,3.15}`, `sinfallas/base-node-ionic:{latest,26}`, `sinfallas/basephpcomposer:{latest,8.5}`, `sinfallas/karatelabs:{1.5.1,latest}`, `sinfallas/base-bash-qa:latest`, `sinfallas/remote-graphify:latest` y `sinfallas/base-mobile-appium:{latest,26}` (`12` objetivos) con `--severity HIGH,CRITICAL --ignore-unfixed --exit-code 1`, además de verificación no-root `smoke-mobile-appium` (`java`, `adb`, `appium`).
+- **Escaneo de Imágenes Oficiales (`Trivy HIGH/CRITICAL = 0`):** Matriz `fail-fast: false` sobre las **7 imágenes oficiales fijadas por digest SHA-256** (`sinfallas/base-python-uv:3.15@sha256:...`, `sinfallas/base-node-ionic:26@sha256:...`, `sinfallas/basephpcomposer:8.5@sha256:...`, `sinfallas/karatelabs:1.5.1@sha256:...`, `sinfallas/base-bash-qa@sha256:...`, `sinfallas/remote-graphify@sha256:...` y `sinfallas/base-mobile-appium:26@sha256:...`) con `--severity HIGH,CRITICAL --ignore-unfixed --exit-code 1` sobre caché diaria compartida de Trivy DB, además de verificación no-root `smoke-mobile-appium` (`java`, `adb`, `appium`).
 - **Auditoría de Paquetes Python v2 (`pip-audit`) y SAST (`CodeQL`):** Ejecución efímera no-root (`--user 10001:10001 -e HOME=/tmp`) de `pip-audit --strict --desc` sobre `sinfallas/base-python-uv:3.15`, análisis `CodeQL` en `javascript-typescript`, `python` y `actions`, y validación determinista local mediante `make lint-workflows`.
 
 ---

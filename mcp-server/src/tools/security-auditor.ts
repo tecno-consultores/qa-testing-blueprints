@@ -186,7 +186,7 @@ function scanSingleFile(
     ...checkSec05UnicodeNfkc(effectiveRel, lines),
     ...checkSec06XssPrototypePollution(effectiveRel, lines),
     ...checkSec07SwaggerInProd(effectiveRel, lines),
-    ...checkSec10Secrets(effectiveRel, lines),
+    ...checkSec10Secrets(effectiveRel, lines, Boolean(options?.includeExamples)),
     ...checkSec11AuditSemanticIntegrity(effectiveRel, lines),
     ...checkSec12McpServiceRbac(effectiveRel, lines),
     ...checkSec13RlsMultiTxPersistence(effectiveRel, lines),

@@ -4,7 +4,13 @@
 import * as path from 'node:path';
 import type { SecurityFinding } from '../../types.js';
 import { pickAt } from '../../utils/diagnosticFormatter.js';
-import { APSC_DV_002510_REF, SEC_10_REF, isAuditorSelfDefinition, isTestFilePath } from './shared.js';
+import {
+  APSC_DV_002510_REF,
+  SEC_10_REF,
+  isAuditorSelfDefinition,
+  isEnvTemplatePath,
+  isTestFilePath,
+} from './shared.js';
 
 export function checkSec01MassAssignment(relPath: string, lines: string[]): SecurityFinding[] {
   if (!relPath.endsWith('.py')) return [];
@@ -274,40 +280,45 @@ export function checkSec04Xxe(relPath: string, lines: string[]): SecurityFinding
   return findings;
 }
 
+const SEC05_EXTS = ['.py', '.ts', '.php'] as const;
+const SEC05_INPUT_DIR_RE = /(?:^|[/\\])(?:routes?|routers?|endpoints?|api|schemas?|dto|controllers?)[/\\]/i;
+const SEC05_VALIDATOR_TOKENS = [
+  'validator',
+  'field_validator',
+  'z.string()',
+  'Assert\\',
+  'Validation',
+] as const;
+const SEC05_NFKC_TOKENS = ['NFKC', 'FORM_KC', 'normalize'] as const;
+
+function isSec05EligiblePath(relPath: string): boolean {
+  if (isTestFilePath(relPath) || isAuditorSelfDefinition(relPath)) return false;
+  return SEC05_EXTS.some((ext) => relPath.endsWith(ext)) && SEC05_INPUT_DIR_RE.test(relPath);
+}
+
+function hasSec05StringValidator(content: string): boolean {
+  const hasType = content.includes('str') || content.includes('string');
+  return hasType && SEC05_VALIDATOR_TOKENS.some((tok) => content.includes(tok));
+}
+
 export function checkSec05UnicodeNfkc(relPath: string, lines: string[]): SecurityFinding[] {
-  if (!relPath.endsWith('.py') && !relPath.endsWith('.ts') && !relPath.endsWith('.php')) return [];
-  const isInputFile = /(?:routes|endpoints|api|schemas|controllers)[/\\]/i.test(relPath);
-  if (!isInputFile) return [];
+  if (!isSec05EligiblePath(relPath)) return [];
 
   const content = lines.join('\n');
-  const hasStringValidation =
-    (content.includes('str') || content.includes('string')) &&
-    (content.includes('validator') ||
-      content.includes('field_validator') ||
-      content.includes('z.string()') ||
-      content.includes('Assert\\') ||
-      content.includes('Validation'));
-  if (!hasStringValidation) return [];
-
-  const hasNfkc =
-    content.includes('NFKC') ||
-    content.includes('FORM_KC') ||
-    content.includes('normalize');
-  if (!hasNfkc) {
-    return [
-      {
-        rule_id: 'SEC-05',
-        severity: 'MEDIUM',
-        stig_owasp_ref: 'APSC-DV-002520 / Patrón 5',
-        file: relPath,
-        line: 1,
-        message: 'Validadores de entrada de texto sin normalización canónica Unicode NFKC.',
-        remediation: 'Aplicar unicodedata.normalize("NFKC", valor) o Normalizer::normalize($str, Normalizer::FORM_KC) en validadores para mitigar homoglyph bypass.',
-      },
-    ];
-  }
-
-  return [];
+  if (!hasSec05StringValidator(content)) return [];
+  if (SEC05_NFKC_TOKENS.some((tok) => content.includes(tok))) return [];
+  return [
+    {
+      rule_id: 'SEC-05',
+      severity: 'MEDIUM',
+      stig_owasp_ref: 'APSC-DV-002520 / Patrón 5',
+      file: relPath,
+      line: 1,
+      message: 'Validadores de entrada de texto sin normalización canónica Unicode NFKC.',
+      remediation:
+        'Aplicar unicodedata.normalize("NFKC", valor) o Normalizer::normalize($str, Normalizer::FORM_KC) en validadores para mitigar homoglyph bypass.',
+    },
+  ];
 }
 
 const SEC06_PROTO_PATTERNS: readonly RegExp[] = [
@@ -588,7 +599,29 @@ function isBenignPromptfooPrivateKeyAssertion(
   );
 }
 
-const SEC10_PLACEHOLDER_MARKERS = ['placeholder', 'example', 'changeme'] as const;
+const SEC10_PLACEHOLDER_MARKERS = [
+  'placeholder',
+  'example',
+  'changeme',
+  'change_me',
+  'tu_token',
+  'tu_clave',
+  'your_token',
+  'your_api_key',
+  'your_secret',
+  'replace_me',
+  'xxxx',
+  'dummy-',
+  'fake-',
+  'mock-',
+  '<example',
+  '<redacted',
+] as const;
+
+function hasPlaceholderMarker(raw: string): boolean {
+  const lower = raw.toLowerCase();
+  return SEC10_PLACEHOLDER_MARKERS.some((m) => lower.includes(m));
+}
 
 function inspectSec10Line(
   relPath: string,
@@ -610,7 +643,8 @@ function inspectSec10Line(
       remediation: 'Eliminar claves privadas del código y delegar en gestores de secretos o Vault.',
     };
   }
-  if (SEC10_TOKEN_RES.some((re) => re.test(line))) {
+  const tokenHit = SEC10_TOKEN_RES.map((re) => re.exec(line)?.[0]).find((m) => m !== undefined);
+  if (tokenHit !== undefined && (!isEnvTemplatePath(relPath) || !hasPlaceholderMarker(tokenHit))) {
     return {
       rule_id: 'SEC-10',
       severity: 'CRITICAL',
@@ -623,12 +657,10 @@ function inspectSec10Line(
   }
   const assignedSecret =
     SEC10_ASSIGNED_SECRET_RE.exec(line)?.[1] ??
-    (path.basename(relPath).startsWith('.env') ? extractUnquotedEnvSecretValue(line) : null);
-  const lowerAssigned = assignedSecret?.toLowerCase() ?? '';
-  if (
-    assignedSecret !== null &&
-    !SEC10_PLACEHOLDER_MARKERS.some((m) => lowerAssigned.includes(m))
-  ) {
+    (path.basename(relPath).startsWith('.env') || isEnvTemplatePath(relPath)
+      ? extractUnquotedEnvSecretValue(line)
+      : null);
+  if (assignedSecret !== null && !hasPlaceholderMarker(assignedSecret)) {
     return {
       rule_id: 'SEC-10',
       severity: 'CRITICAL',
@@ -642,9 +674,14 @@ function inspectSec10Line(
   return null;
 }
 
-export function checkSec10Secrets(relPath: string, lines: string[]): SecurityFinding[] {
+export function checkSec10Secrets(
+  relPath: string,
+  lines: string[],
+  includeExamples = false
+): SecurityFinding[] {
+  const skipExample = relPath.endsWith('.example') && !(includeExamples && isEnvTemplatePath(relPath));
   if (
-    relPath.endsWith('.example') ||
+    skipExample ||
     isTestFilePath(relPath) ||
     isAuditorSelfDefinition(relPath) ||
     relPath.endsWith('verificar-secretos.sh')

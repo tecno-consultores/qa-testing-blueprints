@@ -111,6 +111,10 @@ onUnmounted(() => {
   min-height: 100vh;
 }
 
+.dashboard-main {
+  flex: 1;
+}
+
 .metric-cell {
   font-variant-numeric: tabular-nums;
 }

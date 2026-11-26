@@ -25,7 +25,7 @@ Normalmente, los pipelines de CI instalan el lenguaje directamente en el *runner
 
 **Nuestro enfoque (Blueprints):**
 El *runner* de CI se trata como una máquina "tonta" cuyo único trabajo es tener Docker instalado. **Ejecutamos exactamente los mismos comandos encapsulados de los Makefiles que usamos en local a lo largo de los 10 stacks hidratables + `architecture/` + `mcp-server/` (= 12 entornos de matriz)**. 
-*   **¿Por qué es así?** Paridad absoluta. Si `make qa-unit` pasa en tu laptop, pasará en CI y funcionará en producción. Toda la inteligencia, herramientas (SAST, Mutación, BATS, Appium 3), configuraciones `.npmrc` y dependencias viven dentro de las imágenes base certificadas `sinfallas/*` (`sinfallas/base-python-uv:3.15`, `sinfallas/base-node-ionic:26`, `sinfallas/base-mobile-appium:26`, `sinfallas/basephpcomposer:8.5`, `sinfallas/karatelabs:1.5.1`, `sinfallas/base-bash-qa:latest`, `sinfallas/remote-graphify:latest`) respaldadas en los volúmenes de caché.
+*   **¿Por qué es así?** Paridad absoluta. Si `make qa-unit` pasa en tu laptop, pasará en CI y funcionará en producción. Toda la inteligencia, herramientas (SAST, Mutación, BATS, Appium 3), configuraciones `.npmrc` y dependencias viven dentro de las imágenes base certificadas `sinfallas/*` (`sinfallas/base-python-uv:3.15`, `sinfallas/base-node-ionic:26`, `sinfallas/base-mobile-appium:26`, `sinfallas/basephpcomposer:8.5`, `sinfallas/karatelabs:1.5.1`, `sinfallas/base-bash-qa`, `sinfallas/remote-graphify` — fijadas por digest `@sha256`) respaldadas en los volúmenes de caché.
 
 ---
 

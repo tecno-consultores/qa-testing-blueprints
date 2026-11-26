@@ -57,7 +57,7 @@ extract_graph_in_dir() {
   local log_file=""
   log_file="$(mktemp /tmp/graphify_ast.XXXXXX.log)"
   trap 'rm -f "${log_file}"' RETURN
-  if ! docker run --rm --network none \
+  if ! docker run --rm --restart=no --network none \
     --security-opt=no-new-privileges:true \
     -u "$(id -u):$(id -g)" \
     -e HOME=/tmp \
@@ -70,7 +70,7 @@ extract_graph_in_dir() {
     cat "${log_file}" >&2
     return 1
   fi
-  docker run --rm --network none \
+  docker run --rm --restart=no --network none \
     --security-opt=no-new-privileges:true \
     -u "$(id -u):$(id -g)" \
     -e HOME=/tmp \
@@ -104,6 +104,17 @@ stack_needs_update() {
     git_code_changes=$(git -c core.quotePath=false -C "${REPO_ROOT}" status --porcelain --untracked-files=all "${rel_name}" 2>/dev/null |
       grep -vE '(\.md$|graphify-out/)' || true)
     if [ -n "${git_code_changes}" ]; then
+      return 0
+    fi
+  fi
+
+  # 3. Verificar frescura del commit registrado en GRAPH_REPORT.md frente a HEAD
+  local report_file="${target_dir}/graphify-out/GRAPH_REPORT.md"
+  if [ -f "${report_file}" ] && command -v git &>/dev/null && [ -e "${REPO_ROOT}/.git" ]; then
+    local built_sha head_sha
+    built_sha=$(sed -n 's/^- Built from commit: [^0-9a-f]*\([0-9a-f][0-9a-f]*\).*$/\1/p' "${report_file}" | head -n 1)
+    head_sha=$(git -C "${REPO_ROOT}" rev-parse HEAD 2>/dev/null || true)
+    if [ -n "${built_sha}" ] && [ -n "${head_sha}" ] && [[ "${head_sha}" != "${built_sha}"* ]]; then
       return 0
     fi
   fi

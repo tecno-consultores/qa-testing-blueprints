@@ -120,12 +120,24 @@ def load_boundary_rules(boundaries_path: Path) -> list[dict[str, Any]]:
     return _extract_rule_list(parsed)
 
 
+def _infer_graph_root(graph_file: Path) -> Path:
+    parent = graph_file.resolve().parent
+    return parent.parent if parent.name == "graphify-out" else parent
+
+
 def _resolve_boundaries_path(
-    target_root: Path | None, boundaries_file: Path | None
+    target_root: Path | None,
+    boundaries_file: Path | None,
+    graph_file: Path | None = None,
 ) -> Path | None:
     if boundaries_file is not None:
         return boundaries_file
-    candidate = (target_root or REPO_ROOT) / ".agents" / "boundaries.json"
+    base = (
+        target_root
+        if target_root is not None
+        else (_infer_graph_root(graph_file) if graph_file is not None else REPO_ROOT)
+    )
+    candidate = base / ".agents" / "boundaries.json"
     return candidate if candidate.is_file() else None
 
 
@@ -317,11 +329,83 @@ def _collect_node_files(nodes: dict[str, dict[str, Any]]) -> list[str]:
     return files
 
 
+@dataclass(frozen=True)
+class _BoundaryScope:
+    prefix_files: list[str] | None = None
+    scope_prefix: str = ""
+
+
+def _subgraph_rel_prefix(graph_path: Path, base_root: Path) -> str:
+    graph_root = _infer_graph_root(graph_path)
+    resolved_base = base_root.resolve()
+    if graph_root == resolved_base:
+        return ""
+    try:
+        return _norm_rel_path(graph_root.relative_to(resolved_base).as_posix())
+    except ValueError:
+        return ""
+
+
+def _needs_subgraph_prefix(norm: str, sub_prefix: str) -> bool:
+    if not sub_prefix or not norm or norm == "unknown":
+        return False
+    return not norm.startswith("node_modules/") and not _matches_prefix(
+        norm, sub_prefix
+    )
+
+
+def _qualify_subgraph_file(raw_file: str, sub_prefix: str) -> str:
+    norm = _norm_rel_path(raw_file)
+    return f"{sub_prefix}/{norm}" if _needs_subgraph_prefix(norm, sub_prefix) else norm
+
+
+def _qualify_nodes_for_subgraph(
+    nodes: dict[str, dict[str, Any]], sub_prefix: str
+) -> dict[str, dict[str, Any]]:
+    if not sub_prefix:
+        return nodes
+    return {
+        nid: {
+            **node,
+            "source_file": _qualify_subgraph_file(
+                str(node.get("source_file") or ""), sub_prefix
+            ),
+        }
+        for nid, node in nodes.items()
+    }
+
+
+def _qualify_links_for_subgraph(
+    links: list[dict[str, Any]], sub_prefix: str
+) -> list[dict[str, Any]]:
+    if not sub_prefix:
+        return links
+    out: list[dict[str, Any]] = []
+    for link in links:
+        if isinstance(link, dict) and link.get("source_file"):
+            out.append(
+                {
+                    **link,
+                    "source_file": _qualify_subgraph_file(
+                        str(link["source_file"]), sub_prefix
+                    ),
+                }
+            )
+        else:
+            out.append(link)
+    return out
+
+
 def _verify_prefixes_non_empty(
-    prefixes: list[str], node_files: list[str], graph_label: str
+    prefixes: list[str],
+    node_files: list[str],
+    graph_label: str,
+    scope_prefix: str = "",
 ) -> list[str]:
     violations: list[str] = []
     for pref in prefixes:
+        if scope_prefix and not _matches_prefix(pref, scope_prefix):
+            continue
         if not any(_matches_prefix(sf, pref) for sf in node_files):
             violations.append(
                 f"[{graph_label}] Regla declarativa sin coincidencias ('{pref}' = 0 "
@@ -331,8 +415,10 @@ def _verify_prefixes_non_empty(
 
 
 def _resolve_non_test_link_files(
-    link: dict[str, Any], nodes: dict[str, dict[str, Any]]
+    link: Any, nodes: dict[str, dict[str, Any]]
 ) -> tuple[str, str] | None:
+    if not isinstance(link, dict):
+        return None
     rel = str(link.get("relation") or "")
     if rel in _STRUCTURAL_RELATIONS:
         return None
@@ -378,7 +464,7 @@ def _check_layers_rule(
     links: list[dict[str, Any]],
     nodes: dict[str, dict[str, Any]],
     graph_label: str,
-    prefix_files: list[str] | None = None,
+    scope: _BoundaryScope = _BoundaryScope(),
 ) -> list[str]:
     root = str(rule.get("root") or "")
     layers = [str(x) for x in rule.get("layers", []) if str(x)]
@@ -386,9 +472,13 @@ def _check_layers_rule(
         return [f"[{graph_label}] Regla declarativa 'layers' sin capas definidas."]
     prefixes = [_join_root_prefix(root, layer) for layer in layers]
     node_files = (
-        prefix_files if prefix_files is not None else _collect_node_files(nodes)
+        scope.prefix_files
+        if scope.prefix_files is not None
+        else _collect_node_files(nodes)
     )
-    violations = _verify_prefixes_non_empty(prefixes, node_files, graph_label)
+    violations = _verify_prefixes_non_empty(
+        prefixes, node_files, graph_label, scope.scope_prefix
+    )
     violations.extend(_eval_layers_links(prefixes, links, nodes, graph_label))
     return violations
 
@@ -432,7 +522,7 @@ def _check_independence_rule(
     links: list[dict[str, Any]],
     nodes: dict[str, dict[str, Any]],
     graph_label: str,
-    prefix_files: list[str] | None = None,
+    scope: _BoundaryScope = _BoundaryScope(),
 ) -> list[str]:
     root = str(rule.get("root") or "")
     modules = [str(x) for x in rule.get("modules", []) if str(x)]
@@ -444,10 +534,12 @@ def _check_independence_rule(
     shared = tuple(_norm_rel_path(str(x)) for x in rule.get("shared", []) if str(x))
     ctx = _IndependenceCtx(mod_prefixes=mod_pairs, shared_prefixes=shared)
     node_files = (
-        prefix_files if prefix_files is not None else _collect_node_files(nodes)
+        scope.prefix_files
+        if scope.prefix_files is not None
+        else _collect_node_files(nodes)
     )
     violations = _verify_prefixes_non_empty(
-        [p for _, p in mod_pairs], node_files, graph_label
+        [p for _, p in mod_pairs], node_files, graph_label, scope.scope_prefix
     )
     violations.extend(_eval_independence_links(ctx, links, nodes, graph_label))
     return violations
@@ -525,9 +617,9 @@ def _check_forbidden_rule(
     links: list[dict[str, Any]],
     nodes: dict[str, dict[str, Any]],
     graph_label: str,
-    prefix_files: list[str] | None = None,
+    scope: _BoundaryScope = _BoundaryScope(),
 ) -> list[str]:
-    _ = prefix_files
+    _ = scope
     violations: list[str] = []
     for entry in rule.get("rules", []):
         if isinstance(entry, dict):
@@ -540,7 +632,7 @@ def _check_boundary_rules(
     links: list[dict[str, Any]],
     nodes: dict[str, dict[str, Any]],
     graph_label: str,
-    prefix_files: list[str] | None = None,
+    scope: _BoundaryScope = _BoundaryScope(),
 ) -> list[str]:
     handlers = {
         "layers": _check_layers_rule,
@@ -551,7 +643,7 @@ def _check_boundary_rules(
     for rule in rules:
         handler = handlers.get(str(rule.get("kind") or ""))
         if handler is not None:
-            violations.extend(handler(rule, links, nodes, graph_label, prefix_files))
+            violations.extend(handler(rule, links, nodes, graph_label, scope))
     return violations
 
 
@@ -679,6 +771,7 @@ def audit_layers(
     boundary_rules: list[dict[str, Any]] | None = None,
     prefix_files: list[str] | None = None,
 ) -> tuple[list[str], dict[str, Any]]:
+    resolved_base = base_root or REPO_ROOT
     graph_label = _display_graph_path(graph_path, base_root=base_root)
     nodes = {str(n["id"]): n for n in graph.get("nodes", [])}
     links = graph.get("links", [])
@@ -687,10 +780,15 @@ def audit_layers(
         for msg in _check_link_violations(link, nodes):
             violations.append(f"[{graph_label}] {msg}")
     if boundary_rules:
+        sub_prefix = _subgraph_rel_prefix(graph_path, resolved_base)
+        b_nodes = _qualify_nodes_for_subgraph(nodes, sub_prefix)
+        b_links = _qualify_links_for_subgraph(links, sub_prefix)
+        scope = _BoundaryScope(
+            prefix_files=prefix_files,
+            scope_prefix="" if prefix_files is not None else sub_prefix,
+        )
         violations.extend(
-            _check_boundary_rules(
-                boundary_rules, links, nodes, graph_label, prefix_files
-            )
+            _check_boundary_rules(boundary_rules, b_links, b_nodes, graph_label, scope)
         )
     violations.extend(_detect_directed_cycles(links, nodes, graph_label))
 
@@ -720,7 +818,9 @@ def _load_graphs_batch(
         try:
             graph = load_graph(g_path)
             loaded.append((g_path, graph))
-            nodes = {str(n["id"]): n for n in graph.get("nodes", [])}
+            raw_nodes = {str(n["id"]): n for n in graph.get("nodes", [])}
+            sub_prefix = _subgraph_rel_prefix(g_path, resolved_root)
+            nodes = _qualify_nodes_for_subgraph(raw_nodes, sub_prefix)
             all_node_files.extend(_collect_node_files(nodes))
         except Exception as exc:
             print(f"❌ Error procesando grafo {g_path}: {exc}")
@@ -769,10 +869,19 @@ def _resolve_graph_targets(
     return find_graph_files(target_root or REPO_ROOT)
 
 
+def _infer_boundaries_workspace(boundaries_file: Path | None) -> Path | None:
+    if boundaries_file is None:
+        return None
+    parent = boundaries_file.resolve().parent
+    return parent.parent if parent.name == ".agents" else parent
+
+
 def _load_optional_boundaries(
-    target_root: Path | None, boundaries_file: Path | None
+    target_root: Path | None,
+    boundaries_file: Path | None,
+    graph_file: Path | None = None,
 ) -> tuple[list[dict[str, Any]], str | None]:
-    resolved = _resolve_boundaries_path(target_root, boundaries_file)
+    resolved = _resolve_boundaries_path(target_root, boundaries_file, graph_file)
     if resolved is None:
         return [], None
     try:
@@ -789,7 +898,7 @@ def main(
     show_metrics: bool = False,
 ) -> int:
     boundary_rules, boundary_err = _load_optional_boundaries(
-        target_root, boundaries_file
+        target_root, boundaries_file, graph_file
     )
     if boundary_err is not None:
         print(f"❌ {boundary_err}")
@@ -803,8 +912,11 @@ def main(
         )
         return exit_skipped_code
 
+    effective_base = (
+        target_root or _infer_boundaries_workspace(boundaries_file) or REPO_ROOT
+    )
     config = _AuditRunConfig(
-        base_root=target_root or REPO_ROOT,
+        base_root=effective_base,
         boundary_rules=boundary_rules,
         show_metrics=show_metrics,
     )

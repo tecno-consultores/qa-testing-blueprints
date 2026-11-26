@@ -174,9 +174,9 @@ runs:
       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: ${{ inputs.working-directory }}/graphify-out
-        key: ${{ runner.os }}-graphify-${{ hashFiles('**/*.py', '**/*.ts', '**/*.tsx', '**/*.js', '**/*.vue', '**/*.php', '**/*.sh') }}
+        key: ${{ runner.os }}-graphify-pr-check-${{ inputs.working-directory }}-${{ hashFiles('**/*.py', '**/*.ts', '**/*.tsx', '**/*.js', '**/*.vue', '**/*.php', '**/*.sh') }}
         restore-keys: |
-          ${{ runner.os }}-graphify-
+          ${{ runner.os }}-graphify-pr-check-${{ inputs.working-directory }}-
 
     - name: Compute AST blast radius plan (Rule Zero)
       id: blast-radius-plan
@@ -218,7 +218,7 @@ runs:
 
         if [ -f ".agents/scripts/select_tests_by_blast_radius.py" ] || [ -f ".agents/scripts/inspect_blast_radius.py" ]; then
           if [ "${CACHE_HIT:-false}" != "true" ] || [ ! -s "graphify-out/graph.json" ]; then
-            if ! docker run --rm --network none \
+            if ! docker run --rm --restart=no --network none \
               --security-opt=no-new-privileges:true \
               -u "$(id -u):$(id -g)" \
               -e HOME=/tmp \
@@ -226,7 +226,7 @@ runs:
               -v "$(pwd):/app" \
               -w /app \
               sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0 \
-              sh -c "graphify extract . --code-only && graphify cluster-only ."; then
+              sh -c "graphify extract . --code-only --allow-dedup-shrink && graphify cluster-only . && rm -rf graphify-out/cache graphify-out/20* graphify-out/.graphify_* graphify-out/.cloud-cta-shown"; then
               echo "::warning::Graphify AST extraction unavailable; using fallback AST handling." >&2
             fi
           fi
@@ -255,7 +255,7 @@ runs:
           elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
             SELECT_ARGS+=(--base-ref "HEAD~1")
           fi
-          docker run --rm --network none \
+          docker run --rm --restart=no --network none \
             --security-opt=no-new-privileges:true \
             -u "$(id -u):$(id -g)" \
             -e HOME=/tmp \
@@ -276,7 +276,7 @@ runs:
         elif [ -f ".agents/scripts/inspect_blast_radius.py" ] && [ -s "${CHANGED_FILE}" ]; then
           FIRST_CHANGED="$(head -n 1 "${CHANGED_FILE}")"
           INSPECT_RC=0
-          docker run --rm --network none \
+          docker run --rm --restart=no --network none \
             --security-opt=no-new-privileges:true \
             -u "$(id -u):$(id -g)" \
             -e HOME=/tmp \
@@ -387,7 +387,7 @@ runs:
         fi
 
         if [ -f ".qa-11x.json" ]; then
-          docker run --rm --network none \
+          docker run --rm --restart=no --network none \
             --security-opt=no-new-privileges:true \
             -u "$(id -u):$(id -g)" \
             -e HOME=/tmp \
@@ -401,7 +401,7 @@ runs:
         if [ -x "scripts/verificar-secretos.sh" ]; then
           ./scripts/verificar-secretos.sh
         else
-          docker run --rm --network none \
+          docker run --rm --restart=no --network none \
             --security-opt=no-new-privileges:true \
             -u "$(id -u):$(id -g)" \
             -e HOME=/tmp \
@@ -434,7 +434,7 @@ runs:
         if [ "${INPUT_TIER}" = "standard" ] || [ "${INPUT_TIER}" = "enterprise" ]; then
           if [ "${BLAST_PLAN_TIER:-pr-targeted}" != "docs-only" ]; then
             if [ -f ".agents/scripts/lint_test_antipatterns.py" ]; then
-              ANTI_OUT="$(docker run --rm --network none \
+              ANTI_OUT="$(docker run --rm --restart=no --network none \
                 --security-opt=no-new-privileges:true \
                 -u "$(id -u):$(id -g)" \
                 -e HOME=/tmp \
@@ -451,7 +451,7 @@ runs:
             if [ -f "mcp-server/dist/index.js" ]; then
               mkdir -p .agents/artifacts
               AUDIT_RC=0
-              docker run --rm --network none \
+              docker run --rm --restart=no --network none \
                 --security-opt=no-new-privileges:true \
                 -u "$(id -u):$(id -g)" \
                 -e HOME=/tmp \
@@ -466,10 +466,10 @@ runs:
               if [ "${AUDIT_RC}" -ne 0 ]; then
                 exit "${AUDIT_RC}"
               fi
-            elif command -v docker >/dev/null 2>&1 && docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "${NPM_CACHE_DIR}:/tmp/.npm" -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.9.0 audit --help >/dev/null 2>&1; then
+            elif command -v docker >/dev/null 2>&1 && docker run --rm --restart=no --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "${NPM_CACHE_DIR}:/tmp/.npm" -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.9.0 audit --help >/dev/null 2>&1; then
               mkdir -p .agents/artifacts
               AUDIT_RC=0
-              docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -e QA_OUTPUT_LANG="${INPUT_LANG}" -v "${NPM_CACHE_DIR}:/tmp/.npm" -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.9.0 audit --mode security --sarif > .agents/artifacts/qa-11x-audit.sarif || AUDIT_RC=$?
+              docker run --rm --restart=no --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -e QA_OUTPUT_LANG="${INPUT_LANG}" -v "${NPM_CACHE_DIR}:/tmp/.npm" -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.9.0 audit --mode security --sarif > .agents/artifacts/qa-11x-audit.sarif || AUDIT_RC=$?
               if [ -s ".agents/artifacts/qa-11x-audit.sarif" ]; then
                 SARIF_PATH=".agents/artifacts/qa-11x-audit.sarif"
               fi
@@ -486,7 +486,7 @@ runs:
               make lint
             elif [ -f "package.json" ] && grep -q '"lint"' package.json; then
               LINT_RC=0
-              docker run --rm --network none \
+              docker run --rm --restart=no --network none \
                 --security-opt=no-new-privileges:true \
                 -u "$(id -u):$(id -g)" \
                 -e HOME=/tmp \
@@ -506,7 +506,7 @@ runs:
           else
             echo "ℹ️ [FAST-PATH] Code gates omitted for docs-only blast plan."
             if [ -f ".agents/scripts/sync_governance.py" ] && [ -f "manifest.json" ]; then
-              docker run --rm --network none \
+              docker run --rm --restart=no --network none \
                 --security-opt=no-new-privileges:true \
                 -u "$(id -u):$(id -g)" \
                 -e HOME=/tmp \
@@ -517,7 +517,7 @@ runs:
                 python3 .agents/scripts/sync_governance.py --check
             fi
             if [ -f ".agents/scripts/verify_docs_invariants.py" ]; then
-              docker run --rm --network none \
+              docker run --rm --restart=no --network none \
                 --security-opt=no-new-privileges:true \
                 -u "$(id -u):$(id -g)" \
                 -e HOME=/tmp \
@@ -544,7 +544,7 @@ runs:
           elif [ -x ".agents/scripts/certify_task_completion.sh" ]; then
             ./.agents/scripts/certify_task_completion.sh 2>&1 | tee "${CERTIFY_LOG}"
           elif [ -f "mcp-server/dist/index.js" ]; then
-            docker run --rm --network none \
+            docker run --rm --restart=no --network none \
               --security-opt=no-new-privileges:true \
               -u "$(id -u):$(id -g)" \
               -e HOME=/tmp \
@@ -553,8 +553,8 @@ runs:
               -w /app \
               "${INPUT_NODE_IMAGE}" \
               node mcp-server/dist/index.js certify --offline 2>&1 | tee "${CERTIFY_LOG}"
-          elif command -v docker >/dev/null 2>&1 && docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "${NPM_CACHE_DIR}:/tmp/.npm" -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.9.0 certify --help >/dev/null 2>&1; then
-            docker run --rm --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -e QA_OUTPUT_LANG="${INPUT_LANG}" -v "${NPM_CACHE_DIR}:/tmp/.npm" -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.9.0 certify --offline 2>&1 | tee "${CERTIFY_LOG}"
+          elif command -v docker >/dev/null 2>&1 && docker run --rm --restart=no --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "${NPM_CACHE_DIR}:/tmp/.npm" -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.9.0 certify --help >/dev/null 2>&1; then
+            docker run --rm --restart=no --security-opt=no-new-privileges:true -u "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp/.npm -e QA_OUTPUT_LANG="${INPUT_LANG}" -v "${NPM_CACHE_DIR}:/tmp/.npm" -v "$(pwd):/app:ro" -w /app "${INPUT_NODE_IMAGE}" npx -y @sinfallas/mcp-qa-11x@3.9.0 certify --offline 2>&1 | tee "${CERTIFY_LOG}"
           else
             echo "⚠️ [SKIPPED] certify_11x_gate unavailable in workspace" | tee "${CERTIFY_LOG}"
             SKIPPED_GATES=$((SKIPPED_GATES + 1))

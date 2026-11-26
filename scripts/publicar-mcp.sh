@@ -190,12 +190,12 @@ CURRENT_GID="$(id -g)"
 
 if [ -f "${REPO_ROOT}/.agents/scripts/bump_version_11x.py" ]; then
   echo "🔢 [Pre-Check] Verificando paridad de versión SemVer (bump_version_11x.py --check)..."
-  docker run --rm --network none --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -v "${REPO_ROOT}:/repo:ro" -w /repo "${PY_IMAGE_NAME}" python3 .agents/scripts/bump_version_11x.py --check
+  docker run --rm --network none --restart=no --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -v "${REPO_ROOT}:/repo:ro" -w /repo "${PY_IMAGE_NAME}" python3 .agents/scripts/bump_version_11x.py --check
 fi
 
 if [ -f "${REPO_ROOT}/.agents/scripts/sync_governance.py" ] && [ -f "${REPO_ROOT}/manifest.json" ]; then
   echo "🛡️ [Pre-Check] Verificando sincronía SHA-256 y presupuestos (sync_governance.py --check)..."
-  docker run --rm --network none --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "${REPO_ROOT}:/repo:ro" -w /repo "${PY_IMAGE_NAME}" python3 .agents/scripts/sync_governance.py --check
+  docker run --rm --network none --restart=no --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "${REPO_ROOT}:/repo:ro" -w /repo "${PY_IMAGE_NAME}" python3 .agents/scripts/sync_governance.py --check
 fi
 
 for cl in CHANGELOG.md CHANGELOG.es.md mcp-server/CHANGELOG.md mcp-server/CHANGELOG.es.md; do
@@ -260,7 +260,7 @@ publish_mcp_registry() {
   resolve_mcp_publisher_asset
   echo -e "\n🌐 [MCP Registry] Validando ${SERVER_NAME}@${SERVER_VERSION} contra ${MCP_REGISTRY_URL}..."
   REMOTE_MCP_NAME="$(
-    docker run --rm --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp "${IMAGE_NAME}" \
+    docker run --rm --restart=no --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp "${IMAGE_NAME}" \
       npm view "${PKG_NAME}@${PKG_VERSION}" mcpName --registry="${NPM_REGISTRY}" --silent 2>/dev/null | head -n 1 | tr -d '[:space:]' || true
   )"
   if [ "${REMOTE_MCP_NAME}" != "${SERVER_NAME}" ]; then
@@ -288,7 +288,7 @@ publish_mcp_registry() {
     echo "🚀 Publicando ${SERVER_NAME}@${SERVER_VERSION} en ${MCP_REGISTRY_URL} (auth: ${auth_method})..."
   fi
 
-  if ! docker run --rm --security-opt=no-new-privileges:true ${reg_tty_args[@]+"${reg_tty_args[@]}"} \
+  if ! docker run --rm --restart=no --security-opt=no-new-privileges:true ${reg_tty_args[@]+"${reg_tty_args[@]}"} \
     -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp \
     -e MCP_PUB_URL="${MCP_PUB_URL}" -e MCP_PUB_SHA="${MCP_PUB_SHA}" \
     -e MCP_MODE="${reg_mode}" -e MCP_AUTH="${auth_method}" \
@@ -306,7 +306,7 @@ publish_mcp_registry() {
   fi
 
   echo "🔍 Verificando indexación en ${MCP_REGISTRY_URL}/v0.1/servers..."
-  if docker run --rm --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp "${IMAGE_NAME}" \
+  if docker run --rm --restart=no --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp "${IMAGE_NAME}" \
     curl -fsSL "${MCP_REGISTRY_URL}/v0.1/servers?search=${SERVER_NAME}" 2>/dev/null | grep -qF "${SERVER_NAME}"; then
     echo -e "\e[32m✔ [MCP Registry] ${SERVER_NAME}@${SERVER_VERSION} visible en ${MCP_REGISTRY_URL}.\e[0m"
   else
@@ -340,7 +340,7 @@ ensure_fresh_dist_before_pack() {
 
   if [ ! -f "${dist_entry}" ] || [ -n "${stale_files}" ] || [ -n "${map_files}" ]; then
     echo "🔄 [Pre-Pack] dist/index.js ausente o desactualizado (o con *.map residuales) respecto a mcp-server/src/; recompilando en Docker..."
-    docker run --rm --network none --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run build
+    docker run --rm --network none --restart=no --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run build
     stale_files=""
     map_files=""
     if [ -d "${src_dir}" ] && [ -f "${dist_entry}" ]; then
@@ -366,29 +366,29 @@ for dir in mobile-appium vibe-rescue .github architecture .agents fastapi python
 done
 
 echo "🔍 [1/6] Verificando dependencias, Lint & Typecheck en Docker efímero..."
-docker run --rm --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app "${IMAGE_NAME}" sh -c \
+docker run --rm --restart=no --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app "${IMAGE_NAME}" sh -c \
   "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run lint && pnpm --silent run typecheck"
 
 # 5. Paso 2: Compilación TypeScript a dist/ (requerido antes de suites live-mcp-protocol stdio)
 echo "⚙️ [2/6] Compilando TypeScript a dist/..."
-docker run --rm --network none --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run build
+docker run --rm --network none --restart=no --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" pnpm --silent run build
 
 # 6. Paso 3: Pruebas Unitarias con Cobertura >= 95%
 if [ "$SKIP_TESTS" = false ]; then
   echo "🧪 [3/6] Ejecutando pruebas unitarias con cobertura en Docker efímero..."
-  docker run --rm --network none --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app "${IMAGE_NAME}" pnpm --silent run test:unit
+  docker run --rm --network none --restart=no --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_manage_package_manager_versions=false -v "${MCP_DIR}:/app" ${MCP_EXTRA_VOLS[@]+"${MCP_EXTRA_VOLS[@]}"} -w /app "${IMAGE_NAME}" pnpm --silent run test:unit
 else
   echo "🧪 [3/6] Omitiendo pruebas unitarias (--skip-tests activado)."
 fi
 
 # 7. Paso 4: Certificación E2E Real sobre stdio con mcp-server/example/ + verify-v2.sh
 echo "🎯 [4/6] Certificando 19 tools + 13 resources + quickstart + Clean-Room tarball..."
-docker run --rm --network none --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e QA_BLUEPRINTS_LOCAL_PATH=/repo -e pnpm_config_manage_package_manager_versions=false -v "${REPO_ROOT}:/repo:ro" -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" sh -c 'pnpm --silent run test:example && bash ./example/verify-v2.sh'
+docker run --rm --network none --restart=no --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e QA_BLUEPRINTS_LOCAL_PATH=/repo -e pnpm_config_manage_package_manager_versions=false -v "${REPO_ROOT}:/repo:ro" -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" sh -c 'pnpm --silent run test:example && bash ./example/verify-v2.sh'
 
 # 8. Paso 5: Verificación explícita de compilación pre-pack y Auditoría de empaquetado (Dry-Run de npm pack)
 ensure_fresh_dist_before_pack
 echo "📦 [5/6] Validando empaquetado (npm pack --dry-run)..."
-PACK_OUTPUT=$(docker run --rm --network none --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" npm pack --dry-run 2>&1)
+PACK_OUTPUT=$(docker run --rm --network none --restart=no --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" npm pack --dry-run 2>&1)
 if printf '%s\n' "${PACK_OUTPUT}" | grep -qE '(^|[[:space:]])(src/|.*\.map$)'; then
   echo -e "\e[31m❌ ERROR [Pre-Pack]: Archivos src/ o *.map expuestos en npm pack --dry-run.\e[0m" >&2
   exit 1
@@ -402,7 +402,7 @@ echo -e "\n🌐 [Paso 6/6] Verificando estado del paquete en ${NPM_REGISTRY}..."
 
 ESCAPED_PKG_VERSION="${PKG_VERSION//./\\.}"
 REMOTE_EXISTS=false
-if docker run --rm --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp "${IMAGE_NAME}" npm view "${PKG_NAME}@${PKG_VERSION}" version --registry="${NPM_REGISTRY}" 2>/dev/null | grep -q "^${ESCAPED_PKG_VERSION}$"; then
+if docker run --rm --restart=no --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp "${IMAGE_NAME}" npm view "${PKG_NAME}@${PKG_VERSION}" version --registry="${NPM_REGISTRY}" 2>/dev/null | grep -q "^${ESCAPED_PKG_VERSION}$"; then
   REMOTE_EXISTS=true
 fi
 
@@ -470,7 +470,7 @@ if [ "${GITHUB_ACTIONS:-false}" = "true" ] && [ -n "${ACTIONS_ID_TOKEN_REQUEST_U
   done
 fi
 
-if ! docker run --rm --security-opt=no-new-privileges:true ${DOCKER_TTY_ARGS[@]+"${DOCKER_TTY_ARGS[@]}"} \
+if ! docker run --rm --restart=no --security-opt=no-new-privileges:true ${DOCKER_TTY_ARGS[@]+"${DOCKER_TTY_ARGS[@]}"} \
   -u "${CURRENT_UID}:${CURRENT_GID}" \
   -e HOME=/tmp \
   -v "${MCP_DIR}:/app" \
@@ -496,7 +496,7 @@ VERIFIED_REMOTE_VERSION=""
 
 for attempt in $(seq 1 "${VERIFY_ATTEMPTS}"); do
   VERIFIED_REMOTE_VERSION="$(
-    docker run --rm --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp "${IMAGE_NAME}" \
+    docker run --rm --restart=no --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp "${IMAGE_NAME}" \
       npm view "${PKG_NAME}@${PKG_VERSION}" version --registry "${NPM_REGISTRY}" --silent 2>/dev/null |
       grep -E '^[0-9]+\.[0-9]+\.[0-9]+' |
       head -n 1 |

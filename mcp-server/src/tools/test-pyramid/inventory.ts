@@ -46,32 +46,54 @@ const IGNORED_ENTRYPOINTS = new Set([
   'app.py',
   'app.ts',
   'setup.py',
+  'limpieza.sh',
+  'instalar-hooks.sh',
+  'verify-v2.sh',
+]);
+const VENDORED_CONSUMER_QA11X_SCRIPTS = new Set([
+  'scripts/actualizar-grafos-graphify.sh',
+  'scripts/audit-edge.sh',
+  'scripts/auditar-infra.sh',
+  'scripts/auditar-pagespeed.sh',
+  'scripts/generar-sbom-cyclonedx.sh',
+  'scripts/install-skill.sh',
+  'scripts/limpieza.sh',
+  'scripts/verificar-secretos.sh',
 ]);
 const SOURCE_DIR_PREFIXES = ['src/', 'app/', 'scripts/'] as const;
 
-function isSourceCandidate(file: string): boolean {
+function isSourceCandidate(file: string, isUpstreamRepo = false): boolean {
+  const norm = file.replace(/\\/g, '/');
   if (
-    NON_SOURCE_MARKERS.some((m) => file.includes(m)) ||
-    NON_SOURCE_SUFFIXES.some((s) => file.endsWith(s)) ||
-    IGNORED_ENTRYPOINTS.has(path.basename(file))
+    norm.startsWith('.agents/') ||
+    NON_SOURCE_MARKERS.some((m) => norm.includes(m)) ||
+    NON_SOURCE_SUFFIXES.some((s) => norm.endsWith(s)) ||
+    IGNORED_ENTRYPOINTS.has(path.basename(norm)) ||
+    (!isUpstreamRepo && VENDORED_CONSUMER_QA11X_SCRIPTS.has(norm))
   ) {
     return false;
   }
   return (
-    SOURCE_DIR_PREFIXES.some((p) => file.startsWith(p)) ||
-    file.includes('/src/') ||
-    file.includes('/app/') ||
-    file.endsWith('.sh')
+    SOURCE_DIR_PREFIXES.some((p) => norm.startsWith(p)) ||
+    norm.includes('/src/') ||
+    norm.includes('/app/') ||
+    norm.endsWith('.sh')
   );
 }
 
 function hasPythonUnitTest(files: string[], baseName: string): boolean {
   const lower = baseName.toLowerCase();
+  const snake = lower.replace(/-/g, '_');
   return files.some((f) => {
     const fl = f.toLowerCase();
+    if (!fl.endsWith('.py')) return false;
     return (
-      (fl.endsWith('.unit.py') || fl.endsWith('.py')) &&
-      (fl.includes(`test_${lower}`) || fl.includes(`${lower}.unit`) || fl.includes(`${lower}_test`))
+      fl.includes(`test_${lower}`) ||
+      fl.includes(`test_${snake}`) ||
+      fl.includes(`${lower}.unit`) ||
+      fl.includes(`${snake}.unit`) ||
+      fl.includes(`${lower}_test`) ||
+      fl.includes(`${snake}_test`)
     );
   });
 }
@@ -91,12 +113,16 @@ function hasNodeUnitTest(files: string[], baseName: string): boolean {
 }
 
 function hasBashUnitTest(files: string[], baseName: string): boolean {
-  const cleanBase = baseName.replace(/\.sh$/, '');
+  const cleanBase = baseName.replace(/\.sh$/, '').toLowerCase();
+  const snakeBase = cleanBase.replace(/-/g, '_');
   return files.some((f) => {
     const fl = f.toLowerCase();
     return (
       fl.endsWith('.bats') &&
-      (fl.includes(`test_${cleanBase}`) || fl.includes(`/${cleanBase}.bats`))
+      (fl.includes(`test_${cleanBase}`) ||
+        fl.includes(`test_${snakeBase}`) ||
+        fl.includes(`/${cleanBase}.bats`) ||
+        fl.includes(`/${snakeBase}.bats`))
     );
   });
 }
@@ -251,23 +277,172 @@ function resolveCandidateOrphan(
   return null;
 }
 
+const UNIT_OR_BATS_TEST_RE =
+  /\.(?:unit|spec|test)\.[a-z0-9]+$|test\.php$|\.bats$|_test\.py$|(?:^|\/)test_[^/]+\.py$/i;
+
+function isUnitOrBatsTestFile(relPath: string): boolean {
+  if (relPath.includes('.e2e.') || /(?:^|\/)e2e\//.test(relPath)) return false;
+  return UNIT_OR_BATS_TEST_RE.test(relPath);
+}
+
+function resolveIsolationScope(file: string): string {
+  if (file.startsWith('mcp-server/example/')) return 'mcp-server/example/';
+  if (file.startsWith('mcp-server/')) return 'mcp-server/';
+  const pref = resolvePrefixedStack(file);
+  return pref ? `${pref}/` : '';
+}
+
+function appendScopeText(buckets: Map<string, string[]>, scope: string, text: string): void {
+  const existing = buckets.get(scope);
+  if (existing) {
+    existing.push(text);
+  } else {
+    buckets.set(scope, [text]);
+  }
+}
+
+function buildCorpusMap(
+  projectPath: string,
+  targetFiles: readonly string[]
+): ReadonlyMap<string, string> {
+  const buckets = new Map<string, string[]>();
+  for (const f of targetFiles) {
+    const text = readFileContentSafe(projectPath, f).toLowerCase();
+    if (text) {
+      appendScopeText(buckets, resolveIsolationScope(f), text);
+    }
+  }
+  const out = new Map<string, string>();
+  for (const [scope, chunks] of buckets.entries()) {
+    out.set(scope, chunks.join('\n'));
+  }
+  return out;
+}
+
+function getCombinedScopeCorpus(file: string, corpusByScope: ReadonlyMap<string, string>): string {
+  const scope = resolveIsolationScope(file);
+  const scoped = corpusByScope.get(scope) ?? '';
+  const rootCorpus = scope === '' ? '' : (corpusByScope.get('') ?? '');
+  return rootCorpus ? `${scoped}\n${rootCorpus}` : scoped;
+}
+
+const BARREL_BASENAMES = new Set([
+  'index.ts',
+  'index.tsx',
+  'index.mts',
+  'index.js',
+  'index.mjs',
+  '__init__.py',
+]);
+
+function isSourceDirFile(file: string): boolean {
+  return (
+    SOURCE_DIR_PREFIXES.some((p) => file.startsWith(p)) ||
+    file.includes('/src/') ||
+    file.includes('/app/')
+  );
+}
+
+function isPythonImportStatement(trimmed: string): boolean {
+  return trimmed.startsWith('from ') || trimmed.startsWith('import ');
+}
+
+function lineImportsPythonSymbol(rawLine: string, mod: string): boolean {
+  const norm = rawLine.trim().replace(/[,()]/g, ' ');
+  if (!isPythonImportStatement(norm)) return false;
+  const padded = `${norm} `;
+  return padded.includes(`.${mod} `) || padded.includes(` ${mod} `);
+}
+
+function hasPythonCorpusImport(corpus: string, snakeBase: string): boolean {
+  if (!corpus.includes(snakeBase)) return false;
+  return corpus.split('\n').some((ln) => lineImportsPythonSymbol(ln, snakeBase));
+}
+
+function isReferencedInCorpus(
+  file: string,
+  baseName: string,
+  corpusByScope: ReadonlyMap<string, string>
+): boolean {
+  const corpus = getCombinedScopeCorpus(file, corpusByScope);
+  if (!corpus) return false;
+  const lowerBase = baseName.toLowerCase();
+  const snakeBase = lowerBase.replace(/-/g, '_');
+  const tokens = [
+    `/${lowerBase}.`,
+    `/${lowerBase}'`,
+    `/${lowerBase}"`,
+    `/${lowerBase}\``,
+    `/${snakeBase}.`,
+    `/${snakeBase}'`,
+    `/${snakeBase}"`,
+    `${lowerBase}.sh`,
+    file.toLowerCase(),
+  ];
+  if (tokens.some((tok) => corpus.includes(tok))) return true;
+  return file.endsWith('.py') && hasPythonCorpusImport(corpus, snakeBase);
+}
+
+function hasBarrelImportToken(corpus: string, dirLower: string): boolean {
+  const tokens = [
+    `/${dirLower}/index.`,
+    `/${dirLower}/index'`,
+    `/${dirLower}/index"`,
+    `/${dirLower}'`,
+    `/${dirLower}"`,
+  ];
+  return tokens.some((tok) => corpus.includes(tok)) || hasPythonCorpusImport(corpus, dirLower);
+}
+
+function isCoveredBarrelFile(file: string, testCorpus: ReadonlyMap<string, string>): boolean {
+  if (!BARREL_BASENAMES.has(path.basename(file)) || !isSourceDirFile(file)) return false;
+  const corpus = getCombinedScopeCorpus(file, testCorpus);
+  if (!corpus) return false;
+  return hasBarrelImportToken(corpus, path.basename(path.dirname(file)).toLowerCase());
+}
+
+function evaluateCandidateCoverage(
+  file: string,
+  files: string[],
+  stacks: StackName[],
+  testCorpus: ReadonlyMap<string, string>
+): OrphanSourceFile | null {
+  const baseName = path.basename(file).replace(/\.[^.]+$/, '');
+  const byName = resolveCandidateOrphan(file, files, stacks);
+  if (!byName || isReferencedInCorpus(file, baseName, testCorpus)) {
+    return null;
+  }
+  return byName;
+}
+
 export function findOrphanSourceFiles(
-  _projectPath: string,
+  projectPath: string,
   files: string[],
   stacks: StackName[]
 ): OrphanSourceFile[] {
-  const orphans: OrphanSourceFile[] = [];
+  const isUpstreamRepo = files.includes('.agents/scripts/sync_governance.py');
+  const testCorpus = buildCorpusMap(projectPath, files.filter(isUnitOrBatsTestFile));
+  const pendingOrphans: OrphanSourceFile[] = [];
+  const directlyCovered: string[] = [];
 
   for (const file of files) {
-    if (!isSourceCandidate(file)) continue;
-
-    const item = resolveCandidateOrphan(file, files, stacks);
-    if (item) {
-      orphans.push(item);
+    if (isCoveredBarrelFile(file, testCorpus)) {
+      directlyCovered.push(file);
+    } else if (isSourceCandidate(file, isUpstreamRepo)) {
+      const orphan = evaluateCandidateCoverage(file, files, stacks, testCorpus);
+      if (orphan) pendingOrphans.push(orphan);
+      else directlyCovered.push(file);
     }
   }
 
-  return orphans;
+  if (pendingOrphans.length === 0 || directlyCovered.length === 0) {
+    return pendingOrphans;
+  }
+  const facadeCorpus = buildCorpusMap(projectPath, directlyCovered);
+  return pendingOrphans.filter((item) => {
+    const baseName = path.basename(item.source_file).replace(/\.[^.]+$/, '');
+    return !isReferencedInCorpus(item.source_file, baseName, facadeCorpus);
+  });
 }
 
 // ============================================================================
@@ -466,6 +641,40 @@ export function findUntestedApiEndpoints(
 // 🖥️ Descubrimiento de Vistas UI sin Escenario BDD / E2E
 // ============================================================================
 
+function isFrontendUnitSuiteFile(relPath: string): boolean {
+  return (
+    isUnitOrBatsTestFile(relPath) &&
+    (relPath.includes('.unit.') || relPath.includes('.spec.') || relPath.includes('.test.'))
+  );
+}
+
+function unitTextReferencesView(text: string, viewFile: string, lowerBase: string): boolean {
+  const tokens = [
+    `/${lowerBase}.`,
+    `/${lowerBase}'`,
+    `/${lowerBase}"`,
+    `/${lowerBase}\``,
+    viewFile.toLowerCase(),
+  ];
+  return tokens.some((tok) => text.includes(tok));
+}
+
+function findViewUnitTestFile(
+  viewFile: string,
+  lowerBase: string,
+  unitTexts: ReadonlyArray<readonly [string, string]>
+): string | undefined {
+  const direct = unitTexts.find(([rel]) => rel.toLowerCase().includes(lowerBase));
+  if (direct) return direct[0];
+  const viewScope = resolveIsolationScope(viewFile);
+  const grouped = unitTexts.find(([rel, text]) => {
+    const unitScope = resolveIsolationScope(rel);
+    const sameOrRootScope = unitScope === viewScope || unitScope === '';
+    return sameOrRootScope && unitTextReferencesView(text, viewFile, lowerBase);
+  });
+  return grouped?.[0];
+}
+
 export function findUntestedUiViews(
   projectPath: string,
   files: string[]
@@ -473,6 +682,11 @@ export function findUntestedUiViews(
   const viewFiles = files.filter(
     (f) => !isNonProductionCandidate(f) && /(?:views|pages)\/.*?\.(?:vue|tsx|jsx)$/.test(f)
   );
+  if (viewFiles.length === 0) return [];
+
+  const unitTexts: Array<readonly [string, string]> = files
+    .filter(isFrontendUnitSuiteFile)
+    .map((f) => [f, readFileContentSafe(projectPath, f).toLowerCase()] as const);
 
   const bddFeatures = files.filter(
     (f) => f.endsWith('.feature') && (f.includes('ui_business') || f.includes('ui'))
@@ -481,39 +695,29 @@ export function findUntestedUiViews(
   for (const f of bddFeatures) {
     uiFeatureText += readFileContentSafe(projectPath, f) + '\n';
   }
+  const lowerFeature = uiFeatureText.toLowerCase();
 
-  const e2eFiles = files.filter(
-    (f) => f.includes('e2e/') || f.includes('.e2e.')
-  );
+  const e2eFiles = files.filter((f) => f.includes('e2e/') || f.includes('.e2e.'));
   let e2eText = '';
   for (const f of e2eFiles) {
     e2eText += readFileContentSafe(projectPath, f) + '\n';
   }
+  const lowerE2e = e2eText.toLowerCase();
 
   const untestedViews: UntestedUiView[] = [];
-
   for (const viewFile of viewFiles) {
     const baseName = path.basename(viewFile).replace(/\.[^.]+$/, '');
     const lowerName = baseName.toLowerCase();
-
-    const hasUnit = files.some(
-      (f) =>
-        (f.includes('.unit.') || f.includes('.spec.')) &&
-        f.toLowerCase().includes(lowerName)
-    );
-
-    const inBdd =
-      uiFeatureText.length > 0 &&
-      uiFeatureText.toLowerCase().includes(lowerName);
-
-    const inE2e =
-      e2eText.length > 0 &&
-      e2eText.toLowerCase().includes(lowerName);
+    const matchedUnit = findViewUnitTestFile(viewFile, lowerName, unitTexts);
+    const hasUnit = matchedUnit !== undefined;
+    const inBdd = lowerFeature.length > 0 && lowerFeature.includes(lowerName);
+    const inE2e = lowerE2e.length > 0 && lowerE2e.includes(lowerName);
 
     if (!hasUnit || !inBdd || !inE2e) {
       untestedViews.push({
         view_file: viewFile,
-        expected_unit_test: `${path.dirname(viewFile)}/__tests__/${baseName}.unit.ts`,
+        expected_unit_test: matchedUnit ?? `${path.dirname(viewFile)}/__tests__/${baseName}.unit.ts`,
+        present_in_unit_test: hasUnit,
         present_in_bdd_feature: inBdd,
         present_in_e2e_spec: inE2e,
       });

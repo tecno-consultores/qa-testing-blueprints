@@ -200,12 +200,15 @@ Las pruebas unitarias de Vitest con `jsdom` pasan al 100%, pero en una sesión r
 JSDOM es un simulador lógico del árbol DOM, pero **NO computa CSS Layout, coordenadas ni z-index**. Elementos flotantes fijos (`position: fixed`) o footers desalineados cubren los botones en navegadores reales sin que JSDOM lo advierta.
 
 **La Solución:**
-1. Diseña todos los pies de página como elementos in-flow dentro de `<main>` usando flexbox:
+1. Diseña todos los pies de página como elementos in-flow fuera de `<main>` dentro de un contenedor raíz en columna flex (preservando el landmark ARIA `contentinfo` de primer nivel):
 ```css
-main {
+.app-shell {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+}
+main {
+  flex: 1;
 }
 footer {
   margin-top: auto;

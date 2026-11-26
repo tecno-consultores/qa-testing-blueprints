@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 import * as fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -10,8 +11,13 @@ import { runInstallSkillCli } from '../src/cli/install-skill.js';
 import { runMcpConfigCli } from '../src/cli/mcp-config.js';
 import { createMcpServer, QA_11X_MCP_INSTRUCTIONS } from '../src/server.js';
 import { CORE_TOOLSET_NAMES } from '../src/server/toolsetFilter.js';
+import {
+  SessionFlightRecorderInputSchema,
+  ValidateCalmInputSchema,
+} from '../src/server/v2Schemas.js';
 import { GLOBAL_CONNECTOR_TARGETS, syncGlobalAgentConnectors } from '../src/services/agents-connector.js';
 import { GitHubFetcher } from '../src/services/github-fetcher.js';
+import { SurgicalMerger } from '../src/services/surgical-merger.js';
 import { detectExistingQa11xSkillDirs } from '../src/services/version-manager.js';
 import { certify11xGate } from '../src/tools/certify-gate.js';
 import { inspectProjectConfig } from '../src/tools/inspect-project.js';
@@ -23,11 +29,26 @@ import {
 } from '../src/tools/propose-evolution-pr.js';
 import { auditSecurityStigOwasp } from '../src/tools/security-auditor.js';
 import {
+  findGitWorktreeRoot,
+  isEnvIgnoredByFallbackRules,
+  isEnvTemplatePath,
+  isTestFilePath,
+  loadGitTrackedSet,
+  normalizeGitignoreLine,
+  queryGitIgnoredSet,
+  resolveTrustedGitExecutable,
+  wildcardSegmentMatch,
+} from '../src/tools/security-auditor/shared.js';
+import {
   evaluateStandard11xReadiness,
   findAstGraphFilesRecursive,
   hasAnalyzableSourceCode,
 } from '../src/tools/standardReadiness.js';
-import { auditTestPyramidGaps } from '../src/tools/test-pyramid-auditor.js';
+import {
+  auditTestPyramidGaps,
+  findOrphanSourceFiles,
+  findUntestedUiViews,
+} from '../src/tools/test-pyramid-auditor.js';
 import { detectCompanionMcps } from '../src/utils/companionMcpDetector.js';
 import {
   getBrowserMcpCandidatePaths,
@@ -536,5 +557,402 @@ describe('QA-11X v3.9.0 — Compliance Audit, AST Auto-Build, OpenCode, Email Te
     expect(foundSkillDirs).toContain(path.join(multiHome, '.gemini', 'skills'));
     expect(foundSkillDirs).toContain(path.join(multiHome, '.copilot', 'skills'));
     expect(foundSkillDirs).toContain(path.join(multiHome, '.agents', 'skills'));
+  });
+
+  it('handles git-ignored vs tracked .env, .env.example placeholders, SEC-05 directory boundaries, upstream governance, and grouped orphans', async () => {
+    // 1. SEC-10: git-ignored untracked .env is skipped, unignored .env.local & tracked .env are flagged
+    const envDir = path.join(tmpDir, 'env-sec10');
+    fs.mkdirSync(path.join(envDir, 'sub'), { recursive: true });
+    fs.writeFileSync(path.join(envDir, '.gitignore'), '.env*\n!/.env.local\n', 'utf-8');
+    fs.writeFileSync(path.join(envDir, 'sub', '.gitignore'), '*.env\n', 'utf-8');
+    const fakeNpmTok = ['npm', '1234567890abcdefghij1234'].join('_'); // # qa-secret-fixture-ok
+    fs.writeFileSync(path.join(envDir, '.env'), `NPM_TOKEN=${fakeNpmTok}\n`, 'utf-8'); // # qa-secret-fixture-ok
+    fs.writeFileSync(path.join(envDir, '.env.local'), `API_SECRET=${fakeNpmTok}\n`, 'utf-8'); // # qa-secret-fixture-ok
+    fs.writeFileSync(path.join(envDir, 'sub', '.env.prod'), `API_TOKEN=${fakeNpmTok}\n`, 'utf-8'); // # qa-secret-fixture-ok
+    fs.writeFileSync(
+      path.join(envDir, '.env.example'),
+      'NPM_TOKEN=npm_placeholder_TU_TOKEN_DE_NPMJS_AQUI\nAPI_KEY=your_api_key_here\n', // # qa-secret-fixture-ok
+      'utf-8'
+    );
+    fs.writeFileSync(path.join(envDir, 'env.staging.example'), 'SECRET_TOKEN=dummy-secret-val\n', 'utf-8'); // # qa-secret-fixture-ok
+
+    expect(isEnvTemplatePath('.env.example')).toBe(true);
+    expect(isEnvTemplatePath('env.example')).toBe(true);
+    expect(isEnvTemplatePath('.env.staging.example')).toBe(true);
+    expect(isEnvTemplatePath('env.prod.sample')).toBe(true);
+    expect(isEnvTemplatePath('.env.local')).toBe(false);
+    expect(isEnvTemplatePath('main.py.example')).toBe(false);
+
+    const untrackAudit = await auditSecurityStigOwasp(envDir);
+    expect(untrackAudit.findings.filter((f) => f.rule_id === 'SEC-10').map((f) => f.file)).toEqual([
+      '.env.local',
+    ]);
+
+    const exAuditClean = await auditSecurityStigOwasp(envDir, { includeExamples: true });
+    expect(exAuditClean.findings.some((f) => f.file === '.env.example')).toBe(false);
+    expect(exAuditClean.findings.some((f) => f.file === 'env.staging.example')).toBe(false);
+
+    // Real token inside .env.example MUST fail when includeExamples=true
+    fs.appendFileSync(path.join(envDir, '.env.example'), `LEAK_TOKEN=${fakeNpmTok}\n`, 'utf-8'); // # qa-secret-fixture-ok
+    const exAuditLeak = await auditSecurityStigOwasp(envDir, { includeExamples: true });
+    expect(exAuditLeak.findings.some((f) => f.rule_id === 'SEC-10' && f.file === '.env.example')).toBe(true);
+
+    // Tracked .env in Git index MUST still be scanned despite .gitignore
+    execFileSync('/usr/bin/git', ['init', '-q', envDir], {
+      env: { PATH: '/usr/local/bin:/usr/bin:/bin', GIT_TERMINAL_PROMPT: '0' },
+    });
+    execFileSync('/usr/bin/git', ['-C', envDir, 'add', '-f', '.env'], {
+      env: { PATH: '/usr/local/bin:/usr/bin:/bin', GIT_TERMINAL_PROMPT: '0' },
+    });
+    const trackedAudit = await auditSecurityStigOwasp(envDir);
+    expect(trackedAudit.findings.some((f) => f.rule_id === 'SEC-10' && f.file === '.env')).toBe(true);
+
+    // 2. SEC-05: fastapi/ prefix without /api/ segment & test files do NOT false-positive
+    const sec05Dir = path.join(tmpDir, 'sec05-boundary');
+    fs.mkdirSync(path.join(sec05Dir, 'fastapi', 'tests'), { recursive: true });
+    fs.mkdirSync(path.join(sec05Dir, 'fastapi', 'services'), { recursive: true });
+    fs.mkdirSync(path.join(sec05Dir, 'fastapi', 'src', 'api'), { recursive: true });
+    const validatorBody = 'from pydantic import field_validator\ndef check(v: str) -> str:\n    return v\n';
+    fs.writeFileSync(
+      path.join(sec05Dir, 'fastapi', 'tests', 'test_cleanliness.unit.py.example'),
+      validatorBody,
+      'utf-8'
+    );
+    fs.writeFileSync(path.join(sec05Dir, 'fastapi', 'services', 'helper.py'), validatorBody, 'utf-8');
+    fs.writeFileSync(path.join(sec05Dir, 'fastapi', 'src', 'api', 'users.py'), validatorBody, 'utf-8');
+
+    const sec05Res = await auditSecurityStigOwasp(sec05Dir, { includeExamples: true });
+    const sec05Files = sec05Res.findings.filter((f) => f.rule_id === 'SEC-05').map((f) => f.file);
+    expect(sec05Files).toEqual(['fastapi/src/api/users.py']);
+
+    // 3. Upstream canonical repo thin_repo_governance PRESENT vs missing AGENTS.md PARTIAL
+    const upDir = path.join(tmpDir, 'upstream-canon');
+    fs.mkdirSync(path.join(upDir, '.agents', 'scripts'), { recursive: true });
+    fs.writeFileSync(path.join(upDir, 'manifest.json'), '{"blueprint_version":"3.9.0"}\n', 'utf-8');
+    fs.writeFileSync(path.join(upDir, '.agents', 'scripts', 'sync_governance.py'), '# ok\n', 'utf-8');
+    fs.writeFileSync(path.join(upDir, '.agents', 'ACTIVE_TASK.md'), '# active\n', 'utf-8');
+    fs.writeFileSync(
+      path.join(upDir, '.gitignore'),
+      '.agents/ACTIVE_TASK.md\n.agents/.cache/\n.agents/backups/\n.agents/proposals/\ngraphify-out/\n*.11x-backup\n',
+      'utf-8'
+    );
+    const missingAgentsSnap = evaluateStandard11xReadiness(upDir, [], []);
+    const partialGov = missingAgentsSnap.pillars.find((p) => p.id === 'thin_repo_governance');
+    expect(partialGov?.status).toBe('PARTIAL');
+    expect(partialGov?.missing_items).toContain('AGENTS.md');
+
+    fs.writeFileSync(path.join(upDir, 'AGENTS.md'), '# Canonical Governance\n', 'utf-8');
+    const fullUpstreamSnap = evaluateStandard11xReadiness(upDir, [], []);
+    expect(fullUpstreamSnap.missing_mandatory_pillars).not.toContain('thin_repo_governance');
+    expect(fullUpstreamSnap.pillars.find((p) => p.id === 'thin_repo_governance')?.status).toBe('PRESENT');
+
+    // 4. Grouped / hyphenated / 1-hop facade orphan resolution + UntestedUiView unit_test status + v2Schemas
+    const invDir = path.join(tmpDir, 'inv-grouped');
+    fs.mkdirSync(path.join(invDir, 'src', 'services'), { recursive: true });
+    fs.mkdirSync(path.join(invDir, 'src', 'tools', 'sub'), { recursive: true });
+    fs.mkdirSync(path.join(invDir, 'src', 'views'), { recursive: true });
+    fs.mkdirSync(path.join(invDir, 'scripts'), { recursive: true });
+    fs.mkdirSync(path.join(invDir, 'tests'), { recursive: true });
+    fs.writeFileSync(path.join(invDir, 'src', 'services', 'device_service.py'), 'x = 1\n', 'utf-8');
+    fs.writeFileSync(path.join(invDir, 'src', 'services', 'truly_orphan.py'), 'y = 2\n', 'utf-8');
+    fs.writeFileSync(path.join(invDir, 'scripts', 'generar-manifiesto.py'), 'z = 3\n', 'utf-8');
+    fs.writeFileSync(path.join(invDir, 'src', 'tools', 'facade.ts'), "import './sub/part.js';\n", 'utf-8');
+    fs.writeFileSync(path.join(invDir, 'src', 'tools', 'sub', 'part.ts'), 'export const k = 1;\n', 'utf-8');
+    fs.writeFileSync(
+      path.join(invDir, 'tests', 'test_devices.unit.py'),
+      'from services.device_service import x\n',
+      'utf-8'
+    );
+    fs.writeFileSync(path.join(invDir, 'tests', 'test_generar_manifiesto.unit.py'), 'assert True\n', 'utf-8');
+    fs.writeFileSync(path.join(invDir, 'tests', 'facade.unit.ts'), 'export {};\n', 'utf-8');
+    fs.writeFileSync(path.join(invDir, 'src', 'views', 'DevicesDashboard.vue'), '<template/>\n', 'utf-8');
+    fs.writeFileSync(path.join(invDir, 'src', 'views', 'DevicesDashboard.unit.ts'), 'export {};\n', 'utf-8');
+    fs.writeFileSync(path.join(invDir, 'src', 'views', 'OrphanPanel.vue'), '<template/>\n', 'utf-8');
+
+    const invFiles = [
+      'src/services/device_service.py',
+      'src/services/truly_orphan.py',
+      'scripts/generar-manifiesto.py',
+      'src/tools/facade.ts',
+      'src/tools/sub/part.ts',
+      'tests/test_devices.unit.py',
+      'tests/test_generar_manifiesto.unit.py',
+      'tests/facade.unit.ts',
+      'src/views/DevicesDashboard.vue',
+      'src/views/DevicesDashboard.unit.ts',
+      'src/views/OrphanPanel.vue',
+    ];
+    const orphans = findOrphanSourceFiles(invDir, invFiles, ['fastapi', 'vue3']);
+    expect(orphans.map((o) => o.source_file)).toEqual([
+      'src/services/truly_orphan.py',
+      'src/views/OrphanPanel.vue',
+    ]);
+
+    const uiViews = findUntestedUiViews(invDir, invFiles);
+    const dashEntry = uiViews.find((v) => v.view_file === 'src/views/DevicesDashboard.vue');
+    const orphanEntry = uiViews.find((v) => v.view_file === 'src/views/OrphanPanel.vue');
+    expect(dashEntry?.present_in_unit_test).toBe(true);
+    expect(dashEntry?.expected_unit_test).toBe('src/views/DevicesDashboard.unit.ts');
+    expect(orphanEntry?.present_in_unit_test).toBe(false);
+    expect(orphanEntry?.expected_unit_test).toBe('src/views/__tests__/OrphanPanel.unit.ts');
+
+    expect(ValidateCalmInputSchema.safeParse({ profile: 'auto' }).success).toBe(true);
+    expect(ValidateCalmInputSchema.safeParse({ extraField: true }).success).toBe(false);
+    expect(SessionFlightRecorderInputSchema.safeParse({ action: 'recover' }).success).toBe(true);
+    expect(SessionFlightRecorderInputSchema.safeParse({ action: 'invalid' }).success).toBe(false);
+
+    // Error paths in readGitignoreLines (EISDIR) and loadGitTrackedSet (corrupt .git & missing git binary)
+    const errGitDir = path.join(tmpDir, 'err-git-edge');
+    fs.mkdirSync(path.join(errGitDir, '.gitignore'), { recursive: true });
+    fs.writeFileSync(path.join(errGitDir, '.git'), 'gitdir: /nonexistent/corrupt-gitdir\n', 'utf-8');
+    fs.writeFileSync(path.join(errGitDir, 'clean.ts'), 'export const ok = 1;\n', 'utf-8');
+    fs.writeFileSync(path.join(errGitDir, '.env'), 'CLEAN_VAR=1\n', 'utf-8');
+    const corruptGitRes = await auditSecurityStigOwasp(errGitDir);
+    expect(corruptGitRes.passed).toBe(true);
+
+    expect(loadGitTrackedSet(errGitDir).size).toBe(0);
+    expect(resolveTrustedGitExecutable(['/nonexistent/git-bin'])).toBeNull();
+    expect(loadGitTrackedSet(errGitDir, ['/nonexistent/git-bin']).size).toBe(0);
+  });
+
+  it('prevents SEC-10 subdir tracked .env escapes, supports **/.env* & .env*.local globs, avoids .status orphan masking, and resolves index.ts barrels', async () => {
+    const gitEnv = { PATH: '/usr/local/bin:/usr/bin:/bin', GIT_TERMINAL_PROMPT: '0' };
+    const fakeSk = ['sk-proj', '1234567890abcdefghijklmnop'].join('-'); // # qa-secret-fixture-ok
+
+    // S1: .env*.local, **/.env.secret, config/.env*, gitignore(5) inline '#' non-comment, and subdir audits
+    const s1 = path.join(tmpDir, 's1-glob-env');
+    fs.mkdirSync(path.join(s1, 'apps', 'web'), { recursive: true });
+    fs.mkdirSync(path.join(s1, 'config'), { recursive: true });
+    fs.mkdirSync(path.join(s1, 'secrets'), { recursive: true });
+    execFileSync('/usr/bin/git', ['init', '-q', s1], { env: gitEnv });
+    fs.writeFileSync(
+      path.join(s1, '.gitignore'),
+      '# comment\n.env*.local\n.env*mid*.custom\n**/.env.secret\nconfig/.env*\nsecrets/\n!.env\n.env.prod # inline hash is NOT a comment in gitignore(5)   \n.env.trailing   \n.env.space\\ \n',
+      'utf-8'
+    );
+    fs.writeFileSync(path.join(s1, '.env.development.local'), `SECRET_KEY=${fakeSk}\n`, 'utf-8'); // # qa-secret-fixture-ok
+    fs.writeFileSync(path.join(s1, '.env.dev.mid.v2.custom'), `SECRET_KEY=${fakeSk}\n`, 'utf-8'); // # qa-secret-fixture-ok
+    fs.writeFileSync(path.join(s1, 'apps', 'web', '.env.secret'), `API_KEY=${fakeSk}\n`, 'utf-8'); // # qa-secret-fixture-ok
+    fs.writeFileSync(path.join(s1, 'config', '.env.stage'), `API_TOKEN=${fakeSk}\n`, 'utf-8'); // # qa-secret-fixture-ok
+    fs.writeFileSync(path.join(s1, 'secrets', '.env'), `API_TOKEN=${fakeSk}\n`, 'utf-8'); // # qa-secret-fixture-ok
+    fs.writeFileSync(path.join(s1, '.env.prod'), `PASSWORD=${fakeSk}\n`, 'utf-8'); // # qa-secret-fixture-ok
+    expect(findGitWorktreeRoot(path.join(s1, 'apps', 'web'))).toBe(path.resolve(s1));
+    // Verify real git agrees: secrets/.env IS ignored (parent dir excluded), .env.prod IS NOT ignored (inline #)
+    expect(() => execFileSync('/usr/bin/git', ['-C', s1, 'check-ignore', '-q', 'secrets/.env'], { env: gitEnv })).not.toThrow();
+    expect(() => execFileSync('/usr/bin/git', ['-C', s1, 'check-ignore', '-q', '.env.prod'], { env: gitEnv })).toThrow();
+    expect(
+      (await auditSecurityStigOwasp(s1)).findings.filter((f) => f.rule_id === 'SEC-10').map((f) => f.file)
+    ).toEqual(['.env.prod']);
+    expect(
+      (await auditSecurityStigOwasp(path.join(s1, 'apps', 'web'))).findings.filter(
+        (f) => f.rule_id === 'SEC-10'
+      )
+    ).toEqual([]);
+    // Pure-TS fallback also enforces parent-dir exclusion, no inline comments, and escaped \#
+    expect(normalizeGitignoreLine('')).toBe('');
+    expect(normalizeGitignoreLine('# comment')).toBe('');
+    expect(normalizeGitignoreLine('  # literal')).toBe('  # literal');
+    expect(normalizeGitignoreLine('\\#hash.env   ')).toBe('#hash.env');
+    expect(isEnvIgnoredByFallbackRules(s1, path.join(s1, 'secrets', '.env'))).toBe(true);
+    expect(isEnvIgnoredByFallbackRules(s1, path.join(s1, '.env.prod'))).toBe(false);
+    expect(queryGitIgnoredSet(s1, [])?.size).toBe(0);
+    expect(queryGitIgnoredSet(path.join(tmpDir, 'no-git-here'), ['.env'])).toBeNull();
+    expect(queryGitIgnoredSet(s1, ['.env.prod'])?.size).toBe(0);
+    expect(queryGitIgnoredSet(s1, ['secrets/.env'], ['/nonexistent/git-bin'])).toBeNull();
+
+    // Non-Git fallback directory re-inclusion (!unignored-dir/) and anchored dir patterns
+    const noGitDir = path.join(tmpDir, 's1b-nogit-fallback');
+    fs.mkdirSync(path.join(noGitDir, 'reinc'), { recursive: true });
+    fs.mkdirSync(path.join(noGitDir, 'anchored', 'sub'), { recursive: true });
+    fs.writeFileSync(
+      path.join(noGitDir, '.gitignore'),
+      '/\nreinc/\n!reinc/\n/anchored/sub/\n!*.env\n',
+      'utf-8'
+    );
+    fs.writeFileSync(path.join(noGitDir, 'reinc', '.env'), `SECRET_KEY=${fakeSk}\n`, 'utf-8'); // # qa-secret-fixture-ok
+    fs.writeFileSync(path.join(noGitDir, 'anchored', 'sub', '.env'), `SECRET_KEY=${fakeSk}\n`, 'utf-8'); // # qa-secret-fixture-ok
+    expect(isEnvIgnoredByFallbackRules(noGitDir, path.join(noGitDir, 'reinc', '.env'))).toBe(false);
+    expect(isEnvIgnoredByFallbackRules(noGitDir, path.join(noGitDir, 'anchored', 'sub', '.env'))).toBe(true);
+    expect(
+      (await auditSecurityStigOwasp(noGitDir)).findings.filter((f) => f.rule_id === 'SEC-10').map((f) => f.file)
+    ).toEqual(['reinc/.env']);
+
+    // S2: Tracked .env inside subdirectory MUST still be caught when auditing the subdirectory
+    const s2 = path.join(tmpDir, 's2-tracked-sub');
+    fs.mkdirSync(path.join(s2, 'apps', 'api'), { recursive: true });
+    execFileSync('/usr/bin/git', ['init', '-q', s2], { env: gitEnv });
+    fs.writeFileSync(path.join(s2, 'apps', 'api', '.gitignore'), '.env\n', 'utf-8');
+    fs.writeFileSync(path.join(s2, 'apps', 'api', '.env'), `OPENAI_API_KEY=${fakeSk}\n`, 'utf-8'); // # qa-secret-fixture-ok
+    execFileSync('/usr/bin/git', ['-C', s2, 'add', '-f', 'apps/api/.env'], { env: gitEnv });
+    const s2Audit = await auditSecurityStigOwasp(path.join(s2, 'apps', 'api'));
+    expect(s2Audit.findings.some((f) => f.rule_id === 'SEC-10' && f.file === '.env')).toBe(true);
+
+    // S3 + S4: .status property access does NOT mask src/services/status.ts; index.ts barrel covers re-exports
+    const s34 = path.join(tmpDir, 's34-barrel-orphan');
+    fs.mkdirSync(path.join(s34, 'src', 'services'), { recursive: true });
+    fs.mkdirSync(path.join(s34, 'src', 'untested'), { recursive: true });
+    fs.mkdirSync(path.join(s34, 'packages', 'mod', 'app'), { recursive: true });
+    fs.mkdirSync(path.join(s34, 'packages', 'other'), { recursive: true });
+    fs.mkdirSync(path.join(s34, 'tests'), { recursive: true });
+    fs.writeFileSync(path.join(s34, 'src', 'services', 'status.ts'), 'export const s = 1;\n', 'utf-8');
+    fs.writeFileSync(path.join(s34, 'src', 'services', 'index.ts'), "export * from './taxEngine.js';\n", 'utf-8');
+    fs.writeFileSync(path.join(s34, 'src', 'services', 'taxEngine.ts'), 'export const vat = 0.19;\n', 'utf-8');
+    fs.writeFileSync(path.join(s34, 'src', 'untested', 'index.ts'), "export * from './dead.js';\n", 'utf-8');
+    fs.writeFileSync(path.join(s34, 'src', 'untested', 'dead.ts'), 'export const dead = 0;\n', 'utf-8');
+    fs.writeFileSync(path.join(s34, 'packages', 'mod', 'app', 'index.ts'), 'export {};\n', 'utf-8');
+    fs.writeFileSync(path.join(s34, 'packages', 'other', 'index.ts'), 'export {};\n', 'utf-8');
+    fs.writeFileSync(
+      path.join(s34, 'tests', 'health.unit.ts'),
+      "import { vat } from '../src/services/index.js';\nexpect(res.status).toBe(200 + vat);\n",
+      'utf-8'
+    );
+    const s34Files = [
+      'src/services/status.ts',
+      'src/services/index.ts',
+      'src/services/taxEngine.ts',
+      'src/untested/index.ts',
+      'src/untested/dead.ts',
+      'packages/mod/app/index.ts',
+      'packages/other/index.ts',
+      'tests/health.unit.ts',
+    ];
+    const s34Orphans = findOrphanSourceFiles(s34, s34Files, ['node-backend']);
+    expect(s34Orphans.map((o) => o.source_file)).toEqual([
+      'src/services/status.ts',
+      'src/untested/dead.ts',
+    ]);
+    // Grouped UI view unit suite + consumer vendored QA-11X .sh scripts vs real user .sh
+    const gvDir = path.join(tmpDir, 's35-grouped-view-and-vendored-sh');
+    fs.mkdirSync(path.join(gvDir, 'src', 'views'), { recursive: true });
+    fs.mkdirSync(path.join(gvDir, 'tests'), { recursive: true });
+    fs.mkdirSync(path.join(gvDir, 'test'), { recursive: true });
+    fs.mkdirSync(path.join(gvDir, 'e2e'), { recursive: true });
+    fs.mkdirSync(path.join(gvDir, 'scripts'), { recursive: true });
+    fs.writeFileSync(path.join(gvDir, 'src', 'views', 'OrdersDashboard.vue'), '<template><main>ok</main></template>\n', 'utf-8');
+    fs.writeFileSync(path.join(gvDir, 'tests', 'grouped-views.unit.ts'), "import OrdersDashboard from '../src/views/OrdersDashboard.vue';\nvoid OrdersDashboard;\n", 'utf-8');
+    fs.writeFileSync(path.join(gvDir, 'test', 'ui_business_flow.feature'), 'Feature: UI\nScenario: OrdersDashboard\n', 'utf-8');
+    fs.writeFileSync(path.join(gvDir, 'e2e', 'orders.e2e.ts'), '// OrdersDashboard\n', 'utf-8');
+    fs.writeFileSync(path.join(gvDir, 'scripts', 'verificar-secretos.sh'), '#!/usr/bin/env bash\n', 'utf-8');
+    fs.writeFileSync(path.join(gvDir, 'scripts', 'deploy.sh'), '#!/usr/bin/env bash\n', 'utf-8');
+    fs.writeFileSync(path.join(gvDir, 'limpieza.sh'), '#!/usr/bin/env bash\n', 'utf-8');
+    const gvFiles = [
+      'src/views/OrdersDashboard.vue',
+      'tests/grouped-views.unit.ts',
+      'test/ui_business_flow.feature',
+      'e2e/orders.e2e.ts',
+      'scripts/verificar-secretos.sh',
+      'scripts/deploy.sh',
+      'limpieza.sh',
+      '.agents/scripts/certify_task_completion.sh',
+    ];
+    expect(findUntestedUiViews(gvDir, ['tests/grouped-views.unit.ts'])).toEqual([]);
+    expect(findUntestedUiViews(gvDir, gvFiles)).toEqual([]);
+    expect(findOrphanSourceFiles(gvDir, gvFiles, ['vue3']).map((o) => o.source_file)).toEqual(['scripts/deploy.sh']);
+    expect(
+      findOrphanSourceFiles(gvDir, [...gvFiles, '.agents/scripts/sync_governance.py'], ['vue3']).map((o) => o.source_file)
+    ).toEqual(['scripts/verificar-secretos.sh', 'scripts/deploy.sh']);
+    expect(isTestFilePath('pkg/foo.unit.mts')).toBe(true);
+    expect(isTestFilePath('fastapi/tests/test_x.unit.py.example')).toBe(true);
+  });
+
+  it('supports single-character ? wildcards, escapes, brackets, astral Unicode, and dir/bang .gitignore rules in SEC-10 plus Lefthook parallel:false merge', async () => {
+    expect(wildcardSegmentMatch('dir/.env.a', '.env.?')).toBe(false);
+    expect(wildcardSegmentMatch('.env.a', '.env.?')).toBe(true);
+    expect(wildcardSegmentMatch('.env.', '.env.?')).toBe(false);
+    expect(wildcardSegmentMatch('.env.ab', '.env.?')).toBe(false);
+    expect(wildcardSegmentMatch('.env.local', '.env.loca?')).toBe(true);
+    expect(wildcardSegmentMatch('.bak.local', '.env.loca?')).toBe(false);
+    expect(wildcardSegmentMatch('.env', '.env.?*')).toBe(false);
+    expect(wildcardSegmentMatch('.cfg.dev.local', '.env.*.loca?')).toBe(false);
+    expect(wildcardSegmentMatch('.env.dev.xxxxl', '.env.*.loca?')).toBe(false);
+    expect(wildcardSegmentMatch('.env.mid.local', '.env.*?.loca?')).toBe(true);
+    expect(wildcardSegmentMatch('.env..local', '.env.*?x*.loca?')).toBe(false);
+    expect(wildcardSegmentMatch('.env.dev.mid.v2.custom', '.env*mid*.custom')).toBe(true);
+    expect(wildcardSegmentMatch('.env.dev.v2.custom', '.env*zzz*.custom')).toBe(false);
+    // Escaped wildcards (\?, \*, \\) and lone trailing backslash
+    expect(wildcardSegmentMatch('.env.?', '.env.\\?')).toBe(true);
+    expect(wildcardSegmentMatch('.env.a', '.env.\\?')).toBe(false);
+    expect(wildcardSegmentMatch('.env.\\a', '.env.\\?')).toBe(false);
+    expect(wildcardSegmentMatch('.env.*', '.env.\\*')).toBe(true);
+    expect(wildcardSegmentMatch('.env.local', '.env.\\*')).toBe(false);
+    expect(wildcardSegmentMatch('.env.\\local', '.env.\\*')).toBe(false);
+    expect(wildcardSegmentMatch('.env.\\', '.env.\\')).toBe(true);
+    // Astral Unicode code points (surrogate pairs count as 1 char for ?)
+    expect(wildcardSegmentMatch('.env.🔒', '.env.?')).toBe(true);
+    expect(wildcardSegmentMatch('.env.🔒', '.env.??')).toBe(false);
+    // POSIX / gitignore character classes ([12], [0-9], [!p], [^0-9], escaped member, unclosed [)
+    expect(wildcardSegmentMatch('.env.1', '.env.[12]')).toBe(true);
+    expect(wildcardSegmentMatch('.env.3', '.env.[12]')).toBe(false);
+    expect(wildcardSegmentMatch('.env.5', '.env.[0-9]')).toBe(true);
+    expect(wildcardSegmentMatch('.env.z', '.env.[0-9]')).toBe(false);
+    expect(wildcardSegmentMatch('.env.dev', '.env.[!p]*')).toBe(true);
+    expect(wildcardSegmentMatch('.env.prod', '.env.[!p]*')).toBe(false);
+    expect(wildcardSegmentMatch('.env.a', '.env.[^0-9]')).toBe(true);
+    expect(wildcardSegmentMatch('.env.]', '.env.[\\]a]')).toBe(true);
+    expect(wildcardSegmentMatch('.env.[1', '.env.[1')).toBe(true);
+
+    const gitEnv = { PATH: '/usr/local/bin:/usr/bin:/bin', GIT_TERMINAL_PROMPT: '0' };
+    const fakeSk = ['sk-proj', '1234567890abcdefghijklmnop'].join('-'); // # qa-secret-fixture-ok
+    const qDir = path.join(tmpDir, 's5-qmark-gitignore');
+    fs.mkdirSync(path.join(qDir, 'config'), { recursive: true });
+    fs.mkdirSync(path.join(qDir, 'secrets-1'), { recursive: true });
+    fs.mkdirSync(path.join(qDir, 'anchored-2'), { recursive: true });
+    fs.mkdirSync(path.join(qDir, 'nested', 'dir-3'), { recursive: true });
+    execFileSync('/usr/bin/git', ['init', '-q', qDir], { env: gitEnv });
+    fs.writeFileSync(
+      path.join(qDir, '.gitignore'),
+      [
+        '/',
+        '.env.?',
+        '.env.loca?',
+        '.env.*.loca?',
+        'config/.env.?',
+        '.env.[89]',
+        '.env.\\?',
+        '.env.\\*',
+        'secrets-?/',
+        '/anchored-?/',
+        'nested/dir-?/',
+        '.env.lock',
+        '\\!.env.lock',
+        '',
+      ].join('\n'),
+      'utf-8'
+    );
+    const candidateFiles: Array<[string, boolean]> = [
+      ['.env.a', true],
+      ['.env.local', true],
+      ['.env.dev.local', true],
+      ['config/.env.1', true],
+      ['.env.8', true],
+      ['secrets-1/.env', true],
+      ['anchored-2/.env', true],
+      ['nested/dir-3/.env', true],
+      ['.env.lock', true],
+      ['.env.ab', false],
+      ['.env.\\a', false],
+      ['.env.\\local', false],
+    ];
+    for (const [rel, expectedGitIgnored] of candidateFiles) {
+      fs.writeFileSync(path.join(qDir, rel), `SECRET_KEY=${fakeSk}\n`, 'utf-8'); // # qa-secret-fixture-ok
+      let actualGitIgnored = false;
+      try {
+        execFileSync('/usr/bin/git', ['-C', qDir, 'check-ignore', '-q', rel], { env: gitEnv });
+        actualGitIgnored = true;
+      } catch {
+        actualGitIgnored = false;
+      }
+      expect(actualGitIgnored).toBe(expectedGitIgnored);
+    }
+
+    const audit = await auditSecurityStigOwasp(qDir);
+    expect(
+      new Set(audit.findings.filter((f) => f.rule_id === 'SEC-10').map((f) => f.file))
+    ).toEqual(new Set(['.env.\\a', '.env.\\local', '.env.ab']));
+
+    // Verify SurgicalMerger preserves parallel: false in both pre-commit and pre-push from canonical lefthook.yml
+    const repoLefthook = fs.readFileSync(path.resolve(import.meta.dirname, '..', '..', 'lefthook.yml'), 'utf-8');
+    const mergedLefthook = new SurgicalMerger().mergeLefthookYaml('', repoLefthook, qDir);
+    expect(mergedLefthook.merged.match(/^\s{2}parallel:\s*false\s*$/gm)).toHaveLength(2);
   });
 });

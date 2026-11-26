@@ -1848,6 +1848,323 @@ class TestVerifyDocsInvariants(unittest.TestCase):
             srv.write_text(json.dumps(valid_server), encoding="utf-8")
             self.assertEqual(verify_docs._check_mcp_registry_manifest(root), [])
 
+    def test_canonical_mcp_tools_and_live_repo_counts_validators(self) -> None:
+        """Valida CANONICAL_MCP_TOOLS y conteos vivos en llms/RESOURCES/TESTING."""
+        import json
+        import tempfile
+
+        from _docs_invariants_catalogs import (
+            _check_canonical_mcp_tools_sync,
+            _check_llms_and_agents_surface_counts,
+            _check_resources_inventory_counts,
+            check_testing_scoreboard_consistency,
+        )
+        from _docs_invariants_config import CANONICAL_MCP_TOOLS
+
+        skillsllm = json.loads(
+            (REPO_ROOT / "catalogs" / "skillsllm-manifest.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        real_tools = skillsllm["mcp_capabilities"]["tools"]
+        self.assertEqual(len(CANONICAL_MCP_TOOLS), 19)
+        self.assertEqual(CANONICAL_MCP_TOOLS, frozenset(real_tools))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            # Consumer repo ignora chequeos exclusivos de upstream
+            self.assertEqual(_check_canonical_mcp_tools_sync(root, ["fake_tool"]), [])
+            self.assertEqual(_check_llms_and_agents_surface_counts(root), [])
+            self.assertEqual(_check_resources_inventory_counts(root), [])
+
+            # Marcar como upstream repo
+            (root / "manifest.json").write_text("{}", encoding="utf-8")
+            (root / ".agents" / "scripts").mkdir(parents=True)
+            (root / ".agents" / "scripts" / "sync_governance.py").write_text(
+                "# ok\n", encoding="utf-8"
+            )
+            (root / "scripts").mkdir()
+            (root / "scripts" / "generar-manifiesto.py").write_text(
+                "# ok\n", encoding="utf-8"
+            )
+            (root / "scripts" / "audit-edge.sh.example").write_text(
+                "# ok\n", encoding="utf-8"
+            )
+            (root / "tests" / "bats").mkdir(parents=True)
+            (root / "tests" / "bats" / "sample.bats").write_text(
+                '@test "one" {\n  true\n}\n@test "two" {\n  true\n}\n',
+                encoding="utf-8",
+            )
+            mcp_tests_dir = root / "mcp-server" / "tests"
+            mcp_tests_dir.mkdir(parents=True)
+            (mcp_tests_dir / "a.unit.ts").write_text("", encoding="utf-8")
+            (mcp_tests_dir / "b.test.ts").write_text("", encoding="utf-8")
+            (root / "mcp-server" / "test").mkdir(parents=True)
+            (root / "mcp-server" / "test" / "mcp_cli_test.feature").write_text(
+                "Feature: Demo\n  Scenario: S1\n    * assert true\n",
+                encoding="utf-8",
+            )
+
+            sync_err = _check_canonical_mcp_tools_sync(root, ["only_one"])
+            self.assertEqual(len(sync_err), 1)
+            self.assertIn("CANONICAL_MCP_TOOLS desfasado", sync_err[0])
+            self.assertEqual(
+                _check_canonical_mcp_tools_sync(root, sorted(CANONICAL_MCP_TOOLS)), []
+            )
+
+            # Desfase en llms.txt y RESOURCES.md
+            (root / "llms.txt").write_text(
+                "`99` scripts in `scripts/`, `1` files in `.agents/scripts/`, "
+                "`1` files in `tests/`\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(len(_check_llms_and_agents_surface_counts(root)), 1)
+            (root / "llms.txt").write_text(
+                "`2` scripts in `scripts/`, `1` files in `.agents/scripts/`, "
+                "`1` files in `tests/`\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(_check_llms_and_agents_surface_counts(root), [])
+
+            (root / "RESOURCES.md").write_text(
+                "(`.agents/scripts/` — 9 files)\n"
+                "(`scripts/` — 1 files): generar-manifiesto.py\n",
+                encoding="utf-8",
+            )
+            res_errs = _check_resources_inventory_counts(root)
+            self.assertEqual(len(res_errs), 3)
+
+            (root / "RESOURCES.md").write_text(
+                "(`.agents/scripts/` — 1 files)\n(`scripts/` — 2 files): "
+                "generar-manifiesto.py audit-edge.sh.example\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(_check_resources_inventory_counts(root), [])
+
+            # Desfase en TESTING.md contra conteos vivos (2 suites, 1 scenario, 2 BATS)
+            (root / "TESTING.md").write_text(
+                "| `make test-mcp` | Vitest (`>= 95%`, 1 suites), "
+                "Karate Labs BDD (`9` scenarios) |\n"
+                "* **Statements:** `99.00%`\n* **Branches:** `97.00%`\n"
+                "* **Functions:** `99.00%`\n* **Lines:** `99.00%`\n"
+                "* **Unit:** **10 tests passing at 100%** (1 Vitest suites)\n"
+                "**9 Karate BDD scenarios** and **99 BATS tests**\n"
+                "**10** Vitest tests across **1 Vitest suites**\n"
+                "**99.00% line/statement coverage and 97.00% branch coverage**\n"
+                "**99.00% function coverage**\n",
+                encoding="utf-8",
+            )
+            t_errs = check_testing_scoreboard_consistency(root)
+            self.assertGreaterEqual(len(t_errs), 4)
+
+            # Esqueleto upstream sin .agents/scripts/, tests/ ni mcp-server/
+            empty_up = root / "empty_upstream"
+            (empty_up / "scripts").mkdir(parents=True)
+            (empty_up / "manifest.json").write_text("{}", encoding="utf-8")
+            (empty_up / "scripts" / "generar-manifiesto.py").write_text(
+                "# ok\n", encoding="utf-8"
+            )
+            (empty_up / "llms.txt").write_text(
+                "`1` scripts in `scripts/`, `0` files in `.agents/scripts/`, "
+                "`0` files in `tests/`\n",
+                encoding="utf-8",
+            )
+            (empty_up / "TESTING.md").write_text(
+                "* **Statements:** `99.00%`\n* **Branches:** `97.00%`\n"
+                "* **Functions:** `99.00%`\n* **Lines:** `99.00%`\n"
+                "* **Unit:** **10 tests passing at 100%** (1 Vitest suites)\n"
+                "**10** Vitest tests across **1 Vitest suites**\n"
+                "**99.00% line/statement coverage and 97.00% branch coverage**\n"
+                "**99.00% function coverage**\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(_check_llms_and_agents_surface_counts(empty_up), [])
+            self.assertEqual(check_testing_scoreboard_consistency(empty_up), [])
+
+            # Heredoc con comentario # <<EOF, here-string <<< y escape <<\EOF en BATS
+            from _docs_invariants_catalogs import (
+                _count_bats_file_tests,
+                _extract_live_mcp_tool_names,
+            )
+
+            bats_tricky = (
+                "# Comentario con <<EOF que no abre heredoc\n"
+                '@test "caso real 1" {\n'
+                '  grep ok <<< "here-string"\n'
+                "  cat <<\\EOF > /tmp/f\n"
+                '@test "falso dentro de heredoc escapado" {\n'
+                "EOF\n"
+                "}\n"
+                '@test "caso real 2" {\n'
+                "  true\n"
+                "}\n"
+            )
+            self.assertEqual(_count_bats_file_tests(bats_tricky), 2)
+
+            # Desfase entre CANONICAL_MCP_TOOLS y registros reales en mcp-server/src
+            (root / "mcp-server" / "src").mkdir(parents=True, exist_ok=True)
+            (root / "mcp-server" / "src" / "server.ts").write_text(
+                "server.tool('ghost_live_tool', 'd', {}, fn);\n"
+                "export const V2_TOOL_REGISTRATIONS = [\n"
+                "  SESSION_FLIGHT_RECORDER_TOOL,\n"
+                "];\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                _extract_live_mcp_tool_names(root),
+                frozenset({"ghost_live_tool", "session_flight_recorder"}),
+            )
+            live_sync_errs = _check_canonical_mcp_tools_sync(
+                root, sorted(CANONICAL_MCP_TOOLS)
+            )
+            self.assertEqual(len(live_sync_errs), 1)
+            self.assertIn("mcp-server/src", live_sync_errs[0])
+
+    def test_llms_defense_in_depth_count_validator(self) -> None:
+        import tempfile
+
+        from _docs_invariants_catalogs import _check_llms_defense_in_depth_count
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            # 1. Consumer repo (sin manifest.json) se ignora
+            self.assertEqual(_check_llms_defense_in_depth_count(root), [])
+
+            # 2. Upstream repo sin llms.txt o sin SECURITY.md -> []
+            (root / "manifest.json").write_text("{}", encoding="utf-8")
+            (root / "scripts").mkdir()
+            (root / "scripts" / "generar-manifiesto.py").write_text(
+                "# ok\n", encoding="utf-8"
+            )
+            self.assertEqual(_check_llms_defense_in_depth_count(root), [])
+            (root / "llms.txt").write_text("- [SECURITY.md](x)\n", encoding="utf-8")
+            self.assertEqual(_check_llms_defense_in_depth_count(root), [])
+
+            # 3. SECURITY.md sin subsecciones 4.N:
+            #    - si llms.txt no afirma un conteo -> []
+            #    - si llms.txt afirma 34 pero SECURITY.md tiene 0 -> error
+            (root / "SECURITY.md").write_text("# Security\n", encoding="utf-8")
+            self.assertEqual(_check_llms_defense_in_depth_count(root), [])
+            (root / "llms.txt").write_text(
+                "- [SECURITY.md](x) — policy and 34 defense-in-depth requirements.\n",
+                encoding="utf-8",
+            )
+            zero_live_err = _check_llms_defense_in_depth_count(root)
+            self.assertEqual(len(zero_live_err), 1)
+            self.assertIn("(34) != vivo en SECURITY.md (0)", zero_live_err[0])
+
+            # 4. SECURITY.md con 2 subsecciones (+ código/comentarios ignorados)
+            #    pero llms.txt omite el conteo -> error
+            (root / "llms.txt").write_text("- [SECURITY.md](x)\n", encoding="utf-8")
+            (root / "SECURITY.md").write_text(
+                "### 4.1. Primero\nTexto\n### 4.2. Segundo\n"
+                "```markdown\n### 4.3. Ejemplo en bloque\n```\n"
+                "<!--\n### 4.4. Borrador comentado\n-->\n",
+                encoding="utf-8",
+            )
+            missing_err = _check_llms_defense_in_depth_count(root)
+            self.assertEqual(len(missing_err), 1)
+            self.assertIn("falta conteo", missing_err[0])
+
+            # 5. Conteo desfasado (33 vs 2 vivos) -> error
+            (root / "llms.txt").write_text(
+                "- [SECURITY.md](x) — policy and 33 defense-in-depth requirements.\n",
+                encoding="utf-8",
+            )
+            stale_err = _check_llms_defense_in_depth_count(root)
+            self.assertEqual(len(stale_err), 1)
+            self.assertIn("(33) != vivo en SECURITY.md (2)", stale_err[0])
+
+            # 6. Conteo sincronizado (2 == 2, ignorando bloques/comentarios) -> []
+            (root / "llms.txt").write_text(
+                "- [SECURITY.md](x) — policy and 2 defense-in-depth requirements.\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(_check_llms_defense_in_depth_count(root), [])
+
+    def test_testing_scoreboard_live_python_counts(self) -> None:
+        import tempfile
+
+        from _docs_invariants_catalogs import check_testing_scoreboard_consistency
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "manifest.json").write_text("{}", encoding="utf-8")
+            (root / "scripts").mkdir(parents=True)
+            (root / "scripts" / "generar-manifiesto.py").write_text(
+                "# ok\n", encoding="utf-8"
+            )
+            (root / "tests" / "meta_qa" / "fixtures").mkdir(parents=True)
+            (root / "vibe-rescue" / "tests").mkdir(parents=True)
+            (
+                root / "tests" / "meta_qa" / "fixtures" / "broken_repo_seed.json"
+            ).write_text(
+                '{"seeded_failures": {"f1": {}, "f2": {}}}\n', encoding="utf-8"
+            )
+            (root / "tests" / "test_alpha.unit.py").write_text(
+                "import unittest\n"
+                "CASES: tuple[str, ...] = ('a', 'b', 'c')\n"
+                "OTHER = 123\n"
+                "a = b = [1, 2]\n\n"
+                "def helper(*_args: object) -> object:\n"
+                "    return lambda f: f\n\n"
+                "@helper\n"
+                "@helper(1, 2)\n"
+                "@(helper())(1, 2)\n"
+                "@pytest.mark.parametrize('x', ['p', 'q'])\n"
+                "async def test_top_async(x: str) -> None:\n"
+                "    pass\n\n"
+                "class Helper:\n"
+                "    def test_ignored(self) -> None:\n"
+                "        pass\n\n"
+                "class TestAlpha(unittest.TestCase):\n"
+                "    @parametrize('c', CASES)\n"
+                "    @parametrize('u', UNKNOWN_CONST)\n"
+                "    def test_method(self, c: str, u: str) -> None:\n"
+                "        pass\n",
+                encoding="utf-8",
+            )
+            (root / "tests" / "meta_qa" / "test_meta.py").write_text(
+                "@pytest.mark.parametrize('fid', SEEDED_FAILURE_IDS)\n"
+                "def test_seeded(fid: str) -> None:\n"
+                "    pass\n",
+                encoding="utf-8",
+            )
+            (root / "vibe-rescue" / "tests" / "test_vibe.py").write_text(
+                "def test_v1() -> None:\n    pass\n",
+                encoding="utf-8",
+            )
+            # Live Python counts: root_meta = 2 + 3 + 2 = 7, vibe = 1, combined = 8
+            scoreboard_hdr = (
+                "* **Statements:** `99.00%`\n* **Branches:** `97.00%`\n"
+                "* **Functions:** `99.00%`\n* **Lines:** `99.00%`\n"
+                "* **Unit:** **10 tests passing at 100%** (1 Vitest suites)\n"
+            )
+            scoreboard_tail = (
+                "**10** Vitest tests across **1 Vitest suites**\n"
+                "**99.00% line/statement coverage and 97.00% branch coverage**\n"
+                "**99.00% function coverage**\n"
+            )
+            (root / "TESTING.md").write_text(
+                scoreboard_hdr
+                + "(**6 tests collected**)\n"
+                + "**6** Python unit + Meta-QA + Vibe-Rescue tests\n"
+                + "+ **5** Python unit & Meta-QA tests + **2** Vibe-Rescue\n"
+                + scoreboard_tail,
+                encoding="utf-8",
+            )
+            errs = check_testing_scoreboard_consistency(root)
+            self.assertEqual(len(errs), 4)
+            (root / "TESTING.md").write_text(
+                scoreboard_hdr
+                + "(**8 tests collected**)\n"
+                + "**8** Python unit + Meta-QA + Vibe-Rescue tests\n"
+                + "+ **7** Python unit & Meta-QA tests + **1** Vibe-Rescue\n"
+                + scoreboard_tail,
+                encoding="utf-8",
+            )
+            self.assertEqual(check_testing_scoreboard_consistency(root), [])
+
 
 if __name__ == "__main__":
     unittest.main()

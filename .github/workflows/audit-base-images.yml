@@ -16,7 +16,6 @@ on:
       - 'docker-compose.qa.yml'
       - '*/docker-compose.qa.yml*'
       - 'mcp-server/**'
-      - 'mcp-server/example/docker-compose.qa.yml'
       - '.agents/scripts/**'
       - 'scripts/auditar-infra.sh'
       - 'scripts/generar-sbom-cyclonedx.sh'
@@ -61,7 +60,7 @@ jobs:
           TRIVY_JAVA_DB_REPOS: 'public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1,mirror.gcr.io/aquasec/trivy-java-db:1'
         run: |
           mkdir -p "${RUNNER_TEMP}/trivy-cache"
-          docker run --rm \
+          docker run --rm --restart=no \
             --security-opt=no-new-privileges:true \
             -u "$(id -u):$(id -g)" \
             -e HOME=/tmp \
@@ -70,7 +69,7 @@ jobs:
             aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb image \
             --db-repository "${TRIVY_DB_REPOS}" \
             --download-db-only
-          docker run --rm \
+          docker run --rm --restart=no \
             --security-opt=no-new-privileges:true \
             -u "$(id -u):$(id -g)" \
             -e HOME=/tmp \
@@ -133,7 +132,7 @@ jobs:
           fi
 
           SCAN_RC=0
-          SCAN_OUT="$(docker run --rm \
+          SCAN_OUT="$(docker run --rm --restart=no \
             --security-opt=no-new-privileges:true \
             -u "$(id -u):$(id -g)" \
             -e HOME=/tmp \
@@ -182,7 +181,7 @@ jobs:
     steps:
       - name: Audit preinstalled Python packages in non-root container (UID 10001)
         run: |
-          docker run --rm \
+          docker run --rm --restart=no \
             --security-opt=no-new-privileges:true \
             --user 10001:10001 \
             -e HOME=/tmp \
@@ -197,7 +196,7 @@ jobs:
     steps:
       - name: Verify non-root runtime, Java 21, Android ADB & Appium drivers (UID 10001)
         run: |
-          docker run --rm \
+          docker run --rm --restart=no \
             --security-opt=no-new-privileges:true \
             --user 10001:10001 \
             -e HOME=/tmp \

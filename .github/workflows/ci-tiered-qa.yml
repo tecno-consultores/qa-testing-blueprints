@@ -46,9 +46,9 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: graphify-out
-          key: ${{ runner.os }}-graphify-${{ hashFiles('**/*.py', '**/*.ts', '**/*.tsx', '**/*.js', '**/*.vue', '**/*.php', '**/*.sh') }}
+          key: ${{ runner.os }}-graphify-root-${{ hashFiles('**/*.py', '**/*.ts', '**/*.tsx', '**/*.js', '**/*.vue', '**/*.php', '**/*.sh') }}
           restore-keys: |
-            ${{ runner.os }}-graphify-
+            ${{ runner.os }}-graphify-root-
 
       - name: Compute AST graph and tiered test plan in ephemeral Docker (Rule Zero)
         id: plan
@@ -83,7 +83,7 @@ jobs:
           fi
 
           if [ "${CACHE_HIT}" != "true" ] || [ ! -s "graphify-out/graph.json" ]; then
-            if ! docker run --rm --network none \
+            if ! docker run --rm --restart=no --network none \
               --security-opt=no-new-privileges:true \
               -u "$(id -u):$(id -g)" \
               -e HOME=/tmp \
@@ -91,7 +91,7 @@ jobs:
               -v "$(pwd):/app" \
               -w /app \
               sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0 \
-              sh -c "graphify extract . --code-only && graphify cluster-only . && rm -rf graphify-out/cache graphify-out/20* graphify-out/.graphify_* graphify-out/.cloud-cta-shown"; then
+              sh -c "graphify extract . --code-only --allow-dedup-shrink && graphify cluster-only . && rm -rf graphify-out/cache graphify-out/20* graphify-out/.graphify_* graphify-out/.cloud-cta-shown"; then
               echo "::warning::Graphify AST extraction failed; continuing with prefix fallback." >&2
             fi
           fi
@@ -115,7 +115,7 @@ jobs:
             SELECT_ARGS+=(--base-ref "HEAD~1")
           fi
 
-          docker run --rm --network none \
+          docker run --rm --restart=no --network none \
             --security-opt=no-new-privileges:true \
             -u "$(id -u):$(id -g)" \
             -e HOME=/tmp \
@@ -197,9 +197,9 @@ jobs:
           path: |
             graphify-out
             */graphify-out
-          key: ${{ runner.os }}-graphify-${{ hashFiles('**/*.py', '**/*.ts', '**/*.tsx', '**/*.js', '**/*.vue', '**/*.php', '**/*.sh') }}
+          key: ${{ runner.os }}-graphify-all-${{ hashFiles('**/*.py', '**/*.ts', '**/*.tsx', '**/*.js', '**/*.vue', '**/*.php', '**/*.sh') }}
           restore-keys: |
-            ${{ runner.os }}-graphify-
+            ${{ runner.os }}-graphify-all-
 
       - name: Refresh Graphify AST graphs for Gate 6 (Rule Zero)
         if: steps.cache-graph-nightly.outputs.cache-hit != 'true'
@@ -218,7 +218,7 @@ jobs:
           elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
             DIFF_ARGS+=(--base-ref "HEAD~1")
           fi
-          docker run --rm --network none \
+          docker run --rm --restart=no --network none \
             --security-opt=no-new-privileges:true \
             -u "$(id -u):$(id -g)" \
             -e HOME=/tmp \

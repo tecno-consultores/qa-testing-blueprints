@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
+import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { reportDebugCatchError } from '../../utils/diagnosticFormatter.js';
+import { pickAt, reportDebugCatchError } from '../../utils/diagnosticFormatter.js';
 import { CANONICAL_IGNORED_DIRS } from '../../utils/ignoredDirs.js';
 
 export interface AuditSecurityOptions {
@@ -252,9 +253,28 @@ export function hasScannableBasename(name: string): boolean {
     name === '.npmrc' ||
     name === '_headers' ||
     name === '_redirects' ||
-    name.startsWith('.env') ||
+    (name.startsWith('.env') && !isEnvTemplatePath(name)) ||
     MAKEFILE_NAMES.has(name)
   );
+}
+
+const ENV_TEMPLATE_SUFFIXES = ['.example', '.sample', '.template'] as const;
+const ENV_TEMPLATE_MIDDLE_RE = /^[a-z0-9_-]+$/i;
+const TRUSTED_GIT_PATHS = ['/usr/bin/git', '/usr/local/bin/git', '/opt/homebrew/bin/git', '/bin/git'] as const;
+
+export function isEnvTemplatePath(relPath: string): boolean {
+  const base = path.basename(relPath).toLowerCase();
+  const suffix = ENV_TEMPLATE_SUFFIXES.find((s) => base.endsWith(s));
+  if (!suffix) return false;
+  const stem = base.slice(0, -suffix.length);
+  if (stem === '.env' || stem === 'env') return true;
+  if (stem.startsWith('.env.')) return ENV_TEMPLATE_MIDDLE_RE.test(stem.slice(5));
+  if (stem.startsWith('env.')) return ENV_TEMPLATE_MIDDLE_RE.test(stem.slice(4));
+  return false;
+}
+
+export function isLiveEnvBasename(name: string): boolean {
+  return (name === '.env' || name.startsWith('.env.')) && !isEnvTemplatePath(name);
 }
 
 export function isScannableFile(entry: fs.Dirent): boolean {
@@ -280,9 +300,463 @@ export function isDockerfileOrExampleEntry(entry: fs.Dirent): boolean {
 }
 
 export function normalizeExampleRelPath(relPath: string, options?: AuditSecurityOptions): string {
-  return options?.includeExamples && relPath.endsWith('.example')
-    ? stripExampleSuffix(relPath)
-    : relPath;
+  if (!options?.includeExamples || !relPath.endsWith('.example') || isEnvTemplatePath(relPath)) {
+    return relPath;
+  }
+  return stripExampleSuffix(relPath);
+}
+
+function trimUnescapedEndBlanks(text: string): string {
+  let end = text.length;
+  while (end > 0 && text.charAt(end - 1) === ' ') {
+    if (text.charAt(end - 2) === '\\') break;
+    end -= 1;
+  }
+  return text.slice(0, end);
+}
+
+export function normalizeGitignoreLine(rawLine: string): string {
+  if (!rawLine || rawLine.startsWith('#')) return '';
+  const trimmed = trimUnescapedEndBlanks(rawLine);
+  return trimmed.replace(/^\\#/, '#');
+}
+
+function readGitignoreLines(dirPath: string): string[] {
+  const giPath = path.join(dirPath, '.gitignore');
+  try {
+    if (!fs.existsSync(giPath) || fs.lstatSync(giPath).isSymbolicLink()) return [];
+    return fs
+      .readFileSync(giPath, 'utf8')
+      .split(/\r?\n/)
+      .map((line) => normalizeGitignoreLine(line))
+      .filter((line) => line.length > 0);
+  } catch (err: unknown) {
+    reportDebugCatchError('security-auditor.readGitignoreLines', err);
+    return [];
+  }
+}
+
+interface CharClassSpec {
+  readonly neg: boolean;
+  readonly chars: ReadonlySet<string>;
+  readonly ranges: readonly (readonly [number, number])[];
+}
+
+type FixedAtom =
+  | { readonly kind: 'any' }
+  | { readonly kind: 'lit'; readonly ch: string }
+  | { readonly kind: 'cls'; readonly spec: CharClassSpec };
+
+function inCodePointRanges(cp: number, ranges: readonly (readonly [number, number])[]): boolean {
+  for (const [lo, hi] of ranges) {
+    if (cp >= lo && cp <= hi) return true;
+  }
+  return false;
+}
+
+function matchCharClass(ch: string, spec: CharClassSpec): boolean {
+  const hit = spec.chars.has(ch) || inCodePointRanges(Number(ch.codePointAt(0)), spec.ranges);
+  return spec.neg ? !hit : hit;
+}
+
+function matchFixedAtom(ch: string, atom: FixedAtom): boolean {
+  if (atom.kind === 'any') return true;
+  if (atom.kind === 'lit') return ch === atom.ch;
+  return matchCharClass(ch, atom.spec);
+}
+
+function findClassEnd(chars: readonly string[], bodyStart: number): number {
+  let i = bodyStart;
+  while (i < chars.length) {
+    const ch = pickAt(chars, i);
+    if (ch === '\\') i += 2;
+    else if (ch === ']' && i > bodyStart) return i;
+    else i += 1;
+  }
+  return -1;
+}
+
+function readClassMember(
+  chars: readonly string[],
+  idx: number,
+  end: number
+): { ch: string; next: number } {
+  const raw = pickAt(chars, idx);
+  if (raw === '\\' && idx + 1 < end) {
+    return { ch: pickAt(chars, idx + 1), next: idx + 2 };
+  }
+  return { ch: raw, next: idx + 1 };
+}
+
+function parseCharClassBody(
+  chars: readonly string[],
+  start: number,
+  end: number,
+  neg: boolean
+): CharClassSpec {
+  const set = new Set<string>();
+  const ranges: Array<readonly [number, number]> = [];
+  let idx = start;
+  while (idx < end) {
+    const first = readClassMember(chars, idx, end);
+    if (first.next + 1 < end && pickAt(chars, first.next) === '-') {
+      const second = readClassMember(chars, first.next + 1, end);
+      ranges.push([Number(first.ch.codePointAt(0)), Number(second.ch.codePointAt(0))]);
+      idx = second.next;
+    } else {
+      set.add(first.ch);
+      idx = first.next;
+    }
+  }
+  return { neg, chars: set, ranges };
+}
+
+function tryParseCharClass(
+  chars: readonly string[],
+  openIdx: number
+): { atom: FixedAtom; next: number } {
+  const lead = pickAt(chars, openIdx + 1);
+  const neg = lead === '!' || lead === '^';
+  const bodyStart = openIdx + (neg ? 2 : 1);
+  const end = findClassEnd(chars, bodyStart);
+  if (end === -1) return { atom: { kind: 'lit', ch: '[' }, next: openIdx + 1 };
+  return {
+    atom: { kind: 'cls', spec: parseCharClassBody(chars, bodyStart, end, neg) },
+    next: end + 1,
+  };
+}
+
+function readSingleFixedAtom(
+  chars: readonly string[],
+  idx: number
+): { atom: FixedAtom; next: number } {
+  const ch = pickAt(chars, idx);
+  if (ch === '\\' && idx + 1 < chars.length) {
+    return { atom: { kind: 'lit', ch: pickAt(chars, idx + 1) }, next: idx + 2 };
+  }
+  if (ch === '?') return { atom: { kind: 'any' }, next: idx + 1 };
+  if (ch === '[') return tryParseCharClass(chars, idx);
+  return { atom: { kind: 'lit', ch }, next: idx + 1 };
+}
+
+function tokenizeWildcardSegment(pat: string): {
+  readonly first: readonly FixedAtom[];
+  readonly middle: readonly (readonly FixedAtom[])[];
+  readonly last: readonly FixedAtom[] | null;
+} {
+  const chars = Array.from(pat);
+  const first: FixedAtom[] = [];
+  const middle: FixedAtom[][] = [];
+  let last: FixedAtom[] | null = null;
+  let current = first;
+  let idx = 0;
+  while (idx < chars.length) {
+    if (pickAt(chars, idx) === '*') {
+      if (last !== null) middle.push(last);
+      last = [];
+      current = last;
+      idx += 1;
+    } else {
+      const step = readSingleFixedAtom(chars, idx);
+      current.push(step.atom);
+      idx = step.next;
+    }
+  }
+  return { first, middle, last };
+}
+
+function matchFixedTokenAt(
+  tChars: readonly string[],
+  token: readonly FixedAtom[],
+  offset: number
+): boolean {
+  for (const [i, atom] of token.entries()) {
+    if (!matchFixedAtom(pickAt(tChars, offset + i), atom)) return false;
+  }
+  return true;
+}
+
+function findFixedWildcardToken(
+  tChars: readonly string[],
+  token: readonly FixedAtom[],
+  fromPos: number,
+  endLimit: number
+): number {
+  for (let pos = fromPos; pos + token.length <= endLimit; pos++) {
+    if (matchFixedTokenAt(tChars, token, pos)) return pos;
+  }
+  return -1;
+}
+
+function matchMiddleWildcardParts(
+  tChars: readonly string[],
+  middle: readonly (readonly FixedAtom[])[],
+  startPos: number,
+  endLimit: number
+): boolean {
+  let pos = startPos;
+  for (const token of middle) {
+    const found = findFixedWildcardToken(tChars, token, pos, endLimit);
+    if (found === -1) return false;
+    pos = found + token.length;
+  }
+  return true;
+}
+
+function matchWildcardEndpoints(
+  tChars: readonly string[],
+  first: readonly FixedAtom[],
+  last: readonly FixedAtom[],
+  endLimit: number
+): boolean {
+  if (first.length > endLimit) return false;
+  if (!matchFixedTokenAt(tChars, first, 0)) return false;
+  return matchFixedTokenAt(tChars, last, endLimit);
+}
+
+export function wildcardSegmentMatch(text: string, pat: string): boolean {
+  if (text.includes('/')) return false;
+  const tChars = Array.from(text);
+  const { first, middle, last } = tokenizeWildcardSegment(pat);
+  if (last === null) {
+    return tChars.length === first.length && matchFixedTokenAt(tChars, first, 0);
+  }
+  const endLimit = tChars.length - last.length;
+  if (!matchWildcardEndpoints(tChars, first, last, endLimit)) return false;
+  return matchMiddleWildcardParts(tChars, middle, first.length, endLimit);
+}
+
+function matchDoubleStarTail(relSegs: readonly string[], patSegs: readonly string[]): boolean {
+  if (matchAnchoredSegments(relSegs, patSegs.slice(1))) return true;
+  return relSegs.length > 0 && matchAnchoredSegments(relSegs.slice(1), patSegs);
+}
+
+function matchAnchoredSegments(relSegs: readonly string[], patSegs: readonly string[]): boolean {
+  if (patSegs.length === 0) return relSegs.length === 0;
+  const head = pickAt(patSegs, 0);
+  if (head === '**') return matchDoubleStarTail(relSegs, patSegs);
+  if (relSegs.length === 0) return false;
+  return (
+    wildcardSegmentMatch(pickAt(relSegs, 0), head) &&
+    matchAnchoredSegments(relSegs.slice(1), patSegs.slice(1))
+  );
+}
+
+function splitAnchoredPattern(cleaned: string): string[] | null {
+  if (cleaned.startsWith('/')) return cleaned.slice(1).split('/');
+  if (cleaned.includes('/')) return cleaned.split('/');
+  return null;
+}
+
+function matchDirectoryIgnorePattern(dirSegs: readonly string[], cleaned: string): boolean {
+  if (dirSegs.length === 0) return false;
+  const anchored = splitAnchoredPattern(cleaned);
+  if (anchored) return matchAnchoredSegments(dirSegs, [...anchored, '**']);
+  return dirSegs.some((seg) => wildcardSegmentMatch(seg, cleaned));
+}
+
+function envIgnorePatternMatches(rel: string, baseName: string, rawPat: string): boolean {
+  const dirOnly = rawPat.endsWith('/');
+  const cleaned = dirOnly ? rawPat.slice(0, -1) : rawPat;
+  if (!cleaned) return false;
+  if (dirOnly) return matchDirectoryIgnorePattern(rel.split('/').slice(0, -1), cleaned);
+  const anchored = splitAnchoredPattern(cleaned);
+  if (anchored) return matchAnchoredSegments(rel.split('/'), anchored);
+  return wildcardSegmentMatch(baseName, cleaned);
+}
+
+function dirPatternMatchesTarget(relDir: string, dirName: string, rawPat: string): boolean {
+  const cleaned = rawPat.endsWith('/') ? rawPat.slice(0, -1) : rawPat;
+  if (!cleaned) return false;
+  const anchored = splitAnchoredPattern(cleaned);
+  return anchored ? matchAnchoredSegments(relDir.split('/'), anchored) : wildcardSegmentMatch(dirName, cleaned);
+}
+
+function applyDirIgnorePatterns(
+  relDir: string,
+  dirName: string,
+  patterns: readonly string[],
+  initialIgnored: boolean
+): boolean {
+  let ignored = initialIgnored;
+  for (const pat of patterns) {
+    const isNeg = pat.startsWith('!');
+    const body = isNeg ? pat.slice(1) : pat;
+    if (dirPatternMatchesTarget(relDir, dirName, body)) {
+      ignored = !isNeg;
+    }
+  }
+  return ignored;
+}
+
+function hasExcludedAncestorDirectory(dirs: readonly string[]): boolean {
+  for (let i = 1; i < dirs.length; i++) {
+    const targetDir = pickAt(dirs, i);
+    const dirName = path.basename(targetDir);
+    let dirIgnored = false;
+    for (let j = 0; j < i; j++) {
+      const ruleDir = pickAt(dirs, j);
+      const relDir = path.relative(ruleDir, targetDir).replace(/\\/g, '/');
+      dirIgnored = applyDirIgnorePatterns(relDir, dirName, readGitignoreLines(ruleDir), dirIgnored);
+    }
+    if (dirIgnored) return true;
+  }
+  return false;
+}
+
+function applyGitignorePatterns(
+  rel: string,
+  baseName: string,
+  patterns: readonly string[],
+  initialIgnored: boolean
+): boolean {
+  let ignored = initialIgnored;
+  for (const pat of patterns) {
+    const isNeg = pat.startsWith('!');
+    const body = isNeg ? pat.slice(1) : pat;
+    if (envIgnorePatternMatches(rel, baseName, body)) {
+      ignored = !isNeg;
+    }
+  }
+  return ignored;
+}
+
+export function findGitWorktreeRoot(startDir: string): string | null {
+  let cur = path.resolve(startDir);
+  while (true) {
+    if (fs.existsSync(path.join(cur, '.git'))) return cur;
+    const parent = path.dirname(cur);
+    if (parent === cur) return null;
+    cur = parent;
+  }
+}
+
+function collectDirectoryChain(stopRoot: string, targetDir: string): string[] {
+  const resolvedStop = path.resolve(stopRoot);
+  const chain: string[] = [];
+  let cur = path.resolve(targetDir);
+  while (true) {
+    chain.push(cur);
+    if (cur === resolvedStop) break;
+    const parent = path.dirname(cur);
+    if (parent === cur) break;
+    cur = parent;
+  }
+  return chain.reverse();
+}
+
+export function resolveTrustedGitExecutable(
+  candidates: readonly string[] = TRUSTED_GIT_PATHS
+): string | null {
+  return candidates.find((p) => fs.existsSync(p)) ?? null;
+}
+
+const GIT_SUBPROCESS_ENV = { PATH: '/usr/local/bin:/usr/bin:/bin', GIT_TERMINAL_PROMPT: '0' } as const;
+
+export function loadGitTrackedSet(
+  dirPath: string,
+  gitCandidates: readonly string[] = TRUSTED_GIT_PATHS
+): ReadonlySet<string> {
+  if (!findGitWorktreeRoot(dirPath)) {
+    return new Set<string>();
+  }
+  const gitBin = resolveTrustedGitExecutable(gitCandidates);
+  if (!gitBin) {
+    return new Set<string>();
+  }
+  try {
+    const out = execFileSync(
+      gitBin,
+      ['-c', 'safe.directory=*', '-c', 'core.quotePath=false', '-C', dirPath, 'ls-files'],
+      {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: 5000,
+        env: GIT_SUBPROCESS_ENV,
+      }
+    );
+    return new Set(
+      out
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+    );
+  } catch (err: unknown) {
+    reportDebugCatchError('security-auditor.loadGitTrackedSet', err);
+    return new Set<string>();
+  }
+}
+
+export function queryGitIgnoredSet(
+  dirPath: string,
+  relPaths: readonly string[],
+  gitCandidates: readonly string[] = TRUSTED_GIT_PATHS
+): ReadonlySet<string> | null {
+  if (relPaths.length === 0) return new Set<string>();
+  if (!findGitWorktreeRoot(dirPath)) return null;
+  const gitBin = resolveTrustedGitExecutable(gitCandidates);
+  if (!gitBin) return null;
+  try {
+    const out = execFileSync(
+      gitBin,
+      ['-c', 'safe.directory=*', '-C', dirPath, 'check-ignore', '-z', '--stdin'],
+      {
+        input: `${relPaths.join('\0')}\0`,
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'ignore'],
+        timeout: 5000,
+        env: GIT_SUBPROCESS_ENV,
+      }
+    );
+    return new Set(out.split('\0').filter((entry) => entry.length > 0));
+  } catch (err: unknown) {
+    if (typeof err === 'object' && err !== null && 'status' in err && err.status === 1) {
+      return new Set<string>();
+    }
+    reportDebugCatchError('security-auditor.queryGitIgnoredSet', err);
+    return null;
+  }
+}
+
+export function isEnvIgnoredByFallbackRules(stopRoot: string, absFile: string): boolean {
+  const baseName = path.basename(absFile);
+  const dirs = collectDirectoryChain(stopRoot, path.dirname(absFile));
+  if (hasExcludedAncestorDirectory(dirs)) return true;
+  let ignored = false;
+  for (const dir of dirs) {
+    const relFromDir = path.relative(dir, absFile).replace(/\\/g, '/');
+    ignored = applyGitignorePatterns(relFromDir, baseName, readGitignoreLines(dir), ignored);
+  }
+  return ignored;
+}
+
+function collectUntrackedLiveEnvRels(
+  rootDir: string,
+  matched: readonly string[],
+  trackedFiles: ReadonlySet<string>
+): string[] {
+  const rels: string[] = [];
+  for (const absFile of matched) {
+    if (!isLiveEnvBasename(path.basename(absFile))) continue;
+    const rel = path.relative(rootDir, absFile).replace(/\\/g, '/');
+    if (!trackedFiles.has(rel)) rels.push(rel);
+  }
+  return rels;
+}
+
+interface EnvIgnoreContext {
+  readonly rootDir: string;
+  readonly stopRoot: string;
+  readonly trackedFiles: ReadonlySet<string>;
+  readonly gitIgnoredSet: ReadonlySet<string> | null;
+}
+
+function shouldExcludeUntrackedIgnoredEnv(absFile: string, ctx: EnvIgnoreContext): boolean {
+  if (!isLiveEnvBasename(path.basename(absFile))) return false;
+  const rel = path.relative(ctx.rootDir, absFile).replace(/\\/g, '/');
+  if (ctx.trackedFiles.has(rel)) return false;
+  if (ctx.gitIgnoredSet !== null) return ctx.gitIgnoredSet.has(rel);
+  return isEnvIgnoredByFallbackRules(ctx.stopRoot, absFile);
 }
 
 export function shouldSkipDirectory(entry: fs.Dirent): boolean {
@@ -324,15 +798,28 @@ export function collectMatchingFiles(
  */
 export function collectFiles(dirPath: string, options?: AuditSecurityOptions): string[] {
   const predicate = options?.includeExamples ? isScannableFileOrExample : isScannableFile;
-  return collectMatchingFiles(dirPath, predicate);
+  const matched = collectMatchingFiles(dirPath, predicate);
+  if (!matched.some((f) => isLiveEnvBasename(path.basename(f)))) {
+    return matched;
+  }
+  const stopRoot = findGitWorktreeRoot(dirPath) ?? path.resolve(dirPath);
+  const trackedFiles = loadGitTrackedSet(dirPath);
+  const untrackedEnvRels = collectUntrackedLiveEnvRels(dirPath, matched, trackedFiles);
+  const ctx: EnvIgnoreContext = {
+    rootDir: dirPath,
+    stopRoot,
+    trackedFiles,
+    gitIgnoredSet: queryGitIgnoredSet(dirPath, untrackedEnvRels),
+  };
+  return matched.filter((absFile) => !shouldExcludeUntrackedIgnoredEnv(absFile, ctx));
 }
 
 
 export function isTestFilePath(relPath: string): boolean {
-  const norm = relPath.replace(/\\/g, '/');
+  const norm = stripExampleSuffix(relPath.replace(/\\/g, '/'));
   return (
     /(^|\/)(tests?|__tests__|spec)\//i.test(norm) ||
-    /\.(unit|spec|test|e2e)\.(py|ts|tsx|js|jsx|php)$/i.test(norm) ||
+    /\.(unit|spec|test|e2e)\.(py|ts|tsx|mts|js|jsx|mjs|cjs|php)$/i.test(norm) ||
     /(^|\/)test_[^/]+\.py$/i.test(norm) ||
     norm.endsWith('Test.php') ||
     norm.endsWith('.bats')

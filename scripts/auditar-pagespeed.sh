@@ -32,7 +32,7 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
-exec docker run --rm \
+exec docker run --rm --restart=no \
   --security-opt=no-new-privileges:true \
   -u "$(id -u):$(id -g)" \
   -e HOME=/tmp \

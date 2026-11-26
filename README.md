@@ -105,7 +105,7 @@ All runtime, lint, mutation, contract, and BDD suites execute inside non-root co
 
 The matrix covers **10 hydratable stacks** (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`) plus **`architecture/`** (FINOS CALM topology) and **`mcp-server/`** (`@sinfallas/mcp-qa-11x`), forming the **12 matrix environments**:
 
-| Directory | Domain | Key Capabilities (v3.8) |
+| Directory | Domain | Key Capabilities (QA-11X v3.9) |
 | :--- | :--- | :--- |
 | **[`fastapi/`](fastapi/)** | Python Async APIs | Ruff, Mypy strict, PostgreSQL 17 RLS + Alembic parity, Pact V4 consumer ([`test_pact_consumer.py`](fastapi/tests/contracts/test_pact_consumer.py)), k6 smoke load ([`smoke.k6.js`](fastapi/tests/load/smoke.k6.js)), Karate BDD |
 | **[`python/`](python/)** | Python Libraries & CLIs | UV, Ruff (`CC <= 5`), Mypy strict, Pytest `>= 95%`, Hypothesis, Mutmut (`MSI >= 80%`), Bandit |

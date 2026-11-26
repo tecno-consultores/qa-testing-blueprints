@@ -17,8 +17,6 @@ build-ui:
 	@echo "🏗️ Compilando la aplicación (Vue/Vite) para entorno E2E/Producción..."
 	@mkdir -p "$(PROJECT_DIR)/dist"
 	@docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) bash -c "pnpm install --silent && pnpm --silent run build"
-	@bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f \"$(COMPOSE_FILE)\" down --remove-orphans >/dev/null 2>&1 || true" ERR INT TERM; \
-		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" up -d --wait --wait-timeout 60 ui-prod'
 
 qa-lint:
 	@echo "🔍 [11X] Ejecutando Auditoría de CVEs, Linter, Types y Formateo (Vue/TS)..."
@@ -32,7 +30,7 @@ qa-unit:
 qa-orphans:
 	@echo "🧩 [11X] Verificando cero componentes UI huérfanos en Docker (Rule Zero)..."
 	@if [ -f .agents/scripts/verify_zero_orphan_vue_components.py ]; then \
-		docker run --rm --network none --security-opt=no-new-privileges:true -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp -v "$(PROJECT_DIR):/app:ro" -w /app $(PYTHON_QA_IMAGE) python3 .agents/scripts/verify_zero_orphan_vue_components.py; \
+		docker run --rm --restart=no --network none --security-opt=no-new-privileges:true -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp -v "$(PROJECT_DIR):/app:ro" -w /app $(PYTHON_QA_IMAGE) python3 .agents/scripts/verify_zero_orphan_vue_components.py; \
 	else \
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" run --rm -T -u "$(QA_UID):$(QA_GID)" $(SERVICE_NAME) node -e "const fs=require('fs'),p=require('path');const walk=d=>fs.existsSync(d)?fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(p.join(d,e.name)):[p.join(d,e.name)]):[];const tests=walk('src').concat(walk('tests')).concat(walk('test')).filter(f=>/\.(unit|spec|test)\.(ts|tsx|js|jsx)$$|\.(test)\.vue$$/.test(f));const comps=walk('src/components').concat(walk('src/views')).concat(walk('src/pages')).filter(f=>f.endsWith('.vue'));const m=comps.filter(c=>{const b=p.basename(c,'.vue');return !tests.some(t=>p.basename(t).startsWith(b+'.'));});if(m.length){console.error('Componentes huerfanos:',m);process.exit(1)}"; \
 	fi
@@ -70,7 +68,7 @@ qa-psi:
 		echo "⚠️ [SKIPPED] No se encontró .agents/scripts/audit_pagespeed_insights.py."; \
 		exit 0; \
 	fi; \
-	docker run --rm --security-opt=no-new-privileges:true -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp -e PAGESPEED_API_KEY -e PSI_URL="$$target_url" -v "$(PROJECT_DIR):/app" -w /app $(PYTHON_QA_IMAGE) python3 .agents/scripts/audit_pagespeed_insights.py
+	docker run --rm --restart=no --security-opt=no-new-privileges:true -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp -e PAGESPEED_API_KEY -e PSI_URL="$$target_url" -v "$(PROJECT_DIR):/app" -w /app $(PYTHON_QA_IMAGE) python3 .agents/scripts/audit_pagespeed_insights.py
 
 qa-obs: build-ui
 	@echo "📊 Levantando Stack de Observabilidad Frontend..."

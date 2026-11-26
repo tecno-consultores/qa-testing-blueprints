@@ -68,7 +68,7 @@ compact-context:
 	@if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		python3 .agents/scripts/compact_context_11x.py $(COMPACT_ARGS); \
 	else \
-		docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app" -w /app $(PY_IMG) python3 .agents/scripts/compact_context_11x.py $(COMPACT_ARGS); \
+		docker run --rm --restart=no --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app" -w /app $(PY_IMG) python3 .agents/scripts/compact_context_11x.py $(COMPACT_ARGS); \
 	fi
 
 lint-workflows:
@@ -81,30 +81,30 @@ lint-workflows:
 			echo "⚠️ [SKIPPED] actionlint no disponible en contenedor aislado"; \
 		fi; \
 	else \
-		docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/lint_workflows.py --workspace /app || exit 1; \
+		docker run --rm --restart=no --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/lint_workflows.py --workspace /app || exit 1; \
 		set --; for wf in .github/workflows/*.yml .github/workflows/*.yaml; do [ -e "$$wf" ] && set -- "$$@" "$$wf"; done; \
-		[ "$$#" -eq 0 ] || docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -v "$$(pwd):/repo:ro" -w /repo $(ACTIONLINT_IMG) -color "$$@" || exit 1; \
+		[ "$$#" -eq 0 ] || docker run --rm --restart=no --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -v "$$(pwd):/repo:ro" -w /repo $(ACTIONLINT_IMG) -color "$$@" || exit 1; \
 	fi
 
 lint-docs:
 	@if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		python3 .agents/scripts/lint_docs_gate.py --workspace .; \
 	else \
-		docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/lint_docs_gate.py --workspace /app; \
+		docker run --rm --restart=no --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/lint_docs_gate.py --workspace /app; \
 	fi
 
 sync-governance:
 	@if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		python3 .agents/scripts/sync_governance.py; \
 	else \
-		docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app" -w /app $(PY_IMG) python3 .agents/scripts/sync_governance.py; \
+		docker run --rm --restart=no --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app" -w /app $(PY_IMG) python3 .agents/scripts/sync_governance.py; \
 	fi
 
 version-check:
 	@if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		python3 .agents/scripts/bump_version_11x.py --workspace . --check; \
 	else \
-		docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/bump_version_11x.py --workspace /app --check; \
+		docker run --rm --restart=no --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/bump_version_11x.py --workspace /app --check; \
 	fi
 
 validate-calm:
@@ -112,7 +112,7 @@ validate-calm:
 
 lint:
 	@echo "🔍 [Lint] Ejecutando linter y chequeo de tipos en Docker efímero..."
-	@if ! out=$$(docker run --rm --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_OPTIONS="--max-old-space-size=4096" -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_verify_deps_before_run=false -e pnpm_config_manage_package_manager_versions=false -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -v "$$(pwd)/vibe-rescue:/vibe-rescue:ro" -v "$$(pwd)/.github:/.github:ro" -v "$$(pwd)/architecture:/architecture:ro" -v "$$(pwd)/.agents:/.agents:ro" -w /app $(NODE_IMG) bash -c 'pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run lint && pnpm --silent run typecheck' 2>&1); then \
+	@if ! out=$$(docker run --rm --restart=no --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_OPTIONS="--max-old-space-size=4096" -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_verify_deps_before_run=false -e pnpm_config_manage_package_manager_versions=false -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -v "$$(pwd)/vibe-rescue:/vibe-rescue:ro" -v "$$(pwd)/.github:/.github:ro" -v "$$(pwd)/architecture:/architecture:ro" -v "$$(pwd)/.agents:/.agents:ro" -w /app $(NODE_IMG) bash -c 'pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run lint && pnpm --silent run typecheck' 2>&1); then \
 		printf '%s\n' "$$out" >&2; \
 		if printf '%s' "$$out" | grep -qE '$(COMPLEXITY_FAILURE_REGEX)'; then printf '\n%s\n' "$(DIRECTIVE_11X_COMPLEXITY_MSG)" >&2; fi; \
 		exit 1; \
@@ -122,11 +122,11 @@ lint:
 test-mcp:
 	@echo "🧪 [Test MCP] Ejecutando pruebas unitarias Vitest (>= 95%) en Docker efímero..."
 	@mkdir -p .agents/.cache/coverage && chmod 0700 .agents/.cache
-	@docker run --rm --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_OPTIONS="--max-old-space-size=4096" -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_verify_deps_before_run=false -e pnpm_config_manage_package_manager_versions=false -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/.agents/.cache/coverage:/cov-out" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -v "$$(pwd)/vibe-rescue:/vibe-rescue:ro" -v "$$(pwd)/.github:/.github:ro" -v "$$(pwd)/architecture:/architecture:ro" -v "$$(pwd)/.agents:/.agents:ro" -v "$$(pwd)/fastapi:/fastapi:ro" -v "$$(pwd)/python:/python:ro" -v "$$(pwd)/node-backend:/node-backend:ro" -v "$$(pwd)/vue3:/vue3:ro" -v "$$(pwd)/react-frontend:/react-frontend:ro" -v "$$(pwd)/php:/php:ro" -v "$$(pwd)/bash-scripts:/bash-scripts:ro" -v "$$(pwd)/ai-evals:/ai-evals:ro" -w /app $(NODE_IMG) bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run test:unit && if [ -f coverage/lcov.info ]; then sed -E 's|^SF:/app/|SF:mcp-server/|; s|^SF:(src/)|SF:mcp-server/\1|' coverage/lcov.info > /cov-out/mcp-server.info; fi && rm -rf coverage .eslintcache"
+	@docker run --rm --restart=no --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_OPTIONS="--max-old-space-size=4096" -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_verify_deps_before_run=false -e pnpm_config_manage_package_manager_versions=false -v "$$(pwd)/mcp-server:/app" -v "$$(pwd)/.agents/.cache/coverage:/cov-out" -v "$$(pwd)/mobile-appium:/mobile-appium:ro" -v "$$(pwd)/vibe-rescue:/vibe-rescue:ro" -v "$$(pwd)/.github:/.github:ro" -v "$$(pwd)/architecture:/architecture:ro" -v "$$(pwd)/.agents:/.agents:ro" -v "$$(pwd)/fastapi:/fastapi:ro" -v "$$(pwd)/python:/python:ro" -v "$$(pwd)/node-backend:/node-backend:ro" -v "$$(pwd)/vue3:/vue3:ro" -v "$$(pwd)/react-frontend:/react-frontend:ro" -v "$$(pwd)/php:/php:ro" -v "$$(pwd)/bash-scripts:/bash-scripts:ro" -v "$$(pwd)/ai-evals:/ai-evals:ro" -w /app $(NODE_IMG) bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run test:unit && if [ -f coverage/lcov.info ]; then sed -E 's|^SF:/app/|SF:mcp-server/|; s|^SF:(src/)|SF:mcp-server/\1|' coverage/lcov.info > /cov-out/mcp-server.info; fi && rm -rf coverage .eslintcache"
 
 test-karate:
 	@echo "🎭 [Karate BDD] Ejecutando contratos BDD del MCP Server en Docker efímero..."
-	@docker run --rm --network none --security-opt=no-new-privileges:true -v "$$(pwd)/mcp-server/test:/app/src/test/java/examples/test:ro" -v "$$(pwd):/repo:ro" $(KARATE_IMG) mvn -B -q clean test
+	@docker run --rm --restart=no --network none --security-opt=no-new-privileges:true -v "$$(pwd)/mcp-server/test:/app/src/test/java/examples/test:ro" -v "$$(pwd):/repo:ro" $(KARATE_IMG) mvn -B -q clean test
 
 test-py:
 	@echo "🐍 [Pytest] Ejecutando pruebas unitarias de gobernanza y manifiesto en Docker efímero..."
@@ -134,23 +134,23 @@ test-py:
 	@if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		COVERAGE_FILE=/tmp/.coverage UV_CACHE_DIR=/tmp/uv-cache PYTHONPATH=.agents/scripts:vibe-rescue:. pytest --cov=.agents/scripts --cov=scripts --cov=vibe-rescue --cov-fail-under=95 --cov-branch --cov-report=xml:.agents/.cache/coverage/python.xml tests/*.unit.py tests/meta_qa/test_*.py vibe-rescue/tests/*.unit.py -q; \
 	else \
-		docker run --rm --network none --security-opt=no-new-privileges:true -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=.agents/scripts:vibe-rescue:. -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app" -w /app $(PY_IMG) pytest --cov=.agents/scripts --cov=scripts --cov=vibe-rescue --cov-fail-under=95 --cov-branch --cov-report=xml:/app/.agents/.cache/coverage/python.xml tests/*.unit.py tests/meta_qa/test_*.py vibe-rescue/tests/*.unit.py -q; \
+		docker run --rm --restart=no --network none --security-opt=no-new-privileges:true -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=.agents/scripts:vibe-rescue:. -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app" -w /app $(PY_IMG) pytest --cov=.agents/scripts --cov=scripts --cov=vibe-rescue --cov-fail-under=95 --cov-branch --cov-report=xml:/app/.agents/.cache/coverage/python.xml tests/*.unit.py tests/meta_qa/test_*.py vibe-rescue/tests/*.unit.py -q; \
 	fi
 
 shellcheck:
 	@echo "🐚 [ShellCheck] Auditando scripts Bash (-x) en Docker efímero..."
-	@docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/repo:ro" -w /repo $(BASH_IMG) bash -c 'shopt -s nullglob; raw=(scripts/*.sh scripts/*.sh.example .agents/scripts/*.sh instalar-hooks.sh */limpieza.sh bash-scripts/*.sh mcp-server/example/verify-v2.sh); if [ "$${#raw[@]}" -gt 0 ]; then mapfile -t files < <(printf "%s\n" "$${raw[@]}" | sort -u); shellcheck -x "$${files[@]}"; fi'
+	@docker run --rm --restart=no --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/repo:ro" -w /repo $(BASH_IMG) bash -c 'shopt -s nullglob; raw=(scripts/*.sh scripts/*.sh.example .agents/scripts/*.sh instalar-hooks.sh */limpieza.sh bash-scripts/*.sh mcp-server/example/verify-v2.sh); if [ "$${#raw[@]}" -gt 0 ]; then mapfile -t files < <(printf "%s\n" "$${raw[@]}" | sort -u); shellcheck -x "$${files[@]}"; fi'
 	@echo "✔ [ShellCheck] 0 hallazgos en scripts Bash."
 
 shfmt:
 	@echo "📐 [shfmt] Verificando formato Bash (shfmt -i 2 -ci -d) en Docker efímero..."
-	@docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/repo:ro" -w /repo $(BASH_IMG) bash -c 'shopt -s nullglob; raw=(scripts/*.sh scripts/*.sh.example .agents/scripts/*.sh instalar-hooks.sh */limpieza.sh bash-scripts/*.sh mcp-server/example/verify-v2.sh); if [ "$${#raw[@]}" -gt 0 ]; then mapfile -t files < <(printf "%s\n" "$${raw[@]}" | sort -u); shfmt -i 2 -ci -d "$${files[@]}"; fi'
+	@docker run --rm --restart=no --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/repo:ro" -w /repo $(BASH_IMG) bash -c 'shopt -s nullglob; raw=(scripts/*.sh scripts/*.sh.example .agents/scripts/*.sh instalar-hooks.sh */limpieza.sh bash-scripts/*.sh mcp-server/example/verify-v2.sh); if [ "$${#raw[@]}" -gt 0 ]; then mapfile -t files < <(printf "%s\n" "$${raw[@]}" | sort -u); shfmt -i 2 -ci -d "$${files[@]}"; fi'
 	@echo "✔ [shfmt] Formato Bash conforme."
 
 test-bats:
 	@echo "🦇 [BATS + kcov] Ejecutando pruebas BATS y generando Cobertura XML en Docker efímero..."
 	@mkdir -p .agents/.cache/coverage && chmod 0700 .agents/.cache
-	@docker run --rm --network none --cap-drop=ALL --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e _USER=qa -v "$$(pwd):/repo:ro" -v "$$(pwd)/.agents/.cache/coverage:/cov-out" -w /repo $(BASH_IMG) python3 -c 'import pathlib, shutil, stat, subprocess, sys; shutil.rmtree("/tmp/kcov-bash", ignore_errors=True); pathlib.Path("/tmp/kcov-env.sh").write_text("if [[ \"$${KCOV_BASH_XTRACEFD:-}\" =~ ^[0-9]+$$ ]] && [ -p \"/proc/$${BASHPID}/fd/$${KCOV_BASH_XTRACEFD}\" ]; then\n  PS4=\x27kcov@$${BASH_SOURCE}@$${LINENO}@\x27\n  BASH_XTRACEFD=\"$${KCOV_BASH_XTRACEFD}\"\n  set -x\nfi\n", encoding="utf-8"); rb = pathlib.Path("/tmp/run-bats.sh"); rb.write_text("#!/usr/bin/env bash\nexport -n BASH_XTRACEFD 2>/dev/null || unset BASH_XTRACEFD\nexport BASH_ENV=/tmp/kcov-env.sh\nexec bats \"$$@\"\n", encoding="utf-8"); rb.chmod(rb.stat().st_mode | stat.S_IXUSR); p = subprocess.run(["kcov", "--bash-dont-parse-binary-dir", "--include-path=/repo,/tmp", "--exclude-pattern=/repo/tests,/repo/bash-scripts/test,/tmp/kcov-bash,/tmp/kcov-env.sh,/tmp/run-bats.sh,.bats.src,/tmp/bats-mock", "/tmp/kcov-bash", "/tmp/run-bats.sh", "tests/bats/", "bash-scripts/test/"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True); sys.stdout.write(p.stdout); (sys.stderr.write("\n".join(p.stderr.splitlines()[-40:]) + "\n") if p.returncode != 0 and "\nnot ok " not in ("\n" + p.stdout) else None); sys.exit(p.returncode) if p.returncode != 0 else None; subprocess.run(["/usr/bin/python3", "/repo/.agents/scripts/normalize_kcov_cobertura.py", "--repo", "/repo", "--kcov-dir", "/tmp/kcov-bash", "--output", "/cov-out/bash.xml"], check=True)'
+	@docker run --rm --restart=no --network none --cap-drop=ALL --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e _USER=qa -v "$$(pwd):/repo:ro" -v "$$(pwd)/.agents/.cache/coverage:/cov-out" -w /repo $(BASH_IMG) python3 -c 'import pathlib, shutil, stat, subprocess, sys; shutil.rmtree("/tmp/kcov-bash", ignore_errors=True); pathlib.Path("/tmp/kcov-env.sh").write_text("if [[ \"$${KCOV_BASH_XTRACEFD:-}\" =~ ^[0-9]+$$ ]] && [ -p \"/proc/$${BASHPID}/fd/$${KCOV_BASH_XTRACEFD}\" ]; then\n  PS4=\x27kcov@$${BASH_SOURCE}@$${LINENO}@\x27\n  BASH_XTRACEFD=\"$${KCOV_BASH_XTRACEFD}\"\n  set -x\nfi\n", encoding="utf-8"); rb = pathlib.Path("/tmp/run-bats.sh"); rb.write_text("#!/usr/bin/env bash\nexport -n BASH_XTRACEFD 2>/dev/null || unset BASH_XTRACEFD\nexport BASH_ENV=/tmp/kcov-env.sh\nexec bats \"$$@\"\n", encoding="utf-8"); rb.chmod(rb.stat().st_mode | stat.S_IXUSR); p = subprocess.run(["kcov", "--bash-dont-parse-binary-dir", "--include-path=/repo,/tmp", "--exclude-pattern=/repo/tests,/repo/bash-scripts/test,/tmp/kcov-bash,/tmp/kcov-env.sh,/tmp/run-bats.sh,.bats.src,/tmp/bats-mock", "/tmp/kcov-bash", "/tmp/run-bats.sh", "tests/bats/", "bash-scripts/test/"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True); sys.stdout.write(p.stdout); (sys.stderr.write("\n".join(p.stderr.splitlines()[-40:]) + "\n") if p.returncode != 0 and "\nnot ok " not in ("\n" + p.stdout) else None); sys.exit(p.returncode) if p.returncode != 0 else None; subprocess.run(["/usr/bin/python3", "/repo/.agents/scripts/normalize_kcov_cobertura.py", "--repo", "/repo", "--kcov-dir", "/tmp/kcov-bash", "--output", "/cov-out/bash.xml"], check=True)'
 	@echo "✔ [BATS + kcov] Suites BATS OK y reporte Cobertura emitido en .agents/.cache/coverage/bash.xml."
 
 diff-cov:
@@ -158,7 +158,7 @@ diff-cov:
 	@if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		python3 .agents/scripts/verify_diff_coverage.py --workspace . --reports-dir .agents/.cache/coverage $(if $(BASE_REF),--base-ref "$(BASE_REF)",); \
 	else \
-		docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/verify_diff_coverage.py --workspace /app --reports-dir .agents/.cache/coverage $(if $(BASE_REF),--base-ref "$(BASE_REF)",); \
+		docker run --rm --restart=no --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/verify_diff_coverage.py --workspace /app --reports-dir .agents/.cache/coverage $(if $(BASE_REF),--base-ref "$(BASE_REF)",); \
 	fi
 
 pr-verdict:
@@ -166,7 +166,7 @@ pr-verdict:
 	@if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		python3 .agents/scripts/generate_pr_verdict.py --workspace . --output-md .agents/artifacts/PR_VERDICT.md --output-json .agents/artifacts/pr_verdict_attestation.json; \
 	else \
-		docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e QA11X_ATTESTATION_KEY -v "$$(pwd):/app" -w /app $(PY_IMG) python3 .agents/scripts/generate_pr_verdict.py --workspace /app --output-md .agents/artifacts/PR_VERDICT.md --output-json .agents/artifacts/pr_verdict_attestation.json; \
+		docker run --rm --restart=no --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e QA11X_ATTESTATION_KEY -v "$$(pwd):/app" -w /app $(PY_IMG) python3 .agents/scripts/generate_pr_verdict.py --workspace /app --output-md .agents/artifacts/PR_VERDICT.md --output-json .agents/artifacts/pr_verdict_attestation.json; \
 	fi
 
 test-meta-qa:
@@ -178,7 +178,7 @@ test-meta-qa:
 			exit 1; \
 		fi; \
 	else \
-		if ! out=$$(docker run --rm --network none --security-opt=no-new-privileges:true -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(PY_IMG) sh -c "$$cmd" 2>&1); then \
+		if ! out=$$(docker run --rm --restart=no --network none --security-opt=no-new-privileges:true -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(PY_IMG) sh -c "$$cmd" 2>&1); then \
 			printf '%s\n' "$$out" >&2; \
 			if printf '%s' "$$out" | grep -qE '$(COMPLEXITY_FAILURE_REGEX)'; then printf '\n%s\n' "$(DIRECTIVE_11X_COMPLEXITY_MSG)" >&2; fi; \
 			exit 1; \
@@ -337,8 +337,8 @@ test-frontend-blueprints:
 		node /tmp/verify_screenplay.mts >/dev/null && \
 		python3 .agents/scripts/lint_test_antipatterns.py vue3 react-frontend; \
 	else \
-		printf '%s\n' "$$node_script" | docker run --rm --network none --security-opt=no-new-privileges:true -i -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(NODE_IMG) sh -c 'tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module ESNext --moduleResolution Bundler --noEmit vue3/tests/screenplay/Actor.ts react-frontend/tests/screenplay/Actor.ts vue3/tests/utils/semanticLocator.ts react-frontend/tests/utils/semanticLocator.ts && cat > /tmp/verify_screenplay.mts && node /tmp/verify_screenplay.mts >/dev/null && if [ -x /app/mcp-server/node_modules/.bin/eslint ]; then printf "%s\n" "import { createRequire } from \"node:module\"; const req = createRequire(\"/app/mcp-server/package.json\"); const js = req(\"@eslint/js\"); const tseslint = req(\"typescript-eslint\"); const sonarjs = req(\"eslint-plugin-sonarjs\"); const security = req(\"eslint-plugin-security\"); export default tseslint.config(js.configs.recommended, ...tseslint.configs.recommended, sonarjs.configs.recommended, security.configs.recommended, { files: [\"**/*.ts\"], rules: { complexity: [\"error\", 5], \"max-params\": [\"error\", 4], \"max-depth\": [\"error\", 3], \"sonarjs/cognitive-complexity\": [\"error\", 15], \"sonarjs/no-duplicate-string\": \"off\", \"security/detect-object-injection\": \"off\", \"security/detect-non-literal-regexp\": \"error\", \"@typescript-eslint/no-explicit-any\": \"error\" } });" > /tmp/bp_eslint.mjs && /app/mcp-server/node_modules/.bin/eslint --no-config-lookup --config /tmp/bp_eslint.mjs --max-warnings 0 vue3/tests/screenplay/Actor.ts vue3/tests/utils/semanticLocator.ts vue3/e2e/accessibility.e2e.ts react-frontend/tests/screenplay/Actor.ts react-frontend/tests/utils/semanticLocator.ts react-frontend/e2e/accessibility.e2e.ts >/dev/null; fi' && \
-		lint_out=$$(docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/lint_test_antipatterns.py vue3 react-frontend) && \
+		printf '%s\n' "$$node_script" | docker run --rm --restart=no --network none --security-opt=no-new-privileges:true -i -u "$$(id -u):$$(id -g)" -e HOME=/tmp -v "$$(pwd):/app:ro" -w /app $(NODE_IMG) sh -c 'tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module ESNext --moduleResolution Bundler --noEmit vue3/tests/screenplay/Actor.ts react-frontend/tests/screenplay/Actor.ts vue3/tests/utils/semanticLocator.ts react-frontend/tests/utils/semanticLocator.ts && cat > /tmp/verify_screenplay.mts && node /tmp/verify_screenplay.mts >/dev/null && if [ -x /app/mcp-server/node_modules/.bin/eslint ]; then printf "%s\n" "import { createRequire } from \"node:module\"; const req = createRequire(\"/app/mcp-server/package.json\"); const js = req(\"@eslint/js\"); const tseslint = req(\"typescript-eslint\"); const sonarjs = req(\"eslint-plugin-sonarjs\"); const security = req(\"eslint-plugin-security\"); export default tseslint.config(js.configs.recommended, ...tseslint.configs.recommended, sonarjs.configs.recommended, security.configs.recommended, { files: [\"**/*.ts\"], rules: { complexity: [\"error\", 5], \"max-params\": [\"error\", 4], \"max-depth\": [\"error\", 3], \"sonarjs/cognitive-complexity\": [\"error\", 15], \"sonarjs/no-duplicate-string\": \"off\", \"security/detect-object-injection\": \"off\", \"security/detect-non-literal-regexp\": \"error\", \"@typescript-eslint/no-explicit-any\": \"error\" } });" > /tmp/bp_eslint.mjs && /app/mcp-server/node_modules/.bin/eslint --no-config-lookup --config /tmp/bp_eslint.mjs --max-warnings 0 vue3/tests/screenplay/Actor.ts vue3/tests/utils/semanticLocator.ts vue3/e2e/accessibility.e2e.ts react-frontend/tests/screenplay/Actor.ts react-frontend/tests/utils/semanticLocator.ts react-frontend/e2e/accessibility.e2e.ts >/dev/null; fi' && \
+		lint_out=$$(docker run --rm --restart=no --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/lint_test_antipatterns.py vue3 react-frontend) && \
 		echo "✅ [test-frontend-blueprints] TS estricto + Screenplay RBAC + Self-Healing DOM (vue3/react) OK | $$lint_out"; \
 	fi
 
@@ -382,16 +382,16 @@ test-backend-blueprints:
 		'raise SystemExit(1)' \
 	); \
 	{ \
-		docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -e PACT_OUTPUT_DIR=/pacts -v "$$(pwd):/app:ro" -v "$$pact_dir:/pacts" -w /app $(PY_IMG) sh -c 'ruff check --select E,F,W,I,UP,B,C901,FLY --config "lint.mccabe.max-complexity=5" fastapi/tests/contracts/test_pact_consumer.py && mypy --strict --cache-dir=/tmp/mypy fastapi/tests/contracts/test_pact_consumer.py && pytest --cov=fastapi/tests/contracts --cov-fail-under=95 --cov-report=term-missing fastapi/tests/contracts/test_pact_consumer.py' && \
+		docker run --rm --restart=no --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -e PACT_OUTPUT_DIR=/pacts -v "$$(pwd):/app:ro" -v "$$pact_dir:/pacts" -w /app $(PY_IMG) sh -c 'ruff check --select E,F,W,I,UP,B,C901,FLY --config "lint.mccabe.max-complexity=5" fastapi/tests/contracts/test_pact_consumer.py && mypy --strict --cache-dir=/tmp/mypy fastapi/tests/contracts/test_pact_consumer.py && pytest --cov=fastapi/tests/contracts --cov-fail-under=95 --cov-report=term-missing fastapi/tests/contracts/test_pact_consumer.py' && \
 		test -s "$$pact_dir/fastapi-billing-consumer-node-inventory-provider.json" && \
-		docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_PATH=/opt/qa11x/node_modules -e PACT_OUTPUT_DIR=/pacts -v "$$(pwd):/app:ro" -v "$$pact_dir:/pacts:ro" -w /app $(NODE_IMG) sh -c 'tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module NodeNext --moduleResolution NodeNext --typeRoots /opt/qa11x/node_modules/@types --types node --noEmit node-backend/tests/contracts/provider.pact.test.ts && node --test node-backend/tests/contracts/provider.pact.test.ts && if [ -x /app/mcp-server/node_modules/.bin/eslint ]; then printf "%s\n" "import { createRequire } from \"node:module\"; const req = createRequire(\"/app/mcp-server/package.json\"); const js = req(\"@eslint/js\"); const tseslint = req(\"typescript-eslint\"); const sonarjs = req(\"eslint-plugin-sonarjs\"); const security = req(\"eslint-plugin-security\"); export default tseslint.config(js.configs.recommended, ...tseslint.configs.recommended, sonarjs.configs.recommended, security.configs.recommended, { files: [\"**/*.ts\"], rules: { complexity: [\"error\", 5], \"max-params\": [\"error\", 4], \"max-depth\": [\"error\", 3], \"sonarjs/cognitive-complexity\": [\"error\", 15], \"sonarjs/no-duplicate-string\": \"off\", \"security/detect-object-injection\": \"off\", \"security/detect-non-literal-regexp\": \"error\", \"@typescript-eslint/no-explicit-any\": \"error\" } });" > /tmp/bp_eslint.mjs && /app/mcp-server/node_modules/.bin/eslint --no-config-lookup --config /tmp/bp_eslint.mjs --max-warnings 0 node-backend/tests/contracts/provider.pact.test.ts >/dev/null; fi' && \
-		stub_cid=$$(docker run -d --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 $(PY_IMG) python3 -c "$$stub_script") && \
+		docker run --rm --restart=no --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_PATH=/opt/qa11x/node_modules -e PACT_OUTPUT_DIR=/pacts -v "$$(pwd):/app:ro" -v "$$pact_dir:/pacts:ro" -w /app $(NODE_IMG) sh -c 'tsc --strict --noImplicitAny --noUnusedLocals --noUnusedParameters --noImplicitReturns --erasableSyntaxOnly --allowImportingTsExtensions --target ES2023 --module NodeNext --moduleResolution NodeNext --typeRoots /opt/qa11x/node_modules/@types --types node --noEmit node-backend/tests/contracts/provider.pact.test.ts && node --test node-backend/tests/contracts/provider.pact.test.ts && if [ -x /app/mcp-server/node_modules/.bin/eslint ]; then printf "%s\n" "import { createRequire } from \"node:module\"; const req = createRequire(\"/app/mcp-server/package.json\"); const js = req(\"@eslint/js\"); const tseslint = req(\"typescript-eslint\"); const sonarjs = req(\"eslint-plugin-sonarjs\"); const security = req(\"eslint-plugin-security\"); export default tseslint.config(js.configs.recommended, ...tseslint.configs.recommended, sonarjs.configs.recommended, security.configs.recommended, { files: [\"**/*.ts\"], rules: { complexity: [\"error\", 5], \"max-params\": [\"error\", 4], \"max-depth\": [\"error\", 3], \"sonarjs/cognitive-complexity\": [\"error\", 15], \"sonarjs/no-duplicate-string\": \"off\", \"security/detect-object-injection\": \"off\", \"security/detect-non-literal-regexp\": \"error\", \"@typescript-eslint/no-explicit-any\": \"error\" } });" > /tmp/bp_eslint.mjs && /app/mcp-server/node_modules/.bin/eslint --no-config-lookup --config /tmp/bp_eslint.mjs --max-warnings 0 node-backend/tests/contracts/provider.pact.test.ts >/dev/null; fi' && \
+		stub_cid=$$(docker run -d --rm --restart=no --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 $(PY_IMG) python3 -c "$$stub_script") && \
 		docker exec "$$stub_cid" python3 -c "$$wait_script" && \
-		docker run --rm --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e K6_PROFILE=smoke -e API_BASE_URL=http://127.0.0.1:18080 -e K6_SUMMARY_PATH=/pacts/k6-summary.json --network "container:$$stub_cid" -v "$$(pwd)/fastapi/tests/load:/load:ro" -v "$$pact_dir:/pacts" $(K6_IMG) run -q /load/smoke.k6.js && \
+		docker run --rm --restart=no --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e K6_PROFILE=smoke -e API_BASE_URL=http://127.0.0.1:18080 -e K6_SUMMARY_PATH=/pacts/k6-summary.json --network "container:$$stub_cid" -v "$$(pwd)/fastapi/tests/load:/load:ro" -v "$$pact_dir:/pacts" $(K6_IMG) run -q /load/smoke.k6.js && \
 		test -s "$$pact_dir/k6-summary.json" && \
 		grep -q '"thresholdsPassed": true' "$$pact_dir/k6-summary.json" && \
 		docker rm -f "$$stub_cid" >/dev/null 2>&1 && stub_cid="" && \
-		docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/lint_test_antipatterns.py fastapi/tests/contracts node-backend/tests/contracts; \
+		docker run --rm --restart=no --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/lint_test_antipatterns.py fastapi/tests/contracts node-backend/tests/contracts; \
 	} >"$$log_file" 2>&1 || { cat "$$log_file" >&2; exit 1; }; \
 	cov=$$(awk '/TOTAL /{print $$NF}' "$$log_file" | tail -n 1); \
 	echo "✅ [test-backend-blueprints] Pact V4 (FastAPI->Node) + k6 smoke + antipatrones OK (cobertura_pact=$${cov:-N/A})"
@@ -401,8 +401,8 @@ test-mobile-blueprints:
 	if [ -f /.dockerenv ] && ! command -v docker >/dev/null 2>&1; then \
 		sh -c "$$cmd" && python3 .agents/scripts/lint_test_antipatterns.py mobile-appium; \
 	else \
-		docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_PATH=/opt/qa11x/node_modules -v "$$(pwd):/app:ro" -w /app $(MOBILE_IMG) sh -c "$$cmd" && \
-		lint_out=$$(docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/lint_test_antipatterns.py mobile-appium) && \
+		docker run --rm --restart=no --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_PATH=/opt/qa11x/node_modules -v "$$(pwd):/app:ro" -w /app $(MOBILE_IMG) sh -c "$$cmd" && \
+		lint_out=$$(docker run --rm --restart=no --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -v "$$(pwd):/app:ro" -w /app $(PY_IMG) python3 .agents/scripts/lint_test_antipatterns.py mobile-appium) && \
 		echo "✅ [test-mobile-blueprints] Appium/ADB + TSC estricto + Screenplay W3C + antipatrones OK | $$lint_out"; \
 	fi
 
@@ -420,7 +420,7 @@ test-ai-offline:
 			exit 1; \
 		fi; \
 	else \
-		if ! out=$$(docker run --rm --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -v "$$(pwd):/app:ro" -v "$$(pwd)/.agents/.cache/coverage:/app/.agents/.cache/coverage" -w /app $(PY_IMG) sh -c "$$cmd" 2>&1); then \
+		if ! out=$$(docker run --rm --restart=no --network none --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e RUFF_CACHE_DIR=/tmp/ruff-cache -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -v "$$(pwd):/app:ro" -v "$$(pwd)/.agents/.cache/coverage:/app/.agents/.cache/coverage" -w /app $(PY_IMG) sh -c "$$cmd" 2>&1); then \
 			printf '%s\n' "$$out" >&2; \
 			if printf '%s' "$$out" | grep -qE '$(COMPLEXITY_FAILURE_REGEX)'; then printf '\n%s\n' "$(DIRECTIVE_11X_COMPLEXITY_MSG)" >&2; fi; \
 			exit 1; \
@@ -436,7 +436,7 @@ audit-llm:
 		exit 2; \
 	fi
 	@echo "🤖 [audit-llm] Ejecutando evaluación DeepEval en sinfallas/base-python-uv:3.15..."
-	@docker run --rm --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -e QA_LLM_AUDIT_LIVE="$${QA_LLM_AUDIT_LIVE:-$${RUN_LLM_AUDIT:-1}}" -e RUN_LLM_AUDIT="$${RUN_LLM_AUDIT:-1}" -e PYTHONPATH=ai-evals -e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -e QA_LLM_MODEL -v "$$(pwd):/app:ro" -w /app $(PY_IMG) pytest ai-evals/rag/test_rag_faithfulness.py ai-evals/voice-realtime/test_voice_websocket_latency.py ai-evals/multimodal-ocr/test_pdf_table_fidelity.py tests/evals/test_skill_adherence.py -k "live"
+	@docker run --rm --restart=no --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -e QA_LLM_AUDIT_LIVE="$${QA_LLM_AUDIT_LIVE:-$${RUN_LLM_AUDIT:-1}}" -e RUN_LLM_AUDIT="$${RUN_LLM_AUDIT:-1}" -e PYTHONPATH=ai-evals -e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -e QA_LLM_MODEL -v "$$(pwd):/app:ro" -w /app $(PY_IMG) pytest ai-evals/rag/test_rag_faithfulness.py ai-evals/voice-realtime/test_voice_websocket_latency.py ai-evals/multimodal-ocr/test_pdf_table_fidelity.py tests/evals/test_skill_adherence.py -k "live"
 	@echo "🛡️ [audit-llm] Ejecutando matrices Promptfoo OWASP LLM Top 10 y Skills en sinfallas/base-node-ionic:26..."
 	@mkdir -p .agents/artifacts; \
 	prov_regex=""; judge="$${PROMPTFOO_JUDGE_PROVIDER:-}"; \
@@ -444,7 +444,7 @@ audit-llm:
 	[ -n "$${ANTHROPIC_API_KEY:-}" ] && { prov_regex="$${prov_regex:+$$prov_regex|}anthropic:"; judge="$${judge:-anthropic:messages:claude-sonnet-4-5}"; }; \
 	[ -n "$${GEMINI_API_KEY:-}" ] && { prov_regex="$${prov_regex:+$$prov_regex|}google:"; judge="$${judge:-google:gemini-2.5-flash}"; }; \
 	[ -n "$${OLLAMA_BASE_URL:-}" ] && { prov_regex="$${prov_regex:+$$prov_regex|}ollama:"; judge="$${judge:-ollama:chat:qwen3:8b}"; }; \
-	docker run --rm --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PROMPTFOO_DISABLE_TELEMETRY=1 -e PROMPTFOO_DISABLE_REDTEAM_REMOTE_GENERATION=1 -e PROMPTFOO_CONFIG_DIR=/tmp/.promptfoo -e PROMPTFOO_JUDGE_PROVIDER="$$judge" -e PF_FILTER="$$prov_regex" -e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -e QA_LLM_MODEL -v "$$(pwd):/app:ro" -v "$$(pwd)/.agents/artifacts:/artifacts" -w /app $(NODE_IMG) sh -c 'if [ -n "$${PF_FILTER:-}" ]; then set -- --filter-providers "$${PF_FILTER}"; else set --; fi; promptfoo eval -c ai-evals/promptfooconfig.yaml "$$@" --no-cache -o /artifacts/promptfoo-results.json && promptfoo eval -c tests/evals/promptfoo_skills_matrix.yaml "$$@" --no-cache -o /artifacts/promptfoo-skills-results.json'
+	docker run --rm --restart=no --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e PROMPTFOO_DISABLE_TELEMETRY=1 -e PROMPTFOO_DISABLE_REDTEAM_REMOTE_GENERATION=1 -e PROMPTFOO_CONFIG_DIR=/tmp/.promptfoo -e PROMPTFOO_JUDGE_PROVIDER="$$judge" -e PF_FILTER="$$prov_regex" -e OPENAI_API_KEY -e GEMINI_API_KEY -e ANTHROPIC_API_KEY -e OLLAMA_BASE_URL -e OPENAI_API_BASE -e QA_LLM_MODEL -v "$$(pwd):/app:ro" -v "$$(pwd)/.agents/artifacts:/artifacts" -w /app $(NODE_IMG) sh -c 'if [ -n "$${PF_FILTER:-}" ]; then set -- --filter-providers "$${PF_FILTER}"; else set --; fi; promptfoo eval -c ai-evals/promptfooconfig.yaml "$$@" --no-cache -o /artifacts/promptfoo-results.json && promptfoo eval -c tests/evals/promptfoo_skills_matrix.yaml "$$@" --no-cache -o /artifacts/promptfoo-skills-results.json'
 
 qa-k6:
 	@docker compose -f docker-compose.qa.yml --profile k6 run --rm -T -u "$$(id -u):$$(id -g)" k6 version
@@ -462,7 +462,7 @@ test: lint lint-docs version-check validate-calm lint-workflows shellcheck shfmt
 
 build:
 	@echo "📦 [Build] Compilando Servidor MCP en Docker efímero..."
-	@docker run --rm --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_OPTIONS="--max-old-space-size=4096" -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_verify_deps_before_run=false -e pnpm_config_manage_package_manager_versions=false -v "$$(pwd)/mcp-server:/app" -w /app $(NODE_IMG) bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run build"
+	@docker run --rm --restart=no --security-opt=no-new-privileges:true -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NODE_OPTIONS="--max-old-space-size=4096" -e PNPM_HOME=/tmp/pnpm -e pnpm_config_store_dir=/tmp/.pnpm-store -e pnpm_config_verify_deps_before_run=false -e pnpm_config_manage_package_manager_versions=false -v "$$(pwd)/mcp-server:/app" -w /app $(NODE_IMG) bash -c "pnpm install --frozen-lockfile --prefer-offline --trust-lockfile --silent && pnpm --silent run build"
 	@echo "✔ [Build] Servidor MCP compilado en mcp-server/dist/."
 
 publish-mcp:

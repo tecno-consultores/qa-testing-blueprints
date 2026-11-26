@@ -182,6 +182,22 @@ EOF
   touch -t 202601010000 "${work}/fastapi/app.py" "${work}/fastapi/README.md"
   touch -t 202601010040 "${work}/graphify-out/graph.json" "${work}/fastapi/graphify-out/graph.json"
 
+  # 4b. GRAPH_REPORT.md con 'Built from commit:' distinto de HEAD -> actualiza root; igual a HEAD -> omite
+  printf '# Graph Report\n- Built from commit: `00000000`\n' >"${work}/graphify-out/GRAPH_REPORT.md"
+  run env PATH="${bin_dir}" LC_ALL=C bash "${work}/scripts/actualizar-grafos-graphify.sh"
+  assert_success
+  assert_output --partial "Actualizados: 1 (root)"
+  assert_output --partial "Omitidos sin cambios de código: 1 (fastapi)"
+
+  local cur_short
+  cur_short=$(git -C "${work}" rev-parse --short=8 HEAD)
+  printf '# Graph Report\n- Built from commit: `%s`\n' "${cur_short}" >"${work}/graphify-out/GRAPH_REPORT.md"
+  touch -t 202601010050 "${work}/graphify-out/graph.json"
+  run env PATH="${bin_dir}" LC_ALL=C bash "${work}/scripts/actualizar-grafos-graphify.sh"
+  assert_success
+  assert_output --partial "Actualizados: 0 (ninguno)"
+  assert_output --partial "Omitidos sin cambios de código: 2 (root fastapi)"
+
   # 5. Stack específico + --all
   run env PATH="${bin_dir}" LC_ALL=C bash "${work}/scripts/actualizar-grafos-graphify.sh" fastapi
   assert_success

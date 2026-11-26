@@ -234,6 +234,8 @@ EOF
   [ ! -e "${FAKE_PY_MARKER}" ]
   run grep -F "run --rm --network none" "${DOCKER_LOG}"
   assert_success
+  run grep -F "run --rm --network none --restart=no --security-opt=no-new-privileges:true" "${DOCKER_LOG}"
+  assert_success
   run grep -F "/app/.agents/scripts/verify_roadmap_consistency.py" "${DOCKER_LOG}"
   assert_success
   run grep -F "/app/.agents/scripts/checkpoint_ctl.py" "${DOCKER_LOG}"
@@ -707,7 +709,7 @@ EOF
   run env QA11X_REPO_ROOT="${WORK}" HOME="${FAKE_HOME}" PATH="${rm_fail_bin}:${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/probar-mcp-example.sh" --offline
   assert_success
   [ -f "${rm_fail_marker}" ]
-  run grep -F -- "--network none --security-opt=no-new-privileges:true" "${docker_clean_log}"
+  run grep -F -- "--rm --restart=no --network none --security-opt=no-new-privileges:true" "${docker_clean_log}"
   assert_success
   run grep -F -- "alpine:3.21@sha256:" "${docker_clean_log}"
   assert_success
@@ -1128,6 +1130,8 @@ EOF
   run env QA11X_DOCKERENV_PATH="/nonexistent" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C bash -c 'cd "$1" && bash "$2/scripts/verificar-secretos.sh" src/clean.ts' _ "${WORK}" "${REPO_ROOT}"
   assert_success
   run grep -F "run --rm --network none" "${DOCKER_LOG}"
+  assert_success
+  run grep -F -- "--restart=no" "${DOCKER_LOG}"
   assert_success
   run grep -F "QA11X_INSIDE_DOCKER=1" "${DOCKER_LOG}"
   assert_success
