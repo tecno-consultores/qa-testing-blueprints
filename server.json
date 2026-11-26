@@ -1,0 +1,57 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.tecno-consultores/mcp-qa-11x",
+  "title": "QA Testing Blueprints (QA-11X)",
+  "description": "Enterprise QA & DevSecOps MCP server: Rule Zero Docker, STIG/OWASP, Graphify AST & AI Evals.",
+  "version": "3.9.0",
+  "websiteUrl": "https://www.tecnoconsultores.net/qa-11x/",
+  "repository": {
+    "url": "https://github.com/tecno-consultores/qa-testing-blueprints",
+    "source": "github",
+    "subfolder": "mcp-server"
+  },
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/assets/qa-logo.jpeg",
+      "mimeType": "image/jpeg",
+      "sizes": ["640x357"]
+    }
+  ],
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@sinfallas/mcp-qa-11x",
+      "version": "3.9.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "QA_11X_TOOLSET",
+          "description": "Active MCP toolset profile exposed to the client.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "full",
+          "choices": ["core", "auto", "full"]
+        },
+        {
+          "name": "QA_OUTPUT_LANG",
+          "description": "Output language for CLI/MCP diagnostics.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "en",
+          "choices": ["en", "es"]
+        },
+        {
+          "name": "QA11X_WORKSPACE_ROOTS",
+          "description": "Optional extra allowed workspace root paths (PATH-delimiter separated) for SEC-PATH-01.",
+          "isRequired": false,
+          "isSecret": false,
+          "placeholder": "/path/to/workspace"
+        }
+      ]
+    }
+  ]
+}

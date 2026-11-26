@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+* **Official MCP Registry Support (`registry.modelcontextprotocol.io`):**
+  * Added root `server.json` (`2025-12-11/server.schema.json`, `io.github.tecno-consultores/mcp-qa-11x`, `repository.subfolder: "mcp-server"`, `stdio` npm package + `environmentVariables`) and matching `mcpName` in `mcp-server/package.json` ready for the next npmjs release.
+  * Integrated `server.json` version sync in `.agents/scripts/bump_version_11x.py`, strict schema/parity validation (`_check_mcp_registry_manifest`) in `.agents/scripts/_docs_invariants_catalogs.py` / `verify_docs_invariants.py`, and ephemeral Docker `mcp-publisher` (`v1.8.16`, SHA-256 verified) flows `--registry` / `--registry-only` in `scripts/publicar-mcp.sh` + `Makefile` (`make publish-mcp-registry`, `make publish-mcp-registry-dry`).
+
 ---
 
 ## [3.9.0] - 2026-11-25

@@ -294,6 +294,11 @@ VERSION_RULES: tuple[VersionRule, ...] = (
         max_replacements=1,
         optional=True,
     ),
+    VersionRule(
+        "server.json",
+        (re.compile(r'^(\s*"version"\s*:\s*")([^"]+)(")', re.MULTILINE),),
+        optional=True,
+    ),
 )
 
 EDITION_RULES: tuple[VersionRule, ...] = (

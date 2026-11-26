@@ -2271,3 +2271,112 @@ EOF
   assert_success
   [ -f "${ast_ws}/graphify-out/graph.json" ]
 }
+
+@test "publicar-mcp.sh (--registry / --registry-only): valida paridad server.json, flujo dry-run, live OIDC/github y errores" {
+  local reg_ws="${BATS_TEST_TMPDIR}/mcp_reg_ws"
+  local reg_bin="${BATS_TEST_TMPDIR}/mcp_reg_bin"
+  mkdir -p "${reg_ws}/mcp-server/src" "${reg_ws}/mcp-server/dist" "${reg_ws}/scripts" "${reg_bin}"
+  printf 'export const v = 1;\n' >"${reg_ws}/mcp-server/src/index.ts"
+  sleep 1
+  printf 'export const v = 1;\n' >"${reg_ws}/mcp-server/dist/index.js"
+  printf '#!/usr/bin/env bash\nexit 0\n' >"${reg_ws}/scripts/limpieza.sh"
+  chmod +x "${reg_ws}/scripts/limpieza.sh"
+  printf '{"name":"@sinfallas/mcp-qa-11x","version":"3.9.0"}\n' >"${reg_ws}/mcp-server/package.json"
+
+  cat >"${reg_bin}/docker" <<'EOF'
+#!/usr/bin/env bash
+if [[ "$*" == *"mcpName"* ]]; then
+  printf '%s\n' "${MOCK_REMOTE_MCP_NAME:-}"
+  exit 0
+fi
+if [[ "$*" == *"npm view"* ]]; then
+  if [ "${MOCK_NPM_PUBLISHED:-0}" = "1" ] || { [ -n "${MOCK_NPM_STAMP:-}" ] && [ -f "${MOCK_NPM_STAMP}" ]; }; then
+    echo "3.9.0"
+    exit 0
+  fi
+  exit 1
+fi
+if [[ "$*" == *"npm publish"* ]]; then
+  [ -n "${MOCK_NPM_STAMP:-}" ] && touch "${MOCK_NPM_STAMP}"
+  exit 0
+fi
+if [[ "$*" == *"mcp-publisher"* ]]; then
+  [ "${MOCK_PUBLISHER_FAIL:-0}" = "1" ] && exit 1
+  exit 0
+fi
+if [[ "$*" == *"/v0.1/servers"* ]]; then
+  if [ "${MOCK_INDEXED:-0}" = "1" ]; then
+    echo '{"servers":[{"name":"io.github.tecno-consultores/mcp-qa-11x"}]}'
+  else
+    echo '{"servers":[]}'
+  fi
+  exit 0
+fi
+exit 0
+EOF
+  chmod +x "${reg_bin}/docker"
+
+  # 1. Sin server.json -> falla
+  run env QA11X_REPO_ROOT="${reg_ws}" PATH="${reg_bin}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --registry-only --dry-run
+  assert_failure 1
+  assert_output --partial "No se encontró server.json"
+
+  # 2. server.json sin mcpName en package.json -> falla
+  printf '{"name":"io.github.tecno-consultores/mcp-qa-11x","version":"3.8.0"}\n' >"${reg_ws}/server.json"
+  run env QA11X_REPO_ROOT="${reg_ws}" PATH="${reg_bin}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --registry-only --dry-run
+  assert_failure 1
+  assert_output --partial "package.json#mcpName"
+
+  # 3. server.json con versión distinta a package.json -> falla
+  printf '{"name":"@sinfallas/mcp-qa-11x","version":"3.9.0","mcpName":"io.github.tecno-consultores/mcp-qa-11x"}\n' >"${reg_ws}/mcp-server/package.json"
+  run env QA11X_REPO_ROOT="${reg_ws}" PATH="${reg_bin}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --registry-only --dry-run
+  assert_failure 1
+  assert_output --partial "server.json#version"
+
+  # 4. --registry-only --dry-run cuando npm aún no expone mcpName -> aviso y éxito (cubre x86_64, arm64 y arch inválida)
+  printf '{"name":"io.github.tecno-consultores/mcp-qa-11x","version":"3.9.0"}\n' >"${reg_ws}/server.json"
+  run env QA11X_REPO_ROOT="${reg_ws}" MCP_PUBLISHER_ARCH="arm64" PATH="${reg_bin}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --registry-only --dry-run
+  assert_success
+  assert_output --partial "Aviso [MCP Registry]"
+  assert_output --partial "Simulación completada"
+
+  run env QA11X_REPO_ROOT="${reg_ws}" MCP_PUBLISHER_ARCH="riscv64" PATH="${reg_bin}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --registry-only --dry-run
+  assert_failure 1
+  assert_output --partial "Arquitectura no soportada"
+
+  run env QA11X_REPO_ROOT="${reg_ws}" MCP_PUBLISHER_ARCH="x86_64" PATH="${reg_bin}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --registry-only --dry-run
+  assert_success
+  assert_output --partial "Simulación completada"
+
+  # 5. --registry-only en vivo sin mcpName remoto en npm -> bloquea fail-closed
+  run env QA11X_REPO_ROOT="${reg_ws}" PATH="${reg_bin}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --registry-only
+  assert_failure 1
+  assert_output --partial "no expone mcpName="
+
+  # 6. --registry-only en vivo cuando mcp-publisher falla -> error claro
+  run env QA11X_REPO_ROOT="${reg_ws}" MOCK_REMOTE_MCP_NAME="io.github.tecno-consultores/mcp-qa-11x" MOCK_PUBLISHER_FAIL=1 PATH="${reg_bin}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --registry-only
+  assert_failure 1
+  assert_output --partial "Falló la validación o publicación con mcp-publisher"
+
+  # 7. --registry-only en vivo con OIDC e indexación inmediata -> éxito
+  run env QA11X_REPO_ROOT="${reg_ws}" MOCK_REMOTE_MCP_NAME="io.github.tecno-consultores/mcp-qa-11x" MOCK_INDEXED=1 GITHUB_ACTIONS="true" ACTIONS_ID_TOKEN_REQUEST_URL="https://token.actions.example" PATH="${reg_bin}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --registry-only
+  assert_success
+  assert_output --partial "auth: github-oidc"
+  assert_output --partial "visible en"
+
+  # 8. --registry-only en vivo con github auth e indexación asíncrona -> aviso y éxito
+  run env QA11X_REPO_ROOT="${reg_ws}" MOCK_REMOTE_MCP_NAME="io.github.tecno-consultores/mcp-qa-11x" MOCK_INDEXED=0 PATH="${reg_bin}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --registry-only
+  assert_success
+  assert_output --partial "auth: github"
+  assert_output --partial "puede tardar unos segundos"
+
+  # 9. --registry --dry-run --skip-tests -> valida empaquetado npm + server.json
+  run env QA11X_REPO_ROOT="${reg_ws}" MOCK_REMOTE_MCP_NAME="io.github.tecno-consultores/mcp-qa-11x" PATH="${reg_bin}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --registry --dry-run --skip-tests
+  assert_success
+  assert_output --partial "SIMULACIÓN EXITOSA"
+
+  # 10. --registry --skip-tests en vivo -> publica npmjs + MCP Registry
+  run env QA11X_REPO_ROOT="${reg_ws}" NPM_TOKEN="npm_realMock1234567890" MOCK_NPM_STAMP="${BATS_TEST_TMPDIR}/npm_pub.stamp" MOCK_REMOTE_MCP_NAME="io.github.tecno-consultores/mcp-qa-11x" MOCK_INDEXED=1 PATH="${reg_bin}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --registry --skip-tests # qa-secret-fixture-ok
+  assert_success
+  assert_output --partial "PUBLICACIÓN EXITOSA"
+}

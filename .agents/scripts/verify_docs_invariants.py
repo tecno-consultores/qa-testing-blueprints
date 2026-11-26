@@ -35,6 +35,9 @@ from _docs_invariants_catalogs import (  # noqa: E402
     _check_markdown_fence_balance as _check_markdown_fence_balance,
 )
 from _docs_invariants_catalogs import (  # noqa: E402
+    _check_mcp_registry_manifest as _check_mcp_registry_manifest,
+)
+from _docs_invariants_catalogs import (  # noqa: E402
     _check_refactoring_ui_topics as _check_refactoring_ui_topics,
 )
 from _docs_invariants_catalogs import (  # noqa: E402
@@ -168,6 +171,7 @@ def validate_repository_docs(root: Path) -> list[str]:
         *_check_skill_backtick_references(root),
         *_check_markdown_fence_balance(root),
         *_check_claude_plugin_manifests(root),
+        *_check_mcp_registry_manifest(root),
         *_check_specs_and_stack_contracts(root),
         *check_global_catalogs_and_geo(root),
         *check_testing_scoreboard_consistency(root),

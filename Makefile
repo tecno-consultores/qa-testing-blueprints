@@ -2,7 +2,7 @@
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 # Makefile canónico para desarrollo local, automatización y gobernanza Level-11X
 
-.PHONY: help clean qa-clean audit sbom compact-context lint-workflows lint-docs sync-governance version-check validate-calm shellcheck shfmt test test-mcp test-example test-karate test-py test-bats diff-cov pr-verdict test-meta-qa test-ai-offline test-frontend-blueprints test-backend-blueprints test-mobile-blueprints audit-llm audit-psi qa-psi qa-k6 lint build certify publish-mcp publish-mcp-dry
+.PHONY: help clean qa-clean audit sbom compact-context lint-workflows lint-docs sync-governance version-check validate-calm shellcheck shfmt test test-mcp test-example test-karate test-py test-bats diff-cov pr-verdict test-meta-qa test-ai-offline test-frontend-blueprints test-backend-blueprints test-mobile-blueprints audit-llm audit-psi qa-psi qa-k6 lint build certify publish-mcp publish-mcp-dry publish-mcp-registry publish-mcp-registry-dry
 
 DIRECTIVE_11X_COMPLEXITY_MSG := [DIRECTIVE-11X] Complexity/Signature limit exceeded. Do NOT split into pass-through micro-helpers (>4 params). Read '.agents/skills/tactical-patterns-11x/SKILL.md' (or 'blueprint://skills/tactical-patterns-11x') and apply Table-Driven Dispatch, Parameter Object/DTO, Guard Clauses, or Functional Pipeline.
 COMPLEXITY_FAILURE_REGEX := C901|PLR0911|PLR0913|max-params|max-depth|sonarjs/cognitive-complexity|complexity.*[0-9]+|Radon
@@ -49,6 +49,8 @@ help:
 	@echo "  make build           - Compila la distribución de producción del Servidor MCP"
 	@echo "  make publish-mcp     - Publica de forma autónoma el Servidor MCP en npmjs usando credenciales de .env"
 	@echo "  make publish-mcp-dry - Simula empaquetado y validación previa de publicación (--dry-run)"
+	@echo "  make publish-mcp-registry     - Publica server.json en el MCP Registry oficial vía Docker efímero (--registry-only)"
+	@echo "  make publish-mcp-registry-dry - Valida server.json con mcp-publisher y paridad mcpName sin publicar (--registry-only --dry-run)"
 	@echo "  make certify         - Ejecuta el gate de certificación 11X (.agents/scripts/certify_task_completion.sh)"
 
 clean:
@@ -468,6 +470,12 @@ publish-mcp:
 
 publish-mcp-dry:
 	@./scripts/publicar-mcp.sh --dry-run
+
+publish-mcp-registry:
+	@./scripts/publicar-mcp.sh --registry-only
+
+publish-mcp-registry-dry:
+	@./scripts/publicar-mcp.sh --registry-only --dry-run
 
 certify:
 	@QA11X_STRICT="$${QA11X_STRICT:-0}" ./.agents/scripts/certify_task_completion.sh

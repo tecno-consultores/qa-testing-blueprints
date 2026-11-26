@@ -1732,6 +1732,122 @@ class TestVerifyDocsInvariants(unittest.TestCase):
             self.assertEqual(len(ref_errs), 1)
             self.assertIn("references/ghost.md", ref_errs[0])
 
+    def test_mcp_registry_manifest_validation_and_parity(self) -> None:
+        """Valida esquema 2025-12-11, límites y paridad server.json ↔ package.json."""
+        import json
+        import tempfile
+
+        schema_url = (
+            "https://static.modelcontextprotocol.io/schemas/"
+            "2025-12-11/server.schema.json"
+        )
+        valid_server: dict[str, object] = {
+            "$schema": schema_url,
+            "name": "io.github.tecno-consultores/mcp-qa-11x",
+            "description": "Enterprise QA & DevSecOps MCP server.",
+            "version": "3.9.0",
+            "repository": {
+                "url": "https://github.com/tecno-consultores/qa-testing-blueprints",
+                "source": "github",
+                "subfolder": "mcp-server",
+            },
+            "packages": [
+                {
+                    "registryType": "npm",
+                    "identifier": "@sinfallas/mcp-qa-11x",
+                    "version": "3.9.0",
+                    "transport": {"type": "stdio"},
+                }
+            ],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            # Sin server.json ni package.json -> pasa vacío
+            self.assertEqual(verify_docs._check_mcp_registry_manifest(root), [])
+
+            mcp_dir = root / "mcp-server"
+            mcp_dir.mkdir(parents=True)
+            pkg = mcp_dir / "package.json"
+            pkg.write_text('{"name": "a", "name": "b"}', encoding="utf-8")
+            self.assertIn(
+                "JSON inválido", verify_docs._check_mcp_registry_manifest(root)[0]
+            )
+
+            pkg.write_text(
+                json.dumps({"name": "@sinfallas/mcp-qa-11x", "version": "3.9.0"}),
+                encoding="utf-8",
+            )
+            self.assertEqual(verify_docs._check_mcp_registry_manifest(root), [])
+
+            pkg.write_text(
+                json.dumps(
+                    {
+                        "name": "@sinfallas/mcp-qa-11x",
+                        "version": "3.9.0",
+                        "mcpName": "io.github.tecno-consultores/mcp-qa-11x",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            missing_errs = verify_docs._check_mcp_registry_manifest(root)
+            self.assertEqual(len(missing_errs), 1)
+            self.assertIn("archivo obligatorio ausente", missing_errs[0])
+
+            srv = root / "server.json"
+            srv.write_text('{"version": "1", "version": "2"}', encoding="utf-8")
+            self.assertIn(
+                "JSON inválido", verify_docs._check_mcp_registry_manifest(root)[0]
+            )
+
+            srv.write_text(
+                json.dumps(
+                    {
+                        "$schema": "https://example.invalid/old.json",
+                        "name": "bad-name",
+                        "description": "x" * 101,
+                        "version": "3.0.0",
+                        "repository": {"source": "gitlab"},
+                        "packages": "not-a-list",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            bad_errs = verify_docs._check_mcp_registry_manifest(root)
+            self.assertGreaterEqual(len(bad_errs), 7)
+
+            srv.write_text(
+                json.dumps({**valid_server, "packages": [{"registryType": "pypi"}]}),
+                encoding="utf-8",
+            )
+            self.assertTrue(
+                any(
+                    "registryType='npm'" in e
+                    for e in verify_docs._check_mcp_registry_manifest(root)
+                )
+            )
+
+            srv.write_text(
+                json.dumps(
+                    {
+                        **valid_server,
+                        "packages": [
+                            {
+                                "registryType": "npm",
+                                "identifier": "@other/pkg",
+                                "version": "1.0.0",
+                                "transport": {"type": "sse"},
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            pkg_errs = verify_docs._check_mcp_registry_manifest(root)
+            self.assertEqual(len(pkg_errs), 3)
+
+            srv.write_text(json.dumps(valid_server), encoding="utf-8")
+            self.assertEqual(verify_docs._check_mcp_registry_manifest(root), [])
+
 
 if __name__ == "__main__":
     unittest.main()

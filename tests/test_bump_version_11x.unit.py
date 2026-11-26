@@ -582,3 +582,37 @@ def test_atomic_write_text_preserves_existing_executable_mode(tmp_path: Path) ->
     explicit = tmp_path / "secret.txt"
     mod._atomic_write_text(explicit, "token", mode=0o600)
     assert (explicit.stat().st_mode & 0o777) == 0o600
+
+
+def test_server_json_version_rule_syncs_root_and_package_versions(
+    tmp_path: Path,
+) -> None:
+    """Sincroniza ambas claves version (raíz y packages[0]) en server.json."""
+    mod = _load_mod()
+    server_json = tmp_path / "server.json"
+    server_json.write_text(
+        json.dumps(
+            {
+                "name": "io.github.tecno-consultores/mcp-qa-11x",
+                "version": "3.8.0",
+                "packages": [
+                    {
+                        "registryType": "npm",
+                        "identifier": "@sinfallas/mcp-qa-11x",
+                        "version": "3.8.0",
+                    }
+                ],
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    rules = tuple(r for r in mod.VERSION_RULES if r.rel_path == "server.json")
+    assert len(rules) == 1
+    errs, _ = mod.run_rules(tmp_path, rules, "3.10.0", False)
+    assert len(errs) == 2
+    assert mod.run_rules(tmp_path, rules, "3.10.0", True) == ([], 1)
+    assert mod.run_rules(tmp_path, rules, "3.10.0", False) == ([], 0)
+    synced = json.loads(server_json.read_text(encoding="utf-8"))
+    assert synced["version"] == "3.10.0"
+    assert synced["packages"][0]["version"] == "3.10.0"

@@ -81,7 +81,7 @@ Subcomandos y flags disponibles (**12 subcomandos CLI**):
   npx -y @sinfallas/mcp-qa-11x@latest mcp-config --client all --print --pin-version
   ```
 
-Consulta la matriz completa de 28 clientes en [`docs/agent-setup.es.md`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.es.md).
+Consulta la matriz completa de 28 clientes en [`docs/agent-setup.es.md`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/docs/agent-setup.es.md). Los metadatos del MCP Registry oficial residen en [`server.json`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/server.json) (`io.github.tecno-consultores/mcp-qa-11x`).
 
 ---
 

@@ -36,6 +36,14 @@ _DEFAULT_REFACTORING_UI_TOPICS = frozenset({
     "tailwind",
 })
 _REFACTORING_URI_RE = re.compile(r"blueprint://ui/refactoring-ui/([A-Za-z0-9_-]+)")
+_MCP_REGISTRY_SCHEMA_URL = (
+    "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json"
+)
+_MCP_REGISTRY_NAME_RE = re.compile(r"^[a-zA-Z0-9.-]+/[a-zA-Z0-9._-]+$")
+_MCP_REGISTRY_REPO_URL = (
+    "https://github.com/tecno-consultores/qa-testing-blueprints"
+)
+_MCP_REGISTRY_MAX_DESC_LEN = 100
 _NGINX_PUBLIC_IMG_PAT = (
     r"location\s+~\*\s+\\\.\(\?:ico\|svg\|png\|webmanifest\)\$\s*\{([^}]*)\}"
 )
@@ -686,6 +694,129 @@ def _check_claude_plugin_manifests(root: Path) -> list[str]:
     return [
         *_validate_claude_plugin_json(root, expected_ver),
         *_validate_claude_marketplace_json(root, expected_ver),
+    ]
+
+
+def _load_optional_mcp_package(
+    pkg_path: Path,
+) -> tuple[dict[str, Any] | None, str | None]:
+    if not pkg_path.is_file():
+        return {}, None
+    return _load_json_strict(pkg_path)
+
+
+def _find_npm_registry_package(data: dict[str, Any]) -> dict[str, Any] | None:
+    packages = data.get("packages")
+    if not isinstance(packages, list):
+        return None
+    for item in packages:
+        if isinstance(item, dict) and item.get("registryType") == "npm":
+            return item
+    return None
+
+
+def _validate_mcp_registry_metadata(
+    data: dict[str, Any], pkg: dict[str, Any]
+) -> list[str]:
+    name = data.get("name")
+    pkg_mcp_name = pkg.get("mcpName")
+    desc = data.get("description")
+    expected_ver = pkg.get("version")
+    checks: tuple[tuple[bool, str], ...] = (
+        (
+            data.get("$schema") != _MCP_REGISTRY_SCHEMA_URL,
+            f"server.json: '$schema' debe ser '{_MCP_REGISTRY_SCHEMA_URL}'.",
+        ),
+        (
+            not isinstance(name, str) or not _MCP_REGISTRY_NAME_RE.match(name),
+            "server.json: 'name' debe usar formato reverse-DNS 'namespace/server'.",
+        ),
+        (
+            not isinstance(pkg_mcp_name, str) or name != pkg_mcp_name,
+            "server.json: 'name' debe coincidir con mcp-server/package.json#mcpName.",
+        ),
+        (
+            not isinstance(desc, str)
+            or not (1 <= len(desc) <= _MCP_REGISTRY_MAX_DESC_LEN),
+            "server.json: 'description' debe tener entre 1 y "
+            f"{_MCP_REGISTRY_MAX_DESC_LEN} caracteres.",
+        ),
+        (
+            bool(expected_ver) and data.get("version") != expected_ver,
+            f"server.json: version '{data.get('version')}' != '{expected_ver}'.",
+        ),
+    )
+    return [msg for failed, msg in checks if failed]
+
+
+def _validate_mcp_registry_package_and_repo(
+    data: dict[str, Any], pkg: dict[str, Any]
+) -> list[str]:
+    repo = data.get("repository")
+    repo_ok = (
+        isinstance(repo, dict)
+        and repo.get("source") == "github"
+        and repo.get("url") == _MCP_REGISTRY_REPO_URL
+        and repo.get("subfolder") == "mcp-server"
+    )
+    npm_pkg = _find_npm_registry_package(data)
+    transport = npm_pkg.get("transport") if isinstance(npm_pkg, dict) else None
+    expected_ver = pkg.get("version")
+    expected_name = pkg.get("name")
+    checks: tuple[tuple[bool, str], ...] = (
+        (
+            not repo_ok,
+            "server.json: 'repository' debe declarar source='github', "
+            "url oficial y subfolder='mcp-server'.",
+        ),
+        (
+            npm_pkg is None,
+            "server.json: 'packages' debe incluir una entrada con "
+            "registryType='npm'.",
+        ),
+        (
+            npm_pkg is not None
+            and bool(expected_name)
+            and npm_pkg.get("identifier") != expected_name,
+            f"server.json: packages[npm].identifier debe ser '{expected_name}'.",
+        ),
+        (
+            npm_pkg is not None
+            and bool(expected_ver)
+            and npm_pkg.get("version") != expected_ver,
+            f"server.json: packages[npm].version debe ser '{expected_ver}'.",
+        ),
+        (
+            npm_pkg is not None
+            and (
+                not isinstance(transport, dict)
+                or transport.get("type") != "stdio"
+            ),
+            "server.json: packages[npm].transport.type debe ser 'stdio'.",
+        ),
+    )
+    return [msg for failed, msg in checks if failed]
+
+
+def _check_mcp_registry_manifest(root: Path) -> list[str]:
+    server_path = root / "server.json"
+    pkg_data, pkg_err = _load_optional_mcp_package(
+        root / "mcp-server" / "package.json"
+    )
+    if pkg_err or pkg_data is None:
+        return [f"mcp-server/package.json: JSON inválido ({pkg_err})."]
+    if not server_path.is_file():
+        return (
+            ["server.json: archivo obligatorio ausente para package.json#mcpName."]
+            if pkg_data.get("mcpName")
+            else []
+        )
+    data, err = _load_json_strict(server_path)
+    if err or data is None:
+        return [f"server.json: JSON inválido ({err})."]
+    return [
+        *_validate_mcp_registry_metadata(data, pkg_data),
+        *_validate_mcp_registry_package_and_repo(data, pkg_data),
     ]
 
 

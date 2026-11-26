@@ -15,9 +15,15 @@ fi
 
 DRY_RUN=false
 SKIP_TESTS=false
+PUBLISH_REGISTRY=false
+REGISTRY_ONLY=false
 CLI_OTP=""
 IMAGE_NAME="sinfallas/base-node-ionic:26@sha256:275f3d8bbfef87f4e836e4f77d92c0d199821154079b050eaef53ce33ae6de60"
 PY_IMAGE_NAME="sinfallas/base-python-uv:3.15@sha256:b5323179c6278cef2775d870fdfb4628f19ec2567430de8774889867961018c4"
+MCP_REGISTRY_URL="${MCP_REGISTRY_URL:-https://registry.modelcontextprotocol.io}"
+MCP_PUBLISHER_VERSION="v1.8.16"
+MCP_PUBLISHER_SHA256_AMD64="6e2f799550cf843c6fd3350498d56cc49be3dc0af1e6237eb0e6435c7a9d5c05"
+MCP_PUBLISHER_SHA256_ARM64="5a967e51a24389b496f65e02fc9ce6bb187763c1de59e37a8f3018323e295a6a"
 HAS_ENV_NPM_REGISTRY=0
 if [ -n "${NPM_REGISTRY:-}" ]; then
   HAS_ENV_NPM_REGISTRY=1
@@ -33,6 +39,15 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-tests)
       SKIP_TESTS=true
+      shift
+      ;;
+    --registry)
+      PUBLISH_REGISTRY=true
+      shift
+      ;;
+    --registry-only)
+      PUBLISH_REGISTRY=true
+      REGISTRY_ONLY=true
       shift
       ;;
     --otp)
@@ -60,6 +75,8 @@ while [[ $# -gt 0 ]]; do
       echo "Opciones:"
       echo "  --dry-run       Ejecuta linters, tests y empaquetado sin publicar a npmjs"
       echo "  --skip-tests    Omite la ejecución de pruebas unitarias si ya fueron validadas"
+      echo "  --registry      Publica también server.json en registry.modelcontextprotocol.io (Docker efímero)"
+      echo "  --registry-only Publica solo server.json en el MCP Registry oficial (requiere versión ya en npmjs con mcpName)"
       echo "  --otp <código>  Código 2FA/OTP de 6 dígitos (si el token no tiene Bypass 2FA)"
       echo "  -h, --help      Muestra esta ayuda"
       echo ""
@@ -151,8 +168,8 @@ if [ -n "${CLI_OTP}" ]; then
   NPM_OTP="${CLI_OTP}"
 fi
 
-# Validar presencia del token si no estamos en dry-run
-if [ "$DRY_RUN" = false ]; then
+# Validar presencia del token si no estamos en dry-run ni en modo registry-only
+if [ "$DRY_RUN" = false ] && [ "$REGISTRY_ONLY" = false ]; then
   if [ -z "${NPM_TOKEN:-}" ] || [[ "${NPM_TOKEN}" == *"TU_TOKEN"* ]] || [[ "${NPM_TOKEN}" == *"placeholder"* ]] || [[ "${NPM_TOKEN}" =~ ^npm_[xX]+$ ]]; then
     echo -e "\n\e[31m❌ ERROR: Variable NPM_TOKEN no configurada o contiene el valor de ejemplo.\e[0m" >&2
     echo "💡 Para publicar en npmjs.com sin runners externos:" >&2
@@ -193,6 +210,118 @@ if [ "${DRY_RUN}" = false ] && [ -e "${REPO_ROOT}/.git" ] && command -v git >/de
     echo -e "\e[31m❌ ERROR [Pre-Check]: El árbol Git tiene cambios sin confirmar; haga commit limpio antes de publicar en vivo.\e[0m" >&2
     exit 1
   fi
+fi
+
+read_json_string_field() {
+  local key="$1"
+  local file_path="$2"
+  sed -n "s/.*\"${key}\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" "${file_path}" | head -n 1
+}
+
+resolve_mcp_publisher_asset() {
+  local host_arch="${MCP_PUBLISHER_ARCH:-$(uname -m)}"
+  case "${host_arch}" in
+    x86_64 | amd64)
+      MCP_PUB_URL="https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz"
+      MCP_PUB_SHA="${MCP_PUBLISHER_SHA256_AMD64}"
+      ;;
+    aarch64 | arm64)
+      MCP_PUB_URL="https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_arm64.tar.gz"
+      MCP_PUB_SHA="${MCP_PUBLISHER_SHA256_ARM64}"
+      ;;
+    *)
+      echo -e "\e[31m❌ ERROR [MCP Registry]: Arquitectura no soportada para mcp-publisher: ${host_arch}\e[0m" >&2
+      exit 1
+      ;;
+  esac
+}
+
+validate_mcp_registry_prerequisites() {
+  SERVER_JSON="${REPO_ROOT}/server.json"
+  if [ ! -f "${SERVER_JSON}" ]; then
+    echo -e "\e[31m❌ ERROR [MCP Registry]: No se encontró server.json en ${REPO_ROOT}.\e[0m" >&2
+    exit 1
+  fi
+  PKG_MCP_NAME="$(read_json_string_field "mcpName" "${PACKAGE_JSON}")"
+  SERVER_NAME="$(read_json_string_field "name" "${SERVER_JSON}")"
+  SERVER_VERSION="$(read_json_string_field "version" "${SERVER_JSON}")"
+  if [ -z "${PKG_MCP_NAME}" ] || [ "${SERVER_NAME}" != "${PKG_MCP_NAME}" ]; then
+    echo -e "\e[31m❌ ERROR [MCP Registry]: server.json#name (${SERVER_NAME:-vacío}) no coincide con mcp-server/package.json#mcpName (${PKG_MCP_NAME:-ausente}).\e[0m" >&2
+    exit 1
+  fi
+  if [ "${SERVER_VERSION}" != "${PKG_VERSION}" ]; then
+    echo -e "\e[31m❌ ERROR [MCP Registry]: server.json#version (${SERVER_VERSION:-vacío}) != mcp-server/package.json#version (${PKG_VERSION}).\e[0m" >&2
+    exit 1
+  fi
+  echo "✔ [MCP Registry] Paridad local verificada (${SERVER_NAME}@${SERVER_VERSION})."
+}
+
+publish_mcp_registry() {
+  resolve_mcp_publisher_asset
+  echo -e "\n🌐 [MCP Registry] Validando ${SERVER_NAME}@${SERVER_VERSION} contra ${MCP_REGISTRY_URL}..."
+  REMOTE_MCP_NAME="$(
+    docker run --rm --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp "${IMAGE_NAME}" \
+      npm view "${PKG_NAME}@${PKG_VERSION}" mcpName --registry="${NPM_REGISTRY}" --silent 2>/dev/null | head -n 1 | tr -d '[:space:]' || true
+  )"
+  if [ "${REMOTE_MCP_NAME}" != "${SERVER_NAME}" ]; then
+    if [ "${DRY_RUN}" = true ]; then
+      echo "ℹ️ Aviso [MCP Registry]: ${PKG_NAME}@${PKG_VERSION} en npmjs aún no expone mcpName=${SERVER_NAME} (actual: ${REMOTE_MCP_NAME:-ausente})."
+    else
+      echo -e "\e[31m❌ ERROR [MCP Registry]: ${PKG_NAME}@${PKG_VERSION} en npmjs no expone mcpName=${SERVER_NAME} (actual: ${REMOTE_MCP_NAME:-ausente}).\e[0m" >&2
+      echo "💡 Incremente la versión, publique primero en npmjs (make publish-mcp) y luego ejecute: make publish-mcp-registry" >&2
+      exit 1
+    fi
+  else
+    echo "✔ [MCP Registry] Propiedad npm verificada en vivo (${PKG_NAME}@${PKG_VERSION} -> ${REMOTE_MCP_NAME})."
+  fi
+
+  local reg_tty_args=()
+  local reg_oidc_args=()
+  local auth_method="github"
+  local reg_mode="validate"
+  if [ "${DRY_RUN}" = false ]; then
+    reg_mode="publish"
+    if [ "${GITHUB_ACTIONS:-false}" = "true" ] && [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
+      auth_method="github-oidc"
+      reg_oidc_args+=(-e GITHUB_ACTIONS -e ACTIONS_ID_TOKEN_REQUEST_URL -e ACTIONS_ID_TOKEN_REQUEST_TOKEN)
+    elif [ -t 0 ] && [ -t 1 ]; then reg_tty_args=(-it); fi
+    echo "🚀 Publicando ${SERVER_NAME}@${SERVER_VERSION} en ${MCP_REGISTRY_URL} (auth: ${auth_method})..."
+  fi
+
+  if ! docker run --rm --security-opt=no-new-privileges:true ${reg_tty_args[@]+"${reg_tty_args[@]}"} \
+    -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp \
+    -e MCP_PUB_URL="${MCP_PUB_URL}" -e MCP_PUB_SHA="${MCP_PUB_SHA}" \
+    -e MCP_MODE="${reg_mode}" -e MCP_AUTH="${auth_method}" \
+    ${reg_oidc_args[@]+"${reg_oidc_args[@]}"} \
+    -v "${SERVER_JSON}:/app/server.json:ro" -w /app "${IMAGE_NAME}" \
+    sh -c 'set -eu; curl -fsSL "$MCP_PUB_URL" -o /tmp/m.tgz; printf "%s  /tmp/m.tgz\n" "$MCP_PUB_SHA" | sha256sum -c - >/dev/null; tar -xzf /tmp/m.tgz -C /tmp mcp-publisher; /tmp/mcp-publisher validate /app/server.json; if [ "$MCP_MODE" = publish ]; then /tmp/mcp-publisher login "$MCP_AUTH" && /tmp/mcp-publisher publish /app/server.json; fi'; then
+    echo -e "\e[31m❌ ERROR [MCP Registry]: Falló la validación o publicación con mcp-publisher (${MCP_PUBLISHER_VERSION}).\e[0m" >&2
+    echo "💡 Para namespaces de organización (io.github.tecno-consultores/*), confirme ser Owner con membresía pública o ejecute con GitHub OIDC." >&2
+    exit 1
+  fi
+
+  if [ "${DRY_RUN}" = true ]; then
+    echo "✔ [MCP Registry] Simulación completada: server.json validado con mcp-publisher ${MCP_PUBLISHER_VERSION}."
+    return 0
+  fi
+
+  echo "🔍 Verificando indexación en ${MCP_REGISTRY_URL}/v0.1/servers..."
+  if docker run --rm --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp "${IMAGE_NAME}" \
+    curl -fsSL "${MCP_REGISTRY_URL}/v0.1/servers?search=${SERVER_NAME}" 2>/dev/null | grep -qF "${SERVER_NAME}"; then
+    echo -e "\e[32m✔ [MCP Registry] ${SERVER_NAME}@${SERVER_VERSION} visible en ${MCP_REGISTRY_URL}.\e[0m"
+  else
+    echo -e "\e[33m⚠️ Aviso [MCP Registry]: Publicación enviada; la indexación en ${MCP_REGISTRY_URL} puede tardar unos segundos.\e[0m"
+  fi
+}
+
+if [ "${PUBLISH_REGISTRY}" = true ]; then
+  validate_mcp_registry_prerequisites
+fi
+
+if [ "${REGISTRY_ONLY}" = true ]; then
+  publish_mcp_registry
+  "${REPO_ROOT}/scripts/limpieza.sh" --quiet
+  exit 0
 fi
 
 ensure_fresh_dist_before_pack() {
@@ -292,6 +421,9 @@ else
 fi
 
 if [ "$DRY_RUN" = true ]; then
+  if [ "${PUBLISH_REGISTRY}" = true ]; then
+    publish_mcp_registry
+  fi
   echo "══════════════════════════════════════════════════════════════════════"
   echo -e "\e[32m  🎉 SIMULACIÓN EXITOSA: El paquete ${PKG_NAME}@${PKG_VERSION} cumple 100% con el Estándar 11X \e[0m"
   echo "  Para publicar en vivo, configure NPM_TOKEN en .env y ejecute:"
@@ -383,6 +515,10 @@ done
 if [ "${VERIFIED_REMOTE_VERSION}" != "${PKG_VERSION}" ]; then
   echo -e "\e[33m⚠️ Aviso: npm publish concluyó con éxito (+ ${PKG_NAME}@${PKG_VERSION}), pero el CDN de npmjs aún está procesando la propagación inicial.\e[0m"
   echo "   Estará visible en unos instantes ejecutando: npm view ${PKG_NAME} version"
+fi
+
+if [ "${PUBLISH_REGISTRY}" = true ]; then
+  publish_mcp_registry
 fi
 
 # Saneamiento final

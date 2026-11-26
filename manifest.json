@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.9.0",
-  "generated_at_utc": "2026-11-25T23:17:45Z",
+  "generated_at_utc": "2026-11-26T00:08:43Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -1231,8 +1231,8 @@
       "path": ".agents/scripts/_docs_invariants_catalogs.py",
       "target_name": ".agents/scripts/_docs_invariants_catalogs.py",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "b7653387e1dfb19fca0ff469d7c52512044de44c52dbcf7c07df2329ef4202e4",
-      "size_bytes": 28292
+      "sha256": "9d0dff19a01496a1b92bf5f46d7c67ac10dedfbeaf3544e7d53671e4bc70c698",
+      "size_bytes": 32882
     },
     {
       "path": ".agents/scripts/_docs_invariants_config.py",
@@ -1259,8 +1259,8 @@
       "path": ".agents/scripts/bump_version_11x.py",
       "target_name": ".agents/scripts/bump_version_11x.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "2c7c5af838493c9f1b937066c8fbe7255e3ab42bfcfeb3261cd06d97512e9f5f",
-      "size_bytes": 21570
+      "sha256": "e238b340d905272c3f41dfb0a5b6b35c81cbf4498771478f4767488c53ad40e4",
+      "size_bytes": 21715
     },
     {
       "path": ".agents/scripts/certify_task_completion.sh",
@@ -1378,8 +1378,8 @@
       "path": ".agents/scripts/verify_docs_invariants.py",
       "target_name": ".agents/scripts/verify_docs_invariants.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "803e3603923fdf9e7afc438af393e3520948b3acd6a49a269d5427e0356e9468",
-      "size_bytes": 7988
+      "sha256": "fc6b9184345f552e5530fdf1a612af18a49f2eaba075e32e3e90da41f31bb672",
+      "size_bytes": 8155
     },
     {
       "path": ".agents/scripts/verify_json_no_duplicate_keys.py",

@@ -587,6 +587,63 @@ class TestPublicarMcp(unittest.TestCase):
             docker_log = log_file.read_text(encoding="utf-8")
             self.assertIn("--provenance", docker_log)
 
+    def test_registry_only_validations_and_dry_run(self) -> None:
+        """Valida pre-requisitos de server.json y dry-run sin requerir NPM_TOKEN."""
+        docker_reg_stub = (
+            "#!/usr/bin/env bash\n"
+            'if [[ "$*" == *"mcpName"* ]]; then echo ""; exit 0; fi\n'
+            "exit 0\n"
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fake_root, fake_script, fake_bin = self._create_publish_sandbox(
+                tmpdir, docker_reg_stub, with_dist=True
+            )
+            env = self._isolated_env(
+                fake_root / "home",
+                PATH=f"{fake_bin}:{os.environ.get('PATH', '')}",
+            )
+            # Sin server.json falla limpio
+            res_missing = subprocess.run(
+                [str(fake_script), "--registry-only", "--dry-run"],
+                capture_output=True,
+                text=True,
+                cwd=str(fake_root),
+                env=env,
+            )
+            self.assertEqual(res_missing.returncode, 1)
+            self.assertIn("No se encontró server.json", res_missing.stderr)
+
+            # Con server.json pero sin mcpName en package.json falla limpio
+            (fake_root / "server.json").write_text(
+                '{"name":"io.github.tecno-consultores/mcp-qa-11x","version":"3.1.0"}\n',
+                encoding="utf-8",
+            )
+            res_mismatch = subprocess.run(
+                [str(fake_script), "--registry-only", "--dry-run"],
+                capture_output=True,
+                text=True,
+                cwd=str(fake_root),
+                env=env,
+            )
+            self.assertEqual(res_mismatch.returncode, 1)
+            self.assertIn("package.json#mcpName", res_mismatch.stderr)
+
+            # Con mcpName coincidente y dry-run pasa sin NPM_TOKEN
+            (fake_root / "mcp-server" / "package.json").write_text(
+                '{"name":"@sinfallas/mcp-qa-11x","version":"3.1.0",'
+                '"mcpName":"io.github.tecno-consultores/mcp-qa-11x"}\n',
+                encoding="utf-8",
+            )
+            res_ok = subprocess.run(
+                [str(fake_script), "--registry-only", "--dry-run"],
+                capture_output=True,
+                text=True,
+                cwd=str(fake_root),
+                env=env,
+            )
+            self.assertEqual(res_ok.returncode, 0, res_ok.stdout + res_ok.stderr)
+            self.assertIn("Simulación completada", res_ok.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

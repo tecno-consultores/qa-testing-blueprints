@@ -8,6 +8,9 @@ Todos los cambios notables en el paquete npm y servidor MCP `@sinfallas/mcp-qa-1
 
 ## [Unreleased]
 
+### Añadido
+- **Metadatos de Propiedad del MCP Registry Oficial (`mcpName`):** Declarado `"mcpName": "io.github.tecno-consultores/mcp-qa-11x"` en `mcp-server/package.json` en paridad con `server.json` en la raíz (`2025-12-11/server.schema.json`) y flujo efímero Docker de validación/publicación con `mcp-publisher` (`make publish-mcp-registry-dry` / `make publish-mcp-registry`) para los próximos releases en npm.
+
 ## [3.9.0] - 2026-11-25
 
 ### Añadido
