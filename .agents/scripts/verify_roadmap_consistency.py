@@ -491,6 +491,23 @@ def validate_bilingual_roadmap_parity(
     return errors
 
 
+def _is_roadmap_legacy_preserved(repo_root: Path) -> bool:
+    """Devuelve True si .qa-11x.json marca ROADMAP.md como legacy_preserved."""
+    cfg_path = repo_root / ".qa-11x.json"
+    if not cfg_path.is_file():
+        return False
+    try:
+        parsed = json.loads(cfg_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not isinstance(parsed, dict):
+        return False
+    gov = parsed.get("governanceDocs")
+    if not isinstance(gov, dict):
+        return False
+    return gov.get("ROADMAP.md") == "legacy_preserved"
+
+
 def _collect_all_consistency_errors(repo_root: Path) -> list[str]:
     roadmap_path = repo_root / "ROADMAP.md"
     roadmap_es_path = repo_root / "ROADMAP.es.md"
@@ -498,11 +515,14 @@ def _collect_all_consistency_errors(repo_root: Path) -> list[str]:
     checkpoint_path = repo_root / ".agents" / ".cache" / "session_checkpoint.json"
 
     errors: list[str] = []
-    if roadmap_path.is_file():
-        errors.extend(validate_roadmap_consistency(roadmap_path))
-    if roadmap_es_path.is_file():
-        errors.extend(validate_roadmap_consistency(roadmap_es_path))
-    errors.extend(validate_bilingual_roadmap_parity(roadmap_path, roadmap_es_path))
+    if not _is_roadmap_legacy_preserved(repo_root):
+        if roadmap_path.is_file():
+            errors.extend(validate_roadmap_consistency(roadmap_path))
+        if roadmap_es_path.is_file():
+            errors.extend(validate_roadmap_consistency(roadmap_es_path))
+        errors.extend(
+            validate_bilingual_roadmap_parity(roadmap_path, roadmap_es_path)
+        )
     if active_task_path.is_file():
         errors.extend(validate_active_task(active_task_path))
     errors.extend(validate_session_checkpoint(checkpoint_path, active_task_path))
@@ -510,6 +530,14 @@ def _collect_all_consistency_errors(repo_root: Path) -> list[str]:
 
 
 def _has_governance_docs(repo_root: Path) -> bool:
+    if _is_roadmap_legacy_preserved(repo_root):
+        return any(
+            (repo_root / rel).is_file()
+            for rel in (
+                ".agents/ACTIVE_TASK.md",
+                ".agents/.cache/session_checkpoint.json",
+            )
+        )
     return any(
         (repo_root / rel).is_file()
         for rel in (

@@ -24,7 +24,18 @@ import {
   type ConnectorLang,
   type ConnectorMergeAction,
 } from '../services/agents-connector.js';
-import { readQa11xConfig } from '../services/qa11xConfig.js';
+import {
+  formatQa11xStatusBanner,
+  parseStandardTier,
+  readQa11xConfig,
+  writeQa11xConfig,
+} from '../services/qa11xConfig.js';
+import { applyGovernanceDocuments } from '../services/governanceTemplates.js';
+import type {
+  BilingualMirrorsMode,
+  GovernanceTemplateApplyItem,
+  StandardTier,
+} from '../types.js';
 
 export {
   AIDER_BRIDGE_END,
@@ -129,6 +140,13 @@ export interface InitOrAppendAgentsMdOptions {
   agents?: AgentsTargetSpec;
   dryRun?: boolean;
   dry_run?: boolean;
+  tier?: string;
+  governanceDocs?: readonly string[];
+  governance_docs?: readonly string[];
+  declineGovernanceDocs?: readonly string[];
+  decline_governance_docs?: readonly string[];
+  bilingualMirrors?: BilingualMirrorsMode;
+  bilingual_mirrors?: BilingualMirrorsMode;
 }
 
 export interface InitOrAppendAgentsMdResult {
@@ -140,6 +158,10 @@ export interface InitOrAppendAgentsMdResult {
   content: string;
   bridged_agents: SupportedAiAgentId[];
   bridge_files: BridgeFileResult[];
+  effective_tier?: StandardTier;
+  tier_confirmed_by_user?: boolean;
+  qa_11x_banner?: string;
+  governance_files_applied?: GovernanceTemplateApplyItem[];
 }
 
 function freezeAgent(descriptor: AiAgentDescriptor): AiAgentDescriptor {
@@ -680,6 +702,87 @@ function resolveValidProjectDirectory(rawPath: string): string {
   return resolved;
 }
 
+function resolveInitTierSelection(
+  rawTier: string | undefined,
+  persistedConfig: ReturnType<typeof readQa11xConfig>
+): {
+  parsedExplicitTier: StandardTier | null;
+  effectiveTier: StandardTier;
+  tierConfirmedByUser: boolean;
+} {
+  const parsedExplicitTier = rawTier !== undefined ? parseStandardTier(rawTier) : null;
+  if (rawTier !== undefined && parsedExplicitTier === null) {
+    throw new Error(
+      `Invalid tier '${String(rawTier)}'. Allowed values: starter, standard, enterprise.`
+    );
+  }
+  return {
+    parsedExplicitTier,
+    effectiveTier: parsedExplicitTier ?? persistedConfig.effectiveTier,
+    tierConfirmedByUser: parsedExplicitTier !== null ? true : persistedConfig.tierConfirmedByUser,
+  };
+}
+
+function applyInitGovernanceAndPersistConfig(params: {
+  resolvedPath: string;
+  options: InitOrAppendAgentsMdOptions;
+  persistedConfig: ReturnType<typeof readQa11xConfig>;
+  lang: SupportedLang;
+  detectedStacks: readonly string[];
+  dryRun: boolean;
+}): {
+  effectiveTier: StandardTier;
+  tierConfirmedByUser: boolean;
+  appliedItems: GovernanceTemplateApplyItem[];
+} {
+  const { resolvedPath, options, persistedConfig, lang, detectedStacks, dryRun } = params;
+  const { parsedExplicitTier, effectiveTier, tierConfirmedByUser } = resolveInitTierSelection(
+    options.tier,
+    persistedConfig
+  );
+  const requestedDocs = options.governanceDocs ?? options.governance_docs;
+  const declinedDocs = options.declineGovernanceDocs ?? options.decline_governance_docs;
+  const bilingualMirrors = options.bilingualMirrors ?? options.bilingual_mirrors;
+  const hasGovernanceWork =
+    (requestedDocs !== undefined && requestedDocs.length > 0) ||
+    (declinedDocs !== undefined && declinedDocs.length > 0);
+  const govApplied = hasGovernanceWork
+    ? applyGovernanceDocuments({
+        projectPath: resolvedPath,
+        tier: effectiveTier,
+        lang,
+        stacks: detectedStacks,
+        governanceDocs: requestedDocs,
+        declineGovernanceDocs: declinedDocs,
+        bilingualMirrors,
+        dryRun,
+      })
+    : undefined;
+
+  const hasDecisions =
+    govApplied !== undefined && Object.keys(govApplied.decisionsDelta).length > 0;
+  if (parsedExplicitTier !== null || hasDecisions) {
+    writeQa11xConfig(
+      resolvedPath,
+      {
+        tier: effectiveTier,
+        tierConfirmedByUser,
+        lang,
+        stacks: detectedStacks.length > 0 ? detectedStacks : persistedConfig.stacks,
+        governanceDocs: govApplied?.decisionsDelta,
+        existingRaw: persistedConfig.raw,
+      },
+      { dryRun }
+    );
+  }
+
+  return {
+    effectiveTier,
+    tierConfirmedByUser,
+    appliedItems: govApplied?.items ?? [],
+  };
+}
+
 export async function initOrAppendAgentsMd(
   options: InitOrAppendAgentsMdOptions
 ): Promise<InitOrAppendAgentsMdResult> {
@@ -717,6 +820,15 @@ export async function initOrAppendAgentsMd(
     fs.writeFileSync(agentsMdPath, mergedAgentsMd.finalContent, UTF8);
   }
 
+  const { effectiveTier, tierConfirmedByUser, appliedItems } = applyInitGovernanceAndPersistConfig({
+    resolvedPath,
+    options,
+    persistedConfig,
+    lang,
+    detectedStacks,
+    dryRun,
+  });
+
   return {
     project_path: resolvedPath,
     agents_md_path: agentsMdPath,
@@ -726,5 +838,9 @@ export async function initOrAppendAgentsMd(
     content: mergedAgentsMd.finalContent,
     bridged_agents: bridgedAgents,
     bridge_files: bridgeFiles,
+    effective_tier: effectiveTier,
+    tier_confirmed_by_user: tierConfirmedByUser,
+    qa_11x_banner: formatQa11xStatusBanner(effectiveTier, 'FULL_11X'),
+    ...(appliedItems.length > 0 ? { governance_files_applied: appliedItems } : {}),
   };
 }

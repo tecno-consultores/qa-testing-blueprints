@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "blueprint_version": "3.9.0",
-  "generated_at_utc": "2026-11-26T22:14:21Z",
+  "generated_at_utc": "2026-11-26T23:07:13Z",
   "repository": "tecno-consultores/qa-testing-blueprints",
   "default_branch": "main",
   "raw_base_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main",
@@ -1147,8 +1147,8 @@
       "path": ".agents/rules/active_task_and_planning_resilience.md",
       "target_name": ".agents/rules/active_task_and_planning_resilience.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "8b4f5da6910b63f221ae13ef853193e791e50f3263c752188baaab2c3c41d5e2",
-      "size_bytes": 2589
+      "sha256": "6b9a9b039040d7f6ac915e9cfccb9109899921548152636fce89b5a87d8797dc",
+      "size_bytes": 3120
     },
     {
       "path": ".agents/rules/anti_regression_and_side_effects_guardrail.md",
@@ -1189,8 +1189,8 @@
       "path": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "target_name": ".agents/rules/mandatory_qa_pyramid_and_doc_sync.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "570d532574883efea478bca0f055df3b63c8c1110d1a7a49b3e14fe6bc474224",
-      "size_bytes": 7138
+      "sha256": "3cd3df725b23dfaf31ffd1a5af4971b8397cdcc02b8b4e13ae68d3bdcc304666",
+      "size_bytes": 7490
     },
     {
       "path": ".agents/rules/secure_development_and_testing_guidelines.md",
@@ -1266,8 +1266,8 @@
       "path": ".agents/scripts/certify_task_completion.sh",
       "target_name": ".agents/scripts/certify_task_completion.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "4318f579a7c053681e62feedb26dac99ddfc2787d1488e5328168a81fe96c874",
-      "size_bytes": 38507
+      "sha256": "92e1a624dcc52c2cf194ff1388158006ca8a732ca5c2f2cb171eaa42857b065a",
+      "size_bytes": 38834
     },
     {
       "path": ".agents/scripts/checkpoint_ctl.py",
@@ -1399,8 +1399,8 @@
       "path": ".agents/scripts/verify_roadmap_consistency.py",
       "target_name": ".agents/scripts/verify_roadmap_consistency.py",
       "merge_strategy": "overwrite_executable",
-      "sha256": "055925de9d079cf747308a1d9013281dff10cde43ef237d625be22c41619a5c8",
-      "size_bytes": 20810
+      "sha256": "8198a38b953ceb3019c63e7c2b25c4ccbb482719dee7904c6ebcda0ca69f709c",
+      "size_bytes": 21743
     },
     {
       "path": ".agents/scripts/verify_topological_health.py",
@@ -1434,8 +1434,8 @@
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "target_name": ".agents/skills/qa-11x-architect/SKILL.md",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "ab263995a824fd8875c5fa6962595b667f53a7c31c05c29f82591398605a1622",
-      "size_bytes": 11805
+      "sha256": "3c60115cf48ef6838b71bff734b7fb767e8f92088b0b02398cc0cd823a1efa6e",
+      "size_bytes": 12153
     },
     {
       "path": ".agents/skills/qa-11x-architect/references/01-core-13-layers.md",
@@ -1686,22 +1686,22 @@
       "path": "catalogs/skillsllm-manifest.json",
       "target_name": "catalogs/skillsllm-manifest.json",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "b975ecb205c2a0c06f4b6ec589974231affdb58253715ad77047d81238f4a6b7",
+      "sha256": "4f203d8ecbd3dc6f777ee1d2e69a3587a7b43034a42a4ec48d19b21be966bb3d",
       "size_bytes": 11156
     },
     {
       "path": "llms.txt",
       "target_name": "llms.txt",
       "merge_strategy": "copy_or_overwrite",
-      "sha256": "1600cb57ba153f91afa4a59533675d24795274bbbe7ad6872cb30676b72fdac5",
-      "size_bytes": 18399
+      "sha256": "a94890bd6e73dc92640397520b54b3c2dfdfa5b35e206916b301e9d631b6fc1e",
+      "size_bytes": 18709
     },
     {
       "path": "scripts/install-skill.sh",
       "target_name": "scripts/install-skill.sh",
       "merge_strategy": "overwrite_executable",
-      "sha256": "4279ddf32fe6a36a8ef47d6557ce1c3c09a41cf2c40f003c030dca28ab7837b5",
-      "size_bytes": 39714
+      "sha256": "855d88a4855c028514d7059830e430fe043e746a4d8ed9721e691dbe8100a017",
+      "size_bytes": 39633
     }
   ]
 }

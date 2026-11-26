@@ -683,11 +683,11 @@ sync_project_agents_md() {
 <!-- QA_11X_MCP_CONNECTOR_START -->
 ## 🤖 QA 11X Thin-Repo Connector (`@sinfallas/mcp-qa-11x`)
 
-Project `__PROJ_NAME__` enforces **Standard QA-11X** (stacks: `general`). Do NOT duplicate global skills/rules into local `.agents/skills/` or `.agents/rules/`.
+Project `__PROJ_NAME__` enforces **Standard QA-11X** (stacks: `general`). Do NOT duplicate global skills/rules locally in `.agents/`.
 
 - **Language Policy:** __LANG_LINE__
-- **Tier & Routing (`qa-11x-architect` + MCP `qa-11x`):** Open mutating tasks with `[QA-11X | Tier: <tier> | Path: <DOCS_ONLY|MICRO_CHANGE|FULL_11X>]` (`.qa-11x.json` v3; default `standard`; ask once if `!tierConfirmedByUser`). Classify: `DOCS_ONLY` (`0` Docker/AST), `MICRO_CHANGE` (`<=3` files, `<5` callers), `FULL_11X` (`/plan` + `session_flight_recorder` + 11-step flow).
-- **Hard Gates:** (1) **Rule Zero** — run tests/linters/migrations in non-root ephemeral Docker (`run_ephemeral_qa`/`make`, serialized 1 container at a time; zero parallel subagent `docker run`; `--rm --restart=no --network none` offline); (2) **AST-First & Objective Critique** — query `inspect_ast_blast_radius` before edits, skip praise, verify non-trivial premises (never debate routine cmds); (3) **`QA-TEST-SYNC-01`** — co-evolve affected unit (`>=95%`), integration, BATS & Karate suites; (4) **`QA-GIT-GATE-01`** — run `certify_11x_gate`, stop at local `git commit` (NEVER auto-`git push`).
+- **Tier & Routing (`qa-11x-architect` + MCP `qa-11x`):** Announce `[QA-11X | Tier: <tier> | Path: <DOCS_ONLY|MICRO_CHANGE|FULL_11X>]` (`.qa-11x.json` v3; default `standard`; ask once if `!tierConfirmedByUser`/missing gov docs; `/plan` reads `<=80L`; sync `CHANGELOG`/`TESTING`/`ROADMAP` pre-commit). Paths: `DOCS_ONLY` (`0` Docker), `MICRO_CHANGE` (`<=3` files), `FULL_11X` (`/plan` + `session_flight_recorder`).
+- **Gates:** (1) **Rule Zero** — tests/linters/migrations in non-root ephemeral Docker (`run_ephemeral_qa`/`make`, serialized 1 container at a time; zero parallel subagent `docker run`; `--rm --restart=no --network none` offline); (2) **AST-First & Objective Critique** — `inspect_ast_blast_radius` before edits, skip praise, verify premises; (3) **`QA-TEST-SYNC-01`** — co-evolve unit (`>=95%`), BATS & Karate; (4) **`QA-GIT-GATE-01`** — `certify_11x_gate`, local `git commit` only (NEVER auto-`git push`).
 <!-- QA_11X_MCP_CONNECTOR_END -->
 
 EOF

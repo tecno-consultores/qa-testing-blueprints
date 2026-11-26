@@ -2453,8 +2453,15 @@ EOF
   assert_output --partial "Tier: enterprise"
   assert_output --partial "✅ [CALM] stub OK"
 
-  # 3. También cubre origin/${GITHUB_BASE_REF} cuando existe ref remota
+  # 3. También cubre origin/${GITHUB_BASE_REF} + CALM existente auditado incluso en tier standard
   git -C "${work}" update-ref refs/remotes/origin/main refs/heads/main
-  run env QA_IN_CONTAINER=1 QA11X_TIER=enterprise GITHUB_BASE_REF=main PATH="${bin_dir}" LC_ALL=C bash "${work}/.agents/scripts/certify_task_completion.sh"
+  mkdir -p "${work}/architecture"
+  printf '{"nodes":[]}\n' >"${work}/architecture/demo.calm.json"
+  printf '{"schemaVersion":3,"tier":"standard","tierConfirmedByUser":true}\n' >"${work}/.qa-11x.json"
+  git -C "${work}" add architecture/demo.calm.json .qa-11x.json
+  git -C "${work}" commit -q -m "chore: add calm"
+  run env QA_IN_CONTAINER=1 QA11X_TIER=standard GITHUB_BASE_REF=main PATH="${bin_dir}" LC_ALL=C bash "${work}/.agents/scripts/certify_task_completion.sh"
   assert_success
+  assert_output --partial "Tier: standard"
+  assert_output --partial "✅ [CALM] stub OK"
 }

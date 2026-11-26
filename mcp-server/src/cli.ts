@@ -56,6 +56,9 @@ const FLAG_DIR = '--dir';
 const FLAG_TIER = '--tier';
 const FLAG_TIER_SHORT = '-T';
 const FLAG_CI = '--ci';
+const FLAG_GOVERNANCE_DOCS = '--governance-docs';
+const FLAG_DECLINE_GOVERNANCE_DOCS = '--decline-governance-docs';
+const FLAG_BILINGUAL_MIRRORS = '--bilingual-mirrors';
 const FLAG_FORCE = '--force';
 const FLAG_FORCE_SHORT = '-f';
 const FLAG_JSON = '--json';
@@ -123,6 +126,9 @@ export interface ParsedQuickstartCliArgs {
   readonly lang?: SupportedLang;
   readonly agents?: AgentsTargetSpec;
   readonly ci?: QuickstartCiProvider;
+  readonly governanceDocsList?: readonly string[];
+  readonly declineGovernanceDocs?: readonly string[];
+  readonly bilingualMirrors?: 'auto' | boolean;
   readonly dryRun: boolean;
   readonly force: boolean;
   readonly json: boolean;
@@ -170,6 +176,10 @@ interface MutableParseState {
   rawAgents?: string;
   target?: string;
   scanWorkspaces?: string;
+  rawTier?: string;
+  rawGovernanceDocs?: string;
+  rawDeclineGovernanceDocs?: string;
+  rawBilingualMirrors?: string;
   dryRun: boolean;
   initAgents: boolean;
   includeScripts: boolean;
@@ -180,7 +190,16 @@ interface MutableParseState {
   json?: boolean;
 }
 
-type ValueFlagField = 'rawLang' | 'rawAgents' | 'projectPath' | 'target' | 'scanWorkspaces';
+type ValueFlagField =
+  | 'rawLang'
+  | 'rawAgents'
+  | 'projectPath'
+  | 'target'
+  | 'scanWorkspaces'
+  | 'rawTier'
+  | 'rawGovernanceDocs'
+  | 'rawDeclineGovernanceDocs'
+  | 'rawBilingualMirrors';
 type BooleanFlagField =
   | 'dryRun'
   | 'initAgents'
@@ -201,6 +220,11 @@ const VALUE_FLAG_FIELDS: Readonly<Record<string, ValueFlagField>> = Object.freez
   [FLAG_TARGET]: 'target',
   [FLAG_TARGET_SHORT]: 'target',
   '--scan-workspaces': 'scanWorkspaces',
+  [FLAG_TIER]: 'rawTier',
+  [FLAG_TIER_SHORT]: 'rawTier',
+  [FLAG_GOVERNANCE_DOCS]: 'rawGovernanceDocs',
+  [FLAG_DECLINE_GOVERNANCE_DOCS]: 'rawDeclineGovernanceDocs',
+  [FLAG_BILINGUAL_MIRRORS]: 'rawBilingualMirrors',
 });
 
 const BOOLEAN_FLAG_FIELDS: Readonly<Record<string, BooleanFlagField>> = Object.freeze({
@@ -214,7 +238,15 @@ const BOOLEAN_FLAG_FIELDS: Readonly<Record<string, BooleanFlagField>> = Object.f
   [FLAG_JSON]: 'json',
 });
 
-type QuickstartValueFlagField = 'projectPath' | 'rawTier' | 'rawLang' | 'rawAgents' | 'rawCi';
+type QuickstartValueFlagField =
+  | 'projectPath'
+  | 'rawTier'
+  | 'rawLang'
+  | 'rawAgents'
+  | 'rawCi'
+  | 'rawGovernanceDocs'
+  | 'rawDeclineGovernanceDocs'
+  | 'rawBilingualMirrors';
 type QuickstartBooleanFlagField = 'dryRun' | 'force' | 'json';
 
 interface MutableQuickstartParseState {
@@ -224,6 +256,9 @@ interface MutableQuickstartParseState {
   rawLang?: string;
   rawAgents?: string;
   rawCi?: string;
+  rawGovernanceDocs?: string;
+  rawDeclineGovernanceDocs?: string;
+  rawBilingualMirrors?: string;
   dryRun: boolean;
   force: boolean;
   json: boolean;
@@ -241,6 +276,9 @@ const QUICKSTART_VALUE_FLAG_FIELDS: Readonly<Record<string, QuickstartValueFlagF
     [FLAG_AGENTS]: 'rawAgents',
     [FLAG_AGENTS_SHORT]: 'rawAgents',
     [FLAG_CI]: 'rawCi',
+    [FLAG_GOVERNANCE_DOCS]: 'rawGovernanceDocs',
+    [FLAG_DECLINE_GOVERNANCE_DOCS]: 'rawDeclineGovernanceDocs',
+    [FLAG_BILINGUAL_MIRRORS]: 'rawBilingualMirrors',
   });
 
 const QUICKSTART_BOOLEAN_FLAG_FIELDS: Readonly<Record<string, QuickstartBooleanFlagField>> =
@@ -322,6 +360,11 @@ const CLI_VALUE_FLAGS_BY_CMD: Readonly<Record<CliCommandName, ReadonlySet<string
     FLAG_LANG_SHORT,
     FLAG_AGENTS,
     FLAG_AGENTS_SHORT,
+    FLAG_TIER,
+    FLAG_TIER_SHORT,
+    FLAG_GOVERNANCE_DOCS,
+    FLAG_DECLINE_GOVERNANCE_DOCS,
+    FLAG_BILINGUAL_MIRRORS,
   ]),
   [CMD_INSTALL_SKILL]: new Set([
     FLAG_TARGET,
@@ -481,6 +524,19 @@ export function parseQuickstartCliArgs(
     }
   }
 
+  const parseCsv = (raw: string): string[] =>
+    raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+  const parseMirrors = (raw: string): { value: 'auto' | boolean } => {
+    const norm = raw.trim().toLowerCase();
+    if (norm === 'auto') return { value: 'auto' };
+    if (norm === 'true' || norm === '1' || norm === 'yes') return { value: true };
+    if (norm === 'false' || norm === '0' || norm === 'no') return { value: false };
+    throw new Error(`Invalid --bilingual-mirrors value '${raw}'. Allowed: auto, true, false.`);
+  };
+
   return {
     command: CMD_QUICKSTART,
     projectPath: resolveRelativeToCwd(state.projectPath, cwd),
@@ -488,6 +544,15 @@ export function parseQuickstartCliArgs(
     lang: state.rawLang !== undefined ? validateSupportedLang(state.rawLang) : undefined,
     agents: state.rawAgents !== undefined ? parseAgentsOption(state.rawAgents) : undefined,
     ci: state.rawCi !== undefined ? validateQuickstartCi(state.rawCi) : undefined,
+    ...(state.rawGovernanceDocs !== undefined
+      ? { governanceDocsList: parseCsv(state.rawGovernanceDocs) }
+      : {}),
+    ...(state.rawDeclineGovernanceDocs !== undefined
+      ? { declineGovernanceDocs: parseCsv(state.rawDeclineGovernanceDocs) }
+      : {}),
+    ...(state.rawBilingualMirrors !== undefined
+      ? { bilingualMirrors: parseMirrors(state.rawBilingualMirrors).value }
+      : {}),
     dryRun: state.dryRun,
     force: state.force,
     json: state.json,
@@ -801,6 +866,9 @@ async function handleQuickstartCommand(
       lang: parsed.lang,
       agents: parsed.agents,
       ci: parsed.ci,
+      governanceDocsList: parsed.governanceDocsList,
+      declineGovernanceDocs: parsed.declineGovernanceDocs,
+      bilingualMirrors: parsed.bilingualMirrors,
       dryRun: parsed.dryRun,
       force: parsed.force,
       json: parsed.json,

@@ -1952,6 +1952,36 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def devE2e56 = karate.readAsString(mcpRoot + '/example/frontend/e2e/devices.e2e.ts')
     * assert devE2e56.contains("getByRole('contentinfo')")
 
+  Scenario: 57. Hito 33 — Tiers explícitos (.qa-11x.json v3), detección no destructiva de gobernanza, plantillas contextuales y superficie inmutable (19 tools / 13 resources)
+    * def cfg57 = karate.readAsString(mcpRoot + '/src/services/qa11xConfig.ts')
+    * assert cfg57.contains("DEFAULT_QA_11X_TIER: StandardTier = 'standard'")
+    * assert cfg57.contains('QA_11X_CONFIG_SCHEMA_VERSION = 3')
+    * assert cfg57.contains('formatQa11xStatusBanner')
+    * def det57 = karate.readAsString(mcpRoot + '/src/services/governanceDetector.ts')
+    * assert det57.contains('present_compatible')
+    * assert det57.contains('present_legacy')
+    * assert det57.contains('missing_unprompted')
+    * assert det57.contains('not_applicable')
+    * def tpl57 = karate.readAsString(mcpRoot + '/src/services/governanceTemplates.ts')
+    * assert tpl57.contains('insertUnreleasedIntoLegacyChangelog')
+    * assert tpl57.contains('applyGovernanceDocuments')
+    * def types57 = karate.readAsString(mcpRoot + '/src/types.ts')
+    * assert types57.contains('governance_docs')
+    * assert types57.contains('decline_governance_docs')
+    * assert types57.contains('bilingual_mirrors')
+    * def ready57 = karate.readAsString(mcpRoot + '/src/tools/standardReadiness.ts')
+    * assert ready57.contains('governance_files')
+    * assert ready57.contains('governance_onboarding_needed')
+    * def certSh57 = karate.readAsString(repoRoot + '/.agents/scripts/certify_task_completion.sh')
+    * assert certSh57.contains('gate_09_roadmap')
+    * assert certSh57.contains('has_calm_file')
+    * def rmPy57 = karate.readAsString(repoRoot + '/.agents/scripts/verify_roadmap_consistency.py')
+    * assert rmPy57.contains('_is_roadmap_legacy_preserved')
+    * assert rmPy57.contains('legacy_preserved')
+    * def action57 = karate.readAsString(repoRoot + '/.github/actions/qa-11x-pr-check/action.yml')
+    * assert action57.contains("default: 'auto'")
+
+
 
 
 

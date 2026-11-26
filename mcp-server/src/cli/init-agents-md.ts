@@ -26,11 +26,14 @@ import {
 } from '../tools/initOrAppendAgentsMd.js';
 import type {
   AgentsTargetSpec,
+  BilingualMirrorsMode,
   InitAgentsMdOptions,
   InitAgentsMdResult,
   InitAgentsAction,
   OutputLanguageMode,
+  StandardTier,
 } from '../types.js';
+import { parseStandardTier } from '../services/qa11xConfig.js';
 
 export {
   CONNECTOR_START_MARKER,
@@ -55,6 +58,10 @@ const HELP_SHORT_FLAG = '-h';
 const PROJECT_PATH_FLAGS = new Set(['--project-path', '--dir', '-p']);
 const LANG_FLAGS = new Set(['--lang', '-l']);
 const AGENTS_FLAGS = new Set(['--agents', '-a']);
+const TIER_FLAGS = new Set(['--tier', '-T']);
+const GOVERNANCE_DOCS_FLAGS = new Set(['--governance-docs']);
+const DECLINE_GOVERNANCE_DOCS_FLAGS = new Set(['--decline-governance-docs']);
+const BILINGUAL_MIRRORS_FLAGS = new Set(['--bilingual-mirrors']);
 
 export const INIT_AGENTS_HELP_TEXT = renderSubcommandHelpText('init-agents', 'en');
 
@@ -79,6 +86,10 @@ interface InitAgentsCliParseState {
   dryRun: boolean;
   rawLang: string | undefined;
   rawAgents: string | undefined;
+  rawTier: string | undefined;
+  rawGovernanceDocs: string | undefined;
+  rawDeclineGovernanceDocs: string | undefined;
+  rawBilingualMirrors: string | undefined;
 }
 
 const INIT_AGENTS_VALUE_FLAG_HANDLERS: ReadonlyArray<{
@@ -103,7 +114,54 @@ const INIT_AGENTS_VALUE_FLAG_HANDLERS: ReadonlyArray<{
       state.rawAgents = value;
     },
   },
+  {
+    flags: TIER_FLAGS,
+    assign: (state, value) => {
+      state.rawTier = value;
+    },
+  },
+  {
+    flags: GOVERNANCE_DOCS_FLAGS,
+    assign: (state, value) => {
+      state.rawGovernanceDocs = value;
+    },
+  },
+  {
+    flags: DECLINE_GOVERNANCE_DOCS_FLAGS,
+    assign: (state, value) => {
+      state.rawDeclineGovernanceDocs = value;
+    },
+  },
+  {
+    flags: BILINGUAL_MIRRORS_FLAGS,
+    assign: (state, value) => {
+      state.rawBilingualMirrors = value;
+    },
+  },
 ];
+
+function parseCsvListOption(raw: string): string[] {
+  return raw
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
+
+function parseBilingualMirrorsOption(raw: string): { value: BilingualMirrorsMode } {
+  const norm = raw.trim().toLowerCase();
+  if (norm === 'auto') return { value: 'auto' };
+  if (norm === 'true' || norm === '1' || norm === 'yes') return { value: true };
+  if (norm === 'false' || norm === '0' || norm === 'no') return { value: false };
+  throw new Error(`Valor inválido para --bilingual-mirrors: '${raw}'. Use auto, true o false.`);
+}
+
+function parseTierOption(raw: string): StandardTier {
+  const parsed = parseStandardTier(raw);
+  if (parsed === null) {
+    throw new Error(`Tier no válido: '${raw}'. Valores permitidos: starter, standard, enterprise.`);
+  }
+  return parsed;
+}
 
 function matchInitAgentsValueFlag(
   args: readonly string[],
@@ -170,6 +228,10 @@ export function parseInitAgentsArgs(
   dryRun: boolean;
   lang?: OutputLanguageMode;
   agents?: AgentsTargetSpec;
+  tier?: StandardTier;
+  governanceDocs?: string[];
+  declineGovernanceDocs?: string[];
+  bilingualMirrors?: BilingualMirrorsMode;
 } {
   const state: InitAgentsCliParseState = {
     projectPath: defaultCwd,
@@ -177,6 +239,10 @@ export function parseInitAgentsArgs(
     dryRun: false,
     rawLang: process.env.QA_OUTPUT_LANG,
     rawAgents: undefined,
+    rawTier: undefined,
+    rawGovernanceDocs: undefined,
+    rawDeclineGovernanceDocs: undefined,
+    rawBilingualMirrors: undefined,
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -189,6 +255,16 @@ export function parseInitAgentsArgs(
     dryRun: state.dryRun,
     ...(hasExplicitLang ? { lang: resolveLangOption(state.rawLang) } : {}),
     ...(state.rawAgents !== undefined ? { agents: parseAgentsOption(state.rawAgents) } : {}),
+    ...(state.rawTier !== undefined ? { tier: parseTierOption(state.rawTier) } : {}),
+    ...(state.rawGovernanceDocs !== undefined
+      ? { governanceDocs: parseCsvListOption(state.rawGovernanceDocs) }
+      : {}),
+    ...(state.rawDeclineGovernanceDocs !== undefined
+      ? { declineGovernanceDocs: parseCsvListOption(state.rawDeclineGovernanceDocs) }
+      : {}),
+    ...(state.rawBilingualMirrors !== undefined
+      ? { bilingualMirrors: parseBilingualMirrorsOption(state.rawBilingualMirrors).value }
+      : {}),
   };
 }
 
@@ -243,7 +319,16 @@ export async function executeInitAgentsCli(
     log(renderSubcommandHelpText('init-agents', resolveCliHelpLang(args)));
     return undefined;
   }
-  const { projectPath, dryRun, lang, agents } = parseInitAgentsArgs(args, deps.cwd);
+  const {
+    projectPath,
+    dryRun,
+    lang,
+    agents,
+    tier,
+    governanceDocs,
+    declineGovernanceDocs,
+    bilingualMirrors,
+  } = parseInitAgentsArgs(args, deps.cwd);
   logInitAgentsBanner(log, deps.quietBanner, { projectPath, lang: lang ?? 'auto', dryRun });
 
   const result = await initOrAppendAgentsMd({
@@ -251,6 +336,10 @@ export async function executeInitAgentsCli(
     dryRun,
     ...(lang !== undefined ? { lang } : {}),
     ...(agents !== undefined ? { agents } : {}),
+    ...(tier !== undefined ? { tier } : {}),
+    ...(governanceDocs !== undefined ? { governanceDocs } : {}),
+    ...(declineGovernanceDocs !== undefined ? { declineGovernanceDocs } : {}),
+    ...(bilingualMirrors !== undefined ? { bilingualMirrors } : {}),
   });
 
   logInitAgentsSummary(log, deps.quietBanner, result);

@@ -383,11 +383,27 @@ describe('Milestone 33 Wave 1 — Config v3, Hygiene, Gate Parity & Tier Enforce
     fs.mkdirSync(emptyHome, { recursive: true });
     fs.mkdirSync(consumerWs, { recursive: true });
 
+    const offlineFetcher = {
+      fetchManifest: () =>
+        Promise.resolve({
+          version: '3.9.0',
+          generated_at: '2026-11-26T00:00:00Z',
+          agent_governance_files: [
+            {
+              path: '.agents/skills/qa-11x-architect/SKILL.md',
+              sha256: '0'.repeat(64),
+            },
+          ],
+          stacks: {},
+        }),
+      fetchFileVerified: () => Promise.resolve('# Mock Skill\n'),
+    } as unknown as Parameters<typeof runInstallSkillCli>[1];
+
     const logs: string[] = [];
     const origLog = console.log;
     console.log = (...args: unknown[]) => logs.push(args.map(String).join(' '));
     try {
-      await runInstallSkillCli(['--target', 'auto', '--dry-run'], undefined, {
+      await runInstallSkillCli(['--target', 'auto', '--dry-run'], offlineFetcher, {
         cwd: consumerWs,
         homeDir: emptyHome,
       });

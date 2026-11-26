@@ -611,6 +611,50 @@ class TestVerifyRoadmapConsistency(unittest.TestCase):
             pct_errs = vrc.validate_roadmap_consistency(pct_rm)
             self.assertTrue(any("50%" in e and "25%" in e for e in pct_errs))
 
+    def test_roadmap_legacy_preserved_keeps_active_task_audit(self) -> None:
+        """Hito 33: legacy_preserved omite ROADMAP pero audita ACTIVE_TASK."""
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            self.assertFalse(vrc._is_roadmap_legacy_preserved(base))
+
+            cfg = base / ".qa-11x.json"
+            cfg.write_text("{bad json", encoding="utf-8")
+            self.assertFalse(vrc._is_roadmap_legacy_preserved(base))
+
+            cfg.write_text("[]", encoding="utf-8")
+            self.assertFalse(vrc._is_roadmap_legacy_preserved(base))
+
+            cfg.write_text('{"governanceDocs": "bad"}', encoding="utf-8")
+            self.assertFalse(vrc._is_roadmap_legacy_preserved(base))
+
+            # legacy_preserved sin ACTIVE_TASK -> SKIPPED (20) aun con ROADMAP roto
+            (base / "ROADMAP.md").write_text(
+                "# Freeform Legacy\n## 🚧 Hito 1: Sin tabla\n- [ ] x\n",
+                encoding="utf-8",
+            )
+            cfg.write_text(
+                json.dumps({"governanceDocs": {"ROADMAP.md": "legacy_preserved"}}),
+                encoding="utf-8",
+            )
+            self.assertTrue(vrc._is_roadmap_legacy_preserved(base))
+            self.assertEqual(vrc.main(target_root=base), 20)
+
+            # Con ACTIVE_TASK.md roto -> BLOQUEA (1) demostrando auditoría viva
+            agents_dir = base / ".agents"
+            agents_dir.mkdir()
+            (agents_dir / "ACTIVE_TASK.md").write_text(
+                "**Estado:** CERTIFIED_CLEAN (100%)\n- [ ] pendiente ilegal\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(vrc.main(target_root=base), 1)
+
+            # Con ACTIVE_TASK.md sano -> PASS (0) aunque ROADMAP.md sea legado
+            (agents_dir / "ACTIVE_TASK.md").write_text(
+                "**Estado:** CERTIFIED_CLEAN (100%)\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(vrc.main(target_root=base), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

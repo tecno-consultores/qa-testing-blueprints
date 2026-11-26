@@ -29,7 +29,13 @@ import {
   readQa11xConfig,
   type LoadedQa11xConfig,
 } from '../services/qa11xConfig.js';
-import type { GovernanceDocDecision, Qa11xProjectConfigV3, StandardTier } from '../types.js';
+import type {
+  BilingualMirrorsMode,
+  GovernanceDocDecision,
+  Qa11xProjectConfigV3,
+  StandardTier,
+} from '../types.js';
+import { applyGovernanceDocuments } from '../services/governanceTemplates.js';
 import { reportDebugCatchError, sanitizeDiagnosticText } from '../utils/diagnosticFormatter.js';
 
 const UTF8_ENCODING = 'utf8' as const;
@@ -94,6 +100,9 @@ export interface QuickstartOptions {
   readonly force?: boolean;
   readonly json?: boolean;
   readonly governanceDocs?: Readonly<Record<string, GovernanceDocDecision>>;
+  readonly governanceDocsList?: readonly string[];
+  readonly declineGovernanceDocs?: readonly string[];
+  readonly bilingualMirrors?: BilingualMirrorsMode;
 }
 
 export type QuickstartConfig = Qa11xProjectConfigV3;
@@ -860,6 +869,67 @@ async function resolveQuickstartTierSelection(
   };
 }
 
+function mapGovernanceApplyAction(
+  action: 'created' | 'updated' | 'preserved' | 'declined' | 'legacy_preserved' | 'dry_run'
+): QuickstartFileAction {
+  if (action === 'created' || action === 'updated') {
+    return action;
+  }
+  if (action === 'dry_run') {
+    return 'planned';
+  }
+  return 'preserved';
+}
+
+function applyQuickstartGovernanceStage(params: {
+  projectPath: string;
+  tier: StandardTier;
+  lang: SupportedLang;
+  stacks: readonly string[];
+  options: QuickstartOptions;
+  dryRun: boolean;
+}): {
+  govApplied: ReturnType<typeof applyGovernanceDocuments> | undefined;
+  mergedGovDecisions: Record<string, GovernanceDocDecision>;
+} {
+  const { options } = params;
+  const hasGovTemplates =
+    (options.governanceDocsList !== undefined && options.governanceDocsList.length > 0) ||
+    (options.declineGovernanceDocs !== undefined && options.declineGovernanceDocs.length > 0);
+  const govApplied = hasGovTemplates
+    ? applyGovernanceDocuments({
+        projectPath: params.projectPath,
+        tier: params.tier,
+        lang: params.lang,
+        stacks: params.stacks,
+        governanceDocs: options.governanceDocsList,
+        declineGovernanceDocs: options.declineGovernanceDocs,
+        bilingualMirrors: options.bilingualMirrors,
+        dryRun: params.dryRun,
+      })
+    : undefined;
+  const mergedGovDecisions: Record<string, GovernanceDocDecision> = {
+    ...(options.governanceDocs ?? {}),
+    ...(govApplied?.decisionsDelta ?? {}),
+  };
+  return { govApplied, mergedGovDecisions };
+}
+
+function appendGovernanceFileRecords(
+  fileRecords: QuickstartFileRecord[],
+  govApplied: ReturnType<typeof applyGovernanceDocuments> | undefined
+): void {
+  if (!govApplied) {
+    return;
+  }
+  for (const govItem of govApplied.items) {
+    fileRecords.push({
+      relativePath: govItem.relative_path,
+      action: mapGovernanceApplyAction(govItem.action),
+    });
+  }
+}
+
 export async function runQuickstart(options: QuickstartOptions = {}): Promise<QuickstartResult> {
   const rawDir = options.dir ?? options.projectPath ?? process.cwd();
   const projectPath = resolveQuickstartTargetDir(rawDir, options.baseBoundaryDir);
@@ -878,12 +948,21 @@ export async function runQuickstart(options: QuickstartOptions = {}): Promise<Qu
   const agents = resolveAgentsSpec(options.agents);
 
   const profile = detectProjectStackProfile(projectPath);
+  const { govApplied, mergedGovDecisions } = applyQuickstartGovernanceStage({
+    projectPath,
+    tier,
+    lang,
+    stacks: profile.stacks,
+    options,
+    dryRun,
+  });
+
   const { canonical, serialized } = buildConfigPayload({
     tier,
     tierConfirmedByUser,
     lang,
     profile,
-    governanceDocs: options.governanceDocs,
+    governanceDocs: Object.keys(mergedGovDecisions).length > 0 ? mergedGovDecisions : undefined,
     existingConfig: loadedConfig.raw,
     force,
   });
@@ -905,6 +984,7 @@ export async function runQuickstart(options: QuickstartOptions = {}): Promise<Qu
     configRecord,
     ...collectAgentFileRecords(agentsResult),
   ];
+  appendGovernanceFileRecords(fileRecords, govApplied);
 
   const gitignoreRecord = syncQuickstartGitignore(projectPath, dryRun);
   if (gitignoreRecord) {

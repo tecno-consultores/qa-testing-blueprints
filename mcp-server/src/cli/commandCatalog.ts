@@ -131,6 +131,46 @@ const AGENTS_FLAG: CliFlagSpec = {
   },
 };
 
+const GOVERNANCE_DOCS_FLAG: CliFlagSpec = {
+  long: '--governance-docs',
+  argLabel: '<csv>',
+  desc: {
+    en: 'Governance docs to generate or surgically adapt (e.g. CHANGELOG.md,ROADMAP.md,TESTING.md,SECURITY.md)',
+    es: 'Documentos de gobernanza a generar o adaptar (ej. CHANGELOG.md,ROADMAP.md,TESTING.md,SECURITY.md)',
+  },
+};
+
+const DECLINE_GOVERNANCE_DOCS_FLAG: CliFlagSpec = {
+  long: '--decline-governance-docs',
+  argLabel: '<csv>',
+  desc: {
+    en: 'Governance docs to persist as declined or legacy_preserved in .qa-11x.json',
+    es: 'Documentos de gobernanza a marcar como declined o legacy_preserved en .qa-11x.json',
+  },
+};
+
+const BILINGUAL_MIRRORS_FLAG: CliFlagSpec = {
+  long: '--bilingual-mirrors',
+  argLabel: '<auto|true|false>',
+  values: ['auto', 'true', 'false'],
+  desc: {
+    en: 'Emit Spanish *.es.md mirrors for generated docs (default: auto, only if README.es.md exists)',
+    es: 'Generar espejos *.es.md para documentos creados (por defecto: auto, solo si existe README.es.md)',
+  },
+};
+
+const TIER_FLAG: CliFlagSpec = {
+  long: '--tier',
+  short: '-T',
+  argLabel: '<starter|standard|enterprise>',
+  values: ['starter', 'standard', 'enterprise'],
+  zshMeta: 'tier',
+  desc: {
+    en: 'Adoption tier profile (default: standard)',
+    es: 'Perfil de tier de adopción (por defecto: standard)',
+  },
+};
+
 export const CLI_COMMAND_CATALOG: readonly CliSubcommandSpec[] = [
   {
     name: 'quickstart',
@@ -142,19 +182,12 @@ export const CLI_COMMAND_CATALOG: readonly CliSubcommandSpec[] = [
     },
     flags: [
       COMMON_PROJECT_FLAG,
-      {
-        long: '--tier',
-        short: '-T',
-        argLabel: '<starter|standard|enterprise>',
-        values: ['starter', 'standard', 'enterprise'],
-        zshMeta: 'tier',
-        desc: {
-          en: 'Quickstart gate profile (default: standard)',
-          es: 'Perfil de compuertas quickstart (por defecto: standard)',
-        },
-      },
+      TIER_FLAG,
       LANG_FLAG,
       AGENTS_FLAG,
+      GOVERNANCE_DOCS_FLAG,
+      DECLINE_GOVERNANCE_DOCS_FLAG,
+      BILINGUAL_MIRRORS_FLAG,
       {
         long: '--ci',
         argLabel: '<github|none>',
@@ -232,7 +265,17 @@ export const CLI_COMMAND_CATALOG: readonly CliSubcommandSpec[] = [
       en: 'Create or update AGENTS.md connector and optional Thin-Repo bridges',
       es: 'Crea o actualiza el conector AGENTS.md y puentes Thin-Repo opcionales',
     },
-    flags: [COMMON_PROJECT_FLAG, LANG_FLAG, AGENTS_FLAG, COMMON_DRY_RUN_FLAG, COMMON_HELP_FLAG],
+    flags: [
+      COMMON_PROJECT_FLAG,
+      TIER_FLAG,
+      LANG_FLAG,
+      AGENTS_FLAG,
+      GOVERNANCE_DOCS_FLAG,
+      DECLINE_GOVERNANCE_DOCS_FLAG,
+      BILINGUAL_MIRRORS_FLAG,
+      COMMON_DRY_RUN_FLAG,
+      COMMON_HELP_FLAG,
+    ],
   },
   {
     name: 'reconcile-agents',

@@ -27,11 +27,11 @@
 Bootstrap any repository in 30 seconds without cloning this monorepo:
 
 ```bash
-# Auto-detect stacks & vibe-coded markers, configure .qa-11x.json, AGENTS.md, .agents/ACTIVE_TASK.md & PR workflow:
+# Auto-detect stacks, prompt for tier on TTY (or default to `standard` non-interactively), write .qa-11x.json v3, AGENTS.md & PR workflow:
 npx -y @sinfallas/mcp-qa-11x@latest quickstart
 
-# Explicit tier, output language policy, agent selection, or dry-run preview:
-npx -y @sinfallas/mcp-qa-11x@latest quickstart --tier standard --lang en --agents auto
+# Explicit tier, contextual governance templates, output language policy, agent selection, or dry-run preview:
+npx -y @sinfallas/mcp-qa-11x@latest quickstart --tier standard --governance-docs CHANGELOG.md,ROADMAP.md,TESTING.md --lang en --agents auto
 npx -y @sinfallas/mcp-qa-11x@latest quickstart --tier enterprise --lang es --dry-run
 ```
 
@@ -76,12 +76,14 @@ flowchart TD
     Shields --> LocalCommit
 ```
 
-### Progressive Adoption Tiers
+### Progressive Adoption Tiers (`.qa-11x.json` v3)
+
+> **Unified Default & Single-Prompt Onboarding:** Non-interactive runs, CI, and repositories without `.qa-11x.json` default to **`standard`**. Every QA-11X agent session announces `[QA-11X | Tier: <tier> | Path: <DOCS_ONLY|MICRO_CHANGE|FULL_11X>]` and offers one consolidated non-destructive onboarding prompt for unconfirmed tiers or missing/legacy governance templates (`CHANGELOG.md`, `ROADMAP.md`, `TESTING.md`, `SECURITY.md`, `.agents/boundaries.json`, `architecture/calm.json`, ADR-0001, `.github/CODEOWNERS`), persisting `enabled`/`declined`/`legacy_preserved` choices in `.qa-11x.json` v3 so agents never nag twice.
 
 | Tier | Target Adoption | Included Gates & Guarantees |
 | :--- | :--- | :--- |
-| **`starter`** | Day-1 Adoption (30s) | Zero-plain-text secret scanning, `Rule Zero` container hygiene, `.qa-11x.json`, `AGENTS.md` connector across 28 AI coding agents, and `DOCS_ONLY` fast-path |
-| **`standard`** | Daily PR Workflows | Everything in `starter` + `>= 95%` unit coverage, strict types (`mypy --strict`, `tsc`, `PHPStan max`), AST Blast-Radius CI partitioning (`40%–60%` compute savings), and UI anti-pattern linting (`QA-UI-ANTI-001..005`) |
+| **`starter`** | Day-1 Adoption (30s) | Zero-plain-text secret scanning, `Rule Zero` container hygiene, `.qa-11x.json` v3, `AGENTS.md` connector across 28 AI coding agents, assisted governance templates, and `DOCS_ONLY` fast-path |
+| **`standard`** *(default)* | Daily PR Workflows | Everything in `starter` + `>= 95%` unit coverage, strict types (`mypy --strict`, `tsc`, `PHPStan max`), AST Blast-Radius CI partitioning (`40%–60%` compute savings), and UI anti-pattern linting (`QA-UI-ANTI-001..005`) |
 | **`enterprise`** | Regulated Production | Full 13-layer `FULL_11X` pyramid, blocking FINOS CALM architecture validation, PostgreSQL 17 RLS + WORM `seq_num` audit chains, DISA STIG V6R5 / OWASP v4.2, 3-phase clock assertions (`t < starts_at`, `starts_at <= t <= ends_at`, `t > ends_at`), Pact + k6 load, and multi-signal Release Readiness Gate (`GO` / `NO_GO` / `SKIPPED`) |
 
 ### Zero-Infra Ephemeral Docker Matrix (`sinfallas/*`)

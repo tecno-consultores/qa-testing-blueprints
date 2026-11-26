@@ -9,6 +9,9 @@ All notable changes to the `@sinfallas/mcp-qa-11x` npm package and MCP server ar
 ## [Unreleased]
 
 ### Added
+- **Explicit Tiers (`.qa-11x.json` v3), Non-Destructive Governance Detection & Contextual Templates (Milestone 33 — Waves 1–2):**
+  - Added `src/services/qa11xConfig.ts` (`.qa-11x.json` schema v3 with unified default `standard`, `tierConfirmedByUser`, `governanceDocs` persistence, and status banner `[QA-11X | Tier: <tier> | Path: <DOCS_ONLY|MICRO_CHANGE|FULL_11X>]`), interactive TTY tier selection in `qa-11x quickstart`, proportional tier enforcement in `certify_11x_gate` and `audit_test_pyramid_gaps`, and aligned `CORE_TOOLSET_NAMES` (`13` core entries out of `19` MCP tools).
+  - Added `src/services/governanceDetector.ts` (wired into `inspect_project_config` via `standard_11x_readiness.governance_files` and `governance_onboarding_needed`, classifying 8 core/contextual governance files across 5 states non-destructively) and `src/services/governanceTemplates.ts` (generating project-contextual `CHANGELOG.md`, `ROADMAP.md`, `TESTING.md`, `SECURITY.md`, `.agents/boundaries.json`, `architecture/calm.json`, ADR-0001, and `.github/CODEOWNERS` with surgical `## [Unreleased]` insertion + `0600` `.11x-backup` and opt-in `*.es.md` mirrors); extended `init_or_append_agents_md` and CLI `quickstart`/`init-agents` (`--tier`, `--governance-docs`, `--decline-governance-docs`, `--bilingual-mirrors`) while preserving strictly `19` MCP tools and `13` resources.
 - **Official MCP Registry Ownership Metadata (`mcpName`):** Declared `"mcpName": "io.github.tecno-consultores/mcp-qa-11x"` in `mcp-server/package.json` paired with repository root `server.json` (`2025-12-11/server.schema.json`) and ephemeral Docker `mcp-publisher` validation/publishing (`make publish-mcp-registry-dry` / `make publish-mcp-registry`) for upcoming npm releases.
 
 ### Fixed

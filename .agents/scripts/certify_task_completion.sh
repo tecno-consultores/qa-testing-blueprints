@@ -705,7 +705,11 @@ gate_06_ast_topology() {
   fi
 
   run_validator_gate "${SCRIPT_DIR}/verify_topological_health.py" || return $?
-  if [ "${QA11X_EFFECTIVE_TIER}" = "enterprise" ] && [ -x "${SCRIPT_DIR}/validate_calm_architecture.sh" ]; then
+  local has_calm_file="false"
+  if [ -d "${REPO_ROOT}/architecture" ] && find "${REPO_ROOT}/architecture" -maxdepth 1 \( -name '*.calm.json' -o -name 'calm.json' \) -type f -print -quit 2>/dev/null | grep -q .; then
+    has_calm_file="true"
+  fi
+  if { [ "${QA11X_EFFECTIVE_TIER}" = "enterprise" ] || [ "${has_calm_file}" = "true" ]; } && [ -x "${SCRIPT_DIR}/validate_calm_architecture.sh" ]; then
     bash "${SCRIPT_DIR}/validate_calm_architecture.sh" || return $?
   fi
 }
@@ -915,10 +919,14 @@ run_gate 8 "Manifest SHA-256 Sync" \
   "python3 .agents/scripts/sync_governance.py --check" \
   gate_08_manifest
 
+gate_09_roadmap() {
+  run_validator_gate "${SCRIPT_DIR}/verify_roadmap_consistency.py"
+}
+
 run_gate 9 "Roadmap & ActiveTask Sync" \
   "Alinea los porcentajes en ROADMAP.md y verifica que .agents/ACTIVE_TASK.md tenga <= 40 líneas sin pendientes al cerrar." \
   "python3 .agents/scripts/verify_roadmap_consistency.py" \
-  run_validator_gate "${SCRIPT_DIR}/verify_roadmap_consistency.py"
+  gate_09_roadmap
 
 run_gate 10 "Doc & Test Sync" \
   "Añade pruebas unitarias/BDD junto al código modificado y actualiza CHANGELOG.md o docs/ correspondientes." \

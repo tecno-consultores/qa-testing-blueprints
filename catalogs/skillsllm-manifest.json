@@ -118,8 +118,8 @@
       "name": "qa-11x-architect",
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-architect/SKILL.md",
-      "size_bytes": 11805,
-      "sha256": "ab263995a824fd8875c5fa6962595b667f53a7c31c05c29f82591398605a1622",
+      "size_bytes": 12153,
+      "sha256": "3c60115cf48ef6838b71bff734b7fb767e8f92088b0b02398cc0cd823a1efa6e",
       "description": "Master QA 11X & DevSecOps orchestrator (@sinfallas/mcp-qa-11x). Use whenever initializing or auditing QA in a repository, merging .example blueprints, writing or updating unit/BDD/mutation/E2E tests, enforcing STIG/OWASP controls, running ephemeral Docker QA, or certifying tasks before local commit."
     },
     {

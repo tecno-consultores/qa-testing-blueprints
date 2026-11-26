@@ -236,7 +236,7 @@ export function registerQaGovernanceTools(server: McpServer, fetcher: GitHubFetc
     'init_or_append_agents_md',
     {
       description:
-        'Creates AGENTS.md or additively injects the QA 11X connector block with dynamic language policy without overwriting existing content.',
+        'Creates AGENTS.md or additively injects the QA 11X connector block with dynamic language policy, optional tier confirmation, and contextual governance doc templates without overwriting existing content.',
       inputSchema: InitAgentsMdInputSchema,
       annotations: getToolAnnotations('init_or_append_agents_md'),
     },
@@ -248,6 +248,10 @@ export function registerQaGovernanceTools(server: McpServer, fetcher: GitHubFetc
           dryRun: Boolean(args.dry_run),
           lang: args.lang,
           agents: args.agents,
+          tier: args.tier,
+          governanceDocs: args.governance_docs,
+          declineGovernanceDocs: args.decline_governance_docs,
+          bilingualMirrors: args.bilingual_mirrors,
         })
       );
     }

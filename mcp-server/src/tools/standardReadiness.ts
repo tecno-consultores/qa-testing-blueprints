@@ -13,7 +13,12 @@ import {
   isTierAtLeast,
   readQa11xConfig,
 } from '../services/qa11xConfig.js';
+import {
+  detectGovernanceFiles,
+  isGovernanceOnboardingNeeded,
+} from '../services/governanceDetector.js';
 import type {
+  GovernanceDocDecision,
   Standard11xReadiness,
   StandardPillarStatus,
   StandardReadinessPillar,
@@ -230,6 +235,8 @@ interface ReadinessSnapshot {
   readonly hasSecurityMd: boolean;
   readonly hasCertifyScript: boolean;
   readonly detectedStacks: readonly string[];
+  readonly governanceDocs: Readonly<Record<string, GovernanceDocDecision>>;
+  readonly files: readonly string[];
 }
 
 function collectReadinessSnapshot(
@@ -266,6 +273,8 @@ function collectReadinessSnapshot(
     hasSecurityMd: fs.existsSync(path.join(projectPath, SECURITY_MD_FILE)),
     hasCertifyScript: fs.existsSync(path.join(projectPath, CERTIFY_SCRIPT_REL)),
     detectedStacks,
+    governanceDocs: loadedCfg.governanceDocs,
+    files,
   };
 }
 
@@ -496,6 +505,16 @@ export function evaluateStandard11xReadiness(
     .filter((p) => p.required_for_tier && (p.status === STATUS_MISSING || p.status === STATUS_PARTIAL))
     .map((p) => p.id);
 
+  const governanceFiles = detectGovernanceFiles(projectPath, {
+    effectiveTier: snap.effectiveTier,
+    detectedStacks: snap.detectedStacks,
+    files: snap.files,
+    governanceDocs: snap.governanceDocs,
+  });
+  const onboardingNeeded =
+    !snap.isUpstreamRepo &&
+    isGovernanceOnboardingNeeded(snap.tierConfirmedByUser, governanceFiles);
+
   return {
     declared_tier: snap.declaredTier,
     effective_tier: snap.effectiveTier,
@@ -519,6 +538,8 @@ export function evaluateStandard11xReadiness(
     pillars,
     missing_mandatory_pillars: missingMandatory,
     recommended_audit_sequence: buildRecommendedAuditSequence(snap),
+    governance_files: governanceFiles,
+    governance_onboarding_needed: onboardingNeeded,
   };
 }
 

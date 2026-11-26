@@ -35,7 +35,7 @@ Any change in source code, MCP tools, scripts, catalogs, or `.agents/{skills,rul
 
 After every code change, autonomously synchronize:
 1. **Bilingual Docs & Specs:** Update affected EN canonical (`*.md`) + 1:1 ES mirror (`*.es.md`) manuals (`docs/*.{md,es.md}`, `docs/specs/{README,19+}.{md,es.md}`; historical `01..18_*.md` remain Spanish per Spec 19 §3.4).
-2. **`CHANGELOG.{md,es.md}`:** Concise 1–2 line bullets under a single `## [Unreleased]` header (no duplicate version headers or verbose sub-task dumps).
-3. **`TESTING.{md,es.md}` & `ROADMAP.{md,es.md}`:** Record real test counts/coverage and verify roadmap parity (`verify_roadmap_consistency.py`).
+2. **`CHANGELOG.{md,es.md}`:** Always add concise 1–2 line bullets under a single `## [Unreleased]` header before local commit (no duplicate version headers or verbose sub-task dumps; honor `starter` opt-out if absent and `declined`, always audit if physically present).
+3. **`TESTING.{md,es.md}` & `ROADMAP.{md,es.md}`:** Sync `TESTING.md` whenever test counts, coverage, or QA commands change; in `ROADMAP.md`, check `[x]` and recalculate `%`/status for milestone-linked tasks (propose a new milestone item on `FULL_11X`, never pollute with micro-fixes), honoring `legacy_preserved` when declared in `.qa-11x.json` (`verify_roadmap_consistency.py`).
 4. **Zero-LLM Governance Sync:** Run `make sync-governance` (`sync_governance.py`) to compute SHA-256 digests, sizes, and budgets in `manifest.json` deterministically.
 5. **AST Refresh, 10/10 Gate & Local Commit (`QA-GIT-GATE-01`):** Run `./scripts/actualizar-grafos-graphify.sh`, verify `./.agents/scripts/certify_task_completion.sh` passes (`exit 0`), then record a local `git commit` (NEVER auto-`git push`).

@@ -324,6 +324,48 @@ export type Qa11xExecutionPath = 'DOCS_ONLY' | 'MICRO_CHANGE' | 'FULL_11X' | 'AU
 
 export type GovernanceDocDecision = 'enabled' | 'declined' | 'legacy_preserved';
 
+export type GovernanceFileId =
+  | 'CHANGELOG.md'
+  | 'ROADMAP.md'
+  | 'TESTING.md'
+  | 'SECURITY.md'
+  | '.agents/boundaries.json'
+  | 'architecture/calm.json'
+  | 'docs/adr/0001-record-architecture-decisions.md'
+  | '.github/CODEOWNERS';
+
+export type GovernanceFileLevel = 'core' | 'contextual';
+
+export type GovernanceFileState =
+  | 'present_compatible'
+  | 'present_legacy'
+  | 'missing_unprompted'
+  | 'declined'
+  | 'not_applicable';
+
+export interface GovernanceFileAssessment {
+  readonly id: GovernanceFileId;
+  readonly path: string;
+  readonly level: GovernanceFileLevel;
+  readonly state: GovernanceFileState;
+  readonly required_for_tier: boolean;
+  readonly min_tier: StandardTier;
+  readonly applicable: boolean;
+  readonly persisted_decision?: GovernanceDocDecision;
+  readonly reason: string;
+  readonly suggested_action: string;
+}
+
+export type BilingualMirrorsMode = 'auto' | boolean;
+
+export interface GovernanceTemplateApplyItem {
+  readonly id: GovernanceFileId;
+  readonly relative_path: string;
+  readonly action: 'created' | 'updated' | 'preserved' | 'declined' | 'legacy_preserved' | 'dry_run';
+  readonly backup_path?: string;
+  readonly mirror_path?: string;
+}
+
 export interface Qa11xProjectConfigV3 {
   readonly schemaVersion: 3;
   readonly tier: StandardTier;
@@ -370,6 +412,8 @@ export interface Standard11xReadiness {
   readonly pillars: StandardReadinessPillar[];
   readonly missing_mandatory_pillars: string[];
   readonly recommended_audit_sequence: string[];
+  readonly governance_files?: GovernanceFileAssessment[];
+  readonly governance_onboarding_needed?: boolean;
 }
 
 export interface ProjectAuditResult {
@@ -813,6 +857,10 @@ export interface InitAgentsMdOptions {
   dryRun?: boolean;
   lang?: OutputLanguageMode;
   agents?: AgentsTargetSpec;
+  tier?: StandardTier;
+  governanceDocs?: readonly string[];
+  declineGovernanceDocs?: readonly string[];
+  bilingualMirrors?: BilingualMirrorsMode;
 }
 
 export type InitAgentsAction = 'created' | 'appended' | 'updated_block' | 'unchanged' | 'dry_run';
@@ -826,6 +874,10 @@ export interface InitAgentsMdResult {
   content: string;
   bridged_agents?: string[];
   bridge_files?: BridgeFileSummary[];
+  effective_tier?: StandardTier;
+  tier_confirmed_by_user?: boolean;
+  qa_11x_banner?: string;
+  governance_files_applied?: GovernanceTemplateApplyItem[];
 }
 
 export const InitAgentsMdInputSchema = z.object({
@@ -845,6 +897,28 @@ export const InitAgentsMdInputSchema = z.object({
     .optional()
     .describe(
       "Optional Thin-Repo bridge targets ('auto', 'all', or explicit agent IDs among 28 supported AI coding agents)."
+    ),
+  tier: z
+    .enum(['starter', 'standard', 'enterprise'])
+    .optional()
+    .describe('Optional QA-11X adoption tier to persist in .qa-11x.json v3 (confirms tierConfirmedByUser: true).'),
+  governance_docs: z
+    .array(z.string().min(1))
+    .optional()
+    .describe(
+      'Optional list of governance files to generate or surgically adapt (e.g. CHANGELOG.md, ROADMAP.md, TESTING.md, SECURITY.md, .agents/boundaries.json, architecture/calm.json, docs/adr/0001-record-architecture-decisions.md, .github/CODEOWNERS).'
+    ),
+  decline_governance_docs: z
+    .array(z.string().min(1))
+    .optional()
+    .describe(
+      'Optional list of governance files explicitly declined or preserved as legacy (use "<file>:legacy_preserved" for free-form ROADMAP.md) to persist in .qa-11x.json.'
+    ),
+  bilingual_mirrors: z
+    .union([z.literal('auto'), z.boolean()])
+    .optional()
+    .describe(
+      "Whether to emit Spanish *.es.md mirrors for generated governance docs: 'auto' (default, only if README.es.md exists), true, or false."
     ),
 }).strict();
 

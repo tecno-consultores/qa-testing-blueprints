@@ -27,11 +27,11 @@
 Inicializa y protege cualquier repositorio en 30 segundos sin clonar este monorepo:
 
 ```bash
-# Autodetecta stacks y marcadores vibe-coded; genera .qa-11x.json, AGENTS.md, .agents/ACTIVE_TASK.md y workflow PR:
+# Autodetecta stacks, solicita tier en TTY (o aplica `standard` en modo no interactivo), genera .qa-11x.json v3, AGENTS.md y workflow PR:
 npx -y @sinfallas/mcp-qa-11x@latest quickstart
 
-# Con perfil progresivo, política de idioma, selección de agentes o vista previa --dry-run:
-npx -y @sinfallas/mcp-qa-11x@latest quickstart --tier standard --lang es --agents auto
+# Con perfil explícito, plantillas contextuales de gobernanza, política de idioma, selección de agentes o vista previa --dry-run:
+npx -y @sinfallas/mcp-qa-11x@latest quickstart --tier standard --governance-docs CHANGELOG.md,ROADMAP.md,TESTING.md --lang es --agents auto
 npx -y @sinfallas/mcp-qa-11x@latest quickstart --tier enterprise --lang en --dry-run
 ```
 
@@ -76,12 +76,14 @@ flowchart TD
     Shields --> LocalCommit
 ```
 
-### Perfiles de Adopción Progresiva (Progressive Adoption Tiers)
+### Perfiles de Adopción Progresiva (`.qa-11x.json` v3)
+
+> **Valor por Defecto Unificado y Onboarding en Un Solo Prompt:** Las ejecuciones no interactivas, CI y repositorios sin `.qa-11x.json` operan en **`standard`**. Toda sesión de agente anuncia `[QA-11X | Tier: <tier> | Path: <DOCS_ONLY|MICRO_CHANGE|FULL_11X>]` y realiza un único prompt consolidado no destructivo si el tier no está confirmado o faltan documentos de gobernanza (`CHANGELOG.md`, `ROADMAP.md`, `TESTING.md`, `SECURITY.md`, `.agents/boundaries.json`, `architecture/calm.json`, ADR-0001, `.github/CODEOWNERS`), persistiendo `enabled`/`declined`/`legacy_preserved` en `.qa-11x.json` v3 para no insistir en sesiones futuras.
 
 | Perfil | Caso de Uso | Compuertas y Garantías Incluidas |
 | :--- | :--- | :--- |
-| **`starter`** | Día 1 en 30 segundos | Escaneo de secretos en texto plano, higiene de contenedores `Rule Zero`, `.qa-11x.json`, conector `AGENTS.md` en 28 agentes IA y vía rápida `DOCS_ONLY` |
-| **`standard`** | Pull Requests diarios | Todo lo de `starter` + cobertura unitaria `>= 95%`, tipado estricto (`mypy --strict`, `tsc`, `PHPStan max`), partición CI por Blast Radius AST (ahorro de `40%–60%`) y linter de antipatrones UI (`QA-UI-ANTI-001..005`) |
+| **`starter`** | Día 1 en 30 segundos | Escaneo de secretos en texto plano, higiene de contenedores `Rule Zero`, `.qa-11x.json` v3, conector `AGENTS.md` en 28 agentes IA, plantillas asistidas de gobernanza y vía rápida `DOCS_ONLY` |
+| **`standard`** *(por defecto)* | Pull Requests diarios | Todo lo de `starter` + cobertura unitaria `>= 95%`, tipado estricto (`mypy --strict`, `tsc`, `PHPStan max`), partición CI por Blast Radius AST (ahorro de `40%–60%`) y linter de antipatrones UI (`QA-UI-ANTI-001..005`) |
 | **`enterprise`** | Producción regulada | Pirámide completa `FULL_11X` de 13 capas, Arquitectura como Código bloqueante FINOS CALM, PostgreSQL 17 RLS + cadenas WORM `seq_num`, DISA STIG V6R5 / OWASP v4.2, aserciones temporales de 3 fases (`t < starts_at`, `starts_at <= t <= ends_at`, `t > ends_at`), contratos Pact + carga k6 y Release Readiness Gate (`GO` / `NO_GO` / `SKIPPED`) |
 
 ### Matriz Docker Efímera Zero-Infra (`sinfallas/*`)
