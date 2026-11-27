@@ -8,6 +8,8 @@ All notable changes to the `@sinfallas/mcp-qa-11x` npm package and MCP server ar
 
 ## [Unreleased]
 
+## [3.11.0] - 2026-11-27
+
 ### Added
 - **MCP Tool #20 (`analyze_ecosystem_specs`) & Skill #12 (`qa-11x-reverse-specs`) — Zero-Footprint Multi-Project Reverse Specs & Integration Mapper:**
   - Added `src/tools/analyzeEcosystemSpecs.ts` and `src/tools/ecosystem-specs/{types,projectDiscovery,graphBuilder,providerExtractor,consumerExtractor,envExtractor,contractCorrelator}.ts` registered as MCP Tool #20 (`20` tools, `13` resources; agent-only without a standalone CLI subcommand; auto-enabled in `--toolset auto` when `>= 2` sibling subprojects exist).

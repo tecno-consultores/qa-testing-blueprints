@@ -16,17 +16,17 @@ Dado que este repositorio actúa como la plantilla arquitectónica y base de con
 
 | Versión | Estado de Soporte | Requisitos de Infraestructura |
 | :--- | :--- | :--- |
-| **`3.10.x` (`main` / Activa)** | ✅ Soporte Activo | Docker 26+, PostgreSQL 17, KeyDB Multi-Hilo |
-| **`3.9.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.10.x` (`actualización recomendada`) |
-| **`3.8.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.10.x` (`actualización recomendada`) |
-| **`3.7.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.10.x` (`actualización recomendada`) |
-| **`3.6.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.10.x` (`actualización recomendada`) |
-| **`3.5.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.10.x` (`actualización recomendada`) |
-| **`3.4.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.10.x` (`actualización recomendada`) |
-| **`3.3.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.10.x` (`actualización recomendada`) |
-| **`3.2.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.10.x` (`actualización recomendada`) |
-| **`3.1.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.10.x` (`actualización recomendada`) |
-| **`3.0.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.10.x` (`actualización recomendada`) |
+| **`3.11.x` (`main` / Activa)** | ✅ Soporte Activo | Docker 26+, PostgreSQL 17, KeyDB Multi-Hilo |
+| **`3.9.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.11.x` (`actualización recomendada`) |
+| **`3.8.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.11.x` (`actualización recomendada`) |
+| **`3.7.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.11.x` (`actualización recomendada`) |
+| **`3.6.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.11.x` (`actualización recomendada`) |
+| **`3.5.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.11.x` (`actualización recomendada`) |
+| **`3.4.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.11.x` (`actualización recomendada`) |
+| **`3.3.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.11.x` (`actualización recomendada`) |
+| **`3.2.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.11.x` (`actualización recomendada`) |
+| **`3.1.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.11.x` (`actualización recomendada`) |
+| **`3.0.x`** | ⚠️ Solo Parches de Seguridad | Reemplazada por `3.11.x` (`actualización recomendada`) |
 | **`<= 2.x`** | ❌ No Soportado | Versiones descontinuadas |
 
 ---

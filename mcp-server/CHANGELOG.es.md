@@ -8,6 +8,8 @@ Todos los cambios notables en el paquete npm y servidor MCP `@sinfallas/mcp-qa-1
 
 ## [Unreleased]
 
+## [3.11.0] - 2026-11-27
+
 ### Añadido
 - **Tool MCP #20 (`analyze_ecosystem_specs`) y Skill #12 (`qa-11x-reverse-specs`) — Especificaciones Inversas Multiproyecto y Mapeo de Integración con Huella Cero:**
   - Añadidos `src/tools/analyzeEcosystemSpecs.ts` y `src/tools/ecosystem-specs/{types,projectDiscovery,graphBuilder,providerExtractor,consumerExtractor,envExtractor,contractCorrelator}.ts` registrados como Tool MCP #20 (`20` herramientas, `13` recursos; invocación exclusiva por agente IA sin subcomando CLI independiente; auto-habilitada en `--toolset auto` ante `>= 2` subproyectos hermanos).

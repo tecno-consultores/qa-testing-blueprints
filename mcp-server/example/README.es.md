@@ -31,7 +31,7 @@ En lugar de evaluar las herramientas MCP únicamente con pruebas unitarias aisla
    - **12 núcleo v1:** `inspect_project_config`, `fetch_blueprint_bundle`, `bootstrap_or_merge_11x`, `inspect_ast_blast_radius`, `audit_test_pyramid_gaps`, `audit_security_stig_owasp`, `clean_workspace_11x`, `init_or_append_agents_md`, `reconcile_agents_governance`, `run_ephemeral_qa`, `certify_11x_gate` y `propose_skill_evolution_pr`.
    - **8 herramientas v2.0/v3.x:** `validate_calm_architecture`, `evaluate_release_gate`, `evaluate_agent_trajectory`, `run_llm_red_team`, `audit_vibe_prototype`, `sync_enterprise_tms`, `session_flight_recorder` y `analyze_ecosystem_specs` (protegidas con `promptGuard` + `TaskStateGuard`).
 3. **12 Subcomandos CLI + Verificador Tarball Clean-Room (`verify-v2.sh`):**
-   - `quickstart` (`--tier`/`-T`), `install-skill` (`install`), `init-agents` (`init-agents-md`), `reconcile-agents`, `tms-sync`, `doctor` (`status`), `upgrade` (`cache-clean`), `certify`, `audit`, `blast-radius`, `mcp-config`, `completion`, `--version` (`3.10.0`), `--help`/`help` y sonda no bloqueante TTY `QA-CLI-TTY-01` (`< 5s`).
+   - `quickstart` (`--tier`/`-T`), `install-skill` (`install`), `init-agents` (`init-agents-md`), `reconcile-agents`, `tms-sync`, `doctor` (`status`), `upgrade` (`cache-clean`), `certify`, `audit`, `blast-radius`, `mcp-config`, `completion`, `--version` (`3.11.0`), `--help`/`help` y sonda no bloqueante TTY `QA-CLI-TTY-01` (`< 5s`).
 
 ---
 

@@ -50,6 +50,7 @@
 | **Milestone 31** | `v3.8.0` (`QA-11X v3.8`) — Hard `Rule Zero` Doctor, Companion MCP Discovery, Federated SARIF 2.1.0, Dual `lint`+`unit` Evidence, `expect_red`, `--toolset` & CSO Skills | [`CHANGELOG.md`](CHANGELOG.md) + [`TESTING.md`](TESTING.md) | ✅ Completed | `100%` |
 | **Milestone 32** | `v3.9.0` (`QA-11X v3.9`) — Zero-Blindspot Compliance Audit, Mandatory AST Auto-Build, OpenCode First-Class, Email Evolution Template & `UI-11X-03` Edge/MIME Shield | [`CHANGELOG.md`](CHANGELOG.md) + [`SECURITY.md`](SECURITY.md) §4.34 | ✅ Completed | `100%` |
 | **Milestone 33** | `v3.10.0` (`QA-11X v3.10`) — Conflict Remediation, Explicit Adoption Tiers (`.qa-11x.json` v3), Non-Destructive Governance Detection & Assisted Contextual Templates | [`CHANGELOG.md`](CHANGELOG.md) + [`docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`](docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md) §9 | ✅ Completed | `100%` |
+| **Milestone 34** | `v3.11.0` (`QA-11X v3.11`) — Zero-Footprint Multi-Project Reverse Specs & Integration Mapper (MCP Tool #20 `analyze_ecosystem_specs` & Skill #12 `qa-11x-reverse-specs`) | [`CHANGELOG.md`](CHANGELOG.md) + [`.agents/skills/qa-11x-reverse-specs/SKILL.md`](.agents/skills/qa-11x-reverse-specs/SKILL.md) | ✅ Completed | `100%` |
 
 ---
 
@@ -439,3 +440,13 @@
 - [x] **33.4.** Implement non-destructive 2-level governance file detection (`mcp-server/src/services/governanceDetector.ts`, 8 core + contextual docs, 5 deterministic states `present_compatible | present_legacy | missing_unprompted | declined | not_applicable`) exposed via `inspect_project_config` (`standard_11x_readiness.governance_files` and `governance_onboarding_needed`).
 - [x] **33.5.** Implement dynamic contextual governance templates (`mcp-server/src/services/governanceTemplates.ts`, EN/ES detection, opt-in `*.es.md` mirrors, surgical `## [Unreleased]` insertion with `0600` `.11x-backup`), extend `init_or_append_agents_md` / `quickstart` / `init-agents` keeping strictly `19` MCP tools and `13` resources, and enforce proportional `declined` / `legacy_preserved` rules in `certify-gate.ts` and `certify_task_completion.sh`.
 - [x] **33.6.** Embed daily full-lifecycle governance directives across `qa-11x-architect`, `.agents/rules/`, and connectors within strict byte budgets, synchronize Spec 19 bilingual documentation (`ROADMAP`, `CHANGELOG`, `README`, `docs/05`, `TESTING`, `llms.txt`), run 2-stage read-only review + full ephemeral Docker certification (incl. Clean-Room E2E & `100%` diff coverage), and close locally (`QA-GIT-GATE-01`).
+
+---
+
+## ✅ Milestone 34: `v3.11.0` (`QA-11X v3.11`) — Zero-Footprint Multi-Project Reverse Specs & Integration Mapper (MCP Tool #20 & Skill #12)
+**Mandatory Reference:** [`CHANGELOG.md`](CHANGELOG.md), [`TESTING.md`](TESTING.md), and [`.agents/skills/qa-11x-reverse-specs/SKILL.md`](.agents/skills/qa-11x-reverse-specs/SKILL.md)
+
+### Implementation Tasks:
+- [x] **34.1.** Implement agent-only MCP Tool #20 `analyze_ecosystem_specs` ([`analyzeEcosystemSpecs.ts`](mcp-server/src/tools/analyzeEcosystemSpecs.ts) + modular `ecosystem-specs/` extractors) with zero-footprint `:ro` sequential Graphify Docker extraction into `<outputDir>/.graphs/<slug>/`, `SEC-PATH-01` overlap/symlink confinement, HTTP/REST + `.env` + AST cycle/god-module correlation, and strict `DOCUMENTATION_AND_INTEGRATION_ONLY_NO_VULNERABILITY_AUDIT` scope (`--toolset auto` depth-2 detection).
+- [x] **34.2.** Create modular Skill #12 [`.agents/skills/qa-11x-reverse-specs/SKILL.md`](.agents/skills/qa-11x-reverse-specs/SKILL.md) defining single-language numbered client deliverables (`00-resumen-ecosistema.md`, `01-specs-<slug>.md`, `02-integracion-y-contratos.md`, `03-inconsistencias-y-mejoras.md`) with Mermaid diagrams, `file:line` citations, `<= 20%` `[INFERRED]`, and zero unsolicited CALM or `.es.md` mirrors.
+- [x] **34.3.** Synchronize Dual-Consumer surface counts (`20` MCP tools, `12` modular skills), A2A Agent Card, catalogs, bilingual docs, Karate Scenario 58, Clean-Room E2E (`./scripts/probar-mcp-example.sh`), `100%` differential coverage (`813` Vitest tests across `50` suites), rotate atomically to `3.11.0` (`QA-11X v3.11`), and certify `10/10` (`certify_task_completion.sh`).

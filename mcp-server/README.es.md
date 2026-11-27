@@ -9,7 +9,7 @@
 [![Node.js >=24](https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/LICENSE)
 
-Servidor oficial **Model Context Protocol (MCP)** e instalador CLI de fricción cero para [**QA Testing Blueprints (QA-11X v3.10 — v3.10.0)**](https://github.com/tecno-consultores/qa-testing-blueprints).
+Servidor oficial **Model Context Protocol (MCP)** e instalador CLI de fricción cero para [**QA Testing Blueprints (QA-11X v3.11 — v3.11.0)**](https://github.com/tecno-consultores/qa-testing-blueprints).
 
 Diseñado para que agentes de programación IA (**Google Antigravity**, **Claude Code / Desktop**, **Cursor**, **Windsurf**, **OpenAI Codex CLI**, **VS Code Copilot**, **Hermes Agent** y **28 agentes**) adopten QA-11X en **< 30 segundos**, ejecuten **20 herramientas MCP**, consulten **13 recursos criptográficos `blueprint://*`** (11 URIs estáticas + 2 plantillas URI) y apliquen **Regla Cero Docker**, **DISA ASD STIG V6R5**, **OWASP v4.2**, **FINOS CALM** y **AI Evals Dual-Mode** sin clonar el repositorio completo.
 
@@ -85,13 +85,13 @@ Consulta la matriz completa de 28 clientes en [`docs/agent-setup.es.md`](https:/
 
 ---
 
-## 🛡️ Escudo de Seguridad y Resiliencia Operativa (v3.10.0)
+## 🛡️ Escudo de Seguridad y Resiliencia Operativa (v3.11.0)
 
 * **Interceptor `promptGuard` *Fail-Closed*:** Protege `tools/call` en las 20 herramientas con canonicalización `NFKC`, purga zero-width / Trojan Source, bloqueo de inyección de prompts y evasiones `QA-GIT-GATE-01` (`git push` / `npm publish`), y redacción PII/secretos antes de despachar cualquier handler.
 * **Confinamiento de Rutas `SEC-PATH-01` (`QA11X_WORKSPACE_ROOTS`):** Valida `project_path`, `workspaceRoot`, `targetDir`, `outputDir` y `projects` mediante `resolveSafeProjectPath`, bloqueando traversal (`..`), bytes NUL, symlinks fuera de raíces permitidas, rutas críticas del sistema (`/`, `/etc`, `/usr`, ...), `$HOME` y `os.tmpdir()` raíz. Configure `QA11X_WORKSPACE_ROOTS` (rutas separadas por delimitador de PATH) para autorizar workspaces adicionales fuera de `process.cwd()`.
 * **Guardrails Anti-Saturación Docker y CrashLoop (`QA-DOCKER-LOOP-01`):** `run_ephemeral_qa` impone un semáforo FIFO atómico entre procesos (`QA_MAX_CONCURRENT_CONTAINERS=1`, `COMPOSE_PARALLEL_LIMIT=1`), guardias pasivas Linux de RAM (`< 12%`) y temperatura ACPI (`>= 85°C`) con `exit_code = 75` (exento de `BREAKER-42`), detección pre-flight de CrashLoops (detiene automáticamente contenedores `restarting` del workspace; falla rápido en proyectos ajenos) y desmontaje Compose garantizado ante timeout/aborto. `qa-11x doctor` reporta `docker_health` (CrashLoops, redes bridge personalizadas, regla `veth*` de NetworkManager, temp/RAM).
 * **`TaskStateGuard` y Reportes `Fail-Verbose`:** Limita concurrencia de tareas MCP, aísla timeouts (`60s` estándar / `>= 180s` transferencias pesadas), limpia artefactos truncados de `0 bytes`, acota el auto-sync TTY (`< 5s` fail-open hacia `stderr`) y formatea trazas `Fail-Verbose` sanitizadas compatibles con Allure (`diagnosticFormatter.ts`).
-* **LLMs Locales y A2A Agent Card (`@sinfallas/mcp-qa-11x/agent-card`):** Compatible con evaluadores air-gapped **Ollama / vLLM** y expone el subpath export ESM público `@sinfallas/mcp-qa-11x/agent-card` (`package.json#exports` -> `dist/a2a/agentCard.js`, implementado en [`src/a2a/agentCard.ts`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/src/a2a/agentCard.ts), `v3.10.0`) como **módulo de librería programático** (no expuesto como herramienta ni recurso MCP público sobre `stdio`).
+* **LLMs Locales y A2A Agent Card (`@sinfallas/mcp-qa-11x/agent-card`):** Compatible con evaluadores air-gapped **Ollama / vLLM** y expone el subpath export ESM público `@sinfallas/mcp-qa-11x/agent-card` (`package.json#exports` -> `dist/a2a/agentCard.js`, implementado en [`src/a2a/agentCard.ts`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/src/a2a/agentCard.ts), `v3.11.0`) como **módulo de librería programático** (no expuesto como herramienta ni recurso MCP público sobre `stdio`).
 
 ---
 
@@ -102,7 +102,7 @@ Lideradas por `qa-11x-architect` (`< 12 KB`), cargando 11 sub-skills especializa
 
 ---
 
-## 🛠️ Herramientas Expuestas en el Servidor MCP (20 herramientas — QA-11X v3.10)
+## 🛠️ Herramientas Expuestas en el Servidor MCP (20 herramientas — QA-11X v3.11)
 
 1. **`inspect_project_config`:** Inspecciona señales de stack (`pyproject.toml`, `package.json`, `composer.json`), el tier activo y `tierConfirmedByUser` en `.qa-11x.json` v3, `docker-compose.qa.yml`, `docker_daemon_required`, descubrimiento `companion_mcps` en IDE, estado de la pirámide, grafos Graphify AST y el estado no destructivo `standard_11x_readiness.governance_files` (8 archivos core/contextuales de gobernanza + `governance_onboarding_needed`).
 2. **`fetch_blueprint_bundle`:** Descarga plantillas solicitadas desde GitHub/espejo local validando su suma SHA-256 contra `manifest.json`.
@@ -127,7 +127,7 @@ Lideradas por `qa-11x-architect` (`< 12 KB`), cargando 11 sub-skills especializa
 
 ---
 
-## 📚 Recursos Expuestos en el Servidor MCP (13 recursos: 11 URIs estáticas + 2 plantillas URI — QA-11X v3.10)
+## 📚 Recursos Expuestos en el Servidor MCP (13 recursos: 11 URIs estáticas + 2 plantillas URI — QA-11X v3.11)
 
 > **Desglose de Superficie:** **11 URIs estáticas** devueltas por `resources/list` + **2 plantillas URI** (`blueprint://{stack}/readme`, `blueprint://ui/refactoring-ui/{topic}`) devueltas por `resources/templates/list`.
 

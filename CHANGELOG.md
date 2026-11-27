@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+---
+
+## [3.11.0] - 2026-11-27
+
 ### Added
 * **Zero-Footprint Multi-Project Reverse Specs & Integration Mapper (MCP Tool #20 `analyze_ecosystem_specs` + Modular Skill #12 `qa-11x-reverse-specs`):**
   * Added MCP tool #20 `analyze_ecosystem_specs` (`mcp-server/src/tools/analyzeEcosystemSpecs.ts` + modular extractors under `mcp-server/src/tools/ecosystem-specs/`), invoked exclusively by the AI agent (no standalone CLI subcommand; auto-exposed in `--toolset auto` when `>= 2` sibling subprojects exist), operating across current QA-11X stacks (`FastAPI`, `Python`, `Node/Express/Fastify/NestJS`, `PHP`, `Vue 3`, `React`, `Mobile`, `OpenAPI`, `.env*`) strictly without vulnerability audits (`DOCUMENTATION_AND_INTEGRATION_ONLY_NO_VULNERABILITY_AUDIT`).
@@ -19,6 +23,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   * Hardened `projectDiscovery.ts`, `envExtractor.ts`, `providerExtractor.ts`, and `graphBuilder.ts` to block `outputDir` overlapping ANY sibling/nested source project (both auto-discovered and explicit `projects` filter) and reject symlink reads on `.env*`, `openapi.*`, manifests, and `graph.json` (`isSafeRegularFile`).
   * Fixed live Graphify Docker rebuild (`--force` on `refreshGraphs: true`), `SKIPPED_NO_SOURCE_FILES` for OpenAPI-only projects, and `reverse_import: true` 2-file mutual cycle detection in `graphBuilder.ts`; fixed multi-line FastAPI `APIRouter`/`@router`/`include_router` alias resolution, Express cross-file mount isolation + NestJS `setGlobalPrefix`, and Laravel `routes/api.php` brace-scoped prefix stack in `providerExtractor.ts`; fixed WHATWG URL `%7B`/`%7D` decoding, Python f-string & dotted base-URL templates, per-key `AUTH_*_URL` prefix lookup, segment-boundary prefixes, and multi-line `axios({...})` in `consumerExtractor.ts`/`envExtractor.ts`; deduplicated code+OpenAPI providers, suppressed `.env.production`/`VITE_APP_URL` `BASE_URL_DRIFT` noise, populated real project slugs in `IMP-02`, caught unversioned vs versioned `/api/` divergence in `contractCorrelator.ts`, and enabled depth-2 nested subproject detection in `toolsetFilter.ts`.
 * **Publisher `lefthook.yml` Volume Mount (`scripts/publicar-mcp.sh`):** Mounted root `lefthook.yml:/lefthook.yml:ro` in `MCP_EXTRA_VOLS` so Vitest unit checks during live npmjs publishing have full parity with `Makefile`, `lefthook.yml`, and `instalar-hooks.sh`.
+
+### Changed
+* **Global Release Rotation to `3.11.0` (`QA-11X v3.11`):** Synchronized `standard_edition` (`QA-11X v3.11`), SemVer `3.11.0`, `server.json`, bilingual guides (`README`, `ROADMAP` Milestone 34, `TESTING`, `SECURITY`, `CHANGELOG`, `docs/*`), `.claude-plugin/{plugin,marketplace}.json`, catalogs, SHA-256 `manifest.json`, and `@sinfallas/mcp-qa-11x@3.11.0`.
 
 ---
 

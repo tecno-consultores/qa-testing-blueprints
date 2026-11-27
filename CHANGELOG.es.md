@@ -8,6 +8,10 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+---
+
+## [3.11.0] - 2026-11-27
+
 ### Añadido
 * **Especificaciones Inversas Multiproyecto y Mapeo de Integración con Huella Cero (Tool MCP #20 `analyze_ecosystem_specs` + Skill Modular #12 `qa-11x-reverse-specs`):**
   * Añadida la herramienta MCP #20 `analyze_ecosystem_specs` (`mcp-server/src/tools/analyzeEcosystemSpecs.ts` + extractores modulares en `mcp-server/src/tools/ecosystem-specs/`), invocada exclusivamente por el agente IA (sin subcomando CLI independiente; auto-expuesta en `--toolset auto` ante `>= 2` subproyectos hermanos), operando sobre los stacks QA-11X actuales (`FastAPI`, `Python`, `Node/Express/Fastify/NestJS`, `PHP`, `Vue 3`, `React`, `Móvil`, `OpenAPI`, `.env*`) estrictamente sin auditoría de vulnerabilidades (`DOCUMENTATION_AND_INTEGRATION_ONLY_NO_VULNERABILITY_AUDIT`).
@@ -19,6 +23,9 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
   * Endurecidos `projectDiscovery.ts`, `envExtractor.ts`, `providerExtractor.ts` y `graphBuilder.ts` para bloquear `outputDir` que se solape con cualquier proyecto fuente hermano/anidado (tanto en autodescubrimiento como con filtro explícito `projects`) y rechazar lecturas por symlink en `.env*`, `openapi.*`, manifiestos y `graph.json` (`isSafeRegularFile`).
   * Corregidos la reconstrucción forzada en Docker Graphify (`--force` con `refreshGraphs: true`), el estado `SKIPPED_NO_SOURCE_FILES` para repos solo-OpenAPI y la detección de ciclos mutuos de 2 archivos (`reverse_import: true`) en `graphBuilder.ts`; corregidos FastAPI multilínea (`APIRouter`/`@router`/`include_router` con alias), aislamiento de montajes Express + `setGlobalPrefix` NestJS y pila de prefijos por llaves Laravel `routes/api.php` en `providerExtractor.ts`; corregidos la decodificación `%7B`/`%7D` de URLs WHATWG, plantillas f-string Python / base-URL con punto, prefijo por clave `AUTH_*_URL`, frontera de segmentos y `axios({...})` multilínea en `consumerExtractor.ts`/`envExtractor.ts`; deduplicados proveedores código+OpenAPI, suprimido ruido `BASE_URL_DRIFT` de `.env.production`/`VITE_APP_URL`, corregidos slugs reales en `IMP-02`, detectada divergencia `/api/` vs `/api/vN/` en `contractCorrelator.ts` y habilitada detección de subproyectos anidados nivel 2 en `toolsetFilter.ts`.
 * **Montaje de Volumen `lefthook.yml` en Publicador (`scripts/publicar-mcp.sh`):** Montado `lefthook.yml:/lefthook.yml:ro` en `MCP_EXTRA_VOLS` para que las pruebas unitarias Vitest durante la publicación en npmjs mantengan paridad total con `Makefile`, `lefthook.yml` e `instalar-hooks.sh`.
+
+### Cambiado
+* **Rotación Global de Release a `3.11.0` (`QA-11X v3.11`):** Sincronizados `standard_edition` (`QA-11X v3.11`), SemVer `3.11.0`, `server.json`, guías bilingües (`README`, `ROADMAP` Hito 34, `TESTING`, `SECURITY`, `CHANGELOG`, `docs/*`), `.claude-plugin/{plugin,marketplace}.json`, catálogos, `manifest.json` SHA-256 y `@sinfallas/mcp-qa-11x@3.11.0`.
 
 ---
 
