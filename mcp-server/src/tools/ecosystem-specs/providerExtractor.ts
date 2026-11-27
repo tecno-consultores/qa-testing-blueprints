@@ -5,7 +5,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { reportDebugCatchError } from '../../utils/diagnosticFormatter.js';
 import { stripTrailingSlashes } from './envExtractor.js';
-import { collectProjectSourceFiles } from './projectDiscovery.js';
+import { collectProjectSourceFiles, isSafeRegularFile } from './projectDiscovery.js';
 import {
   UTF8_ENCODING,
   type DiscoveredProject,
@@ -43,6 +43,8 @@ const FIRST_QUOTED_STR_RE = /['"]([^'"]*)['"]/;
 const PY_ROUTER_ASSIGN_RE = /\b([A-Za-z_]\w*)\s*=\s*APIRouter\(/;
 const PY_PREFIX_KW_RE = /\bprefix\s*=\s*['"]([^'"]+)['"]/;
 const PY_INCLUDE_CALL_RE = /\binclude_router\(\s*([\w.]+)/;
+const PY_FROM_IMPORT_RE = /^\s*from\s+([\w.]+)\s+import\s+([A-Za-z_]\w*)/;
+const PY_IMPORT_AS_RE = /\bas\s+([A-Za-z_]\w*)/;
 const PY_DECORATOR_HEAD_RE = /^@([a-z_]\w*)\.(get|post|put|patch|delete)\(/i;
 const PY_METHODS_KW_RE = /\bmethods\s*=\s*[[(]([^)\]]+)[\])]/;
 const PY_MODEL_CLASS_RE =
@@ -51,8 +53,12 @@ const PY_MODEL_BASE_RE = /\b(?:BaseModel|SQLModel|Base|TypedDict|DeclarativeBase
 const PY_DATACLASS_NAME_RE = /^\s*class\s+([A-Z]\w*)\b/;
 
 const NODE_ROUTE_RE =
-  /\b(?:app|router|fastify|server|[a-z_$][\w$]*(?:router|_router))\.(get|post|put|patch|delete)\(\s*['"`]([^'"`\r\n]+)['"`]/i;
-const NODE_USE_PREFIX_RE = /\b(?:app|router)\.use\(\s*['"`](\/[^'"`\r\n]+)['"`]/;
+  /\b(app|router|fastify|server|[a-z_$][\w$]*(?:router|_router))\.(get|post|put|patch|delete)\(\s*['"`]([^'"`\r\n]+)['"`]/i;
+const NODE_USE_PREFIX_RE =
+  /\b(?:app|router)\.use\(\s*['"`](\/[^'"`\r\n]+)['"`]\s*,\s*([A-Za-z_$][\w$]*)/;
+const NODE_IMPORT_DEFAULT_RE = /^\s*import\s+([A-Za-z_$][\w$]*)\s+from\s+['"]([^'"]+)['"]/;
+const NODE_IMPORT_NAMED_RE = /^\s*import\s*\{\s*([A-Za-z_$][\w$]*)\s*\}\s*from\s+['"]([^'"]+)['"]/;
+const NEST_GLOBAL_PREFIX_RE = /\bsetGlobalPrefix\(\s*['"`]([^'"`\r\n]+)['"`]/;
 const FASTIFY_METHOD_RE = /\bmethod\s*:\s*['"](GET|POST|PUT|PATCH|DELETE)['"]/i;
 const FASTIFY_URL_RE = /\burl\s*:\s*['"`]([^'"`\r\n]+)['"`]/;
 const NEST_CONTROLLER_RE = /^@Controller\(\s*['"`]([^'"`]*)['"`]\s*\)/;
@@ -145,19 +151,48 @@ function pushModel(collector: ProviderCollector, item: Omit<DomainModelSymbol, '
   collector.models.push({ project_slug: collector.projectSlug, ...item });
 }
 
+function joinCallWindow(lines: readonly string[], startIdx: number): string {
+  const end = Math.min(lines.length, startIdx + 5);
+  const parts: string[] = [];
+  for (let j = startIdx; j < end; j += 1) {
+    const seg = (lines[j] ?? '').trim();
+    parts.push(seg);
+    if (seg.includes(')')) break;
+  }
+  return parts.join(' ');
+}
+
+function collectPythonImportAliases(lines: readonly string[]): Map<string, string> {
+  const aliasToStem = new Map<string, string>();
+  for (const line of lines) {
+    const imp = PY_FROM_IMPORT_RE.exec(line);
+    if (!imp?.[1] || !imp[2]) continue;
+    const stem = imp[1].split('.').filter(Boolean).pop();
+    if (!stem) continue;
+    const asMatch = PY_IMPORT_AS_RE.exec(line.slice(imp.index + imp[0].length));
+    aliasToStem.set(asMatch?.[1] ?? imp[2], stem);
+  }
+  return aliasToStem;
+}
+
 function collectPythonGlobalPrefixes(
   projectAbs: string,
   pyFiles: readonly string[]
 ): Map<string, string> {
   const includedPrefixes = new Map<string, string>();
   for (const relFile of pyFiles) {
-    for (const line of readSourceLines(projectAbs, relFile)) {
-      const inc = PY_INCLUDE_CALL_RE.exec(line);
-      const pref = inc ? PY_PREFIX_KW_RE.exec(line) : null;
-      if (inc?.[1] && pref?.[1]) {
-        const token = inc[1].split('.')[0] ?? inc[1];
-        includedPrefixes.set(token, pref[1]);
-      }
+    const lines = readSourceLines(projectAbs, relFile);
+    const aliasToStem = collectPythonImportAliases(lines);
+    for (let i = 0; i < lines.length; i += 1) {
+      if (!(lines[i] ?? '').includes('include_router(')) continue;
+      const snippet = joinCallWindow(lines, i);
+      const inc = PY_INCLUDE_CALL_RE.exec(snippet);
+      const pref = inc ? PY_PREFIX_KW_RE.exec(snippet) : null;
+      if (!inc?.[1] || !pref?.[1]) continue;
+      const token = inc[1].split('.')[0] ?? inc[1];
+      includedPrefixes.set(token, pref[1]);
+      const mappedStem = aliasToStem.get(token);
+      if (mappedStem) includedPrefixes.set(mappedStem, pref[1]);
     }
   }
   return includedPrefixes;
@@ -209,17 +244,20 @@ function scanPythonAddApiRoute(line: string, lineNo: number, state: PyScanState)
   }
 }
 
-function scanPythonRouteLine(line: string, lineNo: number, state: PyScanState): void {
+function scanPythonRouteLine(lines: readonly string[], lineIdx: number, state: PyScanState): void {
+  const line = lines[lineIdx] ?? '';
+  const lineNo = lineIdx + 1;
   const routerAssign = PY_ROUTER_ASSIGN_RE.exec(line);
-  const routerPref = routerAssign ? PY_PREFIX_KW_RE.exec(line) : null;
-  if (routerAssign?.[1] && routerPref?.[1]) {
-    state.localPrefixes.set(routerAssign[1], routerPref[1]);
+  if (routerAssign?.[1]) {
+    const routerPref = PY_PREFIX_KW_RE.exec(joinCallWindow(lines, lineIdx));
+    if (routerPref?.[1]) state.localPrefixes.set(routerAssign[1], routerPref[1]);
   }
   const trimmed = line.trim();
   const decHead = PY_DECORATOR_HEAD_RE.exec(trimmed);
   if (decHead?.[1] && decHead[2]) {
     const verb = toHttpVerb(decHead[2]);
-    const pathMatch = FIRST_QUOTED_STR_RE.exec(trimmed.slice(decHead[0].length));
+    const snippet = joinCallWindow(lines, lineIdx);
+    const pathMatch = FIRST_QUOTED_STR_RE.exec(snippet.slice(decHead[0].length));
     if (verb && pathMatch) {
       const combinedPref = resolvePythonCombinedPrefix(
         state.outerPrefix,
@@ -274,26 +312,76 @@ function scanPythonFile(
     const line = lines[i] ?? '';
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
-    scanPythonRouteLine(line, i + 1, state);
+    scanPythonRouteLine(lines, i, state);
     scanPythonModelLine(line, trimmed, i + 1, state);
   }
 }
 
+interface NodeProjectPrefixes {
+  readonly globalNestPrefix: string;
+  readonly routerFilePrefixes: ReadonlyMap<string, string>;
+}
+
 interface NodeScanState {
   controllerPrefix: string;
-  usePrefix: string;
+  readonly outerFilePrefix: string;
+  readonly globalNestPrefix: string;
+  readonly localMountPrefixes: Map<string, string>;
   readonly collector: ProviderCollector;
+}
+
+function collectNodeFileImports(lines: readonly string[]): Map<string, string> {
+  const imports = new Map<string, string>();
+  for (const line of lines) {
+    const m = NODE_IMPORT_DEFAULT_RE.exec(line) ?? NODE_IMPORT_NAMED_RE.exec(line);
+    if (!m?.[1] || !m[2] || !m[2].startsWith('.')) continue;
+    const stem = path.posix.basename(m[2]).replace(/\.[cm]?[jt]s$/, '');
+    if (stem) imports.set(m[1], stem);
+  }
+  return imports;
+}
+
+function collectNodeProjectPrefixes(
+  projectAbs: string,
+  nodeFiles: readonly string[]
+): NodeProjectPrefixes {
+  let globalNestPrefix = '';
+  const routerFilePrefixes = new Map<string, string>();
+  for (const relFile of nodeFiles) {
+    const lines = readSourceLines(projectAbs, relFile);
+    const imports = collectNodeFileImports(lines);
+    for (const line of lines) {
+      const nestPref = NEST_GLOBAL_PREFIX_RE.exec(line);
+      if (nestPref?.[1] && !globalNestPrefix) {
+        globalNestPrefix = joinRoutePaths('/', nestPref[1]);
+      }
+      const useMatch = NODE_USE_PREFIX_RE.exec(line);
+      const targetStem = useMatch?.[2] ? imports.get(useMatch[2]) : undefined;
+      if (useMatch?.[1] && targetStem) {
+        routerFilePrefixes.set(targetStem, useMatch[1]);
+      }
+    }
+  }
+  return { globalNestPrefix, routerFilePrefixes };
+}
+
+function resolveNestControllerPrefix(rawCtrlPath: string, globalNestPrefix: string): string {
+  const local = rawCtrlPath ? joinRoutePaths('/', rawCtrlPath) : '/';
+  if (!globalNestPrefix || local === globalNestPrefix || local.startsWith(`${globalNestPrefix}/`)) {
+    return local;
+  }
+  return joinRoutePaths(globalNestPrefix, local);
 }
 
 function scanNodeNestDecorators(line: string, lineNo: number, relFile: string, state: NodeScanState): boolean {
   const trimmed = line.trim();
   const ctrlMatch = NEST_CONTROLLER_RE.exec(trimmed);
   if (ctrlMatch) {
-    state.controllerPrefix = ctrlMatch[1] ? joinRoutePaths('/', ctrlMatch[1]) : '/';
+    state.controllerPrefix = resolveNestControllerPrefix(ctrlMatch[1] ?? '', state.globalNestPrefix);
     return true;
   }
   if (NEST_CONTROLLER_EMPTY_RE.test(trimmed)) {
-    state.controllerPrefix = '/';
+    state.controllerPrefix = resolveNestControllerPrefix('', state.globalNestPrefix);
     return true;
   }
   const headMatch = NEST_METHOD_HEAD_RE.exec(trimmed);
@@ -313,34 +401,44 @@ function scanNodeNestDecorators(line: string, lineNo: number, relFile: string, s
   return true;
 }
 
-function matchNodeRouteVerbAndPath(line: string): readonly [HttpVerb, string] | null {
+function matchNodeRouteVerbAndPath(line: string): readonly [string, HttpVerb, string] | null {
   const direct = NODE_ROUTE_RE.exec(line);
-  if (direct?.[1] && direct[2]) {
-    const v = toHttpVerb(direct[1]);
-    return v ? [v, direct[2]] : null;
+  if (direct?.[1] && direct[2] && direct[3]) {
+    const v = toHttpVerb(direct[2]);
+    return v ? [direct[1], v, direct[3]] : null;
   }
   const fMethod = FASTIFY_METHOD_RE.exec(line);
   const fUrl = fMethod ? FASTIFY_URL_RE.exec(line) : null;
   if (fMethod?.[1] && fUrl?.[1]) {
     const v = toHttpVerb(fMethod[1]);
-    return v ? [v, fUrl[1]] : null;
+    return v ? ['fastify', v, fUrl[1]] : null;
   }
   return null;
 }
 
+function resolveNodeRouteFullPath(receiver: string, rawPath: string, state: NodeScanState): string {
+  const mountPrefix =
+    state.localMountPrefixes.get(receiver) ??
+    (receiver !== 'app' && receiver !== 'fastify' && receiver !== 'server'
+      ? state.outerFilePrefix
+      : '');
+  if (!mountPrefix || rawPath === mountPrefix || rawPath.startsWith(`${mountPrefix}/`)) {
+    return rawPath;
+  }
+  return joinRoutePaths(mountPrefix, rawPath);
+}
+
 function scanNodeExpressOrFastify(line: string, lineNo: number, relFile: string, state: NodeScanState): void {
   const useMatch = NODE_USE_PREFIX_RE.exec(line);
-  if (useMatch?.[1]?.startsWith('/api')) {
-    state.usePrefix = useMatch[1];
+  if (useMatch?.[1] && useMatch[2]) {
+    state.localMountPrefixes.set(useMatch[2], useMatch[1]);
   }
   const matched = matchNodeRouteVerbAndPath(line);
   if (!matched) return;
-  const [verb, rawPath] = matched;
-  const fullPath =
-    state.usePrefix && !rawPath.startsWith('/api') ? joinRoutePaths(state.usePrefix, rawPath) : rawPath;
+  const [receiver, verb, rawPath] = matched;
   pushEndpoint(state.collector, {
     method: verb,
-    path: fullPath,
+    path: resolveNodeRouteFullPath(receiver, rawPath, state),
     framework: FW_NODE,
     source_kind: 'code',
     file: relFile,
@@ -359,9 +457,21 @@ function scanNodeLine(line: string, lineNo: number, relFile: string, state: Node
   }
 }
 
-function scanNodeFile(projectAbs: string, relFile: string, collector: ProviderCollector): void {
+function scanNodeFile(
+  projectAbs: string,
+  relFile: string,
+  prefixes: NodeProjectPrefixes,
+  collector: ProviderCollector
+): void {
   const lines = readSourceLines(projectAbs, relFile);
-  const state = { controllerPrefix: '', usePrefix: '', collector };
+  const fileStem = path.basename(relFile, path.extname(relFile));
+  const state: NodeScanState = {
+    controllerPrefix: '',
+    outerFilePrefix: prefixes.routerFilePrefixes.get(fileStem) ?? '',
+    globalNestPrefix: prefixes.globalNestPrefix,
+    localMountPrefixes: new Map<string, string>(),
+    collector,
+  };
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i] ?? '';
     const trimmed = line.trim();
@@ -397,23 +507,63 @@ function expandLaravelApiResource(
   }
 }
 
+interface PhpPrefixGroup {
+  readonly prefix: string;
+  readonly depth: number;
+}
+
 interface PhpScanState {
-  routePrefix: string;
+  readonly basePrefix: string;
+  readonly groupStack: PhpPrefixGroup[];
+  braceDepth: number;
   readonly collector: ProviderCollector;
+}
+
+function resolveCurrentPhpPrefix(state: PhpScanState): string {
+  let acc = state.basePrefix;
+  for (const group of state.groupStack) {
+    const clean = joinRoutePaths('/', group.prefix);
+    acc =
+      acc && (clean === acc || clean.startsWith(`${acc}/`))
+        ? clean
+        : joinRoutePaths(acc, clean);
+  }
+  return acc;
+}
+
+function countCharOccurrences(input: string, ch: string): number {
+  let count = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    if (input[i] === ch) count += 1;
+  }
+  return count;
+}
+
+function updatePhpScopeDepth(line: string, state: PhpScanState): void {
+  const opens = countCharOccurrences(line, '{');
+  const closes = countCharOccurrences(line, '}');
+  state.braceDepth = Math.max(0, state.braceDepth + opens - closes);
+  while (
+    state.groupStack.length > 0 &&
+    (state.groupStack[state.groupStack.length - 1]?.depth ?? 0) >= state.braceDepth
+  ) {
+    state.groupStack.pop();
+  }
 }
 
 function scanPhpDirectRoutes(line: string, lineNo: number, relFile: string, state: PhpScanState): void {
   const prefMatch = PHP_ROUTE_PREFIX_RE.exec(line);
   if (prefMatch?.[1]) {
-    state.routePrefix = joinRoutePaths('/', prefMatch[1]);
+    state.groupStack.push({ prefix: prefMatch[1], depth: state.braceDepth });
   }
+  const activePrefix = resolveCurrentPhpPrefix(state);
   const staticMatch = PHP_ROUTE_STATIC_RE.exec(line) ?? PHP_SLIM_ROUTE_RE.exec(line);
   if (staticMatch?.[1] && staticMatch[2]) {
     const verb = toHttpVerb(staticMatch[1]);
     if (verb) {
       pushEndpoint(state.collector, {
         method: verb,
-        path: joinRoutePaths(state.routePrefix, staticMatch[2]),
+        path: joinRoutePaths(activePrefix, staticMatch[2]),
         framework: FW_PHP,
         source_kind: 'code',
         file: relFile,
@@ -423,7 +573,7 @@ function scanPhpDirectRoutes(line: string, lineNo: number, relFile: string, stat
   }
   const apiResMatch = PHP_ROUTE_API_RES_RE.exec(line);
   if (apiResMatch?.[1]) {
-    expandLaravelApiResource(joinRoutePaths(state.routePrefix, apiResMatch[1]), relFile, lineNo, state.collector);
+    expandLaravelApiResource(joinRoutePaths(activePrefix, apiResMatch[1]), relFile, lineNo, state.collector);
   }
 }
 
@@ -453,13 +603,19 @@ function scanPhpAttributesAndModels(line: string, lineNo: number, relFile: strin
 function scanPhpFile(projectAbs: string, relFile: string, collector: ProviderCollector): void {
   const lines = readSourceLines(projectAbs, relFile);
   const defaultPrefix = relFile.endsWith('routes/api.php') ? '/api' : '';
-  const state: PhpScanState = { routePrefix: defaultPrefix, collector };
+  const state: PhpScanState = {
+    basePrefix: defaultPrefix,
+    groupStack: [],
+    braceDepth: 0,
+    collector,
+  };
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i] ?? '';
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('# ')) continue;
     scanPhpDirectRoutes(line, i + 1, relFile, state);
     scanPhpAttributesAndModels(line, i + 1, relFile, state);
+    updatePhpScopeDepth(line, state);
   }
 }
 
@@ -584,7 +740,7 @@ function scanOpenApiSpecs(projectAbs: string, collector: ProviderCollector): voi
     for (const fileName of OPENAPI_NAMES) {
       const rel = sub ? `${sub}/${fileName}` : fileName;
       const fullPath = path.join(projectAbs, rel);
-      if (!fs.existsSync(fullPath) || !fs.statSync(fullPath).isFile()) continue;
+      if (!isSafeRegularFile(fullPath)) continue;
       if (fileName.endsWith('.json')) {
         parseOpenApiJsonFile(fullPath, rel, collector);
       } else {
@@ -615,8 +771,10 @@ export function extractProjectProviderArtifacts(project: DiscoveredProject): {
   }
 
   if (project.stacks.includes('node-backend')) {
-    for (const relFile of collectProjectSourceFiles(project.absPath, NODE_EXTS, false)) {
-      scanNodeFile(project.absPath, relFile, collector);
+    const nodeFiles = collectProjectSourceFiles(project.absPath, NODE_EXTS, false);
+    const nodePrefixes = collectNodeProjectPrefixes(project.absPath, nodeFiles);
+    for (const relFile of nodeFiles) {
+      scanNodeFile(project.absPath, relFile, nodePrefixes, collector);
     }
   }
 

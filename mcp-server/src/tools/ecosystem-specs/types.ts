@@ -31,7 +31,12 @@ export type ProjectRole = 'api' | 'web' | 'mobile' | 'mixed' | 'library';
 export type HttpVerb = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 export type ConsumerChannel = 'web' | 'mobile' | 'service';
 export type FindingSeverity = 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
-export type GraphBuildStatus = 'BUILT' | 'REUSED_CACHED' | 'SKIPPED_BUILD_DISABLED' | 'FAILED';
+export type GraphBuildStatus =
+  | 'BUILT'
+  | 'REUSED_CACHED'
+  | 'SKIPPED_BUILD_DISABLED'
+  | 'SKIPPED_NO_SOURCE_FILES'
+  | 'FAILED';
 
 export type EnvCategory =
   | 'url_or_endpoint'
@@ -281,6 +286,7 @@ export interface AnalyzeEcosystemSpecsArgs {
 export interface GraphBuilderCallbackInput {
   readonly projectAbsPath: string;
   readonly graphOutAbsDir: string;
+  readonly refreshGraphs?: boolean;
   readonly signal?: AbortSignal;
 }
 

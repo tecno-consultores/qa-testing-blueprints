@@ -7,7 +7,12 @@ import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { reportDebugCatchError } from '../../utils/diagnosticFormatter.js';
 import { GRAPHIFY_DOCKER_IMAGE } from '../blast-radius.js';
-import { assertNoSymlinkBetween, collectProjectSourceFiles, toPosixRel } from './projectDiscovery.js';
+import {
+  assertNoSymlinkBetween,
+  collectProjectSourceFiles,
+  isSafeRegularFile,
+  toPosixRel,
+} from './projectDiscovery.js';
 import {
   GRAPHS_SUBDIR_NAME,
   UTF8_ENCODING,
@@ -22,8 +27,13 @@ import {
 const GRAPH_JSON_NAME = 'graph.json';
 const GRAPH_REPORT_NAME = 'GRAPH_REPORT.md';
 const UNKNOWN_FILE = 'unknown';
-const GRAPH_EXTRACT_CMD =
-  'graphify extract /src --out /work --code-only --allow-dedup-shrink && graphify cluster-only /work && rm -rf /work/graphify-out/cache /work/graphify-out/20* /work/graphify-out/.graphify_* /work/graphify-out/.cloud-cta-shown';
+const GRAPH_CLEANUP_TAIL =
+  '&& graphify cluster-only /work && rm -rf /work/graphify-out/cache /work/graphify-out/20* /work/graphify-out/.graphify_* /work/graphify-out/.cloud-cta-shown';
+
+function buildGraphExtractCommand(refreshGraphs: boolean): string {
+  const forceFlag = refreshGraphs ? ' --force' : '';
+  return `graphify extract /src --out /work --code-only${forceFlag} --allow-dedup-shrink ${GRAPH_CLEANUP_TAIL}`;
+}
 
 const GRAPH_TRACKED_EXTS: ReadonlySet<string> = new Set([
   '.ts',
@@ -79,6 +89,7 @@ interface RawGraphLink {
   readonly target?: string;
   readonly relation?: string;
   readonly source_file?: string;
+  readonly reverse_import?: boolean;
 }
 
 interface RawGraphDocument {
@@ -99,7 +110,8 @@ export interface BuildProjectGraphInput {
 
 export function buildZeroFootprintDockerArgs(
   projectAbsPath: string,
-  graphOutAbsDir: string
+  graphOutAbsDir: string,
+  refreshGraphs = false
 ): string[] {
   const uid = typeof process.getuid === 'function' ? process.getuid() : 1000;
   const gid = typeof process.getgid === 'function' ? process.getgid() : 1000;
@@ -126,7 +138,7 @@ export function buildZeroFootprintDockerArgs(
     GRAPHIFY_DOCKER_IMAGE,
     'sh',
     '-c',
-    GRAPH_EXTRACT_CMD,
+    buildGraphExtractCommand(refreshGraphs),
   ];
 }
 
@@ -138,7 +150,11 @@ export async function runZeroFootprintGraphifyDocker(
     return { ok: false, error: 'Construcción de grafo AST cancelada por AbortSignal.' };
   }
   fs.mkdirSync(input.graphOutAbsDir, { recursive: true });
-  const dockerArgs = buildZeroFootprintDockerArgs(input.projectAbsPath, input.graphOutAbsDir);
+  const dockerArgs = buildZeroFootprintDockerArgs(
+    input.projectAbsPath,
+    input.graphOutAbsDir,
+    input.refreshGraphs === true
+  );
   const execFileAsync = promisify(execFileFn);
   try {
     await execFileAsync('docker', dockerArgs, {
@@ -154,9 +170,9 @@ export async function runZeroFootprintGraphifyDocker(
   }
 }
 
-function getLatestSourceMtimeMs(projectAbs: string): number {
+function getLatestSourceMtimeMs(projectAbs: string, sourceFiles: readonly string[]): number {
   let latest = 0;
-  for (const rel of collectProjectSourceFiles(projectAbs, GRAPH_TRACKED_EXTS, true)) {
+  for (const rel of sourceFiles) {
     const stat = fs.statSync(path.join(projectAbs, rel), { throwIfNoEntry: false });
     if (stat && stat.mtimeMs > latest) {
       latest = stat.mtimeMs;
@@ -165,10 +181,15 @@ function getLatestSourceMtimeMs(projectAbs: string): number {
   return latest;
 }
 
-function isCachedGraphFresh(projectAbs: string, graphJsonAbs: string): boolean {
+function isCachedGraphFresh(
+  projectAbs: string,
+  graphJsonAbs: string,
+  sourceFiles: readonly string[]
+): boolean {
+  if (!isSafeRegularFile(graphJsonAbs)) return false;
   const graphStat = fs.statSync(graphJsonAbs, { throwIfNoEntry: false });
   if (!graphStat?.isFile()) return false;
-  return getLatestSourceMtimeMs(projectAbs) <= graphStat.mtimeMs;
+  return getLatestSourceMtimeMs(projectAbs, sourceFiles) <= graphStat.mtimeMs;
 }
 
 function normRelPath(raw: string): string {
@@ -414,6 +435,35 @@ function indexGraphNodesForMetrics(nodes: readonly RawGraphNode[]): {
   return { nodeById, nodeCounts, communities };
 }
 
+interface LinkMetricsAccumulator {
+  readonly rawAdj: Map<string, Set<string>>;
+  readonly fanIn: Map<string, number>;
+  readonly fanOut: Map<string, number>;
+  readonly degreeMap: Map<string, number>;
+  readonly seenEdges: Set<string>;
+}
+
+function recordDirectedDepEdge(
+  edge: readonly [string, string, string, string],
+  acc: LinkMetricsAccumulator
+): void {
+  const [src, tgt, srcFile, tgtFile] = edge;
+  const edgeKey = `${src}->${tgt}`;
+  if (acc.seenEdges.has(edgeKey)) return;
+  acc.seenEdges.add(edgeKey);
+  const set = acc.rawAdj.get(src) ?? new Set<string>();
+  set.add(tgt);
+  acc.rawAdj.set(src, set);
+  incrementMap(acc.degreeMap, src);
+  incrementMap(acc.degreeMap, tgt);
+  const srcMod = moduleKeyFromSource(srcFile);
+  const tgtMod = moduleKeyFromSource(tgtFile);
+  if (srcMod !== tgtMod) {
+    incrementMap(acc.fanOut, srcMod);
+    incrementMap(acc.fanIn, tgtMod);
+  }
+}
+
 function accumulateLinkMetrics(
   links: readonly RawGraphLink[],
   nodeById: ReadonlyMap<string, RawGraphNode>
@@ -423,39 +473,30 @@ function accumulateLinkMetrics(
   readonly fanOut: Map<string, number>;
   readonly degreeMap: Map<string, number>;
 } {
-  const rawAdj = new Map<string, Set<string>>();
-  const fanIn = new Map<string, number>();
-  const fanOut = new Map<string, number>();
-  const degreeMap = new Map<string, number>();
-  const seenEdges = new Set<string>();
+  const acc: LinkMetricsAccumulator = {
+    rawAdj: new Map<string, Set<string>>(),
+    fanIn: new Map<string, number>(),
+    fanOut: new Map<string, number>(),
+    degreeMap: new Map<string, number>(),
+    seenEdges: new Set<string>(),
+  };
   for (const link of links) {
     const edge = resolveCrossFileDepEdge(link, nodeById);
     if (!edge) continue;
-    const [src, tgt, srcFile, tgtFile] = edge;
-    const edgeKey = `${src}->${tgt}`;
-    if (seenEdges.has(edgeKey)) continue;
-    seenEdges.add(edgeKey);
-    const set = rawAdj.get(src) ?? new Set<string>();
-    set.add(tgt);
-    rawAdj.set(src, set);
-    incrementMap(degreeMap, src);
-    incrementMap(degreeMap, tgt);
-    const srcMod = moduleKeyFromSource(srcFile);
-    const tgtMod = moduleKeyFromSource(tgtFile);
-    if (srcMod !== tgtMod) {
-      incrementMap(fanOut, srcMod);
-      incrementMap(fanIn, tgtMod);
+    recordDirectedDepEdge(edge, acc);
+    if (link.reverse_import === true) {
+      recordDirectedDepEdge([edge[1], edge[0], edge[3], edge[2]], acc);
     }
   }
   const adj = new Map<string, string[]>();
-  for (const [k, v] of rawAdj.entries()) {
+  for (const [k, v] of acc.rawAdj.entries()) {
     adj.set(k, Array.from(v).sort((a, b) => a.localeCompare(b)));
   }
-  return { adj, fanIn, fanOut, degreeMap };
+  return { adj, fanIn: acc.fanIn, fanOut: acc.fanOut, degreeMap: acc.degreeMap };
 }
 
 export function analyzeAstGraphFile(graphJsonAbs: string): ParsedGraphMetrics {
-  if (!fs.existsSync(graphJsonAbs)) return emptyGraphMetrics();
+  if (!isSafeRegularFile(graphJsonAbs)) return emptyGraphMetrics();
   try {
     const parsed = JSON.parse(fs.readFileSync(graphJsonAbs, UTF8_ENCODING)) as RawGraphDocument;
     const nodes = Array.isArray(parsed.nodes) ? parsed.nodes : [];
@@ -484,7 +525,11 @@ async function resolveGraphBuildExecution(
   if (!input.buildGraphs) {
     return { status: 'SKIPPED_BUILD_DISABLED' };
   }
-  if (!input.refreshGraphs && isCachedGraphFresh(input.project.absPath, graphJsonAbs)) {
+  const sourceFiles = collectProjectSourceFiles(input.project.absPath, GRAPH_TRACKED_EXTS, true);
+  if (sourceFiles.length === 0) {
+    return { status: 'SKIPPED_NO_SOURCE_FILES' };
+  }
+  if (!input.refreshGraphs && isCachedGraphFresh(input.project.absPath, graphJsonAbs, sourceFiles)) {
     return { status: 'REUSED_CACHED' };
   }
   const builder =
@@ -494,6 +539,7 @@ async function resolveGraphBuildExecution(
   const outcome = await builder({
     projectAbsPath: input.project.absPath,
     graphOutAbsDir,
+    refreshGraphs: input.refreshGraphs,
     signal: input.signal,
   });
   return outcome.ok ? { status: 'BUILT' } : { status: 'FAILED', error: outcome.error };
@@ -503,13 +549,14 @@ export async function buildAndAnalyzeProjectGraph(
   input: BuildProjectGraphInput
 ): Promise<ProjectGraphSummary> {
   const graphOutAbsDir = path.join(input.outputRealDir, GRAPHS_SUBDIR_NAME, input.project.slug);
-  assertNoSymlinkBetween(input.workspaceReal, graphOutAbsDir);
   const graphJsonAbs = path.join(graphOutAbsDir, GRAPH_JSON_NAME);
   const graphReportAbs = path.join(graphOutAbsDir, GRAPH_REPORT_NAME);
+  assertNoSymlinkBetween(input.workspaceReal, graphJsonAbs);
+  assertNoSymlinkBetween(input.workspaceReal, graphReportAbs);
 
   const buildResult = await resolveGraphBuildExecution(input, graphOutAbsDir, graphJsonAbs);
-  const graphExists = fs.existsSync(graphJsonAbs);
-  const reportExists = fs.existsSync(graphReportAbs);
+  const graphExists = isSafeRegularFile(graphJsonAbs);
+  const reportExists = isSafeRegularFile(graphReportAbs);
   const metrics = graphExists ? analyzeAstGraphFile(graphJsonAbs) : emptyGraphMetrics();
 
   return {

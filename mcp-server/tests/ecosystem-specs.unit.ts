@@ -39,6 +39,7 @@ import {
 } from '../src/tools/ecosystem-specs/graphBuilder.js';
 import {
   assertNoSymlinkBetween,
+  isSafeRegularFile,
   slugifyProjectPath,
 } from '../src/tools/ecosystem-specs/projectDiscovery.js';
 import {
@@ -238,7 +239,7 @@ function seedMultiProjectWorkspace(wsRoot: string): void {
   writeFile(
     wsRoot,
     'mobile-app/.env.example',
-    'EXPO_PUBLIC_API_URL=http://localhost:3000/api/v2\nEXPO_PUBLIC_BROKEN_URL=https://[::1\n'
+    'EXPO_PUBLIC_API_URL=http://localhost:3000/api/v2\nEXPO_PUBLIC_BROKEN_API_URL=https://[::1\n'
   );
   writeFile(
     wsRoot,
@@ -501,6 +502,13 @@ describe('Tool #20 analyze_ecosystem_specs & Zero-Footprint Multi-Project Revers
       'IMP-04',
       'IMP-05',
     ]);
+    const imp02 = inventory.improvement_opportunities.find((o) => o.id === 'IMP-02');
+    expect(imp02?.impacted_projects).toEqual(['mobile-app', 'web-portal']);
+
+    // Verify PHP routes/api.php preserves /api prefix inside group and restores after group closes
+    const phpProj = inventory.projects.find((p) => p.slug === 'services-php-billing');
+    expect(phpProj?.endpoints.some((e) => e.normalized_path === '/api/v1/invoices')).toBe(true);
+    expect(phpProj?.endpoints.some((e) => e.normalized_path === '/api/slim-item/{param}')).toBe(true);
 
     // 5. Second run with fresh cached graphs reuses cache without invoking builder
     let secondBuildCalls = 0;
@@ -970,5 +978,349 @@ describe('Tool #20 analyze_ecosystem_specs & Zero-Footprint Multi-Project Revers
     expect(strFail.ok).toBe(false);
     expect(strFail.error).toContain('raw-string-error');
     expect(extractUrlPathPrefix('/')).toBe('/');
+  });
+
+  it('prevents outputDir overlap with any sibling/nested repo, blocks symlink reads, and fixes extractor/correlator edge cases', async () => {
+    const regWs = path.join(tmpRoot, 'reg-ws');
+    // 1. FastAPI with multi-line APIRouter, multi-line @router.post, imported alias, and OpenAPI duplicate
+    writeFile(regWs, 'api/pyproject.toml', '[project]\nname="api"\ndependencies=["fastapi"]\n');
+    writeFile(regWs, 'api/.env.example', 'PORT=8000\nUNUSED_DUP=1\n');
+    writeFile(regWs, 'api/.env.sample', 'UNUSED_DUP=1\n');
+    writeFile(
+      regWs,
+      'api/src/main.py',
+      [
+        'from fastapi import FastAPI',
+        'from .routers.orders import router as orders_router',
+        'app = FastAPI()',
+        'app.include_router(',
+        '    orders_router,',
+        '    prefix="/api/v1",',
+        ')',
+        '@app.get("/api/v1/dup-orphan")',
+        'def dup_orphan():',
+        '    return {}',
+        '',
+      ].join('\n')
+    );
+    writeFile(
+      regWs,
+      'api/src/routers/orders.py',
+      [
+        'from fastapi import APIRouter',
+        'router = APIRouter(',
+        '    prefix="/orders",',
+        ')',
+        '@router.post(',
+        '    "/{order_id}/confirm",',
+        ')',
+        'def confirm(order_id: str):',
+        '    return {"id": order_id}',
+        '',
+      ].join('\n')
+    );
+    writeFile(
+      regWs,
+      'api/openapi.yaml',
+      [
+        'openapi: 3.1.0',
+        'paths:',
+        '  /api/v1/orders/{order_id}/confirm:',
+        '    post:',
+        '      summary: Confirm',
+        '  /api/v1/dup-orphan:',
+        '    get:',
+        '      summary: Dup',
+        '',
+      ].join('\n')
+    );
+
+    // 2. Express + NestJS global prefix & cross-file mounted router without polluting app.get
+    writeFile(
+      regWs,
+      'node-api/package.json',
+      JSON.stringify({ name: 'node-api', dependencies: { express: '^5.0.0', '@nestjs/core': '^11.0.0' } })
+    );
+    writeFile(
+      regWs,
+      'node-api/src/app.ts',
+      [
+        'import usersRouter from "./routes/users";',
+        'import { billingRouter } from "./routes/billing.js";',
+        'app.setGlobalPrefix("api/v1");',
+        'app.use("/api/v1/users", usersRouter);',
+        'app.use("/api/v1/billing", billingRouter);',
+        'app.get("/health", () => {});',
+        '',
+      ].join('\n')
+    );
+    writeFile(regWs, 'node-api/src/routes/users.ts', 'router.get("/:id", () => {});\n');
+    writeFile(regWs, 'node-api/src/routes/billing.ts', 'billingRouter.get("/api/v1/billing/summary", () => {});\n');
+    writeFile(
+      regWs,
+      'node-api/src/devices.controller.ts',
+      [
+        '@Controller("devices")',
+        'export class DevicesCtrl {',
+        '  @Get(":id")',
+        '  one() {}',
+        '}',
+        '@Controller("api/v1/already-prefixed")',
+        'export class PrefCtrl {',
+        '  @Get()',
+        '  list() {}',
+        '}',
+        '',
+      ].join('\n')
+    );
+
+    // 3. PHP Laravel routes/api.php with nested prefix groups + post-group route
+    writeFile(regWs, 'php-svc/composer.json', '{"name":"php-svc"}');
+    writeFile(
+      regWs,
+      'php-svc/routes/api.php',
+      [
+        '<?php',
+        "Route::prefix('v1')->group(function () {",
+        "  Route::get('/invoices/{id}', [C::class, 'show']);",
+        "  Route::prefix('admin')->group(function () {",
+        "    Route::get('/nested', [C::class, 'nested']);",
+        '  });',
+        '});',
+        "Route::prefix('api/v2')->group(function () {",
+        "  Route::get('/top', [C::class, 'top']);",
+        '});',
+        "Route::get('/status', [C::class, 'status']);",
+        '',
+      ].join('\n')
+    );
+
+    // 4. Web portal with .env.example + .env.production + VITE_APP_URL (must NOT trigger BASE_URL_DRIFT!)
+    writeFile(
+      regWs,
+      'portal-clientes/package.json',
+      JSON.stringify({ name: 'portal', dependencies: { vue: '^3.5.0', axios: '^1.7.0' } })
+    );
+    writeFile(
+      regWs,
+      'portal-clientes/.env.example',
+      [
+        'VITE_API_URL=http://localhost:8000/api',
+        'VITE_AUTH_URL=http://localhost:8001/auth',
+        'VITE_APP_URL=http://localhost:5173',
+        '',
+      ].join('\n')
+    );
+    writeFile(
+      regWs,
+      'portal-clientes/.env.production',
+      'VITE_API_URL=https://api.prod.example/api\n'
+    );
+    writeFile(
+      regWs,
+      'portal-clientes/src/api.ts',
+      [
+        'const a = import.meta.env.VITE_API_URL;',
+        'const b = import.meta.env.VITE_AUTH_URL;',
+        'const c = import.meta.env.VITE_APP_URL;',
+        'fetch(`http://localhost:8000/api/v1/orders/${id}/confirm`, { method: "POST" });',
+        'fetch(`${import.meta.env.VITE_AUTH_URL}/login`, { method: "POST" });',
+        'api.get("/api-keys");',
+        'axios({',
+        '  method: "POST",',
+        '  url: "/v1/orders",',
+        '});',
+        'fetch(`${this.baseUrl}/items`);',
+        '',
+      ].join('\n')
+    );
+
+    // 5. Mobile app calling unversioned /api/orders vs web /api/v1/orders + OpenAPI-only project
+    writeFile(
+      regWs,
+      'app-repartidores/package.json',
+      JSON.stringify({ name: 'app-rep', dependencies: { react: '^19.0.0', '@capacitor/core': '^7.0.0' } })
+    );
+    writeFile(regWs, 'app-repartidores/src/s.tsx', 'fetch("/api/orders", { method: "POST" });\n');
+    writeFile(regWs, 'contracts-only/openapi.yaml', 'openapi: 3.1.0\npaths:\n  /api/v1/ping:\n    get:\n      summary: Ping\n');
+
+    // 6. Depth-3 nested project for outputDir isolation test
+    writeFile(regWs, 'deep/level/proj/package.json', '{"name":"deep-proj"}');
+
+    // 7. Zero-footprint outputDir overlap guards (direct repo, sibling repo with explicit projects, depth-3 repo)
+    await expect(
+      runAnalyzeEcosystemSpecs({ workspaceRoot: regWs, outputDir: 'api', buildGraphs: false })
+    ).rejects.toThrow(WorkspacePathValidationError);
+    expect(fs.existsSync(path.join(regWs, 'api', 'ecosystem-inventory.json'))).toBe(false);
+
+    await expect(
+      runAnalyzeEcosystemSpecs({
+        workspaceRoot: regWs,
+        outputDir: 'api',
+        projects: ['portal-clientes'],
+        buildGraphs: false,
+      })
+    ).rejects.toThrow(WorkspacePathValidationError);
+    expect(fs.existsSync(path.join(regWs, 'api', 'ecosystem-inventory.json'))).toBe(false);
+
+    await expect(
+      runAnalyzeEcosystemSpecs({
+        workspaceRoot: regWs,
+        outputDir: 'deep/level/proj',
+        projects: ['portal-clientes'],
+        buildGraphs: false,
+      })
+    ).rejects.toThrow(WorkspacePathValidationError);
+
+    // 8. Symlink-read escape guards (.env, openapi, graph.json)
+    const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qa11x-sym-read-'));
+    try {
+      const outsideEnv = writeFile(outsideDir, 'leak.env', 'LEAKED_API_URL=http://internal.corp:9999/secret\n');
+      const outsideOpenApi = writeFile(
+        outsideDir,
+        'leak.json',
+        JSON.stringify({ openapi: '3.1.0', paths: { '/secret-leak': { get: {} } } })
+      );
+      fs.symlinkSync(outsideEnv, path.join(regWs, 'contracts-only', '.env.local'));
+      fs.symlinkSync(outsideOpenApi, path.join(regWs, 'contracts-only', 'openapi.json'));
+      expect(isSafeRegularFile(path.join(regWs, 'contracts-only', '.env.local'))).toBe(false);
+      expect(isSafeRegularFile(path.join(regWs, 'nonexistent-file'))).toBe(false);
+
+      // Run full analysis with buildGraphs=true (mocked) to verify OpenAPI-only skips Docker cleanly
+      const builtPaths: string[] = [];
+      const res = await runAnalyzeEcosystemSpecs(
+        { workspaceRoot: regWs, outputDir: 'analisis', buildGraphs: true, refreshGraphs: true },
+        {
+          graphBuilderFn: ({ projectAbsPath, refreshGraphs }) => {
+            builtPaths.push(`${path.basename(projectAbsPath)}:force=${String(refreshGraphs)}`);
+            return Promise.resolve({ ok: true });
+          },
+        }
+      );
+
+      const inv = JSON.parse(
+        fs.readFileSync(path.join(regWs, res.inventory_path), 'utf8')
+      ) as EcosystemInventoryDocument;
+
+      // OpenAPI-only repo skipped Docker without FAILED & did NOT leak symlinked .env/openapi
+      const contractsProj = inv.projects.find((p) => p.slug === 'contracts-only');
+      expect(contractsProj?.graph.status).toBe('SKIPPED_NO_SOURCE_FILES');
+      expect(contractsProj?.env_vars.some((e) => e.key === 'LEAKED_API_URL')).toBe(false);
+      expect(contractsProj?.endpoints.some((e) => e.normalized_path === '/secret-leak')).toBe(false);
+      expect(builtPaths.every((entry) => entry.endsWith(':force=true'))).toBe(true);
+      expect(builtPaths.some((entry) => entry.startsWith('contracts-only:'))).toBe(false);
+
+      // FastAPI multi-line + imported alias extracted properly
+      const apiProj = inv.projects.find((p) => p.slug === 'api');
+      expect(
+        apiProj?.endpoints.some(
+          (e) => e.source_kind === 'code' && e.method === 'POST' && e.normalized_path === '/api/v1/orders/{param}/confirm'
+        )
+      ).toBe(true);
+
+      // Express cross-file mount & app.get isolation + NestJS global prefix
+      const nodeProj = inv.projects.find((p) => p.slug === 'node-api');
+      const nodePaths = nodeProj?.endpoints.map((e) => `${e.method} ${e.normalized_path}`) ?? [];
+      expect(nodePaths).toContain('GET /health');
+      expect(nodePaths).not.toContain('GET /api/v1/users/health');
+      expect(nodePaths).toContain('GET /api/v1/users/{param}');
+      expect(nodePaths).toContain('GET /api/v1/billing/summary');
+      expect(nodePaths).toContain('GET /api/v1/devices/{param}');
+      expect(nodePaths).toContain('GET /api/v1/already-prefixed');
+
+      // PHP Laravel routes/api.php prefix stack + post-group restoration
+      const phpProj = inv.projects.find((p) => p.slug === 'php-svc');
+      const phpPaths = phpProj?.endpoints.map((e) => `${e.method} ${e.normalized_path}`) ?? [];
+      expect(phpPaths).toContain('GET /api/v1/invoices/{param}');
+      expect(phpPaths).toContain('GET /api/v1/admin/nested');
+      expect(phpPaths).toContain('GET /api/v2/top');
+      expect(phpPaths).toContain('GET /api/status');
+
+      // Consumer URL normalization fixes (decoded URL braces, env-key prefix, segment boundary, multi-line axios, dotted baseUrl)
+      const portalProj = inv.projects.find((p) => p.slug === 'portal-clientes');
+      const portalCalls = portalProj?.consumer_calls.map((c) => `${c.method} ${c.normalized_path}`) ?? [];
+      expect(portalCalls).toContain('POST /api/v1/orders/{param}/confirm');
+      expect(portalCalls).toContain('POST /auth/login');
+      expect(portalCalls).toContain('GET /api/api-keys');
+      expect(portalCalls).toContain('POST /api/v1/orders');
+      expect(portalCalls).toContain('GET /api/items');
+
+      // Python f-string leading base URL
+      expect(parseConsumerCallUrl('{API_URL}/orders/{order_id}', '/api/v1')?.normalizedPath).toBe(
+        '/api/v1/orders/{param}'
+      );
+
+      // Code + OpenAPI deduplication (1 edge, 1 orphan)
+      expect(
+        inv.integration_edges.filter(
+          (e) => e.provider_slug === 'api' && e.normalized_path === '/api/v1/orders/{param}/confirm'
+        )
+      ).toHaveLength(1);
+      expect(
+        inv.findings.ORPHAN_PROVIDER_ENDPOINT.filter((f) => f.normalized_path === '/api/v1/dup-orphan')
+      ).toHaveLength(1);
+
+      // No false-positive BASE_URL_DRIFT from .env.production or VITE_APP_URL; no dup UNUSED_ENV_EXAMPLE_KEY
+      expect(inv.findings.ENV_CONFIG_DRIFT.filter((f) => f.kind === 'BASE_URL_DRIFT')).toHaveLength(0);
+      expect(
+        inv.findings.ENV_CONFIG_DRIFT.filter((f) => f.project_slug === 'api' && f.key === 'UNUSED_DUP')
+      ).toHaveLength(1);
+
+      // Unversioned /api/orders vs /api/v1/orders flagged as METHOD_OR_VERSION_DIVERGENCE with real slugs in IMP-02
+      expect(
+        inv.findings.CHANNEL_ASYMMETRY.some(
+          (f) => f.kind === 'METHOD_OR_VERSION_DIVERGENCE' && f.normalized_path === '/orders'
+        )
+      ).toBe(true);
+      const regImp02 = inv.improvement_opportunities.find((o) => o.id === 'IMP-02');
+      expect(regImp02?.impacted_projects).toEqual(['app-repartidores', 'portal-clientes']);
+
+      // Symlinked graph.json rejected by analyzeAstGraphFile
+      const outsideGraph = writeFile(outsideDir, 'outside-graph.json', JSON.stringify({ nodes: [{ id: 'x', source_file: 'a.py' }], links: [] }));
+      const symGraph = path.join(regWs, 'sym-graph.json');
+      fs.symlinkSync(outsideGraph, symGraph);
+      expect(analyzeAstGraphFile(symGraph).nodesCount).toBe(0);
+    } finally {
+      fs.rmSync(outsideDir, { recursive: true, force: true });
+    }
+
+    // 9. Docker args --force when refreshGraphs=true + live Graphify reverse_import 2-file cycle detection
+    const refreshArgs = buildZeroFootprintDockerArgs('/ws/api', '/ws/out', true);
+    expect(refreshArgs[refreshArgs.length - 1]).toContain('--force');
+    const normalArgs = buildZeroFootprintDockerArgs('/ws/api', '/ws/out', false);
+    expect(normalArgs[normalArgs.length - 1]).not.toContain('--force');
+
+    const twoFileCycleGraph = writeFile(
+      tmpRoot,
+      'rev-cycle/graph.json',
+      JSON.stringify({
+        directed: false,
+        nodes: [
+          { id: 'app_x', label: 'x.py', source_file: 'app/x.py', community: 0 },
+          { id: 'app_y', label: 'y.py', source_file: 'app/y.py', community: 0 },
+        ],
+        links: [
+          { source: 'app_x', target: 'app_y', relation: 'imports_from', reverse_import: true, source_file: 'app/x.py' },
+        ],
+      })
+    );
+    const revMetrics = analyzeAstGraphFile(twoFileCycleGraph);
+    expect(revMetrics.cycles).toEqual(['app_x -> app_y -> app_x']);
+
+    // 10. toolsetFilter auto detects depth-2 nested subprojects
+    const nestedWs = path.join(tmpRoot, 'nested-auto-ws');
+    writeFile(nestedWs, 'services/api/pyproject.toml', '[project]\nname="api"\n');
+    writeFile(nestedWs, 'apps/web/package.json', '{"name":"web"}');
+    expect(resolveAllowedToolNames('auto', nestedWs)?.has('analyze_ecosystem_specs')).toBe(true);
+
+    // 11. isSafeRegularFile catch branch on unreadable parent dir
+    const lockedDir = path.join(tmpRoot, 'locked-reg');
+    fs.mkdirSync(lockedDir, { recursive: true });
+    fs.chmodSync(lockedDir, 0o000);
+    try {
+      expect(isSafeRegularFile(path.join(lockedDir, 'secret.env'))).toBe(false);
+    } finally {
+      fs.chmodSync(lockedDir, 0o700);
+    }
   });
 });

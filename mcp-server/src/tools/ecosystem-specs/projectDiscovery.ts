@@ -189,11 +189,18 @@ export function slugifyProjectPath(relPath: string, usedSlugs: Set<string>): str
   return uniqueSlug;
 }
 
+export function isSafeRegularFile(filePath: string): boolean {
+  try {
+    const stat = fs.lstatSync(filePath, { throwIfNoEntry: false });
+    return Boolean(stat && !stat.isSymbolicLink() && stat.isFile());
+  } catch {
+    return false;
+  }
+}
+
 function safeReadUtf8(filePath: string): string {
   try {
-    return fs.existsSync(filePath) && fs.statSync(filePath).isFile()
-      ? fs.readFileSync(filePath, UTF8_ENCODING)
-      : '';
+    return isSafeRegularFile(filePath) ? fs.readFileSync(filePath, UTF8_ENCODING) : '';
   } catch (err: unknown) {
     reportDebugCatchError(`projectDiscovery.safeReadUtf8(${filePath})`, err);
     return '';
@@ -383,16 +390,14 @@ function buildDiscoveredProject(
   };
 }
 
-function listEligibleChildDirs(parentDir: string, outputRealDir: string): string[] {
+function listEligibleChildDirs(parentDir: string): string[] {
   const out: string[] = [];
   try {
     const entries = fs.readdirSync(parentDir, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isDirectory() || entry.isSymbolicLink()) continue;
       if (entry.name.startsWith('.') || CANONICAL_IGNORED_DIRS.has(entry.name)) continue;
-      const full = path.join(parentDir, entry.name);
-      if (isEqualOrInsidePath(full, outputRealDir)) continue;
-      out.push(full);
+      out.push(path.join(parentDir, entry.name));
     }
   } catch (err: unknown) {
     reportDebugCatchError(`projectDiscovery.listEligibleChildDirs(${parentDir})`, err);
@@ -444,15 +449,15 @@ function resolveRequestedProjectDirs(
   return resolvedDirs;
 }
 
-function autoDiscoverProjectDirs(workspaceReal: string, outputRealDir: string): string[] {
+function autoDiscoverProjectDirs(workspaceReal: string): string[] {
   const discovered: string[] = [];
-  const topDirs = listEligibleChildDirs(workspaceReal, outputRealDir);
+  const topDirs = listEligibleChildDirs(workspaceReal);
   for (const dir of topDirs) {
     if (isProjectCandidateDir(dir)) {
       discovered.push(dir);
       continue;
     }
-    for (const nested of listEligibleChildDirs(dir, outputRealDir)) {
+    for (const nested of listEligibleChildDirs(dir)) {
       if (isProjectCandidateDir(nested)) {
         discovered.push(nested);
       }
@@ -461,23 +466,41 @@ function autoDiscoverProjectDirs(workspaceReal: string, outputRealDir: string): 
   return discovered;
 }
 
-export function discoverEcosystemProjects(
+function assertOutputDirIsolatedFromProjects(
   workspaceReal: string,
   outputRealDir: string,
-  requestedProjects?: readonly string[]
-): DiscoveredProject[] {
-  const hasExplicit = Array.isArray(requestedProjects) && requestedProjects.length > 0;
-  const projectDirs = hasExplicit
-    ? resolveRequestedProjectDirs(workspaceReal, outputRealDir, requestedProjects)
-    : autoDiscoverProjectDirs(workspaceReal, outputRealDir);
-
-  for (const projDir of projectDirs) {
+  protectedProjectDirs: ReadonlySet<string>
+): void {
+  for (const projDir of protectedProjectDirs) {
     if (isEqualOrInsidePath(outputRealDir, projDir) || isEqualOrInsidePath(projDir, outputRealDir)) {
       throw new WorkspacePathValidationError(
         `${SEC_PATH_TAG} outputDir no puede ubicarse dentro ni contener el proyecto fuente '${toPosixRel(workspaceReal, projDir)}' (huella cero).`
       );
     }
   }
+  if (fs.existsSync(outputRealDir) && isProjectCandidateDir(outputRealDir)) {
+    throw new WorkspacePathValidationError(
+      `${SEC_PATH_TAG} outputDir apunta a un repositorio o proyecto fuente existente '${toPosixRel(workspaceReal, outputRealDir)}' (huella cero).`
+    );
+  }
+}
+
+export function discoverEcosystemProjects(
+  workspaceReal: string,
+  outputRealDir: string,
+  requestedProjects?: readonly string[]
+): DiscoveredProject[] {
+  const hasExplicit = Array.isArray(requestedProjects) && requestedProjects.length > 0;
+  const allDiscovered = autoDiscoverProjectDirs(workspaceReal);
+  const projectDirs = hasExplicit
+    ? resolveRequestedProjectDirs(workspaceReal, outputRealDir, requestedProjects)
+    : allDiscovered;
+
+  assertOutputDirIsolatedFromProjects(
+    workspaceReal,
+    outputRealDir,
+    new Set<string>([...projectDirs, ...allDiscovered])
+  );
 
   const usedSlugs = new Set<string>();
   return projectDirs.map((dir) => buildDiscoveredProject(workspaceReal, dir, usedSlugs));

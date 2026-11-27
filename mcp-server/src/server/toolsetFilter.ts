@@ -5,6 +5,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { readQa11xConfig, TIER_ENTERPRISE } from '../services/qa11xConfig.js';
 import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
+import { CANONICAL_IGNORED_DIRS } from '../utils/ignoredDirs.js';
 
 export type ToolsetMode = 'core' | 'auto' | 'full';
 
@@ -66,26 +67,41 @@ function hasAnyWorkspacePath(projectDir: string, relPaths: readonly string[]): b
 
 const SUBPROJECT_MARKERS = ['package.json', 'pyproject.toml', 'composer.json', 'requirements.txt'] as const;
 
-function isSubprojectDir(projectDir: string, entry: fs.Dirent): boolean {
-  if (!entry.isDirectory() || entry.name.startsWith('.') || entry.name === 'node_modules') {
-    return false;
+function isNavigableSubdir(entry: fs.Dirent): boolean {
+  return (
+    entry.isDirectory() &&
+    !entry.isSymbolicLink() &&
+    !entry.name.startsWith('.') &&
+    !CANONICAL_IGNORED_DIRS.has(entry.name)
+  );
+}
+
+function hasSubprojectMarker(dirPath: string): boolean {
+  return SUBPROJECT_MARKERS.some((marker) => fs.existsSync(path.join(dirPath, marker)));
+}
+
+function countSubprojectsInDir(dirPath: string, depth: number): number {
+  let count = 0;
+  for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
+    if (!isNavigableSubdir(entry)) continue;
+    const child = path.join(dirPath, entry.name);
+    if (hasSubprojectMarker(child)) {
+      count += 1;
+    } else if (depth < 1) {
+      count += countSubprojectsInDir(child, depth + 1);
+    }
+    if (count >= 2) return count;
   }
-  const child = path.join(projectDir, entry.name);
-  return SUBPROJECT_MARKERS.some((marker) => fs.existsSync(path.join(child, marker)));
+  return count;
 }
 
 function hasMultipleSubprojects(projectDir: string): boolean {
   try {
-    let count = 0;
-    for (const entry of fs.readdirSync(projectDir, { withFileTypes: true })) {
-      if (!isSubprojectDir(projectDir, entry)) continue;
-      count += 1;
-      if (count >= 2) return true;
-    }
+    return countSubprojectsInDir(projectDir, 0) >= 2;
   } catch (err: unknown) {
     reportDebugCatchError('toolsetFilter.hasMultipleSubprojects', err);
+    return false;
   }
-  return false;
 }
 
 function detectAutoExtensionTools(projectDir: string): string[] {

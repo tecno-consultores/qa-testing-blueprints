@@ -4,7 +4,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { reportDebugCatchError } from '../../utils/diagnosticFormatter.js';
-import { collectProjectSourceFiles } from './projectDiscovery.js';
+import { collectProjectSourceFiles, isSafeRegularFile } from './projectDiscovery.js';
 import {
   REDACTED_ENV_VALUE,
   UTF8_ENCODING,
@@ -36,6 +36,9 @@ const ENV_CODE_EXTS: ReadonlySet<string> = new Set([
 const ENV_KEY_RE = /^[A-Z][A-Z0-9_]{1,63}$/;
 const SENSITIVE_KEY_RE =
   /(?:SECRET|TOKEN|KEY|PASS|PWD|AUTH|CRED|DSN|DATABASE_URL|DB_URL|REDIS_URL|PRIVATE|CERT|JWT|COOKIE|SALT|HMAC|SMTP|WEBHOOK)/i;
+const PUBLIC_AUTH_ENDPOINT_KEY_RE = /(?:^|_)AUTH(?:_(?:SERVICE|API|BASE))?_(?:URL|ENDPOINT)$/i;
+const HARD_SENSITIVE_KEY_RE =
+  /(?:SECRET|TOKEN|KEY|PASS|PWD|CRED|DSN|DATABASE_URL|DB_URL|REDIS_URL|PRIVATE|CERT|JWT|COOKIE|SALT|HMAC|SMTP|WEBHOOK)/i;
 const URL_CRED_RE = /:\/\/[^/\s:@]+:[^/\s@]+@/;
 const URL_ENDPOINT_KEY_RE = /(?:URL|ENDPOINT|API|BASE|BACKEND|SERVER|GATEWAY|PROXY)/i;
 const PORT_HOST_KEY_RE = /(?:PORT|HOST|HOSTNAME|BIND)$/i;
@@ -65,6 +68,9 @@ function stripWrappingQuotes(raw: string): string {
 }
 
 export function classifyEnvKey(key: string): EnvCategory {
+  if (PUBLIC_AUTH_ENDPOINT_KEY_RE.test(key) && !HARD_SENSITIVE_KEY_RE.test(key)) {
+    return 'url_or_endpoint';
+  }
   if (SENSITIVE_KEY_RE.test(key)) return 'secret_redacted';
   if (CORS_KEY_RE.test(key)) return 'cors_or_origin';
   if (URL_ENDPOINT_KEY_RE.test(key)) return 'url_or_endpoint';
@@ -107,10 +113,9 @@ function parseSingleEnvFile(
   out: EnvVarEntry[]
 ): void {
   const fullPath = path.join(project.absPath, fileName);
-  if (!fs.existsSync(fullPath)) return;
+  if (!isSafeRegularFile(fullPath)) return;
   let content: string;
   try {
-    if (!fs.statSync(fullPath).isFile()) return;
     content = fs.readFileSync(fullPath, UTF8_ENCODING);
   } catch (err: unknown) {
     reportDebugCatchError(`envExtractor.parseSingleEnvFile(${fullPath})`, err);

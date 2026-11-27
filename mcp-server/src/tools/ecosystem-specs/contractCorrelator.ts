@@ -57,7 +57,11 @@ const BUILTIN_ENV_KEYS: ReadonlySet<string> = new Set([
   'LANG',
 ]);
 
-const VERSION_SEGMENT_RE = /^\/(?:api\/)?v\d+(?=\/|$)/i;
+const API_VERSION_PREFIX_RE = /^\/api\/v\d+(?=\/)/i;
+const SIMPLE_API_OR_VER_PREFIX_RE = /^\/(?:api|v\d+)(?=\/)/i;
+const SELF_APP_URL_KEY_RE =
+  /(?:APP_URL|SITE_URL|PUBLIC_URL|FRONTEND_URL|WEB_URL|DOCS_URL|REDIRECT|CALLBACK)/i;
+const API_TARGET_URL_KEY_RE = /(?:API|BACKEND|GATEWAY|SERVER)/i;
 
 function splitPathSegments(normalizedPath: string): string[] {
   return normalizedPath.split('/').filter(Boolean);
@@ -192,7 +196,9 @@ function collectOrphanEndpoints(
 }
 
 function stripVersionPrefix(normalizedPath: string): string {
-  const stripped = normalizedPath.replace(VERSION_SEGMENT_RE, '');
+  const stripped = API_VERSION_PREFIX_RE.test(normalizedPath)
+    ? normalizedPath.replace(API_VERSION_PREFIX_RE, '')
+    : normalizedPath.replace(SIMPLE_API_OR_VER_PREFIX_RE, '');
   return stripped.startsWith('/') ? stripped : `/${stripped}`;
 }
 
@@ -300,8 +306,12 @@ function collectIntraProjectEnvDrift(project: ProjectAnalysisRecord): EnvConfigD
     });
   }
 
+  const reportedUnused = new Set<string>();
   for (const ex of exampleEntries) {
-    if (codeRefKeys.has(ex.key) || BUILTIN_ENV_KEYS.has(ex.key)) continue;
+    if (codeRefKeys.has(ex.key) || BUILTIN_ENV_KEYS.has(ex.key) || reportedUnused.has(ex.key)) {
+      continue;
+    }
+    reportedUnused.add(ex.key);
     findings.push({
       category: CAT_ENV,
       kind: 'UNUSED_ENV_EXAMPLE_KEY',
@@ -333,6 +343,47 @@ interface ConsumerEnvUrlRef {
   readonly line: number;
 }
 
+function isApiConsumerEnvUrlKey(key: string): boolean {
+  if (SELF_APP_URL_KEY_RE.test(key) && !API_TARGET_URL_KEY_RE.test(key)) {
+    return false;
+  }
+  return API_TARGET_URL_KEY_RE.test(key);
+}
+
+function isLocalEnvSample(ev: ProjectAnalysisRecord['env_vars'][number]): boolean {
+  return (
+    ev.source === 'env_file' &&
+    ev.file !== '.env.production' &&
+    Boolean(ev.sanitized_sample) &&
+    ev.sanitized_sample !== REDACTED_ENV_VALUE
+  );
+}
+
+function recordProjectEnvUrlOrPort(
+  proj: ProjectAnalysisRecord,
+  consumerUrls: ConsumerEnvUrlRef[],
+  providerPorts: Set<string>
+): void {
+  const isConsumer = proj.role === 'web' || proj.role === 'mobile' || proj.role === 'mixed';
+  const isProvider = proj.role === 'api' || proj.role === 'mixed';
+  for (const ev of proj.env_vars) {
+    if (!isLocalEnvSample(ev)) continue;
+    const sample = ev.sanitized_sample ?? '';
+    if (isProvider && ev.category === 'port_or_host' && /^\d{2,5}$/.test(sample)) {
+      providerPorts.add(sample);
+    }
+    if (isConsumer && ev.category === 'url_or_endpoint' && isApiConsumerEnvUrlKey(ev.key) && /^https?:\/\//i.test(sample)) {
+      consumerUrls.push({
+        slug: proj.slug,
+        key: ev.key,
+        url: stripTrailingSlashes(sample),
+        file: ev.file,
+        line: ev.line,
+      });
+    }
+  }
+}
+
 function collectEnvUrlsAndProviderPorts(projects: readonly ProjectAnalysisRecord[]): {
   readonly consumerUrls: ConsumerEnvUrlRef[];
   readonly providerPorts: Set<string>;
@@ -340,23 +391,7 @@ function collectEnvUrlsAndProviderPorts(projects: readonly ProjectAnalysisRecord
   const consumerUrls: ConsumerEnvUrlRef[] = [];
   const providerPorts = new Set<string>();
   for (const proj of projects) {
-    const isConsumer = proj.role === 'web' || proj.role === 'mobile';
-    for (const ev of proj.env_vars) {
-      const sample = ev.sanitized_sample;
-      if (ev.source !== 'env_file' || !sample || sample === REDACTED_ENV_VALUE) continue;
-      if (proj.role === 'api' && ev.category === 'port_or_host' && /^\d{2,5}$/.test(sample)) {
-        providerPorts.add(sample);
-      }
-      if (isConsumer && ev.category === 'url_or_endpoint' && /^https?:\/\//i.test(sample)) {
-        consumerUrls.push({
-          slug: proj.slug,
-          key: ev.key,
-          url: stripTrailingSlashes(sample),
-          file: ev.file,
-          line: ev.line,
-        });
-      }
-    }
+    recordProjectEnvUrlOrPort(proj, consumerUrls, providerPorts);
   }
   return { consumerUrls, providerPorts };
 }
@@ -366,8 +401,9 @@ function collectCrossProjectBaseUrlDrift(
 ): EnvConfigDriftFinding[] {
   const { consumerUrls, providerPorts } = collectEnvUrlsAndProviderPorts(projects);
   const findings: EnvConfigDriftFinding[] = [];
+  const distinctProjects = Array.from(new Set(consumerUrls.map((c) => c.slug)));
   const uniqueUrls = Array.from(new Set(consumerUrls.map((c) => c.url)));
-  if (uniqueUrls.length > 1 && consumerUrls[0]) {
+  if (distinctProjects.length > 1 && uniqueUrls.length > 1 && consumerUrls[0]) {
     const first = consumerUrls[0];
     findings.push({
       category: CAT_ENV,
@@ -377,7 +413,7 @@ function collectCrossProjectBaseUrlDrift(
       key: first.key,
       file: first.file,
       line: first.line,
-      related_projects: Array.from(new Set(consumerUrls.map((c) => c.slug))),
+      related_projects: distinctProjects,
       message: `Consumer projects configure conflicting API base URLs across .env files: ${uniqueUrls.join(' vs ')}.`,
     });
   }
@@ -431,7 +467,20 @@ function collectAstStructuralFindings(
   return findings;
 }
 
-function buildImprovementOpportunities(findings: EcosystemFindingsBundle): ImprovementOpportunity[] {
+function collectChannelProjectSlugs(projects: readonly ProjectAnalysisRecord[]): string[] {
+  const slugs = new Set<string>();
+  for (const proj of projects) {
+    if (proj.consumer_calls.some((c) => (c.channel === 'web' || c.channel === 'mobile') && !c.is_external)) {
+      slugs.add(proj.slug);
+    }
+  }
+  return Array.from(slugs).sort((a, b) => a.localeCompare(b));
+}
+
+function buildImprovementOpportunities(
+  findings: EcosystemFindingsBundle,
+  projects: readonly ProjectAnalysisRecord[]
+): ImprovementOpportunity[] {
   const opportunities: ImprovementOpportunity[] = [];
   if (findings.BROKEN_CONSUMER_CALL.length > 0) {
     opportunities.push({
@@ -448,7 +497,7 @@ function buildImprovementOpportunities(findings: EcosystemFindingsBundle): Impro
       priority: 'P1',
       title: 'Align Web and Mobile API contracts & versions',
       rationale: 'Web and Mobile clients diverge in HTTP methods or API versions for the same domain resources. Standardize on a unified API version and shared SDK layer.',
-      impacted_projects: ['web', 'mobile'],
+      impacted_projects: collectChannelProjectSlugs(projects),
     });
   }
   if (findings.ENV_CONFIG_DRIFT.length > 0) {
@@ -481,6 +530,20 @@ function buildImprovementOpportunities(findings: EcosystemFindingsBundle): Impro
   return opportunities;
 }
 
+function deduplicateProvidersForCorrelation(
+  endpoints: readonly ProviderEndpoint[]
+): ProviderEndpoint[] {
+  const byRoute = new Map<string, ProviderEndpoint>();
+  for (const ep of endpoints) {
+    const key = `${ep.project_slug}:${ep.method}:${ep.normalized_path}`;
+    const existing = byRoute.get(key);
+    if (!existing || (existing.source_kind === 'openapi' && ep.source_kind === 'code')) {
+      byRoute.set(key, ep);
+    }
+  }
+  return Array.from(byRoute.values());
+}
+
 export function correlateEcosystemContracts(
   projects: readonly ProjectAnalysisRecord[],
   maxFindingsPerCategory: number
@@ -489,7 +552,7 @@ export function correlateEcosystemContracts(
   readonly findings: EcosystemFindingsBundle;
   readonly improvementOpportunities: ImprovementOpportunity[];
 } {
-  const allProviders = projects.flatMap((p) => p.endpoints);
+  const allProviders = deduplicateProvidersForCorrelation(projects.flatMap((p) => p.endpoints));
   const allConsumerCalls = projects.flatMap((p) => p.consumer_calls);
   const matchedEndpointKeys = new Set<string>();
   const integrationEdges: IntegrationEdge[] = [];
@@ -519,6 +582,6 @@ export function correlateEcosystemContracts(
   return {
     integrationEdges,
     findings,
-    improvementOpportunities: buildImprovementOpportunities(findings),
+    improvementOpportunities: buildImprovementOpportunities(findings, projects),
   };
 }

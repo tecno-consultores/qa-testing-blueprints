@@ -46,8 +46,12 @@ const PY_HTTP_CALL_RE =
 const PHP_HTTP_CALL_RE =
   /\b(?:Http::|\$(?:http|client)->)(get|post|put|patch|delete)\(\s*['"]([^'"\r\n]+)['"]/i;
 
-const LEADING_ENV_TEMPLATE_RE =
-  /^\$\{\s*(?:import\.meta\.env\.|process\.env\.)?([A-Z_]\w*)\s*\}(\/.*)$/i;
+const LEADING_JS_TEMPLATE_RE =
+  /^\$\{\s*(?:import\.meta\.env\.|process\.env\.)?([A-Za-z_$][\w$.]*)\s*\}(\/.*)$/;
+const LEADING_PY_TEMPLATE_RE =
+  /^\{\s*([a-z_][\w.]*(?:url|base|host|api|endpoint|server)[\w.]*)\s*\}(\/.*)$/i;
+const PCT_OPEN_BRACE_RE = /%7b/gi;
+const PCT_CLOSE_BRACE_RE = /%7d/gi;
 const LOCAL_API_HOSTNAMES: ReadonlySet<string> = new Set([
   'localhost',
   '127.0.0.1',
@@ -72,35 +76,58 @@ function resolveChannelForProject(project: DiscoveredProject): ConsumerChannel {
   return 'service';
 }
 
+function hasPathSegmentPrefix(cleanPath: string, prefix: string): boolean {
+  return cleanPath === prefix || cleanPath.startsWith(`${prefix}/`);
+}
+
 function applyPrefixIfNeeded(rawPath: string, prefix: string): string {
   const clean = normalizeEndpointPath(rawPath);
-  if (!prefix || prefix === '/' || clean.startsWith(prefix)) {
+  if (!prefix || prefix === '/' || hasPathSegmentPrefix(clean, prefix)) {
     return clean;
   }
   return normalizeEndpointPath(joinRoutePaths(prefix, clean));
 }
 
-export function parseConsumerCallUrl(rawUrl: string, activePrefix: string): ParsedCallUrl | null {
+function parseLeadingTemplateCallUrl(
+  trimmed: string,
+  activePrefix: string,
+  envPrefixByKey?: ReadonlyMap<string, string>
+): ParsedCallUrl | null {
+  const tplMatch = LEADING_JS_TEMPLATE_RE.exec(trimmed) ?? LEADING_PY_TEMPLATE_RE.exec(trimmed);
+  if (!tplMatch?.[1] || !tplMatch[2]) return null;
+  const varName = tplMatch[1];
+  const resolvedPrefix = envPrefixByKey?.get(varName) ?? activePrefix;
+  return {
+    normalizedPath: applyPrefixIfNeeded(tplMatch[2], resolvedPrefix),
+    baseUrlVar: varName,
+    isExternal: false,
+  };
+}
+
+function parseAbsoluteCallUrl(trimmed: string): ParsedCallUrl | null {
+  try {
+    const parsed = new URL(trimmed);
+    const isLocal = LOCAL_API_HOSTNAMES.has(parsed.hostname.toLowerCase());
+    const decodedPath = parsed.pathname
+      .replace(PCT_OPEN_BRACE_RE, '{')
+      .replace(PCT_CLOSE_BRACE_RE, '}');
+    return { normalizedPath: normalizeEndpointPath(decodedPath), isExternal: !isLocal };
+  } catch {
+    return null;
+  }
+}
+
+export function parseConsumerCallUrl(
+  rawUrl: string,
+  activePrefix: string,
+  envPrefixByKey?: ReadonlyMap<string, string>
+): ParsedCallUrl | null {
   const trimmed = rawUrl.trim();
   if (!trimmed || trimmed.startsWith('data:') || trimmed.startsWith('mailto:')) return null;
 
-  const tplMatch = LEADING_ENV_TEMPLATE_RE.exec(trimmed);
-  if (tplMatch?.[1] && tplMatch[2]) {
-    return {
-      normalizedPath: applyPrefixIfNeeded(tplMatch[2], activePrefix),
-      baseUrlVar: tplMatch[1],
-      isExternal: false,
-    };
-  }
-  if (EXTERNAL_HTTP_URL_RE.test(trimmed)) {
-    try {
-      const parsed = new URL(trimmed);
-      const isLocal = LOCAL_API_HOSTNAMES.has(parsed.hostname.toLowerCase());
-      return { normalizedPath: normalizeEndpointPath(parsed.pathname), isExternal: !isLocal };
-    } catch {
-      return null;
-    }
-  }
+  const tplParsed = parseLeadingTemplateCallUrl(trimmed, activePrefix, envPrefixByKey);
+  if (tplParsed) return tplParsed;
+  if (EXTERNAL_HTTP_URL_RE.test(trimmed)) return parseAbsoluteCallUrl(trimmed);
   if (!trimmed.startsWith('/') && !trimmed.startsWith('api/')) {
     return activePrefix ? { normalizedPath: applyPrefixIfNeeded(trimmed, activePrefix), isExternal: false } : null;
   }
@@ -114,6 +141,7 @@ interface ConsumerScanState {
   readonly projectSlug: string;
   readonly channel: ConsumerChannel;
   readonly defaultPrefix: string;
+  readonly envPrefixByKey: ReadonlyMap<string, string>;
   readonly calls: ConsumerHttpCall[];
   readonly views: UiViewEntry[];
   readonly basePrefixes: Set<string>;
@@ -196,7 +224,7 @@ function scanJsHttpCallLine(lines: readonly string[], idx: number, ctx: JsFileSc
     const verb = toHttpVerb(methodCall[1]);
     if (verb) {
       recordJsCall(
-        parseConsumerCallUrl(methodCall[3], ctx.filePrefix),
+        parseConsumerCallUrl(methodCall[3], ctx.filePrefix, ctx.state.envPrefixByKey),
         { verb, rawUrl: methodCall[3], clientKind: 'http-client', file: ctx.relFile, line: lineNo },
         ctx.state
       );
@@ -205,7 +233,7 @@ function scanJsHttpCallLine(lines: readonly string[], idx: number, ctx: JsFileSc
   const fetchCall = FETCH_CALL_RE.exec(line);
   if (fetchCall?.[2]) {
     recordJsCall(
-      parseConsumerCallUrl(fetchCall[2], ctx.filePrefix),
+      parseConsumerCallUrl(fetchCall[2], ctx.filePrefix, ctx.state.envPrefixByKey),
       {
         verb: resolveFetchVerb(lines, idx),
         rawUrl: fetchCall[2],
@@ -217,12 +245,13 @@ function scanJsHttpCallLine(lines: readonly string[], idx: number, ctx: JsFileSc
     );
   }
   if (REQUEST_OBJ_HEAD_RE.test(line)) {
-    const verbMatch = INLINE_METHOD_OPT_RE.exec(line);
-    const urlMatch = REQUEST_OBJ_URL_RE.exec(line);
+    const reqWindow = lines.slice(idx, Math.min(lines.length, idx + 5)).join(' ');
+    const verbMatch = INLINE_METHOD_OPT_RE.exec(reqWindow);
+    const urlMatch = REQUEST_OBJ_URL_RE.exec(reqWindow);
     const verb = verbMatch?.[1] ? toHttpVerb(verbMatch[1]) : null;
     if (verb && urlMatch?.[1]) {
       recordJsCall(
-        parseConsumerCallUrl(urlMatch[1], ctx.filePrefix),
+        parseConsumerCallUrl(urlMatch[1], ctx.filePrefix, ctx.state.envPrefixByKey),
         { verb, rawUrl: urlMatch[1], clientKind: 'request-config', file: ctx.relFile, line: lineNo },
         ctx.state
       );
@@ -294,7 +323,7 @@ function scanScriptCallsByRegex(spec: ScriptRegexScanSpec, state: ConsumerScanSt
     const rawUrl = match?.[3] ?? match?.[2];
     if (verb && rawUrl) {
       recordJsCall(
-        parseConsumerCallUrl(rawUrl, state.defaultPrefix),
+        parseConsumerCallUrl(rawUrl, state.defaultPrefix, state.envPrefixByKey),
         { verb, rawUrl, clientKind: spec.clientKind, file: spec.relFile, line: i + 1 },
         state
       );
@@ -335,6 +364,7 @@ export function extractProjectConsumerArtifacts(
     projectSlug: project.slug,
     channel: resolveChannelForProject(project),
     defaultPrefix,
+    envPrefixByKey,
     calls: [],
     views: [],
     basePrefixes,

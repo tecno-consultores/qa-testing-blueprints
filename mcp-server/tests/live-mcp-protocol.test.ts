@@ -793,7 +793,7 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
           target_blueprint_file: '.agents/skills/qa-11x-architect/SKILL.md',
           improvement_title: 'Add regression guard for structuredContent',
           empirical_rationale:
-            'Ensures all 19 MCP tools always return structuredContent on success and error.',
+            'Ensures all 20 MCP tools always return structuredContent on success and error.',
           proposed_content_or_snippet: '# Regression Guard\nVerify structuredContent on every tool.\n',
           dry_run: true,
         },
