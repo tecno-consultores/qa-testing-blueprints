@@ -359,6 +359,9 @@ ensure_fresh_dist_before_pack() {
 
 # 4. Paso 1: Hidratación de dependencias y Verificación de Calidad (Rule Zero)
 MCP_EXTRA_VOLS=()
+if [ -f "${REPO_ROOT}/lefthook.yml" ]; then
+  MCP_EXTRA_VOLS+=(-v "${REPO_ROOT}/lefthook.yml:/lefthook.yml:ro")
+fi
 for dir in mobile-appium vibe-rescue .github architecture .agents fastapi python node-backend vue3 react-frontend php bash-scripts ai-evals; do
   if [ -d "${REPO_ROOT}/${dir}" ]; then
     MCP_EXTRA_VOLS+=(-v "${REPO_ROOT}/${dir}:/${dir}:ro")

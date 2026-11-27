@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Fixed
+* **Publisher `lefthook.yml` Volume Mount (`scripts/publicar-mcp.sh`):** Mounted root `lefthook.yml:/lefthook.yml:ro` in `MCP_EXTRA_VOLS` so Vitest unit checks during live npmjs publishing have full parity with `Makefile`, `lefthook.yml`, and `instalar-hooks.sh`.
+
 ---
 
 ## [3.10.0] - 2026-11-27

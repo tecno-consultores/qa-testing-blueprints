@@ -1705,6 +1705,7 @@ _setup_pub_cli_ws() {
   printf '#!/usr/bin/env bash\nexit 0\n' >"${pub_ws}/scripts/limpieza.sh"
   chmod +x "${pub_ws}/scripts/limpieza.sh"
   printf '{"name":"@sinfallas/mcp-qa-11x","version":"3.2.0"}\n' >"${pub_ws}/mcp-server/package.json"
+  printf 'pre-commit:\n  parallel: false\n' >"${pub_ws}/lefthook.yml"
   printf 'export const x = 1;\n' >"${pub_ws}/mcp-server/src/index.ts"
   touch -t 202601010000 "${pub_ws}/mcp-server/src/index.ts"
   printf 'export const x = 1;\n' >"${pub_ws}/mcp-server/dist/index.js"

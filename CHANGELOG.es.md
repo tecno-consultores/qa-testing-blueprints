@@ -8,6 +8,9 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### Corregido
+* **Montaje de Volumen `lefthook.yml` en Publicador (`scripts/publicar-mcp.sh`):** Montado `lefthook.yml:/lefthook.yml:ro` en `MCP_EXTRA_VOLS` para que las pruebas unitarias Vitest durante la publicación en npmjs mantengan paridad total con `Makefile`, `lefthook.yml` e `instalar-hooks.sh`.
+
 ---
 
 ## [3.10.0] - 2026-11-27
