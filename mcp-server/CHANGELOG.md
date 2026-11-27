@@ -8,6 +8,16 @@ All notable changes to the `@sinfallas/mcp-qa-11x` npm package and MCP server ar
 
 ## [Unreleased]
 
+## [3.12.0] - 2026-11-27
+
+### Added
+- **Deep Multi-Project Reverse Specs Engine (`analyze_ecosystem_specs` Schema `v2.0.0`, `.skeletons/`, 6 Deliverables, 8 Finding Categories):**
+  - Added `detailLevel: 'standard' | 'deep' | 'exhaustive'` (default `'deep'`) and `generateSkeletons: true` plus 6 new extractors in `src/tools/ecosystem-specs/{schemaAndEnumExtractor,endpointMetadataExtractor,asyncAndExternalExtractor,astFlowTracer,deepContractChecks,skeletonRenderer}.ts`, capturing DTO/ORM fields, FKs/relations, enums, endpoint handlers/params/models/status codes/access policies, WebSocket/Socket.IO/SSE/async jobs/external SDKs, multi-hop AST E2E `functional_flows[]`, 3 new finding categories (`SPEC_VS_CODE_DRIFT`, `PAYLOAD_SCHEMA_DRIFT`, `UNHANDLED_PAGINATION_OR_ERROR_CONTRACT`), pre-truncation `findings_total_counts`/`truncated_categories`, `IMP-06..08`, and atomic `.skeletons/00..05-*.skeleton.md` Markdown/Mermaid pre-rendering.
+- **Unified Project Context Detector (`src/services/projectContextDetector.ts`):** Centralized upstream blueprints detection, uniform `enterprise` tier promotion without requiring `.qa-11x.json`, and multi-name CALM architecture discovery (`qa-11x.calm.json`, `calm.json`, `*.calm.json`).
+
+### Fixed
+- **Audit Hardening Across MCP Tools, CLI, Mergers & Example Stack:** Sanitized `propose_skill_evolution_pr` URLs/titles, added symlink escape guards in `sarifIngester.ts`, scoped `blast-radius.ts` to `graphify-out/graph.json` with safe slot-lock handling, aligned `certify-gate.ts` `reverse_import` 2-file cycle detection, added `.gemini`/`.hermes`/`.opencode`/`.copilot` shadow-skill pruning and uniform `--lang` flag handling across CLI subcommands, added `--toolset` to bash `completion`, preserved Makefile header vars after `.PHONY:` in `SurgicalMerger`, extended `inspect-project` (`requirements.txt`, `nuxt`, `next`) and `test-pyramid` (`L07_BDD_UI_KARATE`, `k6`, `shellcheck`, `kcov`), aligned `ephemeral-runner` (`karatelabs` + `ai-evals`/`vibe-rescue` coverage harvest), and hardened `mcp-server/example/` (`X-Auth-Tenant` fail-closed + Vite frontend + `verify-v2.sh` v2.0 checks).
+
 ## [3.11.0] - 2026-11-27
 
 ### Added

@@ -12,8 +12,9 @@
   "testRunner": "vitest",
   "coverageAnalysis": "perTest",
   "incremental": true,
-  "incrementalFile": "reports/mutation/stryker-incremental.json",
+  "incrementalFile": "/tmp/stryker-incremental.json",
   "ignorePatterns": [
+    "node_modules",
     "dist",
     "coverage",
     "playwright-report",

@@ -1,6 +1,6 @@
 {
   "name": "react-qa-blueprint",
-  "version": "3.11.0",
+  "version": "3.12.0",
   "type": "module",
   "description": "Plantilla base corporativa (Nivel 11X) para Frontend React (Vite, RTL, Playwright, Lighthouse, Stryker)",
   "packageManager": "pnpm@12.18.0",
@@ -12,8 +12,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "type-check": "tsc --noEmit",
-    "format": "prettier --write \"src/**/*.{js,ts,jsx,tsx}\" \"tests/**/*.{js,ts,tsx}\" \"e2e/**/*.{js,ts,tsx}\"",
-    "format:check": "prettier --check \"src/**/*.{js,ts,jsx,tsx}\" \"tests/**/*.{js,ts,tsx}\" \"e2e/**/*.{js,ts,tsx}\"",
+    "format": "prettier --no-error-on-unmatched-pattern --write \"src/**/*.{js,ts,jsx,tsx}\" \"tests/**/*.{js,ts,tsx}\" \"e2e/**/*.{js,ts,tsx}\"",
+    "format:check": "prettier --no-error-on-unmatched-pattern --check \"src/**/*.{js,ts,jsx,tsx}\" \"tests/**/*.{js,ts,tsx}\" \"e2e/**/*.{js,ts,tsx}\"",
     "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
     "test:unit": "vitest run",
     "test:coverage": "vitest run --coverage",

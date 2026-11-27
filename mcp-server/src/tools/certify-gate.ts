@@ -24,6 +24,10 @@ import {
 } from '../services/qa11xConfig.js';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import { resolveSafeChildPath } from '../services/github-fetcher.js';
+import {
+  findFirstCalmArchitectureRelPath,
+  resolveEffectiveQa11xTier,
+} from '../services/projectContextDetector.js';
 import { auditSecurityStigOwasp } from './security-auditor.js';
 import { defaultGraphifyBuilder } from './blast-radius.js';
 import { hasAnalyzableSourceCode } from './standardReadiness.js';
@@ -1074,6 +1078,7 @@ interface RawGraphLink {
   target?: string;
   source_file?: string;
   relation?: string;
+  reverse_import?: boolean;
 }
 
 function isUiToDbLink(srcRef: string, tgtRef: string): boolean {
@@ -1092,11 +1097,33 @@ function isUiToDbLink(srcRef: string, tgtRef: string): boolean {
   return (isUiSource && isDbTarget) || isDomainToApi || isCommonUiToView;
 }
 
-function resolveGraphNodeFiles(nodes: readonly RawGraphNode[]): Map<string, string> {
+function resolveSubgraphPrefixForTopology(relGraph: string): string {
+  const norm = relGraph.replace(/\\/g, '/').replace(/^\.\//, '');
+  const marker = `/${GRAPHIFY_OUT_DIR}/`;
+  const idx = norm.lastIndexOf(marker);
+  return idx > 0 ? norm.slice(0, idx) : '';
+}
+
+function qualifyTopologyPath(rawPath: string, subgraphPrefix: string): string {
+  const norm = rawPath.replace(/\\/g, '/').replace(/^\.\//, '');
+  if (!subgraphPrefix || !norm || norm === 'unknown') {
+    return norm;
+  }
+  if (norm === subgraphPrefix || norm.startsWith(`${subgraphPrefix}/`)) {
+    return norm;
+  }
+  return `${subgraphPrefix}/${norm}`;
+}
+
+function resolveGraphNodeFiles(
+  nodes: readonly RawGraphNode[],
+  subgraphPrefix = ''
+): Map<string, string> {
   const nodeFileMap = new Map<string, string>();
   for (const node of nodes) {
     if (node.id) {
-      nodeFileMap.set(node.id, node.source_file ?? node.file ?? node.id);
+      const raw = node.source_file ?? node.file ?? node.id;
+      nodeFileMap.set(node.id, qualifyTopologyPath(raw, subgraphPrefix));
     }
   }
   return nodeFileMap;
@@ -1104,18 +1131,30 @@ function resolveGraphNodeFiles(nodes: readonly RawGraphNode[]): Map<string, stri
 
 function isSameFileCallEdge(
   link: RawGraphLink,
-  src: string,
-  tgt: string,
-  nodeFileMap: ReadonlyMap<string, string>
+  nodeFileMap: ReadonlyMap<string, string>,
+  subgraphPrefix = ''
 ): boolean {
-  const srcFile = (link.source_file ?? nodeFileMap.get(src) ?? '').replace(/\\/g, '/');
+  const src = link.source ?? '';
+  const tgt = link.target ?? '';
+  const rawSrc = link.source_file ?? nodeFileMap.get(src) ?? '';
+  const srcFile = qualifyTopologyPath(rawSrc, subgraphPrefix);
   const tgtFile = (nodeFileMap.get(tgt) ?? '').replace(/\\/g, '/');
   return Boolean(srcFile && srcFile === tgtFile);
 }
 
+function addDirectedAdjEdge(rawAdj: Map<string, Set<string>>, from: string, to: string): void {
+  let set = rawAdj.get(from);
+  if (!set) {
+    set = new Set<string>();
+    rawAdj.set(from, set);
+  }
+  set.add(to);
+}
+
 function collectDependencyAdjacency(
   links: readonly RawGraphLink[],
-  nodeFileMap: ReadonlyMap<string, string>
+  nodeFileMap: ReadonlyMap<string, string>,
+  subgraphPrefix = ''
 ): Map<string, string[]> {
   const rawAdj = new Map<string, Set<string>>();
   for (const link of links) {
@@ -1125,15 +1164,13 @@ function collectDependencyAdjacency(
     if (!src || !tgt || src === tgt || STRUCTURAL_RELATIONS.has(rel)) {
       continue;
     }
-    if (rel === 'calls' && isSameFileCallEdge(link, src, tgt, nodeFileMap)) {
+    if (rel === 'calls' && isSameFileCallEdge(link, nodeFileMap, subgraphPrefix)) {
       continue;
     }
-    let set = rawAdj.get(src);
-    if (!set) {
-      set = new Set<string>();
-      rawAdj.set(src, set);
+    addDirectedAdjEdge(rawAdj, src, tgt);
+    if (link.reverse_import === true) {
+      addDirectedAdjEdge(rawAdj, tgt, src);
     }
-    set.add(tgt);
   }
   const adj = new Map<string, string[]>();
   for (const [key, vals] of rawAdj.entries()) {
@@ -1178,9 +1215,10 @@ function visitCycleNode(node: string, state: CycleDfsState): void {
 function detectAstGraphCycles(
   links: readonly RawGraphLink[],
   nodeFileMap: ReadonlyMap<string, string>,
-  relGraph: string
+  relGraph: string,
+  subgraphPrefix = ''
 ): string[] {
-  const adj = collectDependencyAdjacency(links, nodeFileMap);
+  const adj = collectDependencyAdjacency(links, nodeFileMap, subgraphPrefix);
   const state: CycleDfsState = {
     adj,
     color: new Map<string, number>(),
@@ -1197,23 +1235,30 @@ function detectAstGraphCycles(
     .map((cycle) => `Ciclo de dependencia AST en ${relGraph}: ${cycle}`);
 }
 
-function collectSingleLinkBlockers(
-  link: RawGraphLink,
-  nodeFileMap: ReadonlyMap<string, string>,
-  boundaryRules: readonly BoundaryRuleEntry[],
-  relGraph: string
-): string[] {
+interface SingleLinkBlockerContext {
+  readonly nodeFileMap: ReadonlyMap<string, string>;
+  readonly boundaryRules: readonly BoundaryRuleEntry[];
+  readonly relGraph: string;
+  readonly subgraphPrefix: string;
+}
+
+function collectSingleLinkBlockers(link: RawGraphLink, ctx: SingleLinkBlockerContext): string[] {
   if (STRUCTURAL_RELATIONS.has(link.relation ?? '')) {
     return [];
   }
-  const srcRef = link.source_file ?? nodeFileMap.get(link.source ?? '') ?? link.source ?? '';
-  const tgtRef = nodeFileMap.get(link.target ?? '') ?? link.target ?? '';
+  const rawSrc = link.source_file ?? ctx.nodeFileMap.get(link.source ?? '') ?? link.source ?? '';
+  const srcRef = qualifyTopologyPath(rawSrc, ctx.subgraphPrefix);
+  const tgtRef = ctx.nodeFileMap.get(link.target ?? '') ?? link.target ?? '';
   const blockers: string[] = [];
   if (isUiToDbLink(srcRef, tgtRef)) {
-    blockers.push(`Violación topológica AST en ${relGraph}: ${srcRef} -> ${tgtRef}`);
+    blockers.push(`Violación topológica AST en ${ctx.relGraph}: ${srcRef} -> ${tgtRef}`);
   }
-  if (boundaryRules.length > 0 && !GRAPH_TEST_PATH_RE.test(srcRef) && !GRAPH_TEST_PATH_RE.test(tgtRef)) {
-    blockers.push(...evaluateDeclarativeBoundaryEdge(boundaryRules, srcRef, tgtRef, relGraph));
+  if (
+    ctx.boundaryRules.length > 0 &&
+    !GRAPH_TEST_PATH_RE.test(srcRef) &&
+    !GRAPH_TEST_PATH_RE.test(tgtRef)
+  ) {
+    blockers.push(...evaluateDeclarativeBoundaryEdge(ctx.boundaryRules, srcRef, tgtRef, ctx.relGraph));
   }
   return blockers;
 }
@@ -1225,6 +1270,7 @@ function inspectSingleGraphTopology(
 ): string[] {
   if (!fs.existsSync(gPath)) return [];
   const relGraph = path.relative(projectPath, gPath);
+  const subgraphPrefix = resolveSubgraphPrefixForTopology(relGraph);
   const blockers: string[] = [];
 
   try {
@@ -1233,11 +1279,17 @@ function inspectSingleGraphTopology(
       links?: RawGraphLink[];
     };
     const links = parsed.links ?? [];
-    const nodeFileMap = resolveGraphNodeFiles(parsed.nodes ?? []);
+    const nodeFileMap = resolveGraphNodeFiles(parsed.nodes ?? [], subgraphPrefix);
+    const linkCtx: SingleLinkBlockerContext = {
+      nodeFileMap,
+      boundaryRules,
+      relGraph,
+      subgraphPrefix,
+    };
     for (const link of links) {
-      blockers.push(...collectSingleLinkBlockers(link, nodeFileMap, boundaryRules, relGraph));
+      blockers.push(...collectSingleLinkBlockers(link, linkCtx));
     }
-    blockers.push(...detectAstGraphCycles(links, nodeFileMap, relGraph));
+    blockers.push(...detectAstGraphCycles(links, nodeFileMap, relGraph, subgraphPrefix));
   } catch (err: unknown) {
     reportDebugCatchError(`certifyGate.inspectSingleGraphTopology(${relGraph})`, err);
     blockers.push(`Archivo de grafo AST corrupto: ${relGraph}`);
@@ -1296,19 +1348,9 @@ interface CertifyTierContext {
   readonly qa11xBanner: string;
 }
 
-function isUpstreamBlueprintsRepoLocal(projectPath: string): boolean {
-  return (
-    fs.existsSync(path.join(projectPath, 'manifest.json')) &&
-    fs.existsSync(path.join(projectPath, '.agents', 'scripts', 'sync_governance.py'))
-  );
-}
-
 function resolveCertifyTierContext(projectPath: string): CertifyTierContext {
   const loadedConfig = readQa11xConfig(projectPath);
-  const effectiveTier: StandardTier =
-    !loadedConfig.exists && isUpstreamBlueprintsRepoLocal(projectPath)
-      ? TIER_ENTERPRISE
-      : loadedConfig.effectiveTier;
+  const effectiveTier: StandardTier = resolveEffectiveQa11xTier(projectPath, loadedConfig);
   return {
     loadedConfig,
     effectiveTier,
@@ -1317,28 +1359,8 @@ function resolveCertifyTierContext(projectPath: string): CertifyTierContext {
   };
 }
 
-function findFirstCalmArchRelPath(projectPath: string): string | null {
-  const archDir = path.join(projectPath, 'architecture');
-  if (!fs.existsSync(archDir)) {
-    return null;
-  }
-  if (fs.existsSync(path.join(archDir, 'qa-11x.calm.json'))) {
-    return 'architecture/qa-11x.calm.json';
-  }
-  try {
-    const match = fs
-      .readdirSync(archDir)
-      .filter((name) => name.endsWith('.calm.json'))
-      .sort((a, b) => a.localeCompare(b))[0];
-    return match ? `architecture/${match}` : null;
-  } catch (err: unknown) {
-    reportDebugCatchError('certifyGate.findFirstCalmArchRelPath', err);
-    return null;
-  }
-}
-
 function checkCalmForTier(projectPath: string, effectiveTier: StandardTier): string[] {
-  const calmRel = findFirstCalmArchRelPath(projectPath);
+  const calmRel = findFirstCalmArchitectureRelPath(projectPath);
   if (calmRel) {
     const res = validateCalmArchitecture({ workspaceRoot: projectPath, architecturePath: calmRel });
     if (res.valid) {

@@ -16,6 +16,7 @@ import { buildSemanticDiffBundle } from '../utils/diff-bundle.js';
 import { reportDebugCatchError } from '../utils/diagnosticFormatter.js';
 import { collectGitArchSignals } from '../utils/git-signals.js';
 import { CANONICAL_IGNORED_DIRS } from '../utils/ignoredDirs.js';
+import { acquireDockerSlotLock } from './ephemeral-runner/dockerGuardrails.js';
 
 export const GRAPHIFY_DOCKER_IMAGE =
   'sinfallas/remote-graphify@sha256:08aa6a6fc5e72f25bb6a37da632932fe295ba0d72fd971ae5b365eeea3f778b0';
@@ -57,8 +58,18 @@ export async function defaultGraphifyBuilder(
   if (signal?.aborted) {
     return false;
   }
+  let slot: Awaited<ReturnType<typeof acquireDockerSlotLock>> = null;
   try {
     const safePath = resolveSafeProjectPath(resolvedPath, { allowNonExistentLeaf: false });
+    slot = await acquireDockerSlotLock({
+      resolvedPath: safePath,
+      stage: 'graphify-ast',
+      timeoutMs: 120_000,
+      ...(signal ? { signal } : {}),
+    });
+    if (!slot) {
+      return false;
+    }
     const graphOutDir = path.join(safePath, 'graphify-out');
     fs.mkdirSync(graphOutDir, { recursive: true });
     const uid = typeof process.getuid === 'function' ? process.getuid() : 1000;
@@ -69,6 +80,7 @@ export async function defaultGraphifyBuilder(
       [
         'run',
         '--rm',
+        '--restart=no',
         '--network',
         'none',
         '--security-opt=no-new-privileges:true',
@@ -88,7 +100,7 @@ export async function defaultGraphifyBuilder(
         GRAPHIFY_DOCKER_IMAGE,
         'sh',
         '-c',
-        'graphify extract . --code-only && graphify cluster-only . && rm -rf graphify-out/cache graphify-out/20* graphify-out/.graphify_* graphify-out/.cloud-cta-shown',
+        'graphify extract . --code-only --allow-dedup-shrink && graphify cluster-only . && rm -rf graphify-out/cache graphify-out/20* graphify-out/.graphify_* graphify-out/.cloud-cta-shown',
       ],
       {
         cwd: safePath,
@@ -101,6 +113,8 @@ export async function defaultGraphifyBuilder(
     // Ephemeral Graphify Docker rebuild failed/unavailable; caller records ast_graph_rebuilt=false
     reportDebugCatchError('blastRadius.defaultGraphifyBuilder', err);
     return false;
+  } finally {
+    slot?.release();
   }
 }
 
@@ -263,10 +277,43 @@ export function processCandidateFile(input: CandidateScanInput): void {
   }
 }
 
-function isMatchingGraphNode(node: GraphNode, queryLower: string, wordRegex: RegExp): boolean {
+const STRUCTURAL_AST_RELATIONS = new Set([
+  'contains',
+  'defines',
+  'rationale_for',
+  'documented_in',
+]);
+
+function resolveSubgraphPrefix(graphRelPath: string): string {
+  const norm = normalizeRelativePath(graphRelPath);
+  const marker = `/${GRAPHIFY_DIR_NAME}/`;
+  const idx = norm.lastIndexOf(marker);
+  if (idx > 0) {
+    return norm.slice(0, idx);
+  }
+  return '';
+}
+
+function qualifySubgraphPath(rawFile: string, subgraphPrefix: string): string {
+  const norm = normalizeRelativePath(rawFile);
+  if (!subgraphPrefix || !norm || norm === 'unknown') {
+    return norm;
+  }
+  if (norm === subgraphPrefix || norm.startsWith(`${subgraphPrefix}/`)) {
+    return norm;
+  }
+  return `${subgraphPrefix}/${norm}`;
+}
+
+function isMatchingGraphNode(
+  node: GraphNode,
+  queryLower: string,
+  wordRegex: RegExp,
+  subgraphPrefix: string
+): boolean {
   const label = (node.label ?? '').toLowerCase();
   const id = (node.id ?? '').toLowerCase();
-  const srcFile = (node.source_file ?? '').toLowerCase();
+  const srcFile = qualifySubgraphPath(node.source_file ?? '', subgraphPrefix).toLowerCase();
   return (
     label === queryLower ||
     id === queryLower ||
@@ -275,12 +322,19 @@ function isMatchingGraphNode(node: GraphNode, queryLower: string, wordRegex: Reg
   );
 }
 
-function indexGraphNodes(
-  nodes: GraphNode[],
-  queryLower: string,
-  declaringFiles: Set<string>,
-  declaringLocations: Set<string>
-): { matchedIds: Set<string>; nodeById: Map<string, GraphNode> } {
+interface IndexNodesInput {
+  readonly nodes: GraphNode[];
+  readonly queryLower: string;
+  readonly subgraphPrefix: string;
+  readonly declaringFiles: Set<string>;
+  readonly declaringLocations: Set<string>;
+}
+
+function indexGraphNodes(input: IndexNodesInput): {
+  matchedIds: Set<string>;
+  nodeById: Map<string, GraphNode>;
+} {
+  const { nodes, queryLower, subgraphPrefix, declaringFiles, declaringLocations } = input;
   const matchedIds = new Set<string>();
   const nodeById = new Map<string, GraphNode>();
   const wordRegex = /\w/.test(queryLower)
@@ -290,10 +344,10 @@ function indexGraphNodes(
   for (const node of nodes) {
     if (!node.id) continue;
     nodeById.set(node.id, node);
-    if (wordRegex && isMatchingGraphNode(node, queryLower, wordRegex)) {
+    if (wordRegex && isMatchingGraphNode(node, queryLower, wordRegex, subgraphPrefix)) {
       matchedIds.add(node.id);
       if (node.source_file) {
-        const norm = normalizeRelativePath(node.source_file);
+        const norm = qualifySubgraphPath(node.source_file, subgraphPrefix);
         declaringFiles.add(norm);
         declaringLocations.add(node.source_location ? `${norm}:${node.source_location}` : norm);
       }
@@ -307,7 +361,14 @@ function resolveLinkCallerFile(
   matchedIds: Set<string>,
   nodeById: Map<string, GraphNode>
 ): string | undefined {
-  if (!link.target || !matchedIds.has(link.target)) return undefined;
+  if (
+    !link.target ||
+    !matchedIds.has(link.target) ||
+    link.source === link.target ||
+    STRUCTURAL_AST_RELATIONS.has(link.relation ?? '')
+  ) {
+    return undefined;
+  }
   const srcNode = link.source ? nodeById.get(link.source) : undefined;
   return link.source_file ?? srcNode?.source_file;
 }
@@ -315,36 +376,50 @@ function resolveLinkCallerFile(
 function resolveLinkOutgoingTarget(
   link: GraphLink,
   matchedIds: Set<string>,
-  nodeById: Map<string, GraphNode>
+  nodeById: Map<string, GraphNode>,
+  subgraphPrefix: string
 ): string | undefined {
-  if (!link.source || !matchedIds.has(link.source) || link.relation === 'contains') {
+  if (
+    !link.source ||
+    !matchedIds.has(link.source) ||
+    link.source === link.target ||
+    STRUCTURAL_AST_RELATIONS.has(link.relation ?? '')
+  ) {
     return undefined;
   }
   const tgtNode = link.target ? nodeById.get(link.target) : undefined;
   if (!tgtNode) return undefined;
-  const tgtFile = tgtNode.source_file ? normalizeRelativePath(tgtNode.source_file) : undefined;
+  const tgtFile = tgtNode.source_file
+    ? qualifySubgraphPath(tgtNode.source_file, subgraphPrefix)
+    : undefined;
   const tgtLabel = tgtNode.label ?? link.target;
   return tgtFile ? `${tgtFile}:${tgtLabel}` : tgtLabel;
 }
 
-function collectGraphCallers(graphFilePath: string, ctx: GraphScanContext): void {
+function collectGraphCallers(
+  graphFilePath: string,
+  graphRelPath: string,
+  ctx: GraphScanContext
+): void {
   try {
     const parsed = JSON.parse(fs.readFileSync(graphFilePath, 'utf-8')) as GraphData;
-    const { matchedIds, nodeById } = indexGraphNodes(
-      parsed.nodes ?? [],
-      ctx.cleanSymbol.toLowerCase(),
-      ctx.declaringFiles,
-      ctx.declaringLocations
-    );
+    const subgraphPrefix = resolveSubgraphPrefix(graphRelPath);
+    const { matchedIds, nodeById } = indexGraphNodes({
+      nodes: parsed.nodes ?? [],
+      queryLower: ctx.cleanSymbol.toLowerCase(),
+      subgraphPrefix,
+      declaringFiles: ctx.declaringFiles,
+      declaringLocations: ctx.declaringLocations,
+    });
 
     for (const link of parsed.links ?? []) {
       const callerFile = resolveLinkCallerFile(link, matchedIds, nodeById);
       if (callerFile) {
-        const norm = normalizeRelativePath(callerFile);
+        const norm = qualifySubgraphPath(callerFile, subgraphPrefix);
         ctx.dependentFiles.add(norm);
         registerSuggestedTest(norm, path.extname(norm), ctx.suggestedTests);
       }
-      const outgoing = resolveLinkOutgoingTarget(link, matchedIds, nodeById);
+      const outgoing = resolveLinkOutgoingTarget(link, matchedIds, nodeById, subgraphPrefix);
       if (outgoing) {
         ctx.outgoingDependencies.add(outgoing);
       }
@@ -392,10 +467,6 @@ function recordFileEntry(
   inventory: DirectoryInventory
 ): void {
   const rel = normalizeRelativePath(path.relative(rootPath, fullPath));
-  if (entryName === 'graph.json') {
-    inventory.graphJsonFiles.push({ fullPath, rel });
-    return;
-  }
   if (entryName === 'GRAPH_REPORT.md') {
     inventory.graphReports.push(rel);
     return;
@@ -411,8 +482,17 @@ function collectDirectoryInventory(
   rootPath: string,
   inventory: DirectoryInventory
 ): void {
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch (err: unknown) {
+    reportDebugCatchError(`blastRadius.collectDirectoryInventory(${dir})`, err);
+    return;
+  }
   for (const entry of entries) {
+    if (entry.isSymbolicLink()) {
+      continue;
+    }
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory() && entry.name === GRAPHIFY_DIR_NAME) {
       recordGraphifyDirArtifacts(fullPath, rootPath, inventory);
@@ -442,7 +522,7 @@ function runGraphAndConditionalRegexScan(resolvedPath: string, ctx: GraphScanCon
 
   for (const graphEntry of inventory.graphJsonFiles) {
     ctx.graphFiles.push(graphEntry.rel);
-    collectGraphCallers(graphEntry.fullPath, ctx);
+    collectGraphCallers(graphEntry.fullPath, graphEntry.rel, ctx);
   }
 
   for (const declFile of ctx.declaringFiles) {

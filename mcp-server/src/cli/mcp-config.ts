@@ -28,6 +28,7 @@ import {
   formatCliJson,
   hasHelpFlag,
   matchFlagValue,
+  stripValidatedLangFlags,
 } from './cliArgHelpers.js';
 import { renderSubcommandHelpText, resolveCliHelpLang } from './commandCatalog.js';
 
@@ -176,18 +177,19 @@ function parseMcpConfigArgs(args: readonly string[]): McpConfigParseState {
     dryRun: false,
     json: false,
   };
-  for (let i = 0; i < args.length; i += 1) {
-    const token = pickAt(args, i);
+  const cleanArgs = stripValidatedLangFlags(args);
+  for (let i = 0; i < cleanArgs.length; i += 1) {
+    const token = pickAt(cleanArgs, i);
     if (applyMcpConfigBoolFlag(token, state)) {
       continue;
     }
-    const clientMatch = matchFlagValue(args, i, CLIENT_VALUE_FLAGS);
+    const clientMatch = matchFlagValue(cleanArgs, i, CLIENT_VALUE_FLAGS);
     if (clientMatch) {
       state.clientRaw = clientMatch.value;
       i += clientMatch.consumed;
       continue;
     }
-    const toolsetMatch = matchFlagValue(args, i, TOOLSET_VALUE_FLAGS);
+    const toolsetMatch = matchFlagValue(cleanArgs, i, TOOLSET_VALUE_FLAGS);
     if (toolsetMatch) {
       state.toolset = parseToolsetMode(toolsetMatch.value);
       i += toolsetMatch.consumed;

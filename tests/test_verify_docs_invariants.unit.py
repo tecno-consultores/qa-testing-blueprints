@@ -2165,6 +2165,47 @@ class TestVerifyDocsInvariants(unittest.TestCase):
             )
             self.assertEqual(check_testing_scoreboard_consistency(root), [])
 
+    def test_plugin_skills_badge_and_ai_integration_tools(self) -> None:
+        import json
+        import tempfile
+
+        from _docs_invariants_catalogs import (
+            _check_ai_integration_tools_surface,
+            _check_plugin_manifest_skills,
+        )
+        from _docs_invariants_counts import check_stale_surface_counts
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".claude-plugin").mkdir(parents=True)
+            (root / "docs").mkdir(parents=True)
+            (root / "README.md").write_text(
+                "![Skills](https://img.shields.io/badge/AI%20Skills-11%20Modular-blue)\n",
+                encoding="utf-8",
+            )
+            badge_errs = check_stale_surface_counts(root)
+            self.assertTrue(any("11 skills" in e for e in badge_errs))
+
+            (root / ".claude-plugin" / "plugin.json").write_text(
+                json.dumps({"description": "QA-11X: 11 Modular Skills"}),
+                encoding="utf-8",
+            )
+            (root / ".claude-plugin" / "marketplace.json").write_text(
+                json.dumps({"plugins": [{"description": "11 Modular Skills"}]}),
+                encoding="utf-8",
+            )
+            plug_errs = _check_plugin_manifest_skills(root, 12)
+            self.assertEqual(len(plug_errs), 2)
+
+            (root / "docs" / "ai-integration.md").write_text(
+                "# MCP Tools\n`certify_11x_gate`\n", encoding="utf-8"
+            )
+            ai_errs = _check_ai_integration_tools_surface(
+                root, ["certify_11x_gate", "analyze_ecosystem_specs"]
+            )
+            self.assertEqual(len(ai_errs), 1)
+            self.assertIn("analyze_ecosystem_specs", ai_errs[0])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -58,7 +58,7 @@ find "${tmp_base}" -maxdepth 1 -user "${CURRENT_UID}" \( -name 'qa-11x-last-fail
 rm -f ./ACTIVE_TASK.md ./*.log trivy-results* sbom.cyclonedx.json sbom-*.cdx.json cbom.cyclonedx.json cbom-*.cdx.json \
   release-readiness.json release-readiness.md qa-11x-last-failure.json \
   .task_scratchpad.md .agents/*.scratchpad.md 2>/dev/null || true
-rm -rf dist/ coverage/ reports/ wdio-logs/ errorShots/ .wdio-*/ allure-results/ allure-report/ .allure/ \
+rm -rf coverage/ wdio-logs/ errorShots/ .wdio-*/ allure-results/ allure-report/ .allure/ \
   target/ test/target/ .trivycache .agents/tmp/ 2>/dev/null || true
 
 if [ -d "graphify-out" ]; then
@@ -70,11 +70,11 @@ find . \( -name ".git" -o -name "node_modules" -o -name ".venv" -o -name "venv" 
 
 if command -v docker >/dev/null 2>&1; then
   docker run --rm --network none --restart=no --security-opt=no-new-privileges:true -v "${SCRIPT_DIR}:/work" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab sh -c '
-    rm -rf /work/dist /work/coverage /work/reports /work/wdio-logs /work/errorShots /work/.wdio-* \
+    rm -rf /work/coverage /work/wdio-logs /work/errorShots /work/.wdio-* \
       /work/allure-results /work/allure-report /work/.allure /work/target /work/test/target \
       /work/.trivycache 2>/dev/null || true
     if [ "$3" = "true" ]; then
-      rm -rf /work/node_modules /work/.venv /work/venv 2>/dev/null || true
+      rm -rf /work/node_modules /work/.venv /work/venv /work/dist /work/reports /work/prometheus_data 2>/dev/null || true
     fi
     find /work \( -name ".git" -o -name "node_modules" -o -name ".venv" -o -name "venv" \) -prune -o -type f \( -name ".DS_Store" -o -name "Thumbs.db" -o -name "*.swp" -o -name "*.swo" -o -name "*~" -o -name "*.orig" -o -name "*.rej" -o -name "*.bak" \) -exec rm -f {} + 2>/dev/null || true
     chown -hR "$1:$2" /work/tests /work/docs 2>/dev/null || true
@@ -83,7 +83,7 @@ if command -v docker >/dev/null 2>&1; then
 fi
 
 if [ "${DEEP_PRUNE}" = true ]; then
-  rm -rf node_modules .venv venv .agents/backups .agents/proposals .agents/.qa-evidence.json 2>/dev/null || true
+  rm -rf node_modules .venv venv dist/ reports/ prometheus_data/ .agents/backups .agents/proposals .agents/.qa-evidence.json 2>/dev/null || true
   if command -v docker >/dev/null 2>&1; then
     docker compose --profile "*" -f docker-compose.qa.yml down -v --rmi local --remove-orphans >/dev/null 2>&1 ||
       docker compose -f docker-compose.qa.yml down -v --rmi local --remove-orphans >/dev/null 2>&1 || true

@@ -262,9 +262,9 @@ export const SyncEnterpriseTmsInputSchema = z
     timeoutMs: z
       .number()
       .positive()
-      .max(180_000)
+      .max(600_000)
       .optional()
-      .describe('HTTP request timeout in milliseconds (positive, <= 180000).'),
+      .describe('HTTP request timeout in milliseconds (positive, <= 600000).'),
     workspaceRoot: z.string().optional().describe(WORKSPACE_CONTAINMENT_DESC),
   })
   .strict();
@@ -343,5 +343,17 @@ export const AnalyzeEcosystemSpecsInputSchema = z
       .max(500)
       .optional()
       .describe('Maximum findings returned per inconsistency category (default 100).'),
+    detailLevel: z
+      .enum(['standard', 'deep', 'exhaustive'])
+      .optional()
+      .describe(
+        "Extraction depth level: 'standard' (compact v1 compatible), 'deep' (default: DTOs/fields/FKs/enums, AST E2E flows, async/external channels, 8 finding categories), or 'exhaustive' (full payloads and extended AST communities)."
+      ),
+    generateSkeletons: z
+      .boolean()
+      .optional()
+      .describe(
+        'Pre-render deterministic Markdown tables and Mermaid diagrams for deliverables 00..05 into <outputDir>/.skeletons/ (default true).'
+      ),
   })
   .strict();

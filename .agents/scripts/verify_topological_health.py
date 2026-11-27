@@ -22,6 +22,7 @@ _SCRIPTS_DIR = str(Path(__file__).resolve().parent)
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
+from _budgets import STRUCTURAL_AST_RELATIONS  # noqa: E402
 from _common import CANONICAL_IGNORED_DIRS, reject_duplicate_json_keys  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -36,9 +37,7 @@ _TEST_PATH_RE = re.compile(
 _API_RE = re.compile(r"(?:^|/)(?:src/)?(?:api|controllers|routes|views)/")
 _UI_COMMON_RE = re.compile(r"(?:^|/)(?:src/)?components/common/")
 _UI_VIEWS_RE = re.compile(r"(?:^|/)(?:src/)?(?:views|pages)/")
-_STRUCTURAL_RELATIONS = frozenset(
-    {"contains", "rationale_for", "documented_in", "defines", "declares", "method"}
-)
+_STRUCTURAL_RELATIONS = STRUCTURAL_AST_RELATIONS | frozenset({"declares", "method"})
 
 _LAYER_RULES: tuple[tuple[re.Pattern[str], re.Pattern[str], str], ...] = (
     (
@@ -257,6 +256,8 @@ def _build_dependency_graph(
         edge = _is_dependency_edge(link, nodes)
         if edge is not None:
             raw_adj.setdefault(edge[0], set()).add(edge[1])
+            if link.get("reverse_import") is True:
+                raw_adj.setdefault(edge[1], set()).add(edge[0])
     return {key: sorted(vals) for key, vals in raw_adj.items()}
 
 

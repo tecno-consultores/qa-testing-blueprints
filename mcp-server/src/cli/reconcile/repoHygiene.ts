@@ -31,7 +31,16 @@ const BACKUP_DEST_LABEL = 'destino de respaldo';
 const GITIGNORE_FILE = '.gitignore';
 const LOOSE_BACKUP_RE = /\.(?:bak|11x-backup|11x-incoming)$/i;
 const CURSOR_MDC_FRONTMATTER_RE = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/;
-const MULTI_AGENT_SKILL_DIRS = ['.claude', '.cursor', '.codex', '.windsurf'] as const;
+const MULTI_AGENT_SKILL_DIRS = [
+  '.claude',
+  '.cursor',
+  '.codex',
+  '.windsurf',
+  '.gemini',
+  '.hermes',
+  '.opencode',
+  '.copilot',
+] as const;
 const MONOREPO_ONLY_SCRIPTS = [
   'scripts/publicar-mcp.sh',
   'scripts/probar-mcp-example.sh',

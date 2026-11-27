@@ -70,10 +70,23 @@ test.describe('Auditoria WCAG 2.1 AA y Regresion Visual del DOM', () => {
     test(`Ruta "${route}" cumple WCAG 2.1 AA sin desbordamiento ni footer fijo`, async ({
       page,
     }) => {
+      const hydrationErrors: string[] = [];
+      page.on('console', (msg) => {
+        if (/hydration/i.test(msg.text())) {
+          hydrationErrors.push(msg.text());
+        }
+      });
+      page.on('pageerror', (err) => {
+        if (/hydration/i.test(err.message)) {
+          hydrationErrors.push(err.message);
+        }
+      });
+
       await setupDeterministicRoutes(page);
       await page.goto(route);
       await expect(page.locator('main, [role="main"]').first()).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
+      expect(hydrationErrors).toEqual([]);
 
       await assertResponsiveAndInFlowFooter(page);
       await assertWcagForScheme(page, 'dark');

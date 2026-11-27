@@ -18,7 +18,7 @@ import os
 import re
 import subprocess
 import sys
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, deque
 from dataclasses import dataclass, field
 from itertools import combinations
 from pathlib import Path
@@ -245,6 +245,43 @@ def _collect_callers(
     return direct_callers, caller_files, communities
 
 
+def _build_reverse_adjacency(
+    links: list[dict[str, Any]],
+    nodes_by_id: dict[str, dict[str, Any]],
+) -> dict[str, list[tuple[str, str]]]:
+    reverse_adj: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    for link in links:
+        src_id = str(link.get("source") or "")
+        tgt_id = str(link.get("target") or "")
+        if not src_id or not tgt_id or src_id == tgt_id:
+            continue
+        src_node = nodes_by_id.get(src_id, {})
+        src_file = str(
+            link.get("source_file") or src_node.get("source_file") or "unknown"
+        )
+        reverse_adj[tgt_id].append((src_id, src_file))
+    return reverse_adj
+
+
+def _collect_transitive_callers(
+    links: list[dict[str, Any]],
+    target_node_id: str,
+    nodes_by_id: dict[str, dict[str, Any]],
+) -> tuple[int, int]:
+    reverse_adj = _build_reverse_adjacency(links, nodes_by_id)
+    visited: set[str] = {target_node_id}
+    queue: deque[str] = deque([target_node_id])
+    files: set[str] = set()
+    while queue:
+        current = queue.popleft()
+        for src_id, src_file in reverse_adj.get(current, ()):
+            if src_id not in visited:
+                visited.add(src_id)
+                files.add(src_file)
+                queue.append(src_id)
+    return len(visited) - 1, len(files)
+
+
 def compute_blast_radius(graph: dict[str, Any], target_node_id: str) -> dict[str, Any]:
     nodes_by_id: dict[str, dict[str, Any]] = {
         str(n["id"]): n
@@ -253,6 +290,9 @@ def compute_blast_radius(graph: dict[str, Any], target_node_id: str) -> dict[str
     }
     links = _filtered_links(graph)
     direct_callers, direct_caller_files, impacted_communities = _collect_callers(
+        links, target_node_id, nodes_by_id
+    )
+    transitive_count, transitive_files_count = _collect_transitive_callers(
         links, target_node_id, nodes_by_id
     )
     outgoing_callees: list[dict[str, str]] = []
@@ -271,6 +311,8 @@ def compute_blast_radius(graph: dict[str, Any], target_node_id: str) -> dict[str
         outgoing_callees.append(entry)
     return {
         "direct_callers_count": len(direct_callers),
+        "transitive_callers_count": transitive_count,
+        "transitive_files_count": transitive_files_count,
         "unique_files_count": len(direct_caller_files),
         "impacted_communities": sorted(impacted_communities),
         "direct_callers": direct_callers,
@@ -377,13 +419,20 @@ def _print_node_radius(
     workspace_root: Path | None = None,
 ) -> None:
     callers_count = int(radius["direct_callers_count"])
+    transitive_count = int(radius.get("transitive_callers_count", callers_count))
     files_count = int(radius["unique_files_count"])
     node_id = str(node.get("id") or "")
     risk = assess_risk_level(f"{node_id} {node_where}", callers_count, files_count)
     disp = _rel_display_path(g_path, workspace_root)
+    trans_suffix = (
+        f" (+{transitive_count - callers_count} transitivos)"
+        if transitive_count > callers_count
+        else ""
+    )
     print(
         f"🔹 [{disp}] '{node.get('label')}' ({node_where}) "
-        f"-> {callers_count} llamadores en {files_count} archivos | {risk}"
+        f"-> {callers_count} llamadores{trans_suffix} "
+        f"en {files_count} archivos | {risk}"
     )
     _print_bounded_list(radius["direct_callers"], "⬅️ [Llamado por]", "llamadores más")
     _print_bounded_list(

@@ -524,9 +524,11 @@ describe('Modo Diferencial en inspect_ast_blast_radius y diff-bundle (Hito 23)',
       await expect(inspectAstBlastRadius(skipDir, '   ')).rejects.toThrow('Se requiere target_symbol');
 
       writeRepoFile(skipDir, 'sub/graph.json', JSON.stringify({ nodes: [], links: [] }));
+      writeRepoFile(skipDir, 'sub/graphify-out/graph.json', JSON.stringify({ nodes: [], links: [] }));
       writeRepoFile(skipDir, 'docs/GRAPH_REPORT.md', '# Custom report\n');
       const nonGraphifyArtifacts = await inspectAstBlastRadius(skipDir, 'calcRate');
-      expect(nonGraphifyArtifacts.ast_graph_files).toContain('sub/graph.json');
+      expect(nonGraphifyArtifacts.ast_graph_files).not.toContain('sub/graph.json');
+      expect(nonGraphifyArtifacts.ast_graph_files).toContain('sub/graphify-out/graph.json');
       expect(nonGraphifyArtifacts.graph_reports).toContain('docs/GRAPH_REPORT.md');
     } finally {
       fs.rmSync(skipDir, { recursive: true, force: true });

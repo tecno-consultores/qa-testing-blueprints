@@ -11,6 +11,7 @@ import {
   hasHelpFlag,
   matchFlagValue,
   resolveCliProjectPath,
+  stripValidatedLangFlags,
 } from './cliArgHelpers.js';
 import { renderSubcommandHelpText, resolveCliHelpLang } from './commandCatalog.js';
 
@@ -128,14 +129,15 @@ function applyBlastToken(
 }
 
 function parseBlastRadiusArgs(args: readonly string[]): BlastCliParseState {
+  const cleanArgs = stripValidatedLangFlags(args);
   const state: BlastCliParseState = {
     autoBuildIfMissing: false,
     refreshGraph: false,
     includeGitSignals: false,
     json: false,
   };
-  for (let i = 0; i < args.length; i += 1) {
-    i += applyBlastToken(args, i, state);
+  for (let i = 0; i < cleanArgs.length; i += 1) {
+    i += applyBlastToken(cleanArgs, i, state);
   }
   return state;
 }

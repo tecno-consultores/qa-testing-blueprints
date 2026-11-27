@@ -37,6 +37,13 @@ import {
   buildZeroFootprintDockerArgs,
   runZeroFootprintGraphifyDocker,
 } from '../src/tools/ecosystem-specs/graphBuilder.js';
+import { extractAsyncAndExternalArtifacts } from '../src/tools/ecosystem-specs/asyncAndExternalExtractor.js';
+import {
+  extractOpenApiOpMeta,
+  extractPathParams,
+  extractPhpEndpointMeta,
+  extractPythonEndpointMeta,
+} from '../src/tools/ecosystem-specs/endpointMetadataExtractor.js';
 import {
   assertNoSymlinkBetween,
   isSafeRegularFile,
@@ -51,6 +58,7 @@ import {
   ECOSYSTEM_SCOPE_POLICY,
   REDACTED_ENV_VALUE,
 } from '../src/tools/ecosystem-specs/types.js';
+import { acquireDockerSlotLock } from '../src/tools/ephemeral-runner/dockerGuardrails.js';
 
 function writeFile(root: string, rel: string, content: string): string {
   const full = path.join(root, rel);
@@ -429,10 +437,15 @@ describe('Tool #20 analyze_ecosystem_specs & Zero-Footprint Multi-Project Revers
     expect(result.zero_footprint_verified).toBe(true);
     expect(result.projects_count).toBe(5);
     expect(result.inventory_path).toBe('analisis/ecosystem-inventory.json');
+    expect(result.schema_version).toBe('2.0.0');
+    expect(result.detail_level).toBe('deep');
     expect(result.recommended_deliverables).toContain('analisis/00-resumen-ecosistema.md');
     expect(result.recommended_deliverables).toContain('analisis/01-specs-api-backend.md');
-    expect(result.recommended_deliverables).toContain('analisis/02-integracion-y-contratos.md');
-    expect(result.recommended_deliverables).toContain('analisis/03-inconsistencias-y-mejoras.md');
+    expect(result.recommended_deliverables).toContain('analisis/02-modelo-de-datos-y-estados.md');
+    expect(result.recommended_deliverables).toContain('analisis/03-flujos-funcionales-e2e.md');
+    expect(result.recommended_deliverables).toContain('analisis/04-integracion-y-contratos.md');
+    expect(result.recommended_deliverables).toContain('analisis/05-inconsistencias-y-mejoras.md');
+    expect(result.skeleton_files).toContain('analisis/.skeletons/00-resumen-ecosistema.skeleton.md');
 
     // 3. Inventory JSON written atomically & zero raw secret values leaked
     const inventoryRaw = fs.readFileSync(path.join(tmpRoot, result.inventory_path), 'utf8');
@@ -501,6 +514,8 @@ describe('Tool #20 analyze_ecosystem_specs & Zero-Footprint Multi-Project Revers
       'IMP-03',
       'IMP-04',
       'IMP-05',
+      'IMP-06',
+      'IMP-08',
     ]);
     const imp02 = inventory.improvement_opportunities.find((o) => o.id === 'IMP-02');
     expect(imp02?.impacted_projects).toEqual(['mobile-app', 'web-portal']);
@@ -545,7 +560,12 @@ describe('Tool #20 analyze_ecosystem_specs & Zero-Footprint Multi-Project Revers
     expect(refreshCalls).toBe(2);
     expect(refreshed.projects_count).toBe(2);
     expect(refreshed.projects_summary.every((p) => p.graph_status === 'FAILED')).toBe(true);
-    expect(refreshed.integration_summary.broken_calls_count).toBeLessThanOrEqual(1);
+    expect(refreshed.findings_total_counts.BROKEN_CONSUMER_CALL).toBeGreaterThanOrEqual(3);
+    expect(refreshed.truncated_categories).toContain('BROKEN_CONSUMER_CALL');
+    const refreshedInv = JSON.parse(
+      fs.readFileSync(path.join(tmpRoot, refreshed.inventory_path), 'utf8')
+    ) as EcosystemInventoryDocument;
+    expect(refreshedInv.findings.BROKEN_CONSUMER_CALL.length).toBeLessThanOrEqual(1);
 
     const noBuild = await handleAnalyzeEcosystemSpecs({
       workspaceRoot: tmpRoot,
@@ -1321,6 +1341,732 @@ describe('Tool #20 analyze_ecosystem_specs & Zero-Footprint Multi-Project Revers
       expect(isSafeRegularFile(path.join(lockedDir, 'secret.env'))).toBe(false);
     } finally {
       fs.chmodSync(lockedDir, 0o700);
+    }
+  });
+
+  it('extracts v2.0.0 deep schemas/enums, endpoint metadata, realtime/async/SDKs, AST flows, 3 deep findings, and deterministic .skeletons', async () => {
+    const deepWs = path.join(tmpRoot, 'deep-v2-ws');
+
+    // 1. FastAPI backend with SQLAlchemy/Pydantic fields, FKs, Enums, multi-hop routers, Depends, Query, docstring, WebSocket, Celery, Stripe SDK, and OpenAPI drift
+    writeFile(
+      deepWs,
+      'billing-api/pyproject.toml',
+      '[project]\nname = "billing-api"\ndependencies = ["fastapi>=0.115", "stripe>=10.0", "sentry_sdk>=2.0"]\n'
+    );
+    writeFile(
+      deepWs,
+      'billing-api/src/main.py',
+      [
+        'from fastapi import FastAPI',
+        'from .routers import v1_router',
+        'app = FastAPI()',
+        'app.include_router(v1_router.router, prefix="/api/v1")',
+        '@app.websocket("/ws/live-orders")',
+        'async def ws_orders(): pass',
+        '',
+      ].join('\n')
+    );
+    writeFile(
+      deepWs,
+      'billing-api/src/routers/v1_router.py',
+      [
+        'from fastapi import APIRouter',
+        'from . import orders_ep',
+        'router = APIRouter()',
+        'router.include_router(orders_ep.router, prefix="/billing")',
+        '',
+      ].join('\n')
+    );
+    writeFile(
+      deepWs,
+      'billing-api/src/models/order.py',
+      [
+        'from enum import StrEnum',
+        'from typing import Optional',
+        'from pydantic import BaseModel, Field',
+        'from sqlalchemy import ForeignKey',
+        'from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship',
+        'class OrderStatus(StrEnum):',
+        '    PENDING = "pending"',
+        '    PAID = "paid"',
+        '    SHIPPED = "shipped"',
+        'class OrderRecord(DeclarativeBase):',
+        '    __tablename__ = "orders"',
+        '    id: Mapped[str] = mapped_column(primary_key=True)',
+        '    customer_id: Mapped[str] = mapped_column(ForeignKey("customers.id"))',
+        '    total_amount: Mapped[int] = mapped_column(nullable=False)',
+        '    items: Mapped[list["OrderItem"]] = relationship("OrderItem")',
+        'class CreateOrderDto(BaseModel):',
+        '    customer_id: str = Field(..., min_length=3)',
+        '    total_amount: int',
+        '    coupon_code: Optional[str] = None',
+        '    notes: str = Field(default="")',
+        'class OrderResponseDto(BaseModel):',
+        '    order_id: str',
+        '    total_amount: int',
+        '',
+      ].join('\n')
+    );
+    writeFile(
+      deepWs,
+      'billing-api/src/routers/orders_ep.py',
+      [
+        'from typing import Annotated',
+        'from fastapi import APIRouter, Depends, Query',
+        'from ..models.order import CreateOrderDto, OrderResponseDto',
+        'from ..services.order_service import process_order',
+        'router = APIRouter(prefix="/orders")',
+        '@router.get("/", response_model=list[OrderResponseDto])',
+        'async def list_orders(',
+        '    page: Annotated[int, Query(ge=1)] = 1,',
+        '    limit: int = Query(default=20),',
+        '    user = Depends(require_auth_user),',
+        '):',
+        '    """List paginated customer orders."""',
+        '    return []',
+        '@router.post("/{tenant_id}", status_code=201)',
+        'async def create_order(tenant_id: str, payload: CreateOrderDto, user = Depends(get_current_user)) -> OrderResponseDto:',
+        '    """Create a new billing order."""',
+        '    return process_order(payload)',
+        '',
+      ].join('\n')
+    );
+    writeFile(
+      deepWs,
+      'billing-api/src/services/order_service.py',
+      [
+        'from ..models.order import OrderRecord',
+        '@celery.task(queue="billing")',
+        'async def sync_invoice_task(order_id: str):',
+        '    return order_id',
+        '@shared_task',
+        'def anon_task():',
+        '    pass',
+        '',
+      ].join('\n')
+    );
+    writeFile(
+      deepWs,
+      'billing-api/openapi.json',
+      JSON.stringify({
+        openapi: '3.1.0',
+        paths: {
+          '/api/v1/billing/orders': {
+            get: {
+              operationId: 'listOrdersOp',
+              summary: 'List orders from OpenAPI',
+              parameters: [{ in: 'query', name: 'page' }],
+              responses: { '200': { content: { 'application/json': { schema: { items: { $ref: '#/components/schemas/OrderResponseDto' } } } } } },
+              security: [{ bearerAuth: [] }],
+            },
+          },
+          '/api/v1/billing/spec-ghost': {
+            delete: {
+              summary: 'Spec only route missing in code',
+              responses: { '204': {} },
+            },
+          },
+        },
+        components: {
+          schemas: {
+            OpenApiOrder: {
+              type: 'object',
+              required: ['id'],
+              properties: {
+                id: { type: 'string' },
+                nested: { $ref: '#/components/schemas/OrderResponseDto' },
+                misc: {},
+              },
+            },
+          },
+        },
+      })
+    );
+
+    // 2. Vue 3 Web Consumer with exported axios.create client, TS/Zod models with casing & missing field drift, unhandled mutating & pagination calls, EventSource SSE, Socket.IO
+    writeFile(
+      deepWs,
+      'web-console/package.json',
+      JSON.stringify({ name: 'web-console', dependencies: { vue: '^3.5.0', axios: '^1.7.0', '@sentry/browser': '^8.0.0' } })
+    );
+    writeFile(
+      deepWs,
+      'web-console/.env.example',
+      'VITE_SENTRY_URL=https://sentry.example/ingest\nVITE_API_URL=http://localhost:8000/api/v1\n'
+    );
+    writeFile(
+      deepWs,
+      'web-console/src/types/orders.ts',
+      [
+        'export enum UiOrderState {',
+        '  Draft = "draft",',
+        '  Submitted = "submitted",',
+        '}',
+        "export type FilterMode = 'all' | 'active' | 'archived';",
+        'export interface WebOrderPayload {',
+        '  readonly customerId: string;',
+        '  extraGhostField?: string;',
+        '}',
+        'export const WebOrderZod = z.object({',
+        '  orderId: z.string(),',
+        '  note: z.string().optional(),',
+        '});',
+        '',
+      ].join('\n')
+    );
+    writeFile(
+      deepWs,
+      'web-console/src/services/http.ts',
+      [
+        'import axios from "axios";',
+        'export const billingHttp = axios.create({ baseURL: "/api/v1" });',
+        '',
+      ].join('\n')
+    );
+    writeFile(
+      deepWs,
+      'web-console/src/services/ordersClient.ts',
+      [
+        'import { billingHttp } from "./http";',
+        'import type { WebOrderPayload } from "../types/orders";',
+        'export async function fetchOrdersRaw() {',
+        '  return billingHttp.get<WebOrderPayload>("/billing/orders");',
+        '}',
+        'export const submitOrderUnsafe = async (tid: string, body: WebOrderPayload) => {',
+        '  return billingHttp.post<WebOrderPayload, WebOrderPayload>(`/billing/orders/${tid}`, body);',
+        '};',
+        'export function connectStreams() {',
+        '  const es = new EventSource("/api/v1/events");',
+        '  socket.on("order.updated", () => {});',
+        '  return es;',
+        '}',
+        '',
+      ].join('\n')
+    );
+    writeFile(
+      deepWs,
+      'web-console/src/views/OrdersPage.vue',
+      '<script setup lang="ts">\nimport { fetchOrdersRaw } from "../services/ordersClient";\n</script>\n<template><div>Orders</div></template>\n'
+    );
+
+    // 3. NestJS + Prisma + BullMQ/Cron + WebSocketServer service
+    writeFile(
+      deepWs,
+      'nest-svc/package.json',
+      JSON.stringify({ name: 'nest-svc', dependencies: { '@nestjs/core': '^11.0.0', express: '^5.0.0' } })
+    );
+    writeFile(
+      deepWs,
+      'nest-svc/prisma/schema.prisma',
+      [
+        'enum TicketPriority {',
+        '  LOW',
+        '  HIGH',
+        '}',
+        'model Ticket {',
+        '  id String @id',
+        '  title String?',
+        '  comments Comment[] @relation("TicketComments")',
+        '}',
+        '',
+      ].join('\n')
+    );
+    writeFile(
+      deepWs,
+      'nest-svc/src/tickets.controller.ts',
+      [
+        '/**',
+        ' * Manage support tickets.',
+        ' */',
+        '@Controller("tickets")',
+        'export class TicketsController {',
+        '  @UseGuards(JwtAuthGuard)',
+        '  @HttpCode(201)',
+        '  @Post(":id")',
+        '  public async createTicket(@Body() dto: CreateTicketDto, @Query("dry") dry: string): Promise<TicketDto> {',
+        '    return {} as TicketDto;',
+        '  }',
+        '}',
+        'app.get("/api/v1/public-ping", requireAuthMiddleware, () => {});',
+        'const wss = new WebSocketServer({ path: "/ws/tickets" });',
+        'const q = new Queue("tickets-queue");',
+        '@Cron("0 * * * *")',
+        '@Processor("tickets-proc")',
+        'res.setHeader("Content-Type", "text/event-stream");',
+        '',
+      ].join('\n')
+    );
+
+    // 4. PHP Laravel service with Eloquent model, relations, enum, middleware, IsGranted, ShouldQueue & schedule
+    writeFile(deepWs, 'php-ops/composer.json', JSON.stringify({ name: 'client/php-ops' }));
+    writeFile(
+      deepWs,
+      'php-ops/app/Models/Invoice.php',
+      [
+        '<?php',
+        'enum InvoiceState: string {',
+        '  case DRAFT = "draft";',
+        '  case ISSUED = "issued";',
+        '}',
+        'class Invoice extends Model {',
+        "  protected $table = 'invoices';",
+        "  protected $fillable = ['number', 'amount'];",
+        '  public function items() { return $this->hasMany(InvoiceItem::class); }',
+        '  public function tags() { return $this->belongsToMany(Tag::class); }',
+        '  public function customer() { return $this->belongsTo(Customer::class); }',
+        '}',
+        'class DispatchInvoiceJob implements ShouldQueue {}',
+        "$schedule->command('invoices:sync');",
+        '',
+      ].join('\n')
+    );
+    writeFile(
+      deepWs,
+      'php-ops/routes/api.php',
+      [
+        '<?php',
+        "Route::get('/invoices/{invoice_id}', [InvoiceController::class, 'show'])->middleware(['auth:sanctum', 'verified']);",
+        "#[IsGranted('ROLE_ADMIN')]",
+        "#[Route('/api/v1/audit/<int:entry_id>', methods: ['GET'])]",
+        '',
+      ].join('\n')
+    );
+
+    // Seed AST graphs for web-console & billing-api so astFlowTracer traces UI -> Client -> API -> Service -> Model
+    const resDeep = await runAnalyzeEcosystemSpecs(
+      {
+        workspaceRoot: deepWs,
+        outputDir: 'analisis-v2',
+        buildGraphs: true,
+        detailLevel: 'deep',
+        generateSkeletons: true,
+        maxFindingsPerCategory: 1,
+      },
+      {
+        nowFn: () => new Date('2026-11-27T18:00:00.000Z'),
+        graphBuilderFn: ({ projectAbsPath, graphOutAbsDir }) => {
+          fs.mkdirSync(graphOutAbsDir, { recursive: true });
+          const base = path.basename(projectAbsPath);
+          if (base === 'web-console') {
+            fs.writeFileSync(
+              path.join(graphOutAbsDir, 'graph.json'),
+              JSON.stringify({
+                nodes: [
+                  { id: 'v', label: 'OrdersPage', source_file: 'src/views/OrdersPage.vue', community: 0 },
+                  { id: 'c', label: 'ordersClient', source_file: 'src/services/ordersClient.ts', community: 0 },
+                ],
+                links: [{ source: 'v', target: 'c', relation: 'imports_from' }],
+              }),
+              'utf8'
+            );
+          } else if (base === 'billing-api') {
+            fs.writeFileSync(
+              path.join(graphOutAbsDir, 'graph.json'),
+              JSON.stringify({
+                nodes: [
+                  { id: 'r', label: 'orders_ep', source_file: 'src/routers/orders_ep.py', community: 0 },
+                  { id: 's', label: 'order_service', source_file: 'src/services/order_service.py', community: 1 },
+                  { id: 'm', label: 'order', source_file: 'src/models/order.py', community: 1 },
+                ],
+                links: [
+                  { source: 'r', target: 's', relation: 'calls' },
+                  { source: 's', target: 'm', relation: 'imports_from' },
+                ],
+              }),
+              'utf8'
+            );
+          } else {
+            fs.writeFileSync(path.join(graphOutAbsDir, 'graph.json'), JSON.stringify({ nodes: [], links: [] }), 'utf8');
+          }
+          return Promise.resolve({ ok: true });
+        },
+      }
+    );
+
+    expect(resDeep.schema_version).toBe('2.0.0');
+    expect(resDeep.detail_level).toBe('deep');
+    expect(resDeep.skeleton_files.length).toBeGreaterThanOrEqual(8);
+    expect(resDeep.findings_total_counts.SPEC_VS_CODE_DRIFT).toBeGreaterThanOrEqual(1);
+    expect(resDeep.findings_total_counts.PAYLOAD_SCHEMA_DRIFT).toBeGreaterThanOrEqual(2);
+    expect(resDeep.findings_total_counts.UNHANDLED_PAGINATION_OR_ERROR_CONTRACT).toBeGreaterThanOrEqual(2);
+    expect(resDeep.truncated_categories).toContain('PAYLOAD_SCHEMA_DRIFT');
+
+    const invDeep = JSON.parse(
+      fs.readFileSync(path.join(deepWs, resDeep.inventory_path), 'utf8')
+    ) as EcosystemInventoryDocument;
+
+    // Multi-hop Python prefix resolved (/api/v1/billing/orders) & endpoint metadata populated
+    const apiProj = invDeep.projects.find((p) => p.slug === 'billing-api');
+    const postOrderEp = apiProj?.endpoints.find(
+      (e) => e.source_kind === 'code' && e.method === 'POST' && e.normalized_path === '/api/v1/billing/orders/{param}'
+    );
+    expect(postOrderEp?.handler_name).toBe('create_order');
+    expect(postOrderEp?.request_model).toBe('CreateOrderDto');
+    expect(postOrderEp?.response_model).toBe('OrderResponseDto');
+    expect(postOrderEp?.status_codes).toEqual([201]);
+    expect(postOrderEp?.access_policy?.auth_required).toBe(true);
+    expect(postOrderEp?.path_params).toEqual(['tenant_id']);
+    expect(postOrderEp?.summary).toContain('Create a new billing order');
+
+    const listOrderEp = apiProj?.endpoints.find(
+      (e) => e.source_kind === 'code' && e.method === 'GET' && e.normalized_path === '/api/v1/billing/orders'
+    );
+    expect(listOrderEp?.query_params).toEqual(expect.arrayContaining(['page', 'limit']));
+    expect(apiProj?.enums.some((e) => e.name === 'OrderStatus' && e.values.includes('paid'))).toBe(true);
+    expect(apiProj?.models.some((m) => m.name === 'OrderRecord' && m.table_name === 'orders' && (m.relations?.length ?? 0) >= 2)).toBe(true);
+    expect(apiProj?.realtime_channels.some((c) => c.protocol === 'websocket' && c.channel_or_path === '/ws/live-orders')).toBe(true);
+    expect(apiProj?.async_jobs.some((j) => j.runtime === 'celery' && j.name === 'sync_invoice_task')).toBe(true);
+    expect(apiProj?.external_integrations.some((x) => x.provider_name === 'Stripe')).toBe(true);
+
+    // Web consumer exported client prefix inheritance & SSE/Socket.IO & TS/Zod models/enums
+    const webProj = invDeep.projects.find((p) => p.slug === 'web-console');
+    expect(webProj?.consumer_calls.some((c) => c.normalized_path === '/api/v1/billing/orders' && c.caller_function === 'fetchOrdersRaw')).toBe(true);
+    expect(webProj?.enums.some((e) => e.name === 'UiOrderState')).toBe(true);
+    expect(webProj?.enums.some((e) => e.name === 'FilterMode')).toBe(true);
+    expect(webProj?.models.some((m) => m.name === 'WebOrderPayload' && (m.fields?.length ?? 0) >= 2)).toBe(true);
+    expect(webProj?.models.some((m) => m.name === 'WebOrderZod' && (m.fields?.length ?? 0) >= 2)).toBe(true);
+    expect(webProj?.realtime_channels.some((c) => c.protocol === 'sse')).toBe(true);
+    expect(webProj?.realtime_channels.some((c) => c.protocol === 'socket_io')).toBe(true);
+
+    // NestJS + Prisma + PHP metadata
+    const nestProj = invDeep.projects.find((p) => p.slug === 'nest-svc');
+    expect(nestProj?.models.some((m) => m.kind === 'prisma-model' && m.name === 'Ticket' && (m.relations?.length ?? 0) >= 1)).toBe(true);
+    expect(nestProj?.enums.some((e) => e.name === 'TicketPriority')).toBe(true);
+    expect(nestProj?.endpoints.some((e) => e.handler_name === 'createTicket' && e.request_model === 'CreateTicketDto' && e.response_model === 'TicketDto')).toBe(true);
+    expect(nestProj?.async_jobs.some((j) => j.runtime === 'nestjs_cron')).toBe(true);
+    expect(nestProj?.async_jobs.some((j) => j.runtime === 'bullmq')).toBe(true);
+
+    const phpProj = invDeep.projects.find((p) => p.slug === 'php-ops');
+    expect(phpProj?.enums.some((e) => e.name === 'InvoiceState')).toBe(true);
+    expect(phpProj?.models.some((m) => m.name === 'Invoice' && m.table_name === 'invoices' && (m.relations?.length ?? 0) >= 3)).toBe(true);
+    expect(phpProj?.endpoints.some((e) => e.handler_name === 'InvoiceController::show' && e.access_policy?.auth_required === true)).toBe(true);
+    expect(phpProj?.async_jobs.some((j) => j.runtime === 'laravel_queue' && j.name === 'DispatchInvoiceJob')).toBe(true);
+
+    // AST E2E functional flow traced from OrdersPage.vue -> ordersClient -> orders_ep -> order_service -> OrderRecord
+    expect(invDeep.functional_flows.some((f) => f.ui_entry === 'web-console/src/views/OrdersPage.vue' && f.provider_slug === 'billing-api')).toBe(true);
+
+    // Skeleton markdown files physically rendered with Mermaid diagrams
+    const skel00 = fs.readFileSync(path.join(deepWs, 'analisis-v2/.skeletons/00-resumen-ecosistema.skeleton.md'), 'utf8');
+    const skel02 = fs.readFileSync(path.join(deepWs, 'analisis-v2/.skeletons/02-modelo-de-datos-y-estados.skeleton.md'), 'utf8');
+    const skel03 = fs.readFileSync(path.join(deepWs, 'analisis-v2/.skeletons/03-flujos-funcionales-e2e.skeleton.md'), 'utf8');
+    const skel05 = fs.readFileSync(path.join(deepWs, 'analisis-v2/.skeletons/05-inconsistencias-y-mejoras.skeleton.md'), 'utf8');
+    expect(skel00).toContain('flowchart LR');
+    expect(skel02).toContain('erDiagram');
+    expect(skel02).toContain('stateDiagram-v2');
+    expect(skel03).toContain('sequenceDiagram');
+    expect(skel05).toContain('SPEC_VS_CODE_DRIFT');
+    expect(invDeep.improvement_opportunities.some((o) => o.id === 'IMP-06')).toBe(true);
+    expect(invDeep.improvement_opportunities.some((o) => o.id === 'IMP-07')).toBe(true);
+    expect(invDeep.improvement_opportunities.some((o) => o.id === 'IMP-08')).toBe(true);
+
+    // Standard detailLevel + generateSkeletons=false skips deep checks & skeleton writing
+    const resStd = await runAnalyzeEcosystemSpecs({
+      workspaceRoot: deepWs,
+      outputDir: 'analisis-std',
+      buildGraphs: false,
+      detailLevel: 'standard',
+      generateSkeletons: false,
+    });
+    expect(resStd.detail_level).toBe('standard');
+    expect(resStd.skeleton_files).toEqual([]);
+    expect(resStd.findings_total_counts.SPEC_VS_CODE_DRIFT).toBe(0);
+    expect(fs.existsSync(path.join(deepWs, 'analisis-std/.skeletons'))).toBe(false);
+
+    // Symlinked skeleton leaf inside .skeletons is rejected (SEC-PATH-01)
+    const outsideSkel = fs.mkdtempSync(path.join(os.tmpdir(), 'qa11x-skel-out-'));
+    try {
+      const victimMd = writeFile(outsideSkel, 'victim.md', '# victim\n');
+      fs.mkdirSync(path.join(deepWs, 'analisis-sym/.skeletons'), { recursive: true });
+      fs.symlinkSync(victimMd, path.join(deepWs, 'analisis-sym/.skeletons/00-resumen-ecosistema.skeleton.md'));
+      await expect(
+        runAnalyzeEcosystemSpecs({
+          workspaceRoot: deepWs,
+          outputDir: 'analisis-sym',
+          buildGraphs: false,
+          generateSkeletons: true,
+        })
+      ).rejects.toThrow(WorkspacePathValidationError);
+    } finally {
+      fs.rmSync(outsideSkel, { recursive: true, force: true });
+    }
+  });
+
+  it('covers v2.0.0 diff-coverage edge branches across extractors, AST flow tracer, graphBuilder slot lock, and skeletonRenderer', async () => {
+    const edgeWs = path.join(tmpRoot, 'edge-ws');
+
+    // 1. Python Field(min_length=2) without default/..., @shared_task without trailing def, Node unresolved relative import, TS bare enum members & branch edges
+    writeFile(edgeWs, 'py-edge/pyproject.toml', '[project]\nname = "py-edge"\ndependencies = ["fastapi"]\n');
+    writeFile(
+      edgeWs,
+      'py-edge/src/app.py',
+      [
+        'from fastapi import FastAPI',
+        'from pydantic import BaseModel, Field',
+        'app = FastAPI()',
+        'class ItemReq(BaseModel):',
+        '    code: str = Field(min_length=2)',
+        '    opt: str | None = None',
+        '@app.get("/api/v1/items")',
+        'def get_items():',
+        '    return []',
+        '@app.post("/api/v1/items")',
+        'def create_item(req: ItemReq) -> ItemReq:',
+        '    return req',
+        '@shared_task',
+      ].join('\n')
+    );
+    writeFile(edgeWs, 'node-edge/package.json', JSON.stringify({ name: 'node-edge', dependencies: { express: '^5.0.0', '@nestjs/core': '^11.0.0' } }));
+    writeFile(
+      edgeWs,
+      'node-edge/src/sub_router.ts',
+      [
+        'import { Router } from "express";',
+        'const subRouter = Router();',
+        'subRouter.get("/healthz", () => {});',
+        'export default subRouter;',
+        '',
+      ].join('\n')
+    );
+    writeFile(
+      edgeWs,
+      'node-edge/src/index.ts',
+      [
+        "import missingRouter from './does-not-exist';",
+        "import subRouter from './sub_router';",
+        'export enum BareFlag {',
+        '  Active,',
+        '  Inactive,',
+        '}',
+        'export type NonLiteralUnion = string | number;',
+        'export interface CleanItemReq {',
+        '  readonly code: string;',
+        '  readonly opt?: string | undefined;',
+        '}',
+        'export interface EmptyDto {}',
+        'export enum NumEnum {',
+        '  One = 1,',
+        '}',
+        '@Controller()',
+        'export class RootCtrl {',
+        '  @Get()',
+        '  async ping(): Promise<void> {}',
+        '}',
+        'app.setGlobalPrefix("/api");',
+        'app.use("/api/v1", missingRouter);',
+        'app.use("/api/v1/sub", subRouter);',
+        'export async function callItems() {',
+        '  try {',
+        '    const r = await apiClient.post<CleanItemReq, CleanItemReq>("/api/v1/items", { code: "a" });',
+        '    return r;',
+        '  } catch {',
+        '    return null;',
+        '  }',
+        '}',
+        'export async function callItemsPaginated() {',
+        '  const myMap = new Map<string, string>();',
+        '  myMap.get("/not-http");',
+        '  await useFetch("/api/v1/items", { method: "POST" });',
+        '  const r = await fetch("/api/v1/items?page=1");',
+        '  return r.items;',
+        '}',
+        'fastify.route({ method: "PATCH", url: "/api/v1/fast-patch" });',
+        '',
+      ].join('\n')
+    );
+    writeFile(
+      edgeWs,
+      'node-edge/.env.example',
+      'VITE_SENTRY_URL=https://sentry.example/ingest\nVITE_API_URL=http://localhost:8000/api/v1\n'
+    );
+    writeFile(
+      edgeWs,
+      'node-edge/src/views/DirectView.vue',
+      [
+        '<script setup lang="ts">',
+        'async function loadDirect() {',
+        '  await fetch("mailto:ops@example.com");',
+        '  await fetch("data:text/plain,hi");',
+        '  return api.get("/api/v1/items");',
+        '}',
+        '</script>',
+        '',
+      ].join('\n')
+    );
+    writeFile(
+      edgeWs,
+      'node-edge/openapi.json',
+      JSON.stringify({
+        openapi: '3.1.0',
+        paths: {
+          '/api/v1/fast-patch': {
+            patch: {
+              operationId: 'patchFast',
+              requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/CleanItemReq' } } } },
+              responses: { '201': { content: { 'application/json': { schema: { $ref: '#/components/schemas/CleanItemReq' } } } } },
+            },
+          },
+        },
+      })
+    );
+    writeFile(
+      edgeWs,
+      'py-edge/src/client_calls.py',
+      [
+        'import httpx',
+        'def notify():',
+        '    return httpx.post("/api/v1/fast-patch")',
+        '',
+      ].join('\n')
+    );
+    writeFile(
+      edgeWs,
+      'node-edge/prisma/schema.prisma',
+      [
+        'model Note {',
+        '  id Int @id',
+        '  body String',
+        '}',
+        '',
+      ].join('\n')
+    );
+    writeFile(edgeWs, 'php-edge/composer.json', JSON.stringify({ name: 'client/php-edge' }));
+    writeFile(
+      edgeWs,
+      'php-edge/routes/api.php',
+      [
+        '<?php',
+        "Route::apiResource('/notes', 'NoteController@index')->middleware('auth');",
+        "#[Route('/api/v1/attr-default')]",
+        'Http::post("/api/v1/items");',
+        'class Note extends Model {',
+        '  public function author() { return $this->hasOne(Author::class); }',
+        '}',
+        '',
+      ].join('\n')
+    );
+
+    // 2. Corrupt graph.json triggers astFlowTracer catch branch cleanly
+    const resCorrupt = await runAnalyzeEcosystemSpecs(
+      { workspaceRoot: edgeWs, outputDir: 'out-corrupt', buildGraphs: true, detailLevel: 'deep' },
+      {
+        graphBuilderFn: ({ graphOutAbsDir }) => {
+          fs.mkdirSync(graphOutAbsDir, { recursive: true });
+          fs.writeFileSync(path.join(graphOutAbsDir, 'graph.json'), '{not-valid-json', 'utf8');
+          return Promise.resolve({ ok: true });
+        },
+      }
+    );
+    expect(resCorrupt.status).toBe('PASSED');
+    const invCorrupt = JSON.parse(
+      fs.readFileSync(path.join(edgeWs, resCorrupt.inventory_path), 'utf8')
+    ) as EcosystemInventoryDocument;
+    const pyProj = invCorrupt.projects.find((p) => p.slug === 'py-edge');
+    expect(pyProj?.async_jobs.some((j) => j.name === 'anonymous_task')).toBe(true);
+    expect(pyProj?.models.some((m) => m.name === 'ItemReq' && m.fields?.some((f) => f.name === 'code' && f.required))).toBe(true);
+    const nodeProj = invCorrupt.projects.find((p) => p.slug === 'node-edge');
+    expect(nodeProj?.enums.some((e) => e.name === 'BareFlag' && e.values.includes('Active'))).toBe(true);
+
+    // 3. Direct unit edge branches: endpointMetadataExtractor & asyncAndExternalExtractor invalid external URL
+    expect(extractPathParams('/items/<int:item_id>/:slug/{uuid}')).toEqual(['item_id', 'slug', 'uuid']);
+    expect(extractPathParams('/plain/{123bad}/<int:9bad>/:9bad/{}')).toEqual([]);
+    expect(extractPythonEndpointMeta(['@router.get("/orphan-dec")'], 0, '/orphan-dec').query_params).toBeUndefined();
+    expect(
+      extractPhpEndpointMeta(["Route::get('/a', 'UserController@show');"], 0, '/a').handler_name
+    ).toBe('UserController@show');
+    expect(extractPhpEndpointMeta(["Route::get('/b', fn() => 1);"], 0, '/b').handler_name).toBeUndefined();
+    expect(extractOpenApiOpMeta('/x', null).handler_name).toBeUndefined();
+    expect(
+      extractOpenApiOpMeta('/x', {
+        parameters: [null, { in: 'header', name: 'X-Auth' }],
+        security: [],
+        responses: {
+          '200': { content: { 'application/json': { schema: { type: 'string' } } } },
+          '999': {},
+          default: {},
+        },
+      }).response_model
+    ).toBeUndefined();
+
+    const asyncRes = extractAsyncAndExternalArtifacts(
+      {
+        slug: 'py-edge',
+        name: 'py-edge',
+        absPath: path.join(edgeWs, 'py-edge'),
+        relativePath: 'py-edge',
+        role: 'api',
+        stacks: ['fastapi'],
+        hasOpenApi: false,
+        manifestFiles: ['pyproject.toml'],
+      },
+      [
+        {
+          project_slug: 'py-edge',
+          channel: 'service',
+          method: 'GET',
+          raw_url: 'not a valid url',
+          normalized_path: '/bad',
+          client_kind: 'fetch',
+          is_external: true,
+          file: 'src/app.py',
+          line: 1,
+        },
+      ]
+    );
+    expect(asyncRes.externalIntegrations.some((e) => e.provider_name === 'external-http')).toBe(true);
+
+    // 4. graphBuilder slot lock abort returns ok=false
+    const lockDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qa11x-eco-lock-'));
+    const prevXdg = process.env.XDG_RUNTIME_DIR;
+    process.env.XDG_RUNTIME_DIR = lockDir;
+    const holder = await acquireDockerSlotLock({
+      resolvedPath: path.join(edgeWs, 'py-edge'),
+      stage: 'hold-eco',
+      timeoutMs: 1000,
+    });
+    try {
+      const lockedRes = await runZeroFootprintGraphifyDocker({
+        projectAbsPath: path.join(edgeWs, 'py-edge'),
+        graphOutAbsDir: path.join(edgeWs, 'out-lock-graph'),
+        signal: AbortSignal.timeout(40),
+      });
+      expect(lockedRes.ok).toBe(false);
+    } finally {
+      holder?.release();
+      if (prevXdg === undefined) {
+        delete process.env.XDG_RUNTIME_DIR;
+      } else {
+        process.env.XDG_RUNTIME_DIR = prevXdg;
+      }
+      fs.rmSync(lockDir, { recursive: true, force: true });
+    }
+
+    // 5. skeletonRenderer: directory collision throws WorkspacePathValidationError; read-only dir triggers catch cleanup
+    fs.mkdirSync(path.join(edgeWs, 'out-dir-coll', '.skeletons', '00-resumen-ecosistema.skeleton.md'), {
+      recursive: true,
+    });
+    await expect(
+      runAnalyzeEcosystemSpecs({
+        workspaceRoot: edgeWs,
+        outputDir: 'out-dir-coll',
+        buildGraphs: false,
+        generateSkeletons: true,
+      })
+    ).rejects.toThrow(WorkspacePathValidationError);
+
+    const roSkelDir = path.join(edgeWs, 'out-ro', '.skeletons');
+    fs.mkdirSync(roSkelDir, { recursive: true });
+    fs.chmodSync(roSkelDir, 0o500);
+    try {
+      await expect(
+        runAnalyzeEcosystemSpecs({
+          workspaceRoot: edgeWs,
+          outputDir: 'out-ro',
+          buildGraphs: false,
+          generateSkeletons: true,
+        })
+      ).rejects.toThrow();
+    } finally {
+      fs.chmodSync(roSkelDir, 0o700);
     }
   });
 });

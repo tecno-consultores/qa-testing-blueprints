@@ -699,11 +699,20 @@ def _is_vendored_qa11x_tooling(
     return Path(norm_path).name == "limpieza.sh"
 
 
+_GOVERNANCE_MD_PREFIXES: tuple[str, ...] = (
+    ".agents/skills/",
+    ".agents/rules/",
+    ".agents/schemas/",
+)
+
+
 def is_doc_file(rel_path: str) -> bool:
     norm = _normalize_rel_path(rel_path).lower()
+    if norm.startswith(_GOVERNANCE_MD_PREFIXES):
+        return False
     if norm.endswith((".md", ".mdx")):
         return True
-    return norm.startswith("docs/") or "/docs/" in norm
+    return False
 
 
 def is_test_file(rel_path: str) -> bool:

@@ -39,8 +39,12 @@ if [ "${DOCKER_PRUNE}" = true ]; then
 fi
 
 if command -v docker >/dev/null 2>&1; then
-  docker compose --profile "*" -f docker-compose.qa.yml down --remove-orphans -v >/dev/null 2>&1 ||
-    docker compose -f docker-compose.qa.yml down --remove-orphans -v >/dev/null 2>&1 || true
+  down_flags=(--remove-orphans)
+  if [ "${DEEP_PRUNE}" = true ]; then
+    down_flags+=(-v)
+  fi
+  docker compose --profile "*" -f docker-compose.qa.yml down "${down_flags[@]}" >/dev/null 2>&1 ||
+    docker compose -f docker-compose.qa.yml down "${down_flags[@]}" >/dev/null 2>&1 || true
 fi
 
 CURRENT_UID="$(id -u)"
@@ -56,7 +60,7 @@ rm -f ./ACTIVE_TASK.md .phpunit.result.cache .php-cs-fixer.cache .php-cs-fixer.d
   sbom.cyclonedx.json sbom-*.cdx.json cbom.cyclonedx.json cbom-*.cdx.json \
   zap-report.html zap-report.json openapi.json release-readiness.json release-readiness.md qa-11x-last-failure.json \
   dependency-reduced-pom.xml .task_scratchpad.md .agents/*.scratchpad.md ./*.log 2>/dev/null || true
-rm -rf .phpunit.cache .psalm htmlcov/ reports/ prometheus_data/ target/ test/target/ karate.jar karate-*.jar .trivycache \
+rm -rf .phpunit.cache .psalm htmlcov/ target/ test/target/ karate.jar karate-*.jar .trivycache \
   allure-results/ allure-report/ .allure/ .agents/tmp/ 2>/dev/null || true
 
 if [ -d "graphify-out" ]; then
@@ -71,11 +75,11 @@ if command -v docker >/dev/null 2>&1; then
     rm -rf /work/.phpunit.cache /work/.phpunit.result.cache /work/.php-cs-fixer.cache /work/.php-cs-fixer.dist.cache /work/.psalm /work/htmlcov \
       /work/infection.log /work/infection-summary.log /work/infection-report.json \
       /work/k6-summary.json /work/k6-results.json /work/chaos-report.html /work/chaos-report.json \
-      /work/reports /work/prometheus_data /work/openapi.json /work/sbom.cyclonedx.json /work/sbom-*.cdx.json /work/cbom.cyclonedx.json /work/cbom-*.cdx.json \
+      /work/openapi.json /work/sbom.cyclonedx.json /work/sbom-*.cdx.json /work/cbom.cyclonedx.json /work/cbom-*.cdx.json \
       /work/target /work/test/target /work/karate.jar /work/karate-*.jar /work/.trivycache \
       /work/allure-results /work/allure-report /work/.allure 2>/dev/null || true
     if [ "$3" = "true" ]; then
-      rm -rf /work/vendor 2>/dev/null || true
+      rm -rf /work/vendor /work/dist /work/reports /work/prometheus_data 2>/dev/null || true
     fi
     find /work \( -name ".git" -o -name "node_modules" -o -name ".venv" -o -name "venv" -o -name "vendor" \) -prune -o -type f \( -name ".DS_Store" -o -name "Thumbs.db" -o -name "*.swp" -o -name "*.swo" -o -name "*~" -o -name "*.orig" -o -name "*.rej" -o -name "*.bak" \) -exec rm -f {} + 2>/dev/null || true
     chown -hR "$1:$2" /work/src /work/tests /work/test /work/config /work/public /work/migrations 2>/dev/null || true
@@ -84,7 +88,7 @@ if command -v docker >/dev/null 2>&1; then
 fi
 
 if [ "${DEEP_PRUNE}" = true ]; then
-  rm -rf vendor .agents/backups .agents/proposals .agents/.qa-evidence.json 2>/dev/null || true
+  rm -rf vendor dist/ reports/ prometheus_data/ .agents/backups .agents/proposals .agents/.qa-evidence.json 2>/dev/null || true
   if command -v docker >/dev/null 2>&1; then
     docker compose --profile "*" -f docker-compose.qa.yml down -v --rmi local --remove-orphans >/dev/null 2>&1 ||
       docker compose -f docker-compose.qa.yml down -v --rmi local --remove-orphans >/dev/null 2>&1 || true

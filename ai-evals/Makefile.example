@@ -25,10 +25,10 @@ qa-unit:
 	@echo "🧪 [11X] Ejecutando Contratos Offline RAG/Voz/OCR/Golden y Cobertura >= 95% (Pytest + DeepEval)..."
 	@docker run --rm --network none --restart=no --security-opt=no-new-privileges:true -u "$(QA_UID):$(QA_GID)" \
 		-e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 -e COVERAGE_FILE=/tmp/.coverage -e UV_CACHE_DIR=/tmp/uv-cache -e DEEPEVAL_TELEMETRY_OPT_OUT=YES -e PYTHONPATH=/app \
-		-v "$(PROJECT_DIR):/app:ro" -w /app $(PYTHON_QA_IMAGE) sh -c "\
+		-v "$(PROJECT_DIR):/app:rw" -w /app $(PYTHON_QA_IMAGE) sh -c "\
 		pytest -o cache_dir=/tmp/pytest-cache -o asyncio_default_fixture_loop_scope=function \
 		-W \"ignore::DeprecationWarning\" -W \"ignore::SyntaxWarning\" --import-mode=importlib \
-		--cov=. --cov-fail-under=95 --cov-report=term-missing \
+		--cov=. --cov-branch --cov-fail-under=95 --cov-report=term-missing --cov-report=xml:coverage.xml \
 		rag/test_rag_faithfulness.py voice-realtime/test_voice_websocket_latency.py multimodal-ocr/test_pdf_table_fidelity.py tests/test_golden_from_traces.py"
 
 qa-offline: qa-unit

@@ -238,7 +238,10 @@ class TestOrphanApiAndExtractedGates(unittest.TestCase):
                 "name: Bad\non: push\njobs:\n  t:\n    runs-on: ubuntu-latest\n"
                 "    steps:\n      - uses: actions/checkout@v4\n"
                 "      - run: echo $${BAD_ESC}\n"
-                f"      - run: export TOKEN={synth_ghp}\n",
+                f"      - run: export TOKEN={synth_ghp}\n"
+                "      - run: echo example ${{ secrets.X }} "
+                + ("sk-live-" + "abcdefghijklmnopqrstuvwxyz1234")
+                + "\n",
                 encoding="utf-8",
             )
             (ws / ".github" / "workflows" / "dup.yml").write_text(
@@ -387,6 +390,8 @@ class TestOrphanApiAndExtractedGates(unittest.TestCase):
         norm = _import_script("normalize_kcov_cobertura")
         with self.assertRaises(ValueError):
             norm._parse_xml_safely("<!ENTITY xxe SYSTEM 'file:///etc/passwd'><a/>")
+        with self.assertRaises(ValueError):
+            norm._parse_xml_safely("<!DOCTYPE foo [ <!ELEMENT bar ANY> ]><a/>")
         with tempfile.TemporaryDirectory(prefix="qa11x_kcov_") as tmp:
             root = Path(tmp)
             self.assertEqual(
@@ -423,6 +428,56 @@ class TestOrphanApiAndExtractedGates(unittest.TestCase):
             out_txt = out_xml.read_text(encoding="utf-8")
             self.assertNotIn("<!DOCTYPE", out_txt)
             self.assertIn('filename="scripts/demo.sh"', out_txt)
+
+    def test_transitive_blast_radius_and_multi_subgraph_selector_merge(self) -> None:
+        ibr = _import_script("inspect_blast_radius")
+        sel = _import_script("select_tests_by_blast_radius")
+        graph = {
+            "nodes": [
+                {"id": "a", "label": "fn_a", "source_file": "src/a.py"},
+                {"id": "b", "label": "fn_b", "source_file": "src/b.py"},
+                {"id": "c", "label": "fn_c", "source_file": "src/c.py"},
+            ],
+            "links": [
+                {"source": "b", "target": "a", "relation": "calls"},
+                {"source": "c", "target": "b", "relation": "calls"},
+                {"source": "a", "target": "a", "relation": "calls"},
+            ],
+        }
+        radius = ibr.compute_blast_radius(graph, "a")
+        self.assertEqual(radius["direct_callers_count"], 1)
+        self.assertEqual(radius["transitive_callers_count"], 2)
+        self.assertEqual(radius["transitive_files_count"], 2)
+
+        with tempfile.TemporaryDirectory(prefix="qa11x_subgraphs_") as tmp:
+            ws = Path(tmp)
+            (ws / "graphify-out").mkdir(parents=True)
+            (ws / "graphify-out" / "graph.json").write_text(
+                json.dumps(graph), encoding="utf-8"
+            )
+            (ws / "sub" / "graphify-out").mkdir(parents=True)
+            (ws / "sub" / "graphify-out" / "graph.json").write_text(
+                json.dumps(
+                    {
+                        "nodes": [
+                            {"id": "n1", "source_file": "src/x.ts"},
+                            {"id": "n2", "source_file": "tests/x.unit.ts"},
+                        ],
+                        "links": [
+                            {"source": "n2", "target": "n1", "relation": "calls"},
+                            {"source": "", "target": "n1"},
+                            "bad-link",
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            merged = sel.load_ast_graph_merged(ws / "graphify-out" / "graph.json")
+            self.assertIsNotNone(merged)
+            assert merged is not None
+            files = {n["source_file"] for n in merged["nodes"]}
+            self.assertIn("sub/src/x.ts", files)
+            self.assertIn("sub/tests/x.unit.ts", files)
 
 
 class TestDocs04PythonRecipesFidelity(unittest.TestCase):
@@ -745,6 +800,31 @@ class TestDiffCoverageAndStandaloneGuards(unittest.TestCase):
                 rc = norm.normalize_kcov_reports(root, kcov_dir, out_xml)
             self.assertEqual(rc, 0)
             self.assertTrue(out_xml.is_file())
+
+            with (
+                mock.patch.object(os, "replace", side_effect=OSError("disk full")),
+                self.assertRaises(OSError),
+            ):
+                norm.normalize_kcov_reports(root, kcov_dir, root / "fail.xml")
+
+        topo = _import_script("verify_topological_health")
+        nodes = {
+            "a": {"id": "a", "source_file": "src/a.py"},
+            "b": {"id": "b", "source_file": "src/b.py"},
+        }
+        adj = topo._build_dependency_graph(
+            [
+                {
+                    "source": "a",
+                    "target": "b",
+                    "relation": "imports",
+                    "reverse_import": True,
+                }
+            ],
+            nodes,
+        )
+        self.assertEqual(adj["a"], ["b"])
+        self.assertEqual(adj["b"], ["a"])
 
 
 if __name__ == "__main__":

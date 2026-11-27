@@ -38,6 +38,12 @@ class TestTelemetryApiEndpoints(unittest.TestCase):
         )
         self.assertEqual(spoof.status_code, 403)
 
+        missing_auth = client.get(
+            "/api/v1/devices",
+            headers={"X-Tenant-Id": "tenant-a"},
+        )
+        self.assertEqual(missing_auth.status_code, 403)
+
         body = {"id": "dev-api-01", "hostname": "gw-01", "cpu_load_pct": 21.4}
         headers = {
             "X-Tenant-Id": "tenant-a",
@@ -93,6 +99,7 @@ class TestTelemetryApiEndpoints(unittest.TestCase):
             json={"id": "dev-api-02", "hostname": "gw-02", "cpu_load_pct": 10},
             headers={
                 "X-Tenant-Id": "tenant-a",
+                "X-Auth-Tenant": "tenant-a",
                 "X-Actor-Role": "viewer",
                 "Idempotency-Key": "idem-api-0003",
             },
@@ -107,7 +114,10 @@ class TestTelemetryApiEndpoints(unittest.TestCase):
         )
         self.assertEqual(invalid.status_code, 422)
 
-        listed = client.get("/api/v1/devices", headers={"X-Tenant-Id": "tenant-a"})
+        listed = client.get(
+            "/api/v1/devices",
+            headers={"X-Tenant-Id": "tenant-a", "X-Auth-Tenant": "tenant-a"},
+        )
         self.assertEqual(listed.status_code, 200)
         self.assertEqual(len(listed.json()), 1)
 

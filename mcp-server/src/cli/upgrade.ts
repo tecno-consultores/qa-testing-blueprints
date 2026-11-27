@@ -14,6 +14,7 @@ import {
   formatCliJson,
   hasHelpFlag,
   matchFlagValue,
+  stripValidatedLangFlags,
 } from './cliArgHelpers.js';
 import { renderSubcommandHelpText, resolveCliHelpLang } from './commandCatalog.js';
 import {
@@ -113,6 +114,7 @@ function applyUpgradeToken(
 }
 
 function parseUpgradeArgs(args: readonly string[]): ParsedUpgradeArgs {
+  const cleanArgs = stripValidatedLangFlags(args);
   const state: ParsedUpgradeArgs = {
     cacheOnly: false,
     target: DEFAULT_TARGET,
@@ -121,8 +123,8 @@ function parseUpgradeArgs(args: readonly string[]): ParsedUpgradeArgs {
     dryRun: false,
     json: false,
   };
-  for (let i = 0; i < args.length; i++) {
-    i += applyUpgradeToken(args, i, state);
+  for (let i = 0; i < cleanArgs.length; i++) {
+    i += applyUpgradeToken(cleanArgs, i, state);
   }
   return state;
 }
@@ -178,7 +180,7 @@ function collectHashDirRemovalTargets(npxRoot: string, hashDirName: string): str
   return targets;
 }
 
-function collectRemovalTargets(homeDir: string): string[] {
+function collectRemovalTargets(homeDir: string, preserveBlueprintsCache = false): string[] {
   const targets: string[] = [];
   const npxRoot = resolveSafeChildPath(homeDir, path.join('.npm', '_npx'));
   if (fs.existsSync(npxRoot)) {
@@ -188,12 +190,14 @@ function collectRemovalTargets(homeDir: string): string[] {
       }
     }
   }
-  const blueprintsCacheDir = resolveSafeChildPath(
-    homeDir,
-    path.join('.cache', 'qa-11x-blueprints')
-  );
-  if (fs.existsSync(blueprintsCacheDir)) {
-    targets.push(blueprintsCacheDir);
+  if (!preserveBlueprintsCache) {
+    const blueprintsCacheDir = resolveSafeChildPath(
+      homeDir,
+      path.join('.cache', 'qa-11x-blueprints')
+    );
+    if (fs.existsSync(blueprintsCacheDir)) {
+      targets.push(blueprintsCacheDir);
+    }
   }
   return targets;
 }
@@ -259,7 +263,7 @@ async function executeUpgradeWorkflow(
   const parsed = parseUpgradeArgs(args);
   assertValidSkillTarget(parsed.target);
   const homeDir = resolveSafeHomeDir(deps.homeDir);
-  const targetedPaths = collectRemovalTargets(homeDir);
+  const targetedPaths = collectRemovalTargets(homeDir, parsed.offline);
   const removedPaths = pruneUpgradeTargetPaths(targetedPaths, parsed.dryRun);
   const shouldSyncSkills = !parsed.cacheOnly && !parsed.offline && !parsed.dryRun;
   await syncUpgradeSkillsIfEnabled(shouldSyncSkills, parsed, deps);

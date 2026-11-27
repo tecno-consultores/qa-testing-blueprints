@@ -280,7 +280,12 @@ const HEAVY_TRANSFER_TOOL_NAMES = new Set([
   'certify_11x_gate',
   'fetch_blueprint_bundle',
   'bootstrap_or_merge_11x',
+  'analyze_ecosystem_specs',
 ]);
+
+const ECOSYSTEM_PER_PROJECT_TIMEOUT_MS = 180_000;
+const ECOSYSTEM_MAX_TIMEOUT_MS = 600_000;
+const BLAST_GRAPH_BUILD_TIMEOUT_MS = 180_000;
 
 const DYNAMIC_LIVE_TOOL_NAMES = new Set([
   'evaluate_agent_trajectory',
@@ -294,6 +299,40 @@ function resolvePositiveFiniteTimeout(raw: unknown): number | undefined {
   }
   const num = Number(raw);
   return Number.isFinite(num) && num > 0 ? num : undefined;
+}
+
+function resolveDynamicLiveToolOptions(
+  toolName: string,
+  args: Record<string, unknown>,
+  baseOptions: ExecuteTaskOptions
+): ExecuteTaskOptions {
+  const explicitTimeoutMs = resolvePositiveFiniteTimeout(args.timeoutMs);
+  if (explicitTimeoutMs !== undefined) {
+    return {
+      ...baseOptions,
+      timeoutMs: Math.min(Math.max(explicitTimeoutMs, EPHEMERAL_QA_MIN_TIMEOUT_MS), 600_000),
+    };
+  }
+  const isLiveTms = toolName === 'sync_enterprise_tms' && args.dryRun === false;
+  if (args.mode === 'live' || isLiveTms) {
+    return { ...baseOptions, timeoutMs: V2_HEAVY_TRANSFER_TIMEOUT_MS };
+  }
+  return baseOptions;
+}
+
+function resolveEcosystemSpecsOptions(
+  args: Record<string, unknown>,
+  baseOptions: ExecuteTaskOptions
+): ExecuteTaskOptions {
+  if (args.buildGraphs === false) {
+    return { ...baseOptions, profile: 'heavy_transfer' };
+  }
+  const projCount = Array.isArray(args.projects) && args.projects.length > 0 ? args.projects.length : 3;
+  const scaledMs = Math.min(
+    ECOSYSTEM_MAX_TIMEOUT_MS,
+    Math.max(V2_HEAVY_TRANSFER_TIMEOUT_MS, projCount * ECOSYSTEM_PER_PROJECT_TIMEOUT_MS)
+  );
+  return { ...baseOptions, profile: 'heavy_transfer', timeoutMs: scaledMs };
 }
 
 export function resolveToolExecutionOptions(
@@ -321,18 +360,23 @@ export function resolveToolExecutionOptions(
   }
 
   if (DYNAMIC_LIVE_TOOL_NAMES.has(toolName)) {
-    const explicitTimeoutMs = resolvePositiveFiniteTimeout(args.timeoutMs);
-    if (explicitTimeoutMs !== undefined) {
-      return {
-        ...baseOptions,
-        timeoutMs: Math.min(Math.max(explicitTimeoutMs, EPHEMERAL_QA_MIN_TIMEOUT_MS), 600_000),
-      };
-    }
-    const isLiveTms = toolName === 'sync_enterprise_tms' && args.dryRun === false;
-    if (args.mode === 'live' || isLiveTms) {
-      return { ...baseOptions, timeoutMs: V2_HEAVY_TRANSFER_TIMEOUT_MS };
-    }
-    return baseOptions;
+    return resolveDynamicLiveToolOptions(toolName, args, baseOptions);
+  }
+
+  if (toolName === 'analyze_ecosystem_specs') {
+    return resolveEcosystemSpecsOptions(args, baseOptions);
+  }
+
+  if (
+    toolName === 'inspect_ast_blast_radius' &&
+    (args.auto_build_if_missing === true || args.refresh_graph === true)
+  ) {
+    return {
+      ...baseOptions,
+      readOnly: false,
+      idempotent: true,
+      timeoutMs: BLAST_GRAPH_BUILD_TIMEOUT_MS,
+    };
   }
 
   if (HEAVY_TRANSFER_TOOL_NAMES.has(toolName)) {

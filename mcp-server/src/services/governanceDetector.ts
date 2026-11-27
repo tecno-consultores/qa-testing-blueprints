@@ -403,7 +403,12 @@ function findExistingCalmRelPath(projectPath: string, files: readonly string[]):
   if (fs.existsSync(path.join(projectPath, 'architecture', 'qa-11x.calm.json'))) {
     return 'architecture/qa-11x.calm.json';
   }
-  const fromFiles = files.find((f) => f.startsWith('architecture/') && f.endsWith('.calm.json'));
+  if (fs.existsSync(path.join(projectPath, 'architecture', 'calm.json'))) {
+    return GOVERNANCE_DOC_CALM;
+  }
+  const fromFiles = files.find(
+    (f) => f.startsWith('architecture/') && (f.endsWith('.calm.json') || f === GOVERNANCE_DOC_CALM)
+  );
   if (fromFiles) {
     return fromFiles;
   }

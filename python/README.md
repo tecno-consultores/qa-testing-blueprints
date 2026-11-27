@@ -123,7 +123,7 @@ make qa-sbom
 ```
 
 **Step 2: Live Observability & Load Certification (Level 11X)**
-Use `qa-backend` below for Pushgateway batch scripts (`push_to_gateway('python_pushgateway:9091', ...)`), whereas HTTP daemons scraped on `:8000` run via `PYTHON_HTTP_CMD` on `python-api` (exposing `/health` + `/metrics`); `make qa-load` works out of the box against the default `python-api` stub or custom `PYTHON_HTTP_CMD` / `API_BASE_URL`, persisting `reports/k6-summary.json`.
+Use `qa-backend` below for Pushgateway batch scripts (`push_to_gateway('pushgateway:9091', ...)`), whereas HTTP daemons scraped on `:8000` run via `PYTHON_HTTP_CMD` on `python-api` (exposing `/health` + `/metrics`); `make qa-load` (or `make qa-perf`) works out of the box against the default `python-api` stub or custom `PYTHON_HTTP_CMD` / `API_BASE_URL`, persisting `reports/k6-summary.json`.
 ```bash
 make qa-observability
 docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-backend bash -c "uv sync --all-extras -q && uv run python src/main.py"

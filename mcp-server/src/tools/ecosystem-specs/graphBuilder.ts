@@ -5,6 +5,7 @@ import { execFile } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
+import { acquireDockerSlotLock } from '../ephemeral-runner/dockerGuardrails.js';
 import { reportDebugCatchError } from '../../utils/diagnosticFormatter.js';
 import { GRAPHIFY_DOCKER_IMAGE } from '../blast-radius.js';
 import {
@@ -16,6 +17,7 @@ import {
 import {
   GRAPHS_SUBDIR_NAME,
   UTF8_ENCODING,
+  type AstCommunitySummary,
   type DiscoveredProject,
   type GodModuleMetric,
   type GraphBuildStatus,
@@ -156,6 +158,18 @@ export async function runZeroFootprintGraphifyDocker(
     input.refreshGraphs === true
   );
   const execFileAsync = promisify(execFileFn);
+  const slotLock = await acquireDockerSlotLock({
+    resolvedPath: input.projectAbsPath,
+    stage: 'ecosystem-graphify',
+    timeoutMs: 180_000,
+    ...(input.signal ? { signal: input.signal } : {}),
+  });
+  if (!slotLock) {
+    return {
+      ok: false,
+      error: 'Cancelación o timeout adquiriendo slot Docker (QA_MAX_CONCURRENT_CONTAINERS).',
+    };
+  }
   try {
     await execFileAsync('docker', dockerArgs, {
       cwd: input.graphOutAbsDir,
@@ -167,6 +181,8 @@ export async function runZeroFootprintGraphifyDocker(
     reportDebugCatchError(`ecosystemSpecs.graphBuilder(${input.projectAbsPath})`, err);
     const msg = err instanceof Error ? err.message : String(err);
     return { ok: false, error: msg.slice(0, 240) };
+  } finally {
+    slotLock.release();
   }
 }
 
@@ -399,7 +415,9 @@ interface ParsedGraphMetrics {
   readonly nodesCount: number;
   readonly linksCount: number;
   readonly communitiesCount: number;
+  readonly communities: readonly AstCommunitySummary[];
   readonly cycles: readonly string[];
+  readonly fileCycles: readonly string[];
   readonly godModules: readonly GodModuleMetric[];
   readonly topHubNodes: readonly HubNodeMetric[];
 }
@@ -409,34 +427,71 @@ function emptyGraphMetrics(): ParsedGraphMetrics {
     nodesCount: 0,
     linksCount: 0,
     communitiesCount: 0,
+    communities: [],
     cycles: [],
+    fileCycles: [],
     godModules: [],
     topHubNodes: [],
   };
+}
+
+function buildCommunitySummaries(
+  communityFiles: ReadonlyMap<string, Map<string, number>>
+): AstCommunitySummary[] {
+  const summaries: AstCommunitySummary[] = [];
+  for (const [id, fileCounts] of communityFiles.entries()) {
+    let total = 0;
+    const rankedFiles = Array.from(fileCounts.entries())
+      .map(([file, count]) => {
+        total += count;
+        return { file, count };
+      })
+      .sort((a, b) => b.count - a.count || a.file.localeCompare(b.file));
+    summaries.push({
+      id,
+      nodes_count: total,
+      top_files: rankedFiles.slice(0, 3).map((item) => item.file),
+    });
+  }
+  return summaries.sort((a, b) => b.nodes_count - a.nodes_count || a.id.localeCompare(b.id));
 }
 
 function indexGraphNodesForMetrics(nodes: readonly RawGraphNode[]): {
   readonly nodeById: Map<string, RawGraphNode>;
   readonly nodeCounts: Map<string, number>;
   readonly communities: Set<string>;
+  readonly communitySummaries: AstCommunitySummary[];
 } {
   const nodeById = new Map<string, RawGraphNode>();
   const nodeCounts = new Map<string, number>();
   const communities = new Set<string>();
+  const communityFiles = new Map<string, Map<string, number>>();
   for (const node of nodes) {
     if (!node.id) continue;
     nodeById.set(node.id, node);
-    if (node.community !== undefined) communities.add(String(node.community));
+    const commId = node.community !== undefined ? String(node.community) : undefined;
+    if (commId !== undefined) communities.add(commId);
     const sf = normRelPath(String(node.source_file ?? ''));
     if (sf && sf !== UNKNOWN_FILE && !isTestSourcePath(sf)) {
       incrementMap(nodeCounts, moduleKeyFromSource(sf));
+      if (commId !== undefined) {
+        const filesMap = communityFiles.get(commId) ?? new Map<string, number>();
+        incrementMap(filesMap, sf);
+        communityFiles.set(commId, filesMap);
+      }
     }
   }
-  return { nodeById, nodeCounts, communities };
+  return {
+    nodeById,
+    nodeCounts,
+    communities,
+    communitySummaries: buildCommunitySummaries(communityFiles),
+  };
 }
 
 interface LinkMetricsAccumulator {
   readonly rawAdj: Map<string, Set<string>>;
+  readonly rawFileAdj: Map<string, Set<string>>;
   readonly fanIn: Map<string, number>;
   readonly fanOut: Map<string, number>;
   readonly degreeMap: Map<string, number>;
@@ -454,6 +509,9 @@ function recordDirectedDepEdge(
   const set = acc.rawAdj.get(src) ?? new Set<string>();
   set.add(tgt);
   acc.rawAdj.set(src, set);
+  const fileSet = acc.rawFileAdj.get(srcFile) ?? new Set<string>();
+  fileSet.add(tgtFile);
+  acc.rawFileAdj.set(srcFile, fileSet);
   incrementMap(acc.degreeMap, src);
   incrementMap(acc.degreeMap, tgt);
   const srcMod = moduleKeyFromSource(srcFile);
@@ -464,17 +522,27 @@ function recordDirectedDepEdge(
   }
 }
 
+function sortAdjacencyMap(raw: ReadonlyMap<string, ReadonlySet<string>>): Map<string, string[]> {
+  const sorted = new Map<string, string[]>();
+  for (const [k, v] of raw.entries()) {
+    sorted.set(k, Array.from(v).sort((a, b) => a.localeCompare(b)));
+  }
+  return sorted;
+}
+
 function accumulateLinkMetrics(
   links: readonly RawGraphLink[],
   nodeById: ReadonlyMap<string, RawGraphNode>
 ): {
   readonly adj: Map<string, string[]>;
+  readonly fileAdj: Map<string, string[]>;
   readonly fanIn: Map<string, number>;
   readonly fanOut: Map<string, number>;
   readonly degreeMap: Map<string, number>;
 } {
   const acc: LinkMetricsAccumulator = {
     rawAdj: new Map<string, Set<string>>(),
+    rawFileAdj: new Map<string, Set<string>>(),
     fanIn: new Map<string, number>(),
     fanOut: new Map<string, number>(),
     degreeMap: new Map<string, number>(),
@@ -488,11 +556,13 @@ function accumulateLinkMetrics(
       recordDirectedDepEdge([edge[1], edge[0], edge[3], edge[2]], acc);
     }
   }
-  const adj = new Map<string, string[]>();
-  for (const [k, v] of acc.rawAdj.entries()) {
-    adj.set(k, Array.from(v).sort((a, b) => a.localeCompare(b)));
-  }
-  return { adj, fanIn: acc.fanIn, fanOut: acc.fanOut, degreeMap: acc.degreeMap };
+  return {
+    adj: sortAdjacencyMap(acc.rawAdj),
+    fileAdj: sortAdjacencyMap(acc.rawFileAdj),
+    fanIn: acc.fanIn,
+    fanOut: acc.fanOut,
+    degreeMap: acc.degreeMap,
+  };
 }
 
 export function analyzeAstGraphFile(graphJsonAbs: string): ParsedGraphMetrics {
@@ -501,13 +571,15 @@ export function analyzeAstGraphFile(graphJsonAbs: string): ParsedGraphMetrics {
     const parsed = JSON.parse(fs.readFileSync(graphJsonAbs, UTF8_ENCODING)) as RawGraphDocument;
     const nodes = Array.isArray(parsed.nodes) ? parsed.nodes : [];
     const links = Array.isArray(parsed.links) ? parsed.links : [];
-    const { nodeById, nodeCounts, communities } = indexGraphNodesForMetrics(nodes);
-    const { adj, fanIn, fanOut, degreeMap } = accumulateLinkMetrics(links, nodeById);
+    const { nodeById, nodeCounts, communities, communitySummaries } = indexGraphNodesForMetrics(nodes);
+    const { adj, fileAdj, fanIn, fanOut, degreeMap } = accumulateLinkMetrics(links, nodeById);
     return {
       nodesCount: nodeById.size,
       linksCount: links.length,
       communitiesCount: communities.size,
+      communities: communitySummaries,
       cycles: detectDirectedCycles(adj),
+      fileCycles: detectDirectedCycles(fileAdj),
       godModules: buildGodModulesList(nodeCounts, fanIn, fanOut),
       topHubNodes: buildTopHubNodes(nodeById, degreeMap),
     };
@@ -569,7 +641,9 @@ export async function buildAndAnalyzeProjectGraph(
     nodes_count: metrics.nodesCount,
     links_count: metrics.linksCount,
     communities_count: metrics.communitiesCount,
+    communities: metrics.communities,
     cycles: metrics.cycles,
+    file_cycles: metrics.fileCycles,
     god_modules: metrics.godModules,
     top_hub_nodes: metrics.topHubNodes,
     ...(buildResult.error ? { error: buildResult.error } : {}),

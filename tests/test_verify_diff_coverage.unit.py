@@ -77,7 +77,7 @@ def test_clean_repo_and_docs_only_fast_path(tmp_path: Path) -> None:
     assert "árbol limpio" in clean_rep.summary_line
 
     _write(repo, "README.md", "# Updated\n")
-    _write(repo, "docs/guide.sh", "echo ok\n")
+    _write(repo, "docs/guide.md", "# Guide\n")
     docs_rep = vdc.evaluate_diff_coverage(
         vdc.DiffCoverageConfig(workspace=repo, reports_dir="cov")
     )
@@ -731,7 +731,10 @@ def test_normalize_rel_path_and_vendored_qa11x_exclusion(tmp_path: Path) -> None
     )
     assert vdc._normalize_rel_path("\\src\\app.py") == "src/app.py"
     assert not vdc.is_doc_file("./.agents/scripts/foo.py")
-    assert vdc.is_doc_file("./.agents/rules/rule.md")
+    assert not vdc.is_doc_file("./.agents/rules/rule.md")
+    assert not vdc.is_doc_file("./.agents/skills/qa-11x-architect/SKILL.md")
+    assert not vdc.is_doc_file("docs/guide.sh")
+    assert vdc.is_doc_file("docs/guide.md")
 
     consumer = _init_repo(tmp_path / "consumer")
     _write(

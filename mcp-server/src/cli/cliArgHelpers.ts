@@ -121,6 +121,33 @@ export function resolveCliProjectPath(rawDir: string | undefined, cwd: string): 
   return resolveSafeProjectPath(path.resolve(cwd, candidate));
 }
 
+const LANG_FLAGS = new Set(['--lang', '-l']);
+const VALID_CLI_LANGS = new Set(['auto', 'en', 'es']);
+
+/**
+ * Strips and validates optional `--lang|-l <auto|en|es>` tokens so any CLI subcommand
+ * documented with `[--lang|-l en|es]` accepts it consistently without failing on unknown option.
+ */
+export function stripValidatedLangFlags(args: readonly string[]): string[] {
+  const filtered: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const langMatch = matchFlagValue(args, i, LANG_FLAGS);
+    if (langMatch) {
+      const norm = langMatch.value.trim().toLowerCase();
+      if (!VALID_CLI_LANGS.has(norm)) {
+        throw new Error(`Valor inválido para ${langMatch.flag}: '${langMatch.value}'. Usa en, es o auto.`);
+      }
+      i += langMatch.consumed;
+      continue;
+    }
+    const argVal = args[i];
+    if (argVal !== undefined) {
+      filtered.push(argVal);
+    }
+  }
+  return filtered;
+}
+
 export function formatCliJson(payload: unknown): string {
   return redactPiiAndSecrets(JSON.stringify(payload, null, 2));
 }

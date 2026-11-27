@@ -5,9 +5,14 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { CONNECTOR_START_MARKER, CONNECTOR_END_MARKER } from './init-agents-md.js';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
-import { hasHelpFlag, resolveCliProjectPath } from './cliArgHelpers.js';
+import {
+  hasHelpFlag,
+  resolveCliProjectPath,
+  stripValidatedLangFlags,
+} from './cliArgHelpers.js';
 import { renderSubcommandHelpText, resolveCliHelpLang } from './commandCatalog.js';
 import { pickAt } from '../utils/diagnosticFormatter.js';
+import { isUpstreamBlueprintsRepo as detectUpstreamBlueprintsRepo } from '../services/projectContextDetector.js';
 import { classifySectionForPruning, dedupeRepeatedHeadings } from './reconcile/sectionPruner.js';
 import {
   assertNoSymlinkSegmentsFromRoot,
@@ -23,7 +28,9 @@ import {
 import { scanWorkspacesForReconcile } from './reconcile/workspaceScanner.js';
 import type { ReconcileAgentsResult, ReconciledRuleItem } from '../types.js';
 
-export const RECONCILE_AGENTS_HELP_TEXT = renderSubcommandHelpText('reconcile-agents', 'en');
+const SUBCMD_RECONCILE_AGENTS = 'reconcile-agents';
+
+export const RECONCILE_AGENTS_HELP_TEXT = renderSubcommandHelpText(SUBCMD_RECONCILE_AGENTS, 'en');
 
 const UTF8 = 'utf-8';
 const AGENTS_DIR = '.agents';
@@ -193,10 +200,7 @@ export function isCanonicalRuleSection(sectionText: string): boolean {
 }
 
 export function isUpstreamBlueprintsRepo(projectPath: string): boolean {
-  return (
-    fs.existsSync(path.join(projectPath, 'scripts', 'generar-manifiesto.py')) &&
-    fs.existsSync(path.join(projectPath, 'manifest.json'))
-  );
+  return detectUpstreamBlueprintsRepo(projectPath);
 }
 
 function isLicenseCommentLine(line: string): boolean {
@@ -1006,8 +1010,9 @@ export function parseReconcileAgentsArgs(
     allowDirty: false,
     json: false,
   };
-  for (let i = 0; i < args.length; i++) {
-    i += applyReconcileToken(args, i, state);
+  const normalizedArgs = stripValidatedLangFlags(args);
+  for (let i = 0; i < normalizedArgs.length; i++) {
+    i += applyReconcileToken(normalizedArgs, i, state);
   }
   if (state.scanWorkspaces !== undefined && state.hasExplicitProjectPath) {
     throw new Error(

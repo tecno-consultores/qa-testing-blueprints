@@ -108,7 +108,7 @@ This directory implements the portable, open agent-governance layout across Goog
 Versioning `.agents/` in Git is safe and recommended:
 - **Zero Secrets:** Contains only Markdown governance, JSON schemas, and deterministic Python/Bash gates—never tokens, passwords, or `.env` secrets.
 - **Reproducibility:** Ensures every contributor and CI run shares identical 11X quality thresholds (`>= 95%` coverage, `CC <= 5`, `0` Trivy HIGH/CRITICAL findings).
-- **Continuous Auditing:** All 21 Python governance scripts (`.agents/scripts/*.py` + `scripts/generar-manifiesto.py`) maintain 100% `ruff` (`CC <= 5`) and `mypy --strict` compliance, alongside `ShellCheck`/`shfmt` on Bash gates and `./scripts/verificar-secretos.sh`.
+- **Continuous Auditing:** All 29 Python governance scripts (`.agents/scripts/*.py` + `scripts/generar-manifiesto.py`) maintain 100% `ruff` (`CC <= 5`) and `mypy --strict` compliance, alongside `ShellCheck`/`shfmt` on Bash gates and `./scripts/verificar-secretos.sh`.
 
 ---
 
@@ -121,12 +121,12 @@ Execute governance and certification gates via `make` or ephemeral Docker contai
 make certify
 
 # Validate cognitive budgets, Dual-Consumer parity & bilingual doc links in Docker
-docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp \
+docker run --rm --network none --restart=no -u "$(id -u):$(id -g)" -e HOME=/tmp \
   -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 \
   python3 .agents/scripts/verify_docs_invariants.py
 
 # Audit zero-orphan UI components and ORM-migration parity in Docker
-docker run --rm --network none -u "$(id -u):$(id -g)" -e HOME=/tmp \
+docker run --rm --network none --restart=no -u "$(id -u):$(id -g)" -e HOME=/tmp \
   -v "$(pwd):/app:ro" -w /app sinfallas/base-python-uv:3.15 \
   sh -ec 'python3 .agents/scripts/verify_zero_orphan_vue_components.py && python3 .agents/scripts/verify_alembic_orm_parity.py'
 ```

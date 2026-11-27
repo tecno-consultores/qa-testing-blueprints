@@ -61,9 +61,9 @@ rm -f ./ACTIVE_TASK.md ./*.log ./*.tsbuildinfo ./*.heapsnapshot ./*.cpuprofile \
   zap-report.html zap-report.json release-readiness.json release-readiness.md psi-report.json \
   promptfoo-output.json promptfoo-output.html deepeval-results.json qa-11x-last-failure.json \
   .task_scratchpad.md .agents/*.scratchpad.md 2>/dev/null || true
-rm -rf .pnpm-store .turbo dist dist-ssr .nuxt .next .output .svelte-kit .vite .vite-ssg-temp .parcel-cache storybook-static 2>/dev/null || true
-rm -rf test-results playwright-report blob-report playwright/.cache cypress/videos cypress/screenshots nginx-logs reports target test/target coverage .nyc_output .stryker-tmp 2>/dev/null || true
-rm -rf lhci-reports psi-reports .lhcache .lighthouseci prometheus_data .eslintcache .stylelintcache .trivycache karate.jar karate-*.jar \
+rm -rf .pnpm-store .turbo .nuxt .next .output .svelte-kit .vite .vite-ssg-temp .parcel-cache storybook-static 2>/dev/null || true
+rm -rf test-results playwright-report blob-report playwright/.cache cypress/videos cypress/screenshots nginx-logs target test/target coverage .nyc_output .stryker-tmp 2>/dev/null || true
+rm -rf lhci-reports psi-reports .lhcache .lighthouseci .eslintcache .stylelintcache .trivycache karate.jar karate-*.jar \
   allure-results/ allure-report/ .allure/ .deepeval/ .promptfoo/ .agents/tmp/ 2>/dev/null || true
 
 if [ -d "graphify-out" ]; then
@@ -75,15 +75,15 @@ find . \( -name ".git" -o -name "node_modules" -o -name ".venv" -o -name "venv" 
 
 if command -v docker >/dev/null 2>&1; then
   docker run --rm --network none --restart=no --security-opt=no-new-privileges:true -v "${SCRIPT_DIR}:/work" alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab sh -c '
-    rm -rf /work/.pnpm-store /work/.turbo /work/dist /work/dist-ssr /work/.next /work/.output /work/.svelte-kit /work/.vite /work/.parcel-cache /work/storybook-static \
-      /work/test-results /work/playwright-report /work/blob-report /work/playwright/.cache /work/cypress/videos /work/cypress/screenshots /work/nginx-logs /work/reports \
+    rm -rf /work/.pnpm-store /work/.turbo /work/.next /work/.output /work/.svelte-kit /work/.vite /work/.parcel-cache /work/storybook-static \
+      /work/test-results /work/playwright-report /work/blob-report /work/playwright/.cache /work/cypress/videos /work/cypress/screenshots /work/nginx-logs \
       /work/target /work/test/target /work/coverage /work/.nyc_output /work/.stryker-tmp \
       /work/lhci-reports /work/psi-reports /work/.lhcache /work/.lighthouseci \
-      /work/prometheus_data /work/.eslintcache /work/.stylelintcache /work/.trivycache \
+      /work/.eslintcache /work/.stylelintcache /work/.trivycache \
       /work/karate.jar /work/karate-*.jar \
       /work/allure-results /work/allure-report /work/.allure /work/.deepeval /work/.promptfoo 2>/dev/null || true
     if [ "$3" = "true" ]; then
-      rm -rf /work/node_modules /work/.venv /work/venv 2>/dev/null || true
+      rm -rf /work/node_modules /work/.venv /work/venv /work/dist /work/dist-ssr /work/reports /work/prometheus_data 2>/dev/null || true
     fi
     find /work \( -name ".git" -o -name "node_modules" -o -name ".venv" -o -name "venv" \) -prune -o -type f \( -name ".DS_Store" -o -name "Thumbs.db" -o -name "*.swp" -o -name "*.swo" -o -name "*~" -o -name "*.orig" -o -name "*.rej" -o -name "*.bak" \) -exec rm -f {} + 2>/dev/null || true
     chown -hR "$1:$2" /work/src /work/tests /work/test /work/scripts /work/docs 2>/dev/null || true
@@ -92,7 +92,7 @@ if command -v docker >/dev/null 2>&1; then
 fi
 
 if [ "${DEEP_PRUNE}" = true ]; then
-  rm -rf node_modules .venv venv .agents/backups .agents/proposals .agents/.qa-evidence.json 2>/dev/null || true
+  rm -rf node_modules .venv venv dist dist-ssr reports prometheus_data .agents/backups .agents/proposals .agents/.qa-evidence.json 2>/dev/null || true
   if command -v docker >/dev/null 2>&1; then
     docker compose --profile "*" -f docker-compose.qa.yml down -v --rmi local --remove-orphans >/dev/null 2>&1 ||
       docker compose -f docker-compose.qa.yml down -v --rmi local --remove-orphans >/dev/null 2>&1 || true

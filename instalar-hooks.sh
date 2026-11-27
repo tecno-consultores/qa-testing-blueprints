@@ -60,6 +60,8 @@ fi
 PY_STAGED=()
 SH_STAGED=()
 MCP_TS_STAGED=()
+FASTAPI_PY_STAGED=()
+PYTHON_STACK_STAGED=()
 for sfile in "${STAGED_FILES[@]+"${STAGED_FILES[@]}"}"; do
 	[ -f "${sfile}" ] || continue
 	case "${sfile}" in
@@ -67,10 +69,18 @@ for sfile in "${STAGED_FILES[@]+"${STAGED_FILES[@]}"}"; do
 			continue
 			;;
 		fastapi/*.py)
-			[ -f "fastapi/pyproject.toml" ] || PY_STAGED+=("${sfile}")
+			if [ -f "fastapi/pyproject.toml" ]; then
+				FASTAPI_PY_STAGED+=("${sfile#fastapi/}")
+			else
+				PY_STAGED+=("${sfile}")
+			fi
 			;;
 		python/*.py)
-			[ -f "python/pyproject.toml" ] || PY_STAGED+=("${sfile}")
+			if [ -f "python/pyproject.toml" ]; then
+				PYTHON_STACK_STAGED+=("${sfile#python/}")
+			else
+				PY_STAGED+=("${sfile}")
+			fi
 			;;
 		mcp-server/src/*.ts | mcp-server/tests/*.ts)
 			MCP_TS_STAGED+=("${sfile#mcp-server/}")
@@ -83,11 +93,19 @@ for sfile in "${STAGED_FILES[@]+"${STAGED_FILES[@]}"}"; do
 		*.py)
 			PY_STAGED+=("${sfile}")
 			;;
-		*.sh)
+		*.sh | scripts/*.sh.example)
 			SH_STAGED+=("${sfile}")
 			;;
 	esac
 done
+if [ "${#FASTAPI_PY_STAGED[@]}" -gt 0 ] && [ -f "./fastapi/docker-compose.qa.yml" ]; then
+	(cd fastapi && QA_UID="$(id -u)" QA_GID="$(id -g)" docker compose -f docker-compose.qa.yml run --rm -T --entrypoint bash -u "$(id -u):$(id -g)" -e HOME=/tmp -e UV_CACHE_DIR=/tmp/uv-cache -e UV_PROJECT_ENVIRONMENT=/tmp/qa-venv -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -e QA_OFFLINE="${QA_OFFLINE:-0}" qa-backend \
+		-c 'UV_OFF=(); [ "${QA_OFFLINE:-0}" = "1" ] && UV_OFF=(--offline); uv sync "${UV_OFF[@]}" --all-extras -q && uv run --no-sync ruff check "$@" && uv run --no-sync ruff format --check "$@" && uv run --no-sync mypy --strict --cache-dir=/tmp/mypy "$@"' _ "${FASTAPI_PY_STAGED[@]}")
+fi
+if [ "${#PYTHON_STACK_STAGED[@]}" -gt 0 ] && [ -f "./python/docker-compose.qa.yml" ]; then
+	(cd python && QA_UID="$(id -u)" QA_GID="$(id -g)" docker compose -f docker-compose.qa.yml run --rm -T --entrypoint bash -u "$(id -u):$(id -g)" -e HOME=/tmp -e UV_CACHE_DIR=/tmp/uv-cache -e UV_PROJECT_ENVIRONMENT=/tmp/qa-venv -e RUFF_CACHE_DIR=/tmp/ruff-cache -e PYTHONDONTWRITEBYTECODE=1 -e PYTHONPATH=/app/src -e QA_OFFLINE="${QA_OFFLINE:-0}" qa-backend \
+		-c 'UV_OFF=(); [ "${QA_OFFLINE:-0}" = "1" ] && UV_OFF=(--offline); uv sync "${UV_OFF[@]}" --all-extras -q && uv run --no-sync ruff check "$@" && uv run --no-sync ruff format --check "$@" && uv run --no-sync mypy --strict --cache-dir=/tmp/mypy "$@"' _ "${PYTHON_STACK_STAGED[@]}")
+fi
 if [ "${#MCP_TS_STAGED[@]}" -gt 0 ] && [ -f "./mcp-server/package.json" ]; then
 	MCP_PRECOMMIT_VOLS=()
 	if [ -d "./mobile-appium" ]; then

@@ -90,7 +90,7 @@ export async function auditTestPyramidGaps(
   } else {
     const projectAudit = await inspectProjectConfig(resolvedPath);
     const hasAnyPythonFile = files.some(
-      (f) => f.endsWith('.py') || f.endsWith('pyproject.toml')
+      (f) => f.endsWith('.py') || f.endsWith('pyproject.toml') || f.endsWith('requirements.txt')
     );
     detectedStacks = (projectAudit.detected_stacks as StackName[]).filter((s) => {
       if (s === 'python' || s === 'fastapi') return hasAnyPythonFile;

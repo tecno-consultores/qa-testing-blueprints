@@ -12,6 +12,8 @@ Feature: Contrato HTTP BDD 11X — Consola Operativa y Propagación Anti-Silo
 
     * def newDeviceId = 'dev-ui-' + java.util.UUID.randomUUID().toString().substring(0, 8)
     Given path '/api/v1/devices'
+    And header X-Tenant-Id = 'tenant-demo'
+    And header X-Auth-Tenant = 'tenant-demo'
     And header Idempotency-Key = java.util.UUID.randomUUID() + ''
     And request { id: '#(newDeviceId)', hostname: 'branch-gw-bdd', cpu_load_pct: 21.4 }
     When method post
@@ -21,6 +23,8 @@ Feature: Contrato HTTP BDD 11X — Consola Operativa y Propagación Anti-Silo
     And match response.audit_actor == 'operador.noc'
 
     Given path '/api/v1/devices'
+    And header X-Tenant-Id = 'tenant-demo'
+    And header X-Auth-Tenant = 'tenant-demo'
     When method get
     Then status 200
     And match response[*].id contains newDeviceId

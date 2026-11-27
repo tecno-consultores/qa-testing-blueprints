@@ -2467,4 +2467,10 @@ EOF
   assert_success
   assert_output --partial "Tier: standard"
   assert_output --partial "✅ [CALM] stub OK"
+
+  # 4. Fallo de verify_topological_health.py (exit 1) aborta Gate 6 antes de CALM
+  printf 'import sys\nprint("cycle detected")\nsys.exit(1)\n' >"${work}/.agents/scripts/verify_topological_health.py"
+  run env QA_IN_CONTAINER=1 QA11X_TIER=standard GITHUB_BASE_REF=main PATH="${bin_dir}" LC_ALL=C bash "${work}/.agents/scripts/certify_task_completion.sh"
+  assert_failure 1
+  assert_output --partial "cycle detected"
 }

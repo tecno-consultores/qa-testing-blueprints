@@ -321,24 +321,28 @@ export function buildPrefilledIssueUrl(input: ProposeEvolutionPrInput): {
 } {
   const safeBlueprintFile = validateRelativeRepoPath(input.target_blueprint_file, 'target_blueprint_file');
   const targets = inferDualConsumerTargets(input);
-  const slug = buildEvolutionSlug(input.improvement_title);
-  const issueTitle = `[Evolution] ${input.improvement_title}`;
-  const fence = computeSafeCodeFence(input.proposed_content_or_snippet);
+  const cleanTitle = sanitizeProposalTextForEmail(input.improvement_title).replace(/[\r\n]+/g, ' ').trim();
+  const cleanRationale = sanitizeProposalTextForEmail(input.empirical_rationale);
+  const cleanSnippet = sanitizeProposalTextForEmail(input.proposed_content_or_snippet);
+  const cleanHumanDoc = input.proposed_human_doc_summary?.trim()
+    ? sanitizeProposalTextForEmail(input.proposed_human_doc_summary.trim())
+    : '';
+  const slug = buildEvolutionSlug(cleanTitle);
+  const issueTitle = `[Evolution] ${cleanTitle}`;
+  const fence = computeSafeCodeFence(cleanSnippet);
   const issueBody = [
     `### Matriz Dual-Consumer en \`${UPSTREAM_REPO}\``,
     `- **Capa Agentes IA (Skill / Rule):** \`${safeBlueprintFile}\``,
     `- **Capa Ejecutable (MCP / Auditor):** \`${targets.targetMcpComponent}\``,
     `- **Capa Ingeniería Humana (\`docs/\`):** \`${targets.targetHumanDocFile}\``,
-    ...(input.proposed_human_doc_summary?.trim()
-      ? ['', '### Borrador para Documentación Humana (`docs/`)', input.proposed_human_doc_summary.trim()]
-      : []),
+    ...(cleanHumanDoc ? ['', '### Borrador para Documentación Humana (`docs/`)', cleanHumanDoc] : []),
     '',
     '### Justificación Empírica (Dogfooding)',
-    input.empirical_rationale,
+    cleanRationale,
     '',
     '### Cambio / Bloque Propuesto',
     `${fence}markdown`,
-    input.proposed_content_or_snippet,
+    cleanSnippet,
     fence,
   ].join('\n');
 
@@ -399,7 +403,10 @@ async function trySubmitEvolutionViaGh(
     return { mode: 'none', remoteUrl: null, ghAuthenticated: true };
   }
 
-  const title = `[Evolution] ${input.improvement_title}`;
+  const cleanGhTitle = sanitizeProposalTextForEmail(input.improvement_title)
+    .replace(/[\r\n]+/g, ' ')
+    .trim();
+  const title = `[Evolution] ${cleanGhTitle}`;
   if (isExternalConsumerRepo) {
     if (!input.create_upstream_issue) {
       return { mode: 'none', remoteUrl: null, ghAuthenticated: true };

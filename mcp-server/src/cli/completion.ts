@@ -2,7 +2,12 @@
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
 import { pickAt } from '../utils/diagnosticFormatter.js';
-import { type CliCommandOutput, hasHelpFlag, matchFlagValue } from './cliArgHelpers.js';
+import {
+  type CliCommandOutput,
+  hasHelpFlag,
+  matchFlagValue,
+  stripValidatedLangFlags,
+} from './cliArgHelpers.js';
 import {
   type CliFlagSpec,
   getCatalogCompletionFlags,
@@ -107,7 +112,7 @@ function buildBashCompletion(): string {
     caseArms,
     '  esac',
     '  if [ "${COMP_CWORD}" -eq 1 ]; then',
-    `    COMPREPLY=( $(compgen -W "${subNames} --help -h --version -v --stdio" -- "\${cur}") )`,
+    `    COMPREPLY=( $(compgen -W "${subNames} --help -h --version -v --stdio --toolset" -- "\${cur}") )`,
     '    return 0',
     '  fi',
     '  if [ "${cmd}" = "completion" ] && [[ "${cur}" != -* ]]; then',
@@ -204,9 +209,10 @@ function consumeCompletionToken(
 }
 
 function parseShellArg(args: readonly string[]): string | undefined {
+  const cleanArgs = stripValidatedLangFlags(args);
   const state: { shell?: string } = {};
-  for (let i = 0; i < args.length; i += 1) {
-    i += consumeCompletionToken(args, i, state);
+  for (let i = 0; i < cleanArgs.length; i += 1) {
+    i += consumeCompletionToken(cleanArgs, i, state);
   }
   return state.shell;
 }

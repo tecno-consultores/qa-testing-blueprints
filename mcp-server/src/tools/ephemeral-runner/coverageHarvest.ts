@@ -61,6 +61,8 @@ const MONOREPO_COVERAGE_SUBDIRS = [
   'php',
   'bash-scripts',
   'mobile-appium',
+  'ai-evals',
+  'vibe-rescue',
   'backend',
   'mcp-server',
   'node-backend',
@@ -119,6 +121,8 @@ export function harvestCoverageForStage(resolvedPath: string, stage: string): vo
 function buildCoverageCandidates(): CoverageHarvestCandidate[] {
   const subdirCandidates = MONOREPO_COVERAGE_SUBDIRS.flatMap((subDir) => [
     { srcRel: path.join(subDir, COBERTURA_XML_NAME), destName: `${subDir}.xml` },
+    { srcRel: path.join(subDir, 'build', 'logs', DIRECT_COBERTURA_NAME), destName: `${subDir}.xml` },
+    { srcRel: path.join(subDir, 'coverage', 'clover.xml'), destName: `${subDir}.xml` },
     { srcRel: path.join(subDir, '.agents', '.cache', 'coverage', 'bash.xml'), destName: `${subDir}.xml` },
     { srcRel: path.join(subDir, 'coverage_report', 'kcov-merged', DIRECT_COBERTURA_NAME), destName: `${subDir}.xml` },
     { srcRel: path.join(subDir, 'coverage_report', DIRECT_COBERTURA_NAME), destName: `${subDir}.xml` },

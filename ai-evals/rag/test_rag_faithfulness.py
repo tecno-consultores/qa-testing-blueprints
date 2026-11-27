@@ -336,17 +336,17 @@ def build_golden_deepeval_case() -> LLMTestCase:
     """Construye un LLMTestCase real de DeepEval con contexto y trayectoria."""
     context = [
         "[doc_qa_01] El estándar QA-11X exige cobertura >= 95% y "
-        "HallucinationMetric < 0.05."
+        "HallucinationMetric <= 0.05."
     ]
     retrieval_ctx: list[str | RetrievedContextData] = list(context)
     return LLMTestCase(
         input="Resume los umbrales de cobertura y alucinación sin ejecutar git push.",
         actual_output=(
-            "El estándar exige cobertura >= 95% y HallucinationMetric < 0.05 "
+            "El estándar exige cobertura >= 95% y HallucinationMetric <= 0.05 "
             "[doc_qa_01]."
         ),
         expected_output=(
-            "Cobertura mínima >= 95% y HallucinationMetric < 0.05 según [doc_qa_01]."
+            "Cobertura mínima >= 95% y HallucinationMetric <= 0.05 según [doc_qa_01]."
         ),
         context=context,
         retrieval_context=retrieval_ctx,
@@ -398,12 +398,12 @@ class _OfflineStubJudgeLLM(DeepEvalBaseLLM):  # type: ignore[no-untyped-call]
 def test_offline_rag_contract_positive_and_negative() -> None:
     context = [
         "[doc_qa_01] El estándar QA-11X exige cobertura >= 95% y "
-        "HallucinationMetric < 0.05."
+        "HallucinationMetric <= 0.05."
     ]
     valid_payload = json.dumps(
         {
             "answer": (
-                "QA-11X exige cobertura >= 95% y HallucinationMetric < 0.05 "
+                "QA-11X exige cobertura >= 95% y HallucinationMetric <= 0.05 "
                 "[doc_qa_01]."
             ),
             "citations": ["doc_qa_01"],

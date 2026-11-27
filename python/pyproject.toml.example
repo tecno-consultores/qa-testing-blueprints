@@ -1,6 +1,6 @@
 [project]
 name = "python-qa-blueprint"
-version = "3.11.0"
+version = "3.12.0"
 description = "Plantilla base corporativa (11X) para scripts de Python con pruebas exhaustivas, BDD, y Profiling"
 requires-python = ">=3.12"
 dependencies = [
@@ -57,7 +57,7 @@ packages = ["src"]
 [tool.pytest.ini_options]
 python_files = ["*.unit.py", "*.spec.py", "*.int.py", "test_*.py"]
 pythonpath = ["src"]
-addopts = "--import-mode=importlib --strict-markers --cov=src/ --cov-fail-under=95 --cov-report=html:/tmp/htmlcov --cov-report=term-missing"
+addopts = "--import-mode=importlib --strict-markers --cov=src/ --cov-branch --cov-fail-under=95 --cov-report=html:/tmp/htmlcov --cov-report=term-missing"
 markers = [
     "integration: Pruebas que requieren conexión a internet (deseleccionar con '-m \"not integration\"')",
     "bdd: Pruebas de comportamiento Gherkin",
@@ -68,6 +68,7 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 88
 target-version = "py312"
+src = ["src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "C901", "PLR0911", "PLR0913"]
@@ -85,6 +86,7 @@ max-returns = 4
 
 [tool.mypy]
 strict = true
+mypy_path = "src"
 
 [tool.mutmut]
 source_paths = ["src/"]

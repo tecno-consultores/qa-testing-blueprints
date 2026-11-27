@@ -271,8 +271,8 @@ function detectNodeAndMobileStacks(
 ): { readonly hasMobile: boolean; readonly hasWeb: boolean; readonly hasApi: boolean } {
   const deps = parsePackageDeps(path.join(projectAbs, PACKAGE_JSON));
   const hasMobile = hasMobileConfigOrDep(projectAbs, deps);
-  const hasVue = deps.has('vue');
-  const hasReact = deps.has('react') || deps.has('react-dom');
+  const hasVue = deps.has('vue') || deps.has('nuxt');
+  const hasReact = deps.has('react') || deps.has('react-dom') || deps.has('next');
   const hasApi = NODE_BACKEND_DEPS.some((d) => deps.has(d));
 
   if (hasVue) addStack(stacks, 'vue3');

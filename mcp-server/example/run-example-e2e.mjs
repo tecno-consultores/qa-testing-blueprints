@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 //
-// Arnés End-to-End (E2E) sobre stdio real para @sinfallas/mcp-qa-11x v3.11.0.
+// Arnés End-to-End (E2E) sobre stdio real para @sinfallas/mcp-qa-11x v3.12.0.
 // Conecta un cliente MCP oficial (@modelcontextprotocol/sdk) contra el binario
 // compilado dist/index.js y certifica empíricamente los 13 recursos, las 20 tools
 // (en escenarios negativos y limpios) y los 12 subcomandos CLI sobre una copia
@@ -456,7 +456,7 @@ async function verifyAllTwentyTools(client, ctx) {
   });
   assert.ok(['created', 'appended', 'updated_block'].includes(agentsRes1.action));
   const agentsContent1 = fs.readFileSync(path.join(projectDir, 'AGENTS.md'), 'utf8');
-  assert.ok(agentsContent1.includes('Telemetría de Flota — Gobernanza Específica del Dominio'));
+  assert.ok(agentsContent1.includes('Fleet Telemetry — Domain-Specific Governance'));
   assert.ok(agentsContent1.includes('<!-- QA_11X_MCP_CONNECTOR_START -->'));
 
   const agentsRes2 = await callJsonTool(client, 'init_or_append_agents_md', {
@@ -680,11 +680,17 @@ async function verifyAllTwentyTools(client, ctx) {
     ecoPayload.scope_policy,
     'DOCUMENTATION_AND_INTEGRATION_ONLY_NO_VULNERABILITY_AUDIT'
   );
+  assert.equal(ecoPayload.schema_version, '2.0.0', 'analyze_ecosystem_specs debe emitir schema v2.0.0');
   assert.ok(ecoPayload.projects_count >= 2, 'analyze_ecosystem_specs debe descubrir backend y frontend');
   assert.equal(
     fs.existsSync(path.join(projectDir, 'analisis-e2e', 'ecosystem-inventory.json')),
     true,
     'Falta analisis-e2e/ecosystem-inventory.json'
+  );
+  assert.equal(
+    fs.existsSync(path.join(projectDir, 'analisis-e2e', '.skeletons', '00-resumen-ecosistema.skeleton.md')),
+    true,
+    'Falta analisis-e2e/.skeletons/00-resumen-ecosistema.skeleton.md'
   );
   fs.rmSync(path.join(projectDir, 'analisis-e2e'), { recursive: true, force: true });
 
@@ -1035,6 +1041,7 @@ async function main() {
         QA_BLUEPRINTS_CACHE_DIR: cacheDir,
         QA11X_WORKSPACE_ROOTS: `${tmpRoot}${path.delimiter}${REPO_ROOT}`,
         QA_DISABLE_AUTO_SYNC: '1',
+        QA_MIN_FREE_MEM_PCT: process.env.QA_MIN_FREE_MEM_PCT || '1',
         PATH: `${binDir}:${process.env.PATH || ''}`,
       },
       stderr: 'pipe',

@@ -383,6 +383,11 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       fs.writeFileSync(path.join(tmpDir, 'TESTING.md'), '# Testing\n', 'utf8');
       fs.writeFileSync(path.join(tmpDir, 'CHANGELOG.md'), '# Changelog\n\n## [Unreleased]\n- Ok\n', 'utf8');
       fs.writeFileSync(path.join(tmpDir, 'SECURITY.md'), '# Security\n', 'utf8');
+      fs.writeFileSync(
+        path.join(tmpDir, '.qa-11x.json'),
+        JSON.stringify({ schema_version: 3, tier: 'standard', tier_confirmed_by_user: true }),
+        'utf8'
+      );
 
       // 1. Bidirectional API parity: backend route without frontend consumer
       const apiDir = path.join(tmpDir, 'fastapi', 'src', 'api', 'v1');

@@ -19,7 +19,7 @@ This specification defines the detailed technical roadmap for migrating all huma
 
 ## 2. Historical Baseline Inventory (Pre-v3.0) and Current Metrics
 
-> **Historical Note (Pre-v3.0 Baseline vs. Current Metrics):** This section preserves the **pre-`v3.0.0` diagnostic inventory** that motivated all 4 phases. In the active implemented state (`v3.0.0` + `v3.1–v3.10` evolution), the repository includes **12** `.agents/skills/*/SKILL.md`, full normalization of `docs/agent-setup.md` ↔ `docs/agent-setup.es.md` (with the legacy `docs/agent-setup.en.md` stub retired after the transition cycle), EN+ES bilingual parity across root docs, `docs/` manuals (`01..05`), all 10 stacks, and Specs `19..20+`, plus **20** MCP Tools and **13** `blueprint://*` Resources.
+> **Historical Note (Pre-v3.0 Baseline vs. Current Metrics):** This section preserves the **pre-`v3.0.0` diagnostic inventory** that motivated all 4 phases. In the active implemented state (`v3.0.0` + `v3.1–v3.12` evolution), the repository includes **12** `.agents/skills/*/SKILL.md`, full normalization of `docs/agent-setup.md` ↔ `docs/agent-setup.es.md` (with the legacy `docs/agent-setup.en.md` stub retired after the transition cycle), EN+ES bilingual parity across root docs, `docs/` manuals (`01..05`), all 10 stacks, and Specs `19..20+`, plus **20** MCP Tools and **13** `blueprint://*` Resources.
 
 | Category | Observed Files (Pre-v3.0 Baseline / Current State) | Baseline Language | Bilingual Status |
 | :--- | :--- | :--- | :--- |

@@ -108,12 +108,20 @@ function hasAnyPackageDep(
   return targets.some((t) => content.includes(`"${t}"`) || content.includes(`'${t}'`));
 }
 
+const REQUIREMENTS_TXT = 'requirements.txt';
+
 function inspectPythonStack(resolvedPath: string, detectedStacks: string[]): boolean {
   const candidates = [
     path.join(resolvedPath, PYPROJECT_TOML),
     path.join(resolvedPath, 'fastapi', PYPROJECT_TOML),
     path.join(resolvedPath, 'backend', PYPROJECT_TOML),
     path.join(resolvedPath, 'python', PYPROJECT_TOML),
+  ];
+  const reqCandidates = [
+    path.join(resolvedPath, REQUIREMENTS_TXT),
+    path.join(resolvedPath, 'fastapi', REQUIREMENTS_TXT),
+    path.join(resolvedPath, 'backend', REQUIREMENTS_TXT),
+    path.join(resolvedPath, 'python', REQUIREMENTS_TXT),
   ];
   let mypyStrict = false;
 
@@ -128,6 +136,12 @@ function inspectPythonStack(resolvedPath: string, detectedStacks: string[]): boo
     if (content.includes('strict = true') || content.includes('strict=true')) {
       mypyStrict = true;
     }
+  }
+
+  for (const reqPath of reqCandidates) {
+    if (!fs.existsSync(reqPath)) continue;
+    const content = fs.readFileSync(reqPath, UTF8_ENCODING).toLowerCase();
+    addDetectedStack(detectedStacks, content.includes('fastapi') ? 'fastapi' : 'python');
   }
 
   return mypyStrict;
@@ -155,11 +169,11 @@ function detectNodeFrameworks(
   const content = fs.readFileSync(packageJsonPath, UTF8_ENCODING);
   const depNames = extractPackageDepNames(content);
   let matchedUiOrMobile = isMobileDir;
-  if (hasAnyPackageDep(content, depNames, ['vue'])) {
+  if (hasAnyPackageDep(content, depNames, ['vue', 'nuxt'])) {
     addDetectedStack(detectedStacks, 'vue3');
     matchedUiOrMobile = true;
   }
-  if (hasAnyPackageDep(content, depNames, ['react'])) {
+  if (hasAnyPackageDep(content, depNames, ['react', 'next'])) {
     addDetectedStack(detectedStacks, REACT_FRONTEND_STACK);
     matchedUiOrMobile = true;
   }
@@ -263,8 +277,8 @@ function inspectAiEvalsStack(
 ): void {
   const aiManifestPaths = [
     path.join(resolvedPath, AI_EVALS_STACK, PYPROJECT_TOML),
-    path.join(resolvedPath, 'requirements.txt'),
-    path.join(resolvedPath, 'python', 'requirements.txt'),
+    path.join(resolvedPath, REQUIREMENTS_TXT),
+    path.join(resolvedPath, 'python', REQUIREMENTS_TXT),
   ];
   if (files.some(isAiEvalsArtifact) || aiManifestPaths.some(hasAiTokenInFile)) {
     addDetectedStack(detectedStacks, AI_EVALS_STACK);

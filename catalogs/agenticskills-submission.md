@@ -1,12 +1,12 @@
-# AgenticSkills.io Submission Package — QA Testing Blueprints (`QA-11X v3.11`, `v3.11.0`)
+# AgenticSkills.io Submission Package — QA Testing Blueprints (`QA-11X v3.12`, `v3.12.0`)
 
 Structured submission bundle ready for `https://agenticskills.io/submit` and `https://agenticskills.io/submit?type=mcp`. Every skill path, MCP tool name, `blueprint://*` URI, and blueprint directory matches the verified repository state.
 
 ---
 
-## Section 1 — MCP Server Submission (`@sinfallas/mcp-qa-11x` v3.11.0)
+## Section 1 — MCP Server Submission (`@sinfallas/mcp-qa-11x` v3.12.0)
 
-* **Package Name:** `@sinfallas/mcp-qa-11x` (`v3.11.0`, `QA-11X v3.11` architecture)
+* **Package Name:** `@sinfallas/mcp-qa-11x` (`v3.12.0`, `QA-11X v3.12` architecture)
 * **License:** `MIT` (Zero-Infra enterprise adoption without copyleft or AGPL-3.0 licensing constraints)
 * **Repository:** `https://github.com/tecno-consultores/qa-testing-blueprints`
 * **NPX Launch Command:** `npx -y @sinfallas/mcp-qa-11x@latest`
@@ -82,7 +82,7 @@ Structured submission bundle ready for `https://agenticskills.io/submit` and `ht
 1. **`qa-11x-architect`** (`architecture`)
    - **Upstream Path:** [`.agents/skills/qa-11x-architect/SKILL.md`](../.agents/skills/qa-11x-architect/SKILL.md) (`https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-architect/SKILL.md`)
    - **Summary:** Master 11X orchestrator (<= 12 KB): 3-path routing, 13-layer pyramid, Rule Zero, and DISA/OWASP governance.
-   - **Key Capabilities:** Proportional execution (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`), lazy hydration of 10 sub-skills, 11 Anti-Blindness UAT rules, and `QA-TEST-SYNC-01`.
+   - **Key Capabilities:** Proportional execution (`DOCS_ONLY`, `MICRO_CHANGE`, `FULL_11X`), lazy hydration of 11 sub-skills, 11 Anti-Blindness UAT rules, and `QA-TEST-SYNC-01`.
 2. **`qa-11x-devsecops-hardener`** (`security`)
    - **Upstream Path:** [`.agents/skills/qa-11x-devsecops-hardener/SKILL.md`](../.agents/skills/qa-11x-devsecops-hardener/SKILL.md) (`https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-devsecops-hardener/SKILL.md`)
    - **Summary:** Hardens PostgreSQL 17 RLS, AES-GCM vaults, WORM audit chains, and mutating MCP tools to STIG V6R5.
@@ -132,7 +132,7 @@ Structured submission bundle ready for `https://agenticskills.io/submit` and `ht
 
 ## Section 3 — Workflow Bundle (`QA-11X Zero-Infra Agentic Quality Gate`)
 
-Combines **Knowledge** (the 12 modular `SKILL.md` files under `< 20 KB`) with **Access** (all 20 tools — 12 v1 + 6 v2.0 + v3.1 `session_flight_recorder` + `analyze_ecosystem_specs` — and 13 `blueprint://*` resources — including v3.1 `blueprint://skills/tactical-patterns-11x` — in `@sinfallas/mcp-qa-11x` v3.11.0) into a deterministic, auditable engineering workflow:
+Combines **Knowledge** (the 12 modular `SKILL.md` files under `< 20 KB`) with **Access** (all 20 tools — 12 v1 + 6 v2.0 + v3.1 `session_flight_recorder` + `analyze_ecosystem_specs` — and 13 `blueprint://*` resources — including v3.1 `blueprint://skills/tactical-patterns-11x` — in `@sinfallas/mcp-qa-11x` v3.12.0) into a deterministic, auditable engineering workflow:
 
 1. **Onboard (`30s`):** Run `npx -y @sinfallas/mcp-qa-11x@latest quickstart` to detect stack/vibe markers, generate `.qa-11x.json`, inject the `AGENTS.md` connector across 28 AI agents, and scaffold PR-aware CI.
 2. **Route & Inspect (`Knowledge + AST`):** Load `qa-11x-architect` and `graphify-ast-navigator`, then call `inspect_project_config` and `inspect_ast_blast_radius` before modifying code.

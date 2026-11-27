@@ -46,6 +46,7 @@ import {
   matchFlagValue,
   resolveCliProjectPath,
   resolveComparablePath,
+  stripValidatedLangFlags,
 } from './cliArgHelpers.js';
 import { renderSubcommandHelpText, resolveCliHelpLang } from './commandCatalog.js';
 import { type DockerHostHealth, probeDockerHostHealth } from './dockerHealthProbe.js';
@@ -174,13 +175,14 @@ function applyDoctorToken(
 }
 
 function parseDoctorArgs(args: readonly string[]): ParsedDoctorArgs {
+  const cleanArgs = stripValidatedLangFlags(args);
   const state: ParsedDoctorArgs = {
     rawDir: undefined,
     offline: false,
     json: false,
   };
-  for (let i = 0; i < args.length; i++) {
-    i += applyDoctorToken(args, i, state);
+  for (let i = 0; i < cleanArgs.length; i++) {
+    i += applyDoctorToken(cleanArgs, i, state);
   }
   return state;
 }

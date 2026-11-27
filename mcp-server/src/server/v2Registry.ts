@@ -166,7 +166,16 @@ function validateRelativePathsArray(rawList: unknown, rawWorkspaceRoot: unknown)
   }
 }
 
-/** Validates SEC-PATH-01 workspace/project/targetDir/outputDir boundaries for V2/V3 MCP tool calls. */
+const V2_AUX_RELATIVE_PATH_KEYS = [
+  'architecturePath',
+  'junitXmlPath',
+  'telemetryJsonPath',
+  'defectsJsonPath',
+  'testPath',
+  'configPath',
+] as const;
+
+/** Validates SEC-PATH-01 workspace/project/targetDir/outputDir and auxiliary relative path boundaries for V2/V3 MCP tool calls. */
 export function validateV2ToolWorkspaceArgs(rawArgs: unknown): void {
   if (!isRecordObject(rawArgs)) {
     return;
@@ -182,6 +191,12 @@ export function validateV2ToolWorkspaceArgs(rawArgs: unknown): void {
   }
   if (typeof rawArgs.outputDir === 'string') {
     resolveV2TargetDirPath(rawArgs.outputDir, rawArgs.workspaceRoot);
+  }
+  for (const key of V2_AUX_RELATIVE_PATH_KEYS) {
+    const val = rawArgs[key];
+    if (typeof val === 'string' && val.trim().length > 0) {
+      resolveV2TargetDirPath(val, rawArgs.workspaceRoot);
+    }
   }
   validateRelativePathsArray(rawArgs.projects, rawArgs.workspaceRoot);
 }

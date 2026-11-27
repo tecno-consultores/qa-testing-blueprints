@@ -139,7 +139,10 @@ async def test_validation_exception_handler_sanitization() -> None:
         {"loc": ["body", "password"], "msg": "field required", "type": "missing"}
     ]
 
-    with patch("main.settings.APP_ENV", "production"):
+    with (
+        patch.dict(os.environ, {"APP_ENV": "production"}, clear=False),
+        patch("main.settings.APP_ENV", "production"),
+    ):
         app_prod = create_app()
         handler = app_prod.exception_handlers[RequestValidationError]
         resp_prod = await handler(fake_request, mock_exc)

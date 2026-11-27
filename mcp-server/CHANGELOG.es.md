@@ -8,6 +8,16 @@ Todos los cambios notables en el paquete npm y servidor MCP `@sinfallas/mcp-qa-1
 
 ## [Unreleased]
 
+## [3.12.0] - 2026-11-27
+
+### Añadido
+- **Motor Profundo de Especificaciones Inversas Multiproyecto (`analyze_ecosystem_specs` Esquema `v2.0.0`, `.skeletons/`, 6 Entregables, 8 Categorías):**
+  - Añadidos `detailLevel: 'standard' | 'deep' | 'exhaustive'` (por defecto `'deep'`) y `generateSkeletons: true` junto con 6 nuevos extractores en `src/tools/ecosystem-specs/{schemaAndEnumExtractor,endpointMetadataExtractor,asyncAndExternalExtractor,astFlowTracer,deepContractChecks,skeletonRenderer}.ts`, capturando campos DTO/ORM, FKs/relaciones, enums, handlers/parámetros/modelos/códigos HTTP/políticas de acceso en endpoints, WebSocket/Socket.IO/SSE/colas asíncronas/SDKs externos, flujos E2E AST `functional_flows[]`, 3 nuevas categorías de hallazgos (`SPEC_VS_CODE_DRIFT`, `PAYLOAD_SCHEMA_DRIFT`, `UNHANDLED_PAGINATION_OR_ERROR_CONTRACT`), conteos pre-truncamiento `findings_total_counts`/`truncated_categories`, `IMP-06..08` y prerenderizado atómico `.skeletons/00..05-*.skeleton.md` con Markdown/Mermaid.
+- **Detector Unificado de Contexto de Proyecto (`src/services/projectContextDetector.ts`):** Centralizadas la detección del repositorio upstream, la promoción uniforme al tier `enterprise` sin crear `.qa-11x.json` y el descubrimiento multi-nombre de manifiestos CALM (`qa-11x.calm.json`, `calm.json`, `*.calm.json`).
+
+### Corregido
+- **Endurecimiento de Auditoría en Tools MCP, CLI, Mergers y Stack de Ejemplo:** Sanitizados URLs/títulos en `propose_skill_evolution_pr`, añadidas guardias anti-symlink en `sarifIngester.ts`, acotado `blast-radius.ts` a `graphify-out/graph.json` con manejo seguro del candado Docker, alineada la detección de ciclos `reverse_import` en `certify-gate.ts`, añadida poda de skills sombra `.gemini`/`.hermes`/`.opencode`/`.copilot` y soporte uniforme `--lang` en subcomandos CLI, añadido `--toolset` en autocompletado bash `completion`, preservadas variables de cabecera Makefile tras `.PHONY:` en `SurgicalMerger`, ampliados `inspect-project` (`requirements.txt`, `nuxt`, `next`) y `test-pyramid` (`L07_BDD_UI_KARATE`, `k6`, `shellcheck`, `kcov`), alineado `ephemeral-runner` (`karatelabs` + cosecha de cobertura `ai-evals`/`vibe-rescue`) y endurecido `mcp-server/example/` (`X-Auth-Tenant` fail-closed + frontend Vite + verificación v2.0 en `verify-v2.sh`).
+
 ## [3.11.0] - 2026-11-27
 
 ### Añadido

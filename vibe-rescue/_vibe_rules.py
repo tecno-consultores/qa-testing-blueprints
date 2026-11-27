@@ -11,10 +11,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 IGNORED_DIRS = frozenset({
-    "node_modules", ".git", "dist", "build", ".next", ".venv", "venv",
+    "node_modules", ".git", "dist", "build", ".next", ".venv", "venv", "vendor",
     "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", "coverage",
+    "graphify-out", "target", ".tox", ".stryker-tmp", "mutants", "htmlcov",
     "qa11x-rescue",
 })
+CLIENT_PATH_RE = re.compile(
+    r"(?:^|/)(?:client|frontend|web|ui|components|pages|views)/",
+    re.IGNORECASE,
+)
 CODE_EXTENSIONS = frozenset({".ts", ".tsx", ".js", ".jsx", ".vue", ".py", ".php"})
 TEST_DIR_NAMES = frozenset({"tests", "test", "__tests__"})
 UNSAFE_PATH_TOKENS = ("\x00", "%2e", "%2f", "%5c")
@@ -355,7 +360,10 @@ def _scan_non_test_code(
     rel_path: Path, text: str, max_lines: int, findings: list[AuditFinding]
 ) -> None:
     rel, lines = rel_path.as_posix(), text.splitlines()
-    is_client = rel_path.suffix in {".tsx", ".jsx", ".vue"} or "client" in rel.lower()
+    is_client = (
+        rel_path.suffix in {".tsx", ".jsx", ".vue"}
+        or bool(CLIENT_PATH_RE.search(rel))
+    )
     if is_client and CLIENT_SERVICE_ROLE_RE.search(text):
         msg = "Uso de service_role/supabaseAdmin en capa cliente"
         loc = (rel, find_line(lines, CLIENT_SERVICE_ROLE_RE))

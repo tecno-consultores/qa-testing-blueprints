@@ -10,6 +10,8 @@ import {
   resolveSafeProjectPath,
 } from '../security/workspacePathValidator.js';
 import { throwIfSignalAborted } from '../utils/diagnosticFormatter.js';
+import { traceEcosystemFunctionalFlows } from './ecosystem-specs/astFlowTracer.js';
+import { extractAsyncAndExternalArtifacts } from './ecosystem-specs/asyncAndExternalExtractor.js';
 import { extractProjectConsumerArtifacts } from './ecosystem-specs/consumerExtractor.js';
 import { correlateEcosystemContracts } from './ecosystem-specs/contractCorrelator.js';
 import { extractProjectEnvVars } from './ecosystem-specs/envExtractor.js';
@@ -21,7 +23,9 @@ import {
   toPosixRel,
 } from './ecosystem-specs/projectDiscovery.js';
 import { extractProjectProviderArtifacts } from './ecosystem-specs/providerExtractor.js';
+import { renderEcosystemSkeletons } from './ecosystem-specs/skeletonRenderer.js';
 import {
+  DEFAULT_ECOSYSTEM_DETAIL_LEVEL,
   DEFAULT_ECOSYSTEM_OUTPUT_DIR,
   DEFAULT_MAX_FINDINGS_PER_CATEGORY,
   ECOSYSTEM_INVENTORY_SCHEMA_VERSION,
@@ -32,6 +36,7 @@ import {
   type AnalyzeEcosystemSpecsDeps,
   type AnalyzeEcosystemSpecsResult,
   type DiscoveredProject,
+  type EcosystemDetailLevel,
   type EcosystemInventoryDocument,
   type ProjectAnalysisRecord,
   type ProjectSummaryPreview,
@@ -49,7 +54,7 @@ const PREVIEW_FINDINGS_CAP = 10;
 export const ANALYZE_ECOSYSTEM_SPECS_TOOL: Pick<Tool, 'name' | 'description'> = {
   name: 'analyze_ecosystem_specs',
   description:
-    'Multi-project reverse-spec & integration analyzer (Zero-Footprint): discovers sibling projects (current QA-11X stacks), sequentially builds read-only (:ro) Graphify AST graphs into <outputDir>/.graphs/<slug>/, correlates HTTP/REST contracts + .env wiring + AST cycles/god-modules, and writes <outputDir>/ecosystem-inventory.json strictly without vulnerability audits or writes inside source repos.',
+    'Multi-project deep reverse-spec & integration analyzer (Zero-Footprint v2.0): discovers sibling projects (current QA-11X stacks), sequentially builds read-only (:ro) Graphify AST graphs into <outputDir>/.graphs/<slug>/, extracts HTTP endpoints + DTO/enum schemas + realtime/async jobs + AST E2E flows, detects 8 functional/AST inconsistency categories into <outputDir>/ecosystem-inventory.json, and pre-renders deterministic 00..05 Markdown/Mermaid skeletons into <outputDir>/.skeletons/ strictly without vulnerability audits or writes inside source repos.',
 };
 
 function assertNotSymlinkLeaf(targetPath: string): void {
@@ -87,6 +92,7 @@ async function analyzeSingleProject(
     readonly outputRealDir: string;
     readonly buildGraphs: boolean;
     readonly refreshGraphs: boolean;
+    readonly detailLevel: EcosystemDetailLevel;
     readonly deps: AnalyzeEcosystemSpecsDeps;
   }
 ): Promise<ProjectAnalysisRecord> {
@@ -102,11 +108,16 @@ async function analyzeSingleProject(
     signal: ctx.deps.signal,
   });
   const envVars = extractProjectEnvVars(project);
-  const { endpoints, models } = extractProjectProviderArtifacts(project);
+  const { endpoints, models, enums } = extractProjectProviderArtifacts(project);
   const { consumerCalls, uiViews, apiBasePrefixes } = extractProjectConsumerArtifacts(
     project,
     envVars
   );
+  const { realtimeChannels, asyncJobs, externalIntegrations } =
+    ctx.detailLevel === 'standard'
+      ? { realtimeChannels: [], asyncJobs: [], externalIntegrations: [] }
+      : extractAsyncAndExternalArtifacts(project, consumerCalls);
+
   return {
     slug: project.slug,
     name: project.name,
@@ -118,9 +129,13 @@ async function analyzeSingleProject(
     api_base_prefixes: apiBasePrefixes,
     endpoints,
     models,
+    enums: ctx.detailLevel === 'standard' ? [] : enums,
     consumer_calls: consumerCalls,
     ui_views: uiViews,
     env_vars: envVars,
+    realtime_channels: realtimeChannels,
+    async_jobs: asyncJobs,
+    external_integrations: externalIntegrations,
   };
 }
 
@@ -136,10 +151,15 @@ function toProjectSummaryPreview(record: ProjectAnalysisRecord): ProjectSummaryP
     graph_report_rel: record.graph.graph_report_rel,
     endpoints_count: record.endpoints.length,
     models_count: record.models.length,
+    enums_count: record.enums.length,
     consumer_calls_count: record.consumer_calls.length,
     ui_views_count: record.ui_views.length,
     env_vars_count: record.env_vars.length,
+    realtime_channels_count: record.realtime_channels.length,
+    async_jobs_count: record.async_jobs.length,
+    external_integrations_count: record.external_integrations.length,
     cycles_count: record.graph.cycles.length,
+    file_cycles_count: record.graph.file_cycles.length,
     god_modules_count: record.graph.god_modules.length,
   };
 }
@@ -151,8 +171,10 @@ function buildRecommendedDeliverables(
   return [
     `${outputRel}/00-resumen-ecosistema.md`,
     ...records.map((r) => `${outputRel}/01-specs-${r.slug}.md`),
-    `${outputRel}/02-integracion-y-contratos.md`,
-    `${outputRel}/03-inconsistencias-y-mejoras.md`,
+    `${outputRel}/02-modelo-de-datos-y-estados.md`,
+    `${outputRel}/03-flujos-funcionales-e2e.md`,
+    `${outputRel}/04-integracion-y-contratos.md`,
+    `${outputRel}/05-inconsistencias-y-mejoras.md`,
   ];
 }
 
@@ -161,6 +183,13 @@ function resolveBoundedMaxFindings(raw?: number): number {
     return DEFAULT_MAX_FINDINGS_PER_CATEGORY;
   }
   return Math.min(500, Math.max(1, Math.floor(raw)));
+}
+
+function resolveDetailLevel(raw?: EcosystemDetailLevel): EcosystemDetailLevel {
+  if (raw === 'standard' || raw === 'deep' || raw === 'exhaustive') {
+    return raw;
+  }
+  return DEFAULT_ECOSYSTEM_DETAIL_LEVEL;
 }
 
 export async function runAnalyzeEcosystemSpecs(
@@ -182,6 +211,8 @@ export async function runAnalyzeEcosystemSpecs(
   const discovered = discoverEcosystemProjects(workspaceReal, outputRealDir, args.projects);
   const buildGraphs = args.buildGraphs !== false;
   const refreshGraphs = args.refreshGraphs === true;
+  const detailLevel = resolveDetailLevel(args.detailLevel);
+  const generateSkeletons = args.generateSkeletons !== false;
   const maxFindings = resolveBoundedMaxFindings(args.maxFindingsPerCategory);
 
   const records: ProjectAnalysisRecord[] = [];
@@ -192,15 +223,23 @@ export async function runAnalyzeEcosystemSpecs(
         outputRealDir,
         buildGraphs,
         refreshGraphs,
+        detailLevel,
         deps,
       })
     );
   }
 
-  const { integrationEdges, findings, improvementOpportunities } = correlateEcosystemContracts(
-    records,
-    maxFindings
-  );
+  const {
+    integrationEdges,
+    findings,
+    findingsTotalCounts,
+    truncatedCategories,
+    improvementOpportunities,
+  } = correlateEcosystemContracts(records, maxFindings, detailLevel !== 'standard');
+  const functionalFlows =
+    detailLevel === 'standard'
+      ? []
+      : traceEcosystemFunctionalFlows(workspaceReal, records, integrationEdges);
 
   const outputRel = toPosixRel(workspaceReal, outputRealDir);
   const inventoryAbs = path.join(outputRealDir, INVENTORY_FILENAME);
@@ -209,6 +248,7 @@ export async function runAnalyzeEcosystemSpecs(
 
   const inventoryDoc: EcosystemInventoryDocument = {
     schema_version: ECOSYSTEM_INVENTORY_SCHEMA_VERSION,
+    detail_level: detailLevel,
     generated_at_utc: nowIso,
     scope_policy: ECOSYSTEM_SCOPE_POLICY,
     zero_footprint_verified: true,
@@ -216,20 +256,27 @@ export async function runAnalyzeEcosystemSpecs(
     output_dir_rel: outputRel,
     projects: records,
     integration_edges: integrationEdges,
+    functional_flows: functionalFlows,
     findings,
+    findings_total_counts: findingsTotalCounts,
+    truncated_categories: truncatedCategories,
     improvement_opportunities: improvementOpportunities,
   };
   writeJsonAtomicSafe(workspaceReal, inventoryAbs, inventoryDoc);
+  const skeletonFiles = generateSkeletons
+    ? renderEcosystemSkeletons(workspaceReal, outputRealDir, inventoryDoc)
+    : [];
 
   const deliverables = buildRecommendedDeliverables(outputRel, records);
   const summaryLine =
-    `[PASS] ECOSYSTEM-SPECS | Projects: ${records.length} | Edges: ${integrationEdges.length} | ` +
-    `Broken: ${findings.BROKEN_CONSUMER_CALL.length} | Orphans: ${findings.ORPHAN_PROVIDER_ENDPOINT.length} | ` +
-    `Asymmetry: ${findings.CHANNEL_ASYMMETRY.length} | EnvDrift: ${findings.ENV_CONFIG_DRIFT.length} | ` +
-    `AST: ${findings.AST_STRUCTURAL_FINDINGS.length}`;
+    `[PASS] ECOSYSTEM-SPECS v2 (${detailLevel}) | Projects: ${records.length} | Edges: ${integrationEdges.length} | ` +
+    `Flows: ${functionalFlows.length} | Broken: ${findingsTotalCounts.BROKEN_CONSUMER_CALL} | ` +
+    `Orphans: ${findingsTotalCounts.ORPHAN_PROVIDER_ENDPOINT} | SpecDrift: ${findingsTotalCounts.SPEC_VS_CODE_DRIFT} | ` +
+    `PayloadDrift: ${findingsTotalCounts.PAYLOAD_SCHEMA_DRIFT} | AST: ${findingsTotalCounts.AST_STRUCTURAL_FINDINGS}`;
 
   return {
     schema_version: ECOSYSTEM_INVENTORY_SCHEMA_VERSION,
+    detail_level: detailLevel,
     status: 'PASSED',
     scope_policy: ECOSYSTEM_SCOPE_POLICY,
     zero_footprint_verified: true,
@@ -237,29 +284,39 @@ export async function runAnalyzeEcosystemSpecs(
     workspace_root: workspaceReal,
     output_dir: outputRel,
     inventory_path: inventoryRel,
+    skeleton_files: skeletonFiles,
     projects_count: records.length,
+    functional_flows_count: functionalFlows.length,
     projects_summary: records.map(toProjectSummaryPreview),
     integration_summary: {
       matched_edges_count: integrationEdges.length,
-      broken_calls_count: findings.BROKEN_CONSUMER_CALL.length,
-      orphan_endpoints_count: findings.ORPHAN_PROVIDER_ENDPOINT.length,
-      channel_asymmetry_count: findings.CHANNEL_ASYMMETRY.length,
-      env_drift_count: findings.ENV_CONFIG_DRIFT.length,
-      ast_structural_count: findings.AST_STRUCTURAL_FINDINGS.length,
+      broken_calls_count: findingsTotalCounts.BROKEN_CONSUMER_CALL,
+      orphan_endpoints_count: findingsTotalCounts.ORPHAN_PROVIDER_ENDPOINT,
+      channel_asymmetry_count: findingsTotalCounts.CHANNEL_ASYMMETRY,
+      env_drift_count: findingsTotalCounts.ENV_CONFIG_DRIFT,
+      ast_structural_count: findingsTotalCounts.AST_STRUCTURAL_FINDINGS,
+      spec_vs_code_drift_count: findingsTotalCounts.SPEC_VS_CODE_DRIFT,
+      payload_schema_drift_count: findingsTotalCounts.PAYLOAD_SCHEMA_DRIFT,
+      unhandled_contract_count: findingsTotalCounts.UNHANDLED_PAGINATION_OR_ERROR_CONTRACT,
       improvement_opportunities_count: improvementOpportunities.length,
     },
+    findings_total_counts: findingsTotalCounts,
+    truncated_categories: truncatedCategories,
     findings_preview: {
       broken_consumer_calls: findings.BROKEN_CONSUMER_CALL.slice(0, PREVIEW_FINDINGS_CAP),
       orphan_provider_endpoints: findings.ORPHAN_PROVIDER_ENDPOINT.slice(0, PREVIEW_FINDINGS_CAP),
       channel_asymmetry: findings.CHANNEL_ASYMMETRY.slice(0, PREVIEW_FINDINGS_CAP),
       env_config_drift: findings.ENV_CONFIG_DRIFT.slice(0, PREVIEW_FINDINGS_CAP),
       ast_structural: findings.AST_STRUCTURAL_FINDINGS.slice(0, PREVIEW_FINDINGS_CAP),
+      spec_vs_code_drift: findings.SPEC_VS_CODE_DRIFT.slice(0, PREVIEW_FINDINGS_CAP),
+      payload_schema_drift: findings.PAYLOAD_SCHEMA_DRIFT.slice(0, PREVIEW_FINDINGS_CAP),
+      unhandled_contracts: findings.UNHANDLED_PAGINATION_OR_ERROR_CONTRACT.slice(0, PREVIEW_FINDINGS_CAP),
     },
     recommended_deliverables: deliverables,
     next_steps: [
-      `Read '${inventoryRel}' and each '${outputRel}/.graphs/<slug>/GRAPH_REPORT.md' (follow skill 'qa-11x-reverse-specs').`,
+      `Read '${inventoryRel}', '${outputRel}/.skeletons/*.skeleton.md', and each '${outputRel}/.graphs/<slug>/GRAPH_REPORT.md' (follow skill 'qa-11x-reverse-specs').`,
       'Inspect targeted 40-80 line source windows around cited file:line pointers (do NOT write inside source repos; do NOT run vulnerability audits).',
-      `Author numbered deliverables in '${outputRel}/' in the user prompt language (single language, <=20% [INFERRED], Mermaid diagrams, file:line citations).`,
+      `Synthesize all 6 numbered deliverables (00..05-*.md) in '${outputRel}/' in the user prompt language (single language, <=20% [INFERRED], preserving 100% of deterministic skeleton tables & Mermaid diagrams).`,
     ],
   };
 }

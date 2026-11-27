@@ -65,7 +65,11 @@ def _resolve_openai_judge(active_env: Mapping[str, str]) -> DeepEvalBaseLLM | No
     openai_base = active_env.get("OPENAI_API_BASE", "").strip()
     model_name = _pick_model_name(active_env, "gpt-4.1-mini")
     if openai_base:
-        return LocalModel(model=model_name, base_url=openai_base, api_key=api_key)
+        return LocalModel(
+            model=model_name,
+            base_url=_normalize_v1_base_url(openai_base),
+            api_key=api_key,
+        )
     return OpenAIModel(model=model_name, api_key=api_key)
 
 
@@ -109,7 +113,7 @@ def resolve_deepeval_judge_model(
     if openai_base:
         return LocalModel(
             model=_pick_model_name(active_env, "gpt-4.1-mini"),
-            base_url=openai_base,
+            base_url=_normalize_v1_base_url(openai_base),
             api_key="ephemeral-local-placeholder",
         )
     raise RuntimeError("MISSING_LLM_CREDENTIALS")

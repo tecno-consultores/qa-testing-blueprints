@@ -568,8 +568,39 @@ def find_mismatches(text: str, rule: VersionRule, expected: str) -> list[str]:
     return errors
 
 
+_SECURITY_ACTIVE_MM_RE = re.compile(
+    r"^\|\s*\*\*`(\d+\.\d+)\.x`\s*\(`main`\s*/\s*(?:Active|Activa)\)\*\*",
+    re.MULTILINE,
+)
+
+
+def _insert_superseded_security_row(
+    updated: str, rel_path: str, old_mm: str, new_mm: str
+) -> str:
+    if old_mm == new_mm or f"**`{old_mm}.x`**" in updated:
+        return updated
+    is_es = rel_path.endswith(".es.md")
+    superseded_row = (
+        f"| **`{old_mm}.x`** | ⚠️ Solo Parches de Seguridad | "
+        f"Reemplazada por `{new_mm}.x` (`actualización recomendada`) |"
+        if is_es
+        else f"| **`{old_mm}.x`** | ⚠️ Security Fixes Only | "
+        f"Superseded by `{new_mm}.x` (`upgrade recommended`) |"
+    )
+    active_line_re = re.compile(
+        rf"(^\|\s*\*\*`{re.escape(new_mm)}\.x`\s*\(`main`\s*/\s*(?:Active|Activa)\)\*\*[^\n]*\n)",
+        re.MULTILINE,
+    )
+    return active_line_re.sub(rf"\g<1>{superseded_row}\n", updated, count=1)
+
+
 def apply_rule(text: str, rule: VersionRule, expected: str) -> tuple[str, int]:
     """Replace all anchored values with expected and return new text + change count."""
+    old_sec_match = (
+        _SECURITY_ACTIVE_MM_RE.search(text)
+        if rule.rel_path in {"SECURITY.md", "SECURITY.es.md"}
+        else None
+    )
     updated = text
     matched_patterns = 0
     for pattern in rule.patterns:
@@ -580,6 +611,10 @@ def apply_rule(text: str, rule: VersionRule, expected: str) -> tuple[str, int]:
         )
         if count > 0:
             matched_patterns += 1
+    if old_sec_match is not None:
+        updated = _insert_superseded_security_row(
+            updated, rule.rel_path, old_sec_match.group(1), expected
+        )
     return updated, matched_patterns
 
 

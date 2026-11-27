@@ -32,10 +32,30 @@ const PHP_EXTS: ReadonlySet<string> = new Set(['.php']);
 const BASE_URL_LITERAL_RE = /\bbaseURL\s*:\s*['"`]([^'"`\r\n]+)['"`]/;
 const BASE_URL_ENV_RE =
   /\b(?:baseURL|API_BASE|API_URL)\s*[:=]\s*(?:import\.meta\.env\.|process\.env\.)([A-Z][A-Z0-9_]{1,63})/;
+const KNOWN_HTTP_CLIENT_NAMES: ReadonlySet<string> = new Set([
+  'axios',
+  'api',
+  'apiclient',
+  'http',
+  'httpclient',
+  'client',
+  'this.http',
+]);
 const CLIENT_METHOD_CALL_RE =
-  /\b(?:axios|api|apiClient|http|httpClient|client|this\.http)\.(get|post|put|patch|delete)\(\s*(['"`])([^'"`\r\n]+)\2/i;
+  /\b((?:this\.)?[a-z_$]\w{0,40})\.(get|post|put|patch|delete)\(\s*(['"`])([^'"`\r\n]+)\3/i;
 const CLIENT_GENERIC_CALL_RE =
-  /\b(?:axios|api|apiClient|http|httpClient|client|this\.http)\.(get|post|put|patch|delete)<[^>\r\n]+>\(\s*(['"`])([^'"`\r\n]+)\2/i;
+  /\b((?:this\.)?[a-z_$]\w{0,40})\.(get|post|put|patch|delete)<([^>\r\n]{1,120})>\(\s*(['"`])([^'"`\r\n]+)\4/i;
+const API_SEMANTIC_ENV_KEY_RE = /(?:API|BACKEND|GATEWAY|SERVER)/i;
+const NON_API_ENV_KEY_RE = /(?:SENTRY|CDN|ANALYTICS|OAUTH|DOCS|REDIRECT|CALLBACK|APP_URL|SITE_URL|PUBLIC_URL|FRONTEND_URL|WEB_URL)/i;
+const EXPORTED_CLIENT_CREATE_RE = /\bexport\s+(?:const|let)\s+([a-zA-Z_$][\w$]*)\s*=\s*(?:axios|ky|ofetch)\.create\(/;
+const IMPORT_DEFAULT_RE = /^import\s+([a-zA-Z_$][\w$]*)\s+from\s+['"]([^'"]+)['"]/;
+const IMPORT_NAMED_RE = /^import\s+\{([^}\r\n]{1,200})\}\s+from\s+['"]([^'"]+)['"]/;
+const FN_DECL_RE = /^function\s+([a-zA-Z_$]\w*)/;
+const ARROW_DECL_RE = /^(?:const|let)\s+([a-zA-Z_$]\w*)\s*=\s*\(/;
+const ARROW_ASYNC_DECL_RE = /^(?:const|let)\s+([a-zA-Z_$]\w*)\s*=\s*async\s*\(/;
+const PY_FN_DECL_RE = /^def\s+([a-zA-Z_]\w*)\s*\(/;
+const ERROR_HANDLING_RE = /\b(?:try\s*\{|\.catch\(|if\s*\(\s*![a-zA-Z_$]\w*\.ok\b|response\.ok|except\s)/;
+const PAGINATION_READ_RE = /\b(?:\.items\b|\.results\b|\.total\b|\.next_page\b|\.pagination\b|page=|limit=|offset=)/i;
 const FETCH_CALL_RE =
   /(?<![.\w$])(?:(?:window|globalThis)\.)?(?:\$fetch|useFetch|fetch)\(\s*(['"`])([^'"`\r\n]+)\1/;
 const INLINE_METHOD_OPT_RE = /\bmethod\s*:\s*['"`]([a-z]+)['"`]/i;
@@ -168,9 +188,68 @@ function resolveFetchVerb(lines: readonly string[], startIdx: number): HttpVerb 
   return (m?.[1] ? toHttpVerb(m[1]) : null) ?? 'GET';
 }
 
+interface CallRecordDetails {
+  readonly verb: HttpVerb;
+  readonly rawUrl: string;
+  readonly clientKind: string;
+  readonly file: string;
+  readonly line: number;
+  readonly callerFunction?: string;
+  readonly requestTypeArg?: string;
+  readonly responseTypeArg?: string;
+  readonly hasErrorHandling?: boolean;
+  readonly readsPaginationEnvelope?: boolean;
+}
+
+function stripFnModifiers(line: string): string {
+  let cur = line.trimStart();
+  if (cur.startsWith('export ')) cur = cur.slice(7).trimStart();
+  if (cur.startsWith('async ')) cur = cur.slice(6).trimStart();
+  return cur;
+}
+
+function findEnclosingFunctionName(lines: readonly string[], idx: number): string | undefined {
+  for (let i = idx; i >= Math.max(0, idx - 30); i -= 1) {
+    const clean = stripFnModifiers(lines[i] ?? '');
+    const m =
+      FN_DECL_RE.exec(clean) ??
+      ARROW_DECL_RE.exec(clean) ??
+      ARROW_ASYNC_DECL_RE.exec(clean) ??
+      PY_FN_DECL_RE.exec(clean);
+    if (m?.[1]) return m[1];
+  }
+  return undefined;
+}
+
+function detectCallContractContext(lines: readonly string[], idx: number): {
+  readonly hasErrorHandling: boolean;
+  readonly readsPaginationEnvelope: boolean;
+} {
+  const snippet = lines.slice(Math.max(0, idx - 6), Math.min(lines.length, idx + 8)).join('\n');
+  return {
+    hasErrorHandling: ERROR_HANDLING_RE.test(snippet),
+    readsPaginationEnvelope: PAGINATION_READ_RE.test(snippet),
+  };
+}
+
+function parseGenericDtoArgs(rawGeneric: string | undefined): {
+  readonly responseTypeArg?: string;
+  readonly requestTypeArg?: string;
+} {
+  if (!rawGeneric) return {};
+  const parts = rawGeneric
+    .split(',')
+    .map((p) => p.replace(/\[\]$/, '').trim())
+    .filter((p) => /^[A-Z]\w*$/.test(p));
+  return {
+    ...(parts[0] ? { responseTypeArg: parts[0] } : {}),
+    ...(parts[1] ? { requestTypeArg: parts[1] } : {}),
+  };
+}
+
 function recordJsCall(
   parsed: ParsedCallUrl | null,
-  details: { readonly verb: HttpVerb; readonly rawUrl: string; readonly clientKind: string; readonly file: string; readonly line: number },
+  details: CallRecordDetails,
   state: ConsumerScanState
 ): void {
   if (!parsed) return;
@@ -183,6 +262,13 @@ function recordJsCall(
     is_external: parsed.isExternal,
     file: details.file,
     line: details.line,
+    ...(details.callerFunction ? { caller_function: details.callerFunction } : {}),
+    ...(details.requestTypeArg ? { request_type_arg: details.requestTypeArg } : {}),
+    ...(details.responseTypeArg ? { response_type_arg: details.responseTypeArg } : {}),
+    ...(details.hasErrorHandling !== undefined ? { has_error_handling: details.hasErrorHandling } : {}),
+    ...(details.readsPaginationEnvelope !== undefined
+      ? { reads_pagination_envelope: details.readsPaginationEnvelope }
+      : {}),
   });
 }
 
@@ -213,23 +299,112 @@ function detectFileBasePrefix(
 interface JsFileScanContext {
   readonly relFile: string;
   readonly filePrefix: string;
+  readonly exportedClients: ReadonlyMap<string, string>;
   readonly state: ConsumerScanState;
+}
+
+interface CallLineMeta {
+  readonly lineNo: number;
+  readonly callerFunction?: string;
+  readonly hasErrorHandling: boolean;
+  readonly readsPaginationEnvelope: boolean;
+}
+
+function isHttpClientIdentifier(
+  name: string,
+  exportedClients: ReadonlyMap<string, string>
+): boolean {
+  if (exportedClients.has(name)) return true;
+  const lower = name.toLowerCase();
+  return (
+    KNOWN_HTTP_CLIENT_NAMES.has(lower) ||
+    lower.endsWith('api') ||
+    lower.endsWith('http') ||
+    lower.endsWith('client')
+  );
+}
+
+function extractMatchedClientCall(line: string): {
+  readonly clientName: string;
+  readonly verbRaw: string;
+  readonly url: string;
+  readonly genericRaw?: string;
+} | null {
+  const genericCall = CLIENT_GENERIC_CALL_RE.exec(line);
+  if (genericCall) {
+    return {
+      clientName: genericCall[1] ?? '',
+      verbRaw: genericCall[2] ?? '',
+      genericRaw: genericCall[3],
+      url: genericCall[5] ?? '',
+    };
+  }
+  const methodCall = CLIENT_METHOD_CALL_RE.exec(line);
+  return methodCall
+    ? { clientName: methodCall[1] ?? '', verbRaw: methodCall[2] ?? '', url: methodCall[4] ?? '' }
+    : null;
+}
+
+function scanJsClientMethodCall(line: string, meta: CallLineMeta, ctx: JsFileScanContext): void {
+  const matched = extractMatchedClientCall(line);
+  if (!matched?.url || !isHttpClientIdentifier(matched.clientName, ctx.exportedClients)) return;
+  const verb = toHttpVerb(matched.verbRaw);
+  if (!verb) return;
+  const dtoArgs = parseGenericDtoArgs(matched.genericRaw);
+  recordJsCall(
+    parseConsumerCallUrl(matched.url, ctx.filePrefix, ctx.state.envPrefixByKey),
+    {
+      verb,
+      rawUrl: matched.url,
+      clientKind: 'http-client',
+      file: ctx.relFile,
+      line: meta.lineNo,
+      callerFunction: meta.callerFunction,
+      hasErrorHandling: meta.hasErrorHandling,
+      readsPaginationEnvelope: meta.readsPaginationEnvelope,
+      ...dtoArgs,
+    },
+    ctx.state
+  );
+}
+
+function scanJsRequestConfigCall(
+  lines: readonly string[],
+  idx: number,
+  meta: CallLineMeta,
+  ctx: JsFileScanContext
+): void {
+  if (!REQUEST_OBJ_HEAD_RE.test(lines[idx] ?? '')) return;
+  const reqWindow = lines.slice(idx, Math.min(lines.length, idx + 5)).join(' ');
+  const verbMatch = INLINE_METHOD_OPT_RE.exec(reqWindow);
+  const urlMatch = REQUEST_OBJ_URL_RE.exec(reqWindow);
+  const verb = verbMatch?.[1] ? toHttpVerb(verbMatch[1]) : null;
+  if (!verb || !urlMatch?.[1]) return;
+  recordJsCall(
+    parseConsumerCallUrl(urlMatch[1], ctx.filePrefix, ctx.state.envPrefixByKey),
+    {
+      verb,
+      rawUrl: urlMatch[1],
+      clientKind: 'request-config',
+      file: ctx.relFile,
+      line: meta.lineNo,
+      callerFunction: meta.callerFunction,
+      hasErrorHandling: meta.hasErrorHandling,
+      readsPaginationEnvelope: meta.readsPaginationEnvelope,
+    },
+    ctx.state
+  );
 }
 
 function scanJsHttpCallLine(lines: readonly string[], idx: number, ctx: JsFileScanContext): void {
   const line = lines[idx] ?? '';
-  const lineNo = idx + 1;
-  const methodCall = CLIENT_METHOD_CALL_RE.exec(line) ?? CLIENT_GENERIC_CALL_RE.exec(line);
-  if (methodCall?.[1] && methodCall[3]) {
-    const verb = toHttpVerb(methodCall[1]);
-    if (verb) {
-      recordJsCall(
-        parseConsumerCallUrl(methodCall[3], ctx.filePrefix, ctx.state.envPrefixByKey),
-        { verb, rawUrl: methodCall[3], clientKind: 'http-client', file: ctx.relFile, line: lineNo },
-        ctx.state
-      );
-    }
-  }
+  const contractCtx = detectCallContractContext(lines, idx);
+  const meta: CallLineMeta = {
+    lineNo: idx + 1,
+    callerFunction: findEnclosingFunctionName(lines, idx),
+    ...contractCtx,
+  };
+  scanJsClientMethodCall(line, meta, ctx);
   const fetchCall = FETCH_CALL_RE.exec(line);
   if (fetchCall?.[2]) {
     recordJsCall(
@@ -239,24 +414,15 @@ function scanJsHttpCallLine(lines: readonly string[], idx: number, ctx: JsFileSc
         rawUrl: fetchCall[2],
         clientKind: 'fetch',
         file: ctx.relFile,
-        line: lineNo,
+        line: meta.lineNo,
+        callerFunction: meta.callerFunction,
+        hasErrorHandling: meta.hasErrorHandling,
+        readsPaginationEnvelope: meta.readsPaginationEnvelope,
       },
       ctx.state
     );
   }
-  if (REQUEST_OBJ_HEAD_RE.test(line)) {
-    const reqWindow = lines.slice(idx, Math.min(lines.length, idx + 5)).join(' ');
-    const verbMatch = INLINE_METHOD_OPT_RE.exec(reqWindow);
-    const urlMatch = REQUEST_OBJ_URL_RE.exec(reqWindow);
-    const verb = verbMatch?.[1] ? toHttpVerb(verbMatch[1]) : null;
-    if (verb && urlMatch?.[1]) {
-      recordJsCall(
-        parseConsumerCallUrl(urlMatch[1], ctx.filePrefix, ctx.state.envPrefixByKey),
-        { verb, rawUrl: urlMatch[1], clientKind: 'request-config', file: ctx.relFile, line: lineNo },
-        ctx.state
-      );
-    }
-  }
+  scanJsRequestConfigCall(lines, idx, meta, ctx);
 }
 
 function scanJsLine(lines: readonly string[], idx: number, ctx: JsFileScanContext): void {
@@ -331,6 +497,13 @@ function scanScriptCallsByRegex(spec: ScriptRegexScanSpec, state: ConsumerScanSt
   }
 }
 
+function isApiSemanticEnvKey(key: string): boolean {
+  if (NON_API_ENV_KEY_RE.test(key) && !API_SEMANTIC_ENV_KEY_RE.test(key)) {
+    return false;
+  }
+  return API_SEMANTIC_ENV_KEY_RE.test(key);
+}
+
 function buildEnvPrefixIndex(envVars: readonly EnvVarEntry[]): {
   readonly byKey: Map<string, string>;
   readonly defaultPrefix: string;
@@ -344,10 +517,50 @@ function buildEnvPrefixIndex(envVars: readonly EnvVarEntry[]): {
     const prefix = extractUrlPathPrefix(item.sanitized_sample);
     if (prefix) {
       byKey.set(item.key, prefix);
-      if (!defaultPrefix) defaultPrefix = prefix;
+      if (!defaultPrefix && isApiSemanticEnvKey(item.key)) defaultPrefix = prefix;
     }
   }
   return { byKey, defaultPrefix };
+}
+
+function collectExportedClientPrefixes(
+  projectAbs: string,
+  jsFiles: readonly string[],
+  envPrefixByKey: ReadonlyMap<string, string>,
+  basePrefixes: Set<string>
+): Map<string, string> {
+  const exported = new Map<string, string>();
+  for (const relFile of jsFiles) {
+    const lines = readLinesSafe(path.join(projectAbs, relFile));
+    for (let i = 0; i < lines.length; i += 1) {
+      const m = EXPORTED_CLIENT_CREATE_RE.exec(lines[i] ?? '');
+      if (!m?.[1]) continue;
+      const slice = lines.slice(i, Math.min(lines.length, i + 8));
+      const pref = detectFileBasePrefix(slice, envPrefixByKey, '', basePrefixes);
+      if (pref) exported.set(m[1], pref);
+    }
+  }
+  return exported;
+}
+
+function resolveImportedClientPrefix(
+  lines: readonly string[],
+  exportedClients: ReadonlyMap<string, string>
+): string {
+  if (exportedClients.size === 0) return '';
+  for (const line of lines) {
+    const trimmed = line.trimStart();
+    const defImp = IMPORT_DEFAULT_RE.exec(trimmed);
+    const namedImp = defImp ? null : IMPORT_NAMED_RE.exec(trimmed);
+    const names = defImp?.[1]
+      ? [defImp[1]]
+      : (namedImp?.[1] ?? '').split(',').map((s) => s.trim().split(' as ')[0]?.trim() ?? '');
+    for (const name of names) {
+      const found = exportedClients.get(name);
+      if (found) return found;
+    }
+  }
+  return '';
 }
 
 export function extractProjectConsumerArtifacts(
@@ -371,11 +584,30 @@ export function extractProjectConsumerArtifacts(
     seenCalls: new Set<string>(),
   };
 
-  for (const relFile of collectProjectSourceFiles(project.absPath, JS_CLIENT_EXTS, false)) {
+  const jsFiles = collectProjectSourceFiles(project.absPath, JS_CLIENT_EXTS, false);
+  const exportedClientPrefixes = collectExportedClientPrefixes(
+    project.absPath,
+    jsFiles,
+    envPrefixByKey,
+    basePrefixes
+  );
+
+  for (const relFile of jsFiles) {
     recordUiFileIfView(relFile, state);
     const lines = readLinesSafe(path.join(project.absPath, relFile));
-    const filePrefix = detectFileBasePrefix(lines, envPrefixByKey, defaultPrefix, basePrefixes);
-    const fileCtx: JsFileScanContext = { relFile, filePrefix, state };
+    const importedPref = resolveImportedClientPrefix(lines, exportedClientPrefixes);
+    const filePrefix = detectFileBasePrefix(
+      lines,
+      envPrefixByKey,
+      importedPref || defaultPrefix,
+      basePrefixes
+    );
+    const fileCtx: JsFileScanContext = {
+      relFile,
+      filePrefix,
+      exportedClients: exportedClientPrefixes,
+      state,
+    };
     for (let i = 0; i < lines.length; i += 1) {
       scanJsLine(lines, i, fileCtx);
     }

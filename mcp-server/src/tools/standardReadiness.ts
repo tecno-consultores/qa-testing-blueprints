@@ -17,6 +17,11 @@ import {
   detectGovernanceFiles,
   isGovernanceOnboardingNeeded,
 } from '../services/governanceDetector.js';
+import {
+  findFirstCalmArchitectureRelPath,
+  isUpstreamBlueprintsRepo,
+  resolveEffectiveQa11xTier,
+} from '../services/projectContextDetector.js';
 import type {
   GovernanceDocDecision,
   Standard11xReadiness,
@@ -169,13 +174,6 @@ export function hasAnalyzableSourceCode(projectPath: string): boolean {
   return dirHasSourceFiles(projectPath, 0);
 }
 
-function isUpstreamBlueprintsRepo(projectPath: string): boolean {
-  return (
-    fs.existsSync(path.join(projectPath, 'manifest.json')) &&
-    fs.existsSync(path.join(projectPath, '.agents', 'scripts', 'sync_governance.py'))
-  );
-}
-
 function detectLocalGovernanceDuplication(projectPath: string): boolean {
   if (isUpstreamBlueprintsRepo(projectPath)) {
     return false;
@@ -204,8 +202,12 @@ function hasCiWorkflow(files: readonly string[]): boolean {
 
 function hasCalmArchitectureFile(projectPath: string, files: readonly string[]): boolean {
   return (
-    fs.existsSync(path.join(projectPath, 'architecture', 'qa-11x.calm.json')) ||
-    files.some((f) => f.startsWith('architecture/') && f.endsWith('.calm.json'))
+    findFirstCalmArchitectureRelPath(projectPath) !== null ||
+    files.some(
+      (f) =>
+        f.startsWith('architecture/') &&
+        (f.endsWith('.calm.json') || f === 'architecture/calm.json')
+    )
   );
 }
 
@@ -245,11 +247,12 @@ function collectReadinessSnapshot(
   files: readonly string[]
 ): ReadinessSnapshot {
   const loadedCfg = readQa11xConfig(projectPath);
+  const effectiveTier = resolveEffectiveQa11xTier(projectPath, loadedCfg);
   const agentsMdContent = readTextSafe(path.join(projectPath, AGENTS_MD_FILE));
   const changelogContent = readTextSafe(path.join(projectPath, CHANGELOG_MD_FILE));
   return {
     declaredTier: loadedCfg.declaredTier,
-    effectiveTier: loadedCfg.effectiveTier,
+    effectiveTier,
     tierConfirmedByUser: loadedCfg.tierConfirmedByUser,
     astGraphFiles: findAstGraphFilesRecursive(projectPath),
     hasGraphifyScript: fs.existsSync(path.join(projectPath, GRAPHIFY_SCRIPT_REL)),

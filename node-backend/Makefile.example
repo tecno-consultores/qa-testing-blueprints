@@ -1,4 +1,4 @@
-.PHONY: qa-lint qa-unit qa-contracts qa-ci certify qa-e2e qa-bdd qa-dast qa-mutation qa-sbom qa-stress qa-chaos qa-observability qa-all clean-cache clean qa-clean
+.PHONY: qa-lint qa-unit qa-contracts qa-ci certify qa-e2e qa-bdd qa-dast qa-mutation qa-sbom qa-stress qa-perf qa-chaos qa-observability qa-all clean-cache clean qa-clean
 
 # Variables
 COMPOSE_FILE ?= docker-compose.qa.yml
@@ -63,6 +63,7 @@ qa-stress:
 		docker compose --project-directory "$(PROJECT_DIR)" -f "$(COMPOSE_FILE)" --profile chaos run --rm -T -u "$(QA_UID):$(QA_GID)" stress_test'
 
 qa-chaos: qa-stress
+qa-perf: qa-stress
 
 qa-observability:
 	@echo "📈 [11X] Levantando observabilidad (Prometheus)..."

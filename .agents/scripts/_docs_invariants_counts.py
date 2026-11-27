@@ -63,6 +63,8 @@ _SKILLS_COUNT_RE = re.compile(
     r"(?<![.\w-])(\d+)\s+(?:modular\s+(?:AI\s+agent\s+)?|modulares\s+)?"
     r"(?:skills|Skills)(?:\s+modulares)?\b(?!-)"
 )
+_SKILLS_BADGE_RE = re.compile(r"AI%20Skills-(\d+)%20Modular(?:es)?")
+_SKILLS_DIR_COUNT_RE = re.compile(r"(?<![.\w-])(\d+)\s+`\.agents/skills/`")
 _SCANNER_RULES_STRICT_RE = re.compile(
     r"(?<![.\w-])(\d+)\s+(?:static|scanner|estáticas?|del\s+escáner)\s+"
     r"(?:rules?|reglas?|patterns?|patrones?)\b",
@@ -529,12 +531,17 @@ def _check_calm_line(
 def _check_skills_line(
     rel: str, line_no: int, line: str, expected_skills: int
 ) -> list[str]:
+    found = [
+        *_SKILLS_COUNT_RE.findall(line),
+        *_SKILLS_BADGE_RE.findall(line),
+        *_SKILLS_DIR_COUNT_RE.findall(line),
+    ]
     return [
         (
             f"{rel}:{line_no}: conteo de skills obsoleto "
             f"({val} skills, esperado {expected_skills})."
         )
-        for val in _SKILLS_COUNT_RE.findall(line)
+        for val in found
         if int(val) != expected_skills
     ]
 

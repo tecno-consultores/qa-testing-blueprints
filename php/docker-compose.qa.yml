@@ -66,7 +66,7 @@ services:
       - /tmp:size=32M,noexec,nosuid,nodev
     security_opt:
       - no-new-privileges:true
-    command: keydb-server --server-threads 2 --appendonly no --save "" --dir /tmp
+    command: keydb-server --server-threads 2 --maxmemory 256mb --maxmemory-policy volatile-lru --appendonly no --save "" --dir /tmp
     healthcheck:
       test: ["CMD", "keydb-cli", "ping"]
       interval: 3s
@@ -246,6 +246,7 @@ services:
     profiles:
       - load
     environment:
+      HOME: /tmp
       K6_PROFILE: ${K6_PROFILE:-smoke}
       API_BASE_URL: ${API_BASE_URL:-http://php-api:8000}
       QA_TENANT_ID: ${QA_TENANT_ID:-tenant-alpha}

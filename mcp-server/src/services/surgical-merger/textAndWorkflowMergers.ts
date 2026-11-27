@@ -88,9 +88,42 @@ function hardenMakefileLine(line: string, changes: string[]): string {
   return updated;
 }
 
+const MAKE_VAR_ASSIGN_RE = /^([A-Za-z_]\w*)\s*(?:\?=|:=|\+=|=)/;
+
+function collectExistingMakeVars(lines: readonly string[]): Set<string> {
+  const vars = new Set<string>();
+  for (const line of lines) {
+    const m = MAKE_VAR_ASSIGN_RE.exec(line);
+    if (m?.[1]) {
+      vars.add(m[1]);
+    }
+  }
+  return vars;
+}
+
+function extractMissingHeaderMakeVars(
+  exampleText: string,
+  existingVars: ReadonlySet<string>,
+  changes: string[]
+): string[] {
+  const missingLines: string[] = [];
+  for (const line of exampleText.split('\n')) {
+    const targetMatch = /^([a-zA-Z0-9_.-]+):(?!=)/.exec(line);
+    if (targetMatch?.[1] && targetMatch[1] !== '.PHONY') {
+      break;
+    }
+    const varMatch = MAKE_VAR_ASSIGN_RE.exec(line);
+    if (varMatch?.[1] && !existingVars.has(varMatch[1])) {
+      missingLines.push(line);
+      changes.push(`Añadida variable Makefile: "${varMatch[1]}"`);
+    }
+  }
+  return missingLines;
+}
+
 /**
  * Fusión aditiva de Makefiles:
- * Conserva targets existentes, e inyecta únicamente targets ausentes (e.g. qa-*, audit-*).
+ * Conserva targets existentes, preserva variables de cabecera e inyecta únicamente targets ausentes.
  */
 export function mergeMakefileContent(
   targetContent: string,
@@ -108,6 +141,7 @@ export function mergeMakefileContent(
   const normalizedExample = exampleContent.replace(/\r\n/g, '\n');
   const targetLines = normalizedTarget.split('\n');
   const existingTargets = new Set<string>();
+  const existingVars = collectExistingMakeVars(targetLines);
 
   for (const line of targetLines) {
     const targetMatch = /^([a-zA-Z0-9_.-]+):(?!=)/.exec(line);
@@ -116,8 +150,13 @@ export function mergeMakefileContent(
     }
   }
 
+  const missingHeaderVars = extractMissingHeaderMakeVars(normalizedExample, existingVars, changes);
   const exampleBlocks = normalizedExample.split(/\n(?=[a-zA-Z0-9_.-]+:(?!=))/);
   let appendedBlocks = '';
+
+  if (missingHeaderVars.length > 0 && existingTargets.has('.PHONY')) {
+    appendedBlocks += `\n# --- Variables base QA 11X Blueprints ---\n${missingHeaderVars.join('\n')}\n`;
+  }
 
   for (const block of exampleBlocks) {
     const targetMatch = /^([a-zA-Z0-9_.-]+):(?!=)/.exec(block.trim());

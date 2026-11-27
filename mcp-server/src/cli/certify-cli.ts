@@ -16,6 +16,7 @@ import {
   hasHelpFlag,
   matchFlagValue,
   resolveCliProjectPath,
+  stripValidatedLangFlags,
 } from './cliArgHelpers.js';
 import { renderSubcommandHelpText, resolveCliHelpLang } from './commandCatalog.js';
 
@@ -130,6 +131,7 @@ function applyCertifyArg(
 }
 
 function parseCertifyArgs(args: readonly string[]): ParsedCertifyArgs {
+  const cleanArgs = stripValidatedLangFlags(args);
   const state: ParsedCertifyArgs = {
     rawDir: undefined,
     strict: false,
@@ -141,8 +143,8 @@ function parseCertifyArgs(args: readonly string[]): ParsedCertifyArgs {
     offline: false,
     json: false,
   };
-  for (let i = 0; i < args.length; i++) {
-    i += applyCertifyArg(args, i, state);
+  for (let i = 0; i < cleanArgs.length; i++) {
+    i += applyCertifyArg(cleanArgs, i, state);
   }
   return state;
 }

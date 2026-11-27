@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0.0",
-  "name": "QA Testing Blueprints (QA-11X v3.11)",
+  "name": "QA Testing Blueprints (QA-11X v3.12)",
   "slug": "qa-testing-blueprints-11x",
-  "version": "3.11.0",
-  "standard_edition": "QA-11X v3.11",
+  "version": "3.12.0",
+  "standard_edition": "QA-11X v3.12",
   "license": "MIT",
   "author": "Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)",
   "homepage": "https://github.com/tecno-consultores/qa-testing-blueprints",
@@ -119,8 +119,8 @@
       "name": "qa-11x-architect",
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-architect/SKILL.md",
-      "size_bytes": 12235,
-      "sha256": "d168c588785b99aa486a743c2e87cf6d58c87d169a66a92fcd9405f04aed67d8",
+      "size_bytes": 12018,
+      "sha256": "0b1f1c3d62f5050146644075e1eb9e4238f9c17e7a01e3e7510ce7d5583e77be",
       "description": "Master QA 11X & DevSecOps orchestrator (@sinfallas/mcp-qa-11x). Use whenever initializing or auditing QA in a repository, merging .example blueprints, writing or updating unit/BDD/mutation/E2E tests, enforcing STIG/OWASP controls, running ephemeral Docker QA, or certifying tasks before local commit."
     },
     {
@@ -209,8 +209,8 @@
       "name": "tactical-patterns-11x",
       "path": ".agents/skills/tactical-patterns-11x/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/tactical-patterns-11x/SKILL.md",
-      "size_bytes": 2518,
-      "sha256": "85081732d1907ceebb7ae7680305139a935182b81361d19ca2458f17f6fd1a68",
+      "size_bytes": 2275,
+      "sha256": "64cfed573d909320a21fcecd211f39b3fb5152b90e3a7a03509cead9128cdcbc",
       "description": "Just-in-time refactoring and concurrency patterns for Standard 11X. Use when resolving cyclomatic/cognitive complexity or parameter-count violations, isolating external network ports offline, or implementing transactional outbox, atomic idempotency, and WebSocket pub/sub."
     },
     {
@@ -218,8 +218,8 @@
       "name": "qa-11x-reverse-specs",
       "path": ".agents/skills/qa-11x-reverse-specs/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-reverse-specs/SKILL.md",
-      "size_bytes": 8137,
-      "sha256": "efcd27ec90a41c3ca33fa747d5d75c028aa8a9bd614e7ce6d61dab4d221a0c5f",
+      "size_bytes": 9312,
+      "sha256": "30a255cad4dd8fddff6f6c0c501df57fe064418c205e4342c5561f6e89e2b07f",
       "description": "Multi-project reverse specifications, cross-project integration mapping, and functional/AST inconsistency reporting skill (@sinfallas/mcp-qa-11x). Use whenever documenting sibling client repositories (API, web, mobile) inside a container workspace into an isolated analysis folder without writing to source repos or running vulnerability audits."
     }
   ]

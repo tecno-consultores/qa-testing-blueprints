@@ -20,7 +20,7 @@ For an agent to understand corporate constraints in real time, blueprints must b
   docker run --rm --restart=no --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "${PWD}:/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/inspect_blast_radius.py "<symbol>"
 ```
 * **CLI-First / MCP `stdio` Invariant:** Both console-capable agents (Antigravity, Claude Code, Cursor) and agents connected to `@sinfallas/mcp-qa-11x` (`inspect_ast_blast_radius`) query `graphify-out/graph.json` and `GRAPH_REPORT.md` directly without occupying TCP ports or leaving background daemons.
-* **Practical Example 2 (SHA-256 Verified Dynamic Resources):** The `@sinfallas/mcp-qa-11x` v3.11.0 MCP server exposes **13 MCP resources (`blueprint://*`: 11 static via `resources/list` + 2 dynamic templates via `resources/templates/list`)** and **20 MCP tools** covering **10 hydratable stacks + `architecture/` + `mcp-server/` (= 12 matrix environments)** (including `mobile-appium` on `sinfallas/base-mobile-appium:26`). When an agent detects a FastAPI stack, it queries `blueprint://fastapi/readme` and `blueprint://database/postgres-rls-worm`, receiving templates cryptographically verified against `manifest.json`.
+* **Practical Example 2 (SHA-256 Verified Dynamic Resources):** The `@sinfallas/mcp-qa-11x` v3.12.0 MCP server exposes **13 MCP resources (`blueprint://*`: 11 static via `resources/list` + 2 dynamic templates via `resources/templates/list`)** and **20 MCP tools** covering **10 hydratable stacks + `architecture/` + `mcp-server/` (= 12 matrix environments)** (including `mobile-appium` on `sinfallas/base-mobile-appium:26`). When an agent detects a FastAPI stack, it queries `blueprint://fastapi/readme` and `blueprint://database/postgres-rls-worm`, receiving templates cryptographically verified against `manifest.json`.
 * **Practical Example 3 (Proactive QA Config Reading):** The MCP server or static inspection must not evaluate topology alone. It must proactively audit QA configuration files (such as `pyproject.toml`, `eslint.config.mjs`, `tsconfig.json`, `vitest.config.ts`) before writing code.
   * **Unbreakable Rule to Inject into the Developer Agent:** "If the Developer Agent is going to write code, its first autonomous step must be reading linter and typing rules so it generates compliant code under strict settings (e.g. `strict=true` in Mypy) on the first try, saving self-correction cycles (tokens)."
 
@@ -94,7 +94,7 @@ npx -y @sinfallas/mcp-qa-11x@latest quickstart -T standard --lang en --agents au
 npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile
 
 # Installation with explicit options (specifying target environment):
-npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|workspace|antigravity|claude|cursor|windsurf|codex|hermes|all] --init-agents --include-scripts
+npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|workspace|antigravity|gemini-cli|claude|cursor|windsurf|codex|hermes|opencode|copilot|agents|all] --init-agents --include-scripts
 
 # Or inject/update only QA 11X connectors in AGENTS.md and configured IDEs:
 npx -y @sinfallas/mcp-qa-11x@latest init-agents [--project-path <path>] [--lang auto|en|es] [--agents auto|all|<csv>] [--dry-run]
@@ -118,7 +118,7 @@ npx -y @sinfallas/mcp-qa-11x@latest [--stdio]
 ```
 
 #### Parameters of the `install-skill` installer:
-* **`--target, -t <env>`:** Target destination for the 12 modular skills (`auto` by default — installs exclusively in global AI agent directories detected under `$HOME`, falling back to `workspace` only when no global agents are present — `workspace`, `antigravity`, `claude`, `cursor`, `windsurf`, `codex`, `hermes`, or `all`).
+* **`--target, -t <env>`:** Target destination for the 12 modular skills (`auto` by default — installs in detected global AI agent directories under `$HOME`, falling back to `$HOME/.agents/skills` when no IDE directory is present — `workspace`, `antigravity`, `gemini-cli`, `claude`, `cursor`, `windsurf`, `codex`, `hermes`, `opencode`, `copilot`, `agents`, or `all`).
 * **`--init-agents`:** Creates `AGENTS.md` or appends the canonical QA 11X connector block without overwriting prior rules (and syncs `~/.gemini/GEMINI.md` plus Thin-Repo connectors when `--agents` is set).
 * **`--include-scripts`:** Downloads only executable certification scripts (`.agents/scripts/*` and `scripts/*`), `.agents/schemas/*.json`, common CI/hook files, and `.agents/ACTIVE_TASK.md.example` (`0o755`) into the current directory, without duplicating `.agents/rules/*.md`.
 * **`--reconcile`:** Reconciles Thin-Repo governance in the consuming project, removing local copies of the 8 canonical rules and 12 skills under `<project>/.agents/`, and extracting custom domain rules into `.agents/rules/domain_<project>_rules.md` with backups in `.agents/backups/`.
@@ -215,10 +215,11 @@ mcp_servers:
 | **`audit_vibe_prototype`** | `targetDir`, `workspaceRoot`, `dryRun`, `remediationSubdir`, `maxLines`, `enforce` | Inspects AI-generated scaffolds (`Bolt.new`, `Lovable`, `v0`, `Replit`) for `VIBE-SEC-001..QA-005` risks, secret leaks, and missing RLS/WORM. |
 | **`sync_enterprise_tms`** | `mode`, `provider`, `targetDir`, `junitXmlPath`, `baseUrl`, `projectKey`, `issueKey`, `testExecutionKey`, `repo`, `requiredKeys`, `dryRun`, `timeoutMs`, `workspaceRoot` | Validates `@JIRA`/`@TC` traceability inventories and pushes JUnit XML results to **Jira**, **Zephyr Scale**, **Xray**, or **GitHub Issues** guarded by `TaskStateGuard` and anti-SSRF. |
 | **`session_flight_recorder`** | `project_path`, `action`, `task_id`, `active_step`, `intent_140chars`, `completed_steps`, `planned_steps`, `allowed_globs`, `forbidden_globs`, `reason` | *(v3.1)* Atomic Flight Recorder (`save` \| `recover` \| `clear`) managing `.agents/.cache/session_checkpoint.json` (`0600`) -> deterministic `<= 40`-line `.agents/ACTIVE_TASK.md` projection + live Git cross-check. |
+| **`analyze_ecosystem_specs`** | `containerDir`, `outputDir`, `projects`, `autoBuildAst`, `detailLevel`, `generateSkeletons`, `maxFindingsPerCategory`, `timeoutSeconds` | *(v3.11 / v3.12 Deep)* Zero-footprint multi-project reverse engineering across sibling repositories (API, Web, Mobile): builds ephemeral Graphify ASTs (`:ro`), maps HTTP/`.env`/DTO/enum/realtime/async/E2E flow contracts, detects 8 functional/AST inconsistency categories (no vulnerability audit), and emits deterministic `00..05-*.skeleton.md` documentation templates. |
 
 ### 6.5. Global Auto-Sync on Startup, `update_available` Detection, and Cryptographic Validation
 
-Introduced in `v2.20.0` (and active in `v3.11.0`), `@sinfallas/mcp-qa-11x` includes three automatic lifecycle mechanisms:
+Introduced in `v2.20.0` (and active in `v3.12.0`), `@sinfallas/mcp-qa-11x` includes three automatic lifecycle mechanisms:
 1. **`.qa-11x-version` Stamp:** `install-skill` (both via CLI and `scripts/install-skill.sh`) stamps `.qa-11x-version` inside skill directories and `<project>/.agents/.qa-11x-version` when installing `--include-scripts`.
 2. **Silent Background Auto-Sync (`stdio`):** On every startup of the MCP server over `stdio`, it non-blockingly syncs (verifying `ETag` + `SHA-256` against `manifest.json`) already-installed global skills (`~/.gemini`, `~/.claude`, `~/.cursor`, `~/.codeium/windsurf`, `~/.codex`, `~/.hermes`) while preserving the language configured in `~/.gemini/GEMINI.md`.
 3. **Structured `update_available` Notice (24 h TTL *Fail-Open*):** `inspect_project_config` and `certify_11x_gate` return `update_available` so the assistant itself notifies you in chat if the MCP server, global skills, or local project scripts need updating.
@@ -254,7 +255,7 @@ grep -rn '"version"' ~/.npm/_npx/*/node_modules/@sinfallas/mcp-qa-11x/package.js
 grep -E '"blueprint_version"|"generated_at_utc"' ~/.cache/qa-11x-blueprints/manifest.json
 
 # 3. Validate inside ephemeral Docker (Rule Zero) that every Skill SHA-256 matches manifest.json:
-docker run --rm --network none -u "$(id -u):$(id -g)" -v "$(pwd):/app:ro" -w /app \
+docker run --rm --network none --restart=no -u "$(id -u):$(id -g)" -v "$(pwd):/app:ro" -w /app \
   -v "${HOME}/.cache/qa-11x-blueprints:/cache:ro" \
   -v "${HOME}/.gemini/config/skills:/skills:ro" \
   sinfallas/base-python-uv:3.15 python3 -c '

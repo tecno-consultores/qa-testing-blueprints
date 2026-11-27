@@ -731,7 +731,8 @@ prune_retired_canonical_skill_files() {
     docker-trivy-keydb-hardening \
     graphify-ast-navigator \
     refactoring-ui \
-    tactical-patterns-11x; do
+    tactical-patterns-11x \
+    qa-11x-reverse-specs; do
     _cdir="${_dest_skills}/${_cskill}"
     [ -d "${_cdir}" ] && [ ! -L "${_cdir}" ] || continue
     find "${_cdir}" -type f | while IFS= read -r _existing_f; do

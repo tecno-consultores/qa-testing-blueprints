@@ -1,6 +1,6 @@
 {
   "name": "mobile-appium-qa-blueprint",
-  "version": "3.11.0",
+  "version": "3.12.0",
   "description": "Plantilla QA 11X Mobile/Hybrid (Appium 3 + WebdriverIO v9 + Screenplay RBAC Multi-Tenant) sobre sinfallas/base-mobile-appium:26",
   "type": "module",
   "packageManager": "pnpm@12.18.0",
@@ -13,7 +13,7 @@
     "lint": "eslint \"wdio.conf.ts\" \"tests/**/*.ts\" --max-warnings 0",
     "format": "prettier --write \"wdio.conf.ts\" \"tests/**/*.ts\"",
     "format:check": "prettier --check \"wdio.conf.ts\" \"tests/**/*.ts\"",
-    "test:unit": "mkdir -p coverage && node --test --experimental-test-coverage --test-coverage-lines=95 --test-coverage-branches=90 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info tests/mobile_screenplay.spec.ts",
+    "test:unit": "mkdir -p coverage && node --test --experimental-test-coverage --test-coverage-lines=95 --test-coverage-branches=95 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info tests/mobile_screenplay.spec.ts",
     "test:e2e": "wdio run wdio.conf.ts",
     "appium:drivers": "appium driver list --installed",
     "adb:devices": "adb devices -l",

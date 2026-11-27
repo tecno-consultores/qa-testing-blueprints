@@ -92,7 +92,7 @@ ensure_py_session() {
   cid="$(docker run --rm --network none --security-opt=no-new-privileges:true -d \
     --restart=no --cpus=2 --memory=2g --pids-limit=256 \
     -u "$(id -u):$(id -g)" -e HOME=/tmp -e PYTHONDONTWRITEBYTECODE=1 \
-    -v "${REPO_ROOT}:/app" -w /app "${PY_DOCKER_IMAGE}" sleep 600 2>/dev/null | head -n 1 || true)"
+    -v "${REPO_ROOT}:/app:ro" -w /app "${PY_DOCKER_IMAGE}" sleep 600 2>/dev/null | head -n 1 || true)"
   if [[ "${cid}" =~ ^[0-9a-f]{12,64}$ ]]; then
     PY_SESSION_CID="${cid}"
     printf '%s\n' "${cid}" >"${PY_SESSION_CID_FILE}"
@@ -387,7 +387,7 @@ payload = {
     "attachments": [],
     "labels": [
         {"name": "agent", "value": os.environ.get("QA_AGENT_NAME", "qa-11x-certifier")},
-        {"name": "agent_version", "value": os.environ.get("QA_AGENT_VERSION", "3.11.0")},
+        {"name": "agent_version", "value": os.environ.get("QA_AGENT_VERSION", "3.12.0")},
         {"name": "environment", "value": os.environ.get("QA_ENVIRONMENT", "docker-ephemeral")},
     ],
 }
@@ -704,7 +704,11 @@ gate_06_ast_topology() {
     fi
   fi
 
-  run_validator_gate "${SCRIPT_DIR}/verify_topological_health.py" || return $?
+  local topo_rc=0
+  run_validator_gate "${SCRIPT_DIR}/verify_topological_health.py" || topo_rc=$?
+  if [ "${topo_rc}" -ne 0 ] && [ "${topo_rc}" -ne 20 ]; then
+    return "${topo_rc}"
+  fi
   local has_calm_file="false"
   if [ -d "${REPO_ROOT}/architecture" ] && find "${REPO_ROOT}/architecture" -maxdepth 1 \( -name '*.calm.json' -o -name 'calm.json' \) -type f -print -quit 2>/dev/null | grep -q .; then
     has_calm_file="true"
@@ -712,6 +716,7 @@ gate_06_ast_topology() {
   if { [ "${QA11X_EFFECTIVE_TIER}" = "enterprise" ] || [ "${has_calm_file}" = "true" ]; } && [ -x "${SCRIPT_DIR}/validate_calm_architecture.sh" ]; then
     bash "${SCRIPT_DIR}/validate_calm_architecture.sh" || return $?
   fi
+  return "${topo_rc}"
 }
 
 run_tier_validator_gate() {
@@ -794,10 +799,10 @@ gate_10_doc_and_test_sync() {
   fi
 
   local test_file_re='(\.(unit|spec|test|e2e)\.(py|ts|tsx|js|jsx)|(^|/)test_[^/]+\.py|[^/]+_test\.py|[^/]+Test\.php|\.feature(\.example)?|\.bats)$'
-  raw_code_candidates=$(printf '%s\n' "${all_changed}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|bash-scripts|php|mcp-server|mobile-appium|ai-evals|vibe-rescue|catalogs|architecture|backend|frontend|scripts|src|app|apps|packages|lib|server)/|\.agents/(scripts|schemas|skills|rules)/|((.*/)?Makefile(\.example)?)$|\.github/(workflows|actions)/|(manifest\.json|llms\.txt|\.trivy\.yaml|lefthook\.yml|instalar-hooks\.sh)$)' | grep -vE '(^|/)graphify-out/' || true)
+  raw_code_candidates=$(printf '%s\n' "${all_changed}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|bash-scripts|php|mcp-server|mobile-appium|ai-evals|vibe-rescue|catalogs|architecture|backend|frontend|scripts|src|app|apps|packages|lib|server)/|\.agents/(scripts|schemas|skills|rules)/|\.claude-plugin/|((.*/)?Makefile(\.example)?)$|\.github/(workflows|actions)/|(manifest\.json|llms\.txt|server\.json|docker-compose\.qa\.yml|pytest\.ini|\.trivy\.yaml|\.gitignore|\.env\.example|lefthook\.yml|instalar-hooks\.sh)$)' | grep -vE '(^|/)graphify-out/' || true)
   code_changes=$(printf '%s\n' "${raw_code_candidates}" | grep -vE "${test_file_re}" | awk '/^$/ {next} /^\.agents\/(skills|rules)\// {print; next} /\.md$/ {next} {print}' || true)
   exec_src_changes=$(printf '%s\n' "${code_changes}" | grep -E '^((fastapi|vue3|node-backend|python|react-frontend|php|mcp-server|mobile-appium|backend|frontend)/src/|src/|app/|apps/|packages/|lib/|server/|bash-scripts/|vibe-rescue/|ai-evals/|scripts/|\.agents/scripts/|instalar-hooks\.sh$)' || true)
-  test_sync_changes=$(printf '%s\n' "${code_changes}" | grep -E '^(\.agents/(schemas|skills|rules)/|(catalogs|architecture)/|(manifest\.json|llms\.txt)$)' || true)
+  test_sync_changes=$(printf '%s\n' "${code_changes}" | grep -E '^(\.agents/(schemas|skills|rules)/|\.claude-plugin/|\.github/(workflows|actions)/|(catalogs|architecture)/|(manifest\.json|llms\.txt|server\.json|Makefile|lefthook\.yml)$)' || true)
   doc_changes=$(printf '%s\n' "${all_changed}" | grep -E '(\.md$|^docs/)' | grep -vE '^\.agents/(skills|rules)/' || true)
 
   if [ "${QA11X_EFFECTIVE_TIER}" = "starter" ]; then

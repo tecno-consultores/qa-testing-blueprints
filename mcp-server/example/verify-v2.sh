@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
-# Verificador Clean-Room del tarball v3.11.0 de @sinfallas/mcp-qa-11x fuera del monorepo.
+# Verificador Clean-Room del tarball v3.12.0 de @sinfallas/mcp-qa-11x fuera del monorepo.
 
 LC_ALL=C
 set -euo pipefail
@@ -276,6 +276,19 @@ const parsed = JSON.parse(process.argv[2]);
 assert.equal(parsed.status, 'TRACEABILITY_OK');
 EOF
 
+INIT_OUT="$(node "${BIN_JS}" init-agents "${CERT_DIR}" --tier standard --lang en --dry-run)"
+if ! printf '%s\n' "${INIT_OUT}" | grep -q "action=dry_run"; then
+  echo "FAIL [init-agents --dry-run] Salida inesperada: ${INIT_OUT}" >&2
+  exit 1
+fi
+
+RECON_JSON="$(node "${BIN_JS}" reconcile-agents "${CERT_DIR}" --dry-run --json)"
+node --input-type=module - "${RECON_JSON}" <<'EOF'
+import assert from 'node:assert/strict';
+const parsed = JSON.parse(process.argv[2]);
+assert.equal(parsed.dry_run, true);
+EOF
+
 cat >"${WORK_DIR}/arch.calm.json" <<'EOF'
 {
   "$schema": "https://calm.finos.org/release/1.2/meta/calm.json",
@@ -400,6 +413,7 @@ const env = {
   ...process.env,
   HOME: homeDir,
   QA_DISABLE_AUTO_SYNC: '1',
+  QA_MIN_FREE_MEM_PCT: process.env.QA_MIN_FREE_MEM_PCT || '1',
   QA11X_WORKSPACE_ROOTS: workDir,
   QA_BLUEPRINTS_RAW_URL: 'http://127.0.0.1:1',
 };
@@ -539,6 +553,40 @@ try {
   const frClearJson = JSON.parse(frClear.content[0].text);
   assert.equal(frClearJson.checkpoint.status, 'CERTIFIED_CLEAN');
   assert.deepEqual(frClearJson.checkpoint.planned_steps, []);
+
+  const ecoDir = path.join(workDir, 'eco-cr');
+  fs.mkdirSync(path.join(ecoDir, 'api', 'src'), { recursive: true });
+  fs.mkdirSync(path.join(ecoDir, 'web', 'src'), { recursive: true });
+  fs.writeFileSync(path.join(ecoDir, 'api', 'pyproject.toml'), '[project]\nname="eco-api"\ndependencies=["fastapi"]\n', 'utf8');
+  fs.writeFileSync(
+    path.join(ecoDir, 'api', 'src', 'main.py'),
+    'from fastapi import FastAPI\nfrom pydantic import BaseModel\napp = FastAPI()\nclass Item(BaseModel):\n    id: str\n@app.get("/api/v1/items")\ndef list_items() -> list[Item]:\n    return []\n',
+    'utf8',
+  );
+  fs.writeFileSync(path.join(ecoDir, 'web', 'package.json'), JSON.stringify({ name: 'eco-web', dependencies: { vue: '^3.5.0' } }), 'utf8');
+  fs.writeFileSync(path.join(ecoDir, 'web', 'src', 'api.ts'), 'export const getItems = () => fetch("/api/v1/items");\n', 'utf8');
+
+  const ecoRes = await client.callTool({
+    name: 'analyze_ecosystem_specs',
+    arguments: {
+      workspaceRoot: ecoDir,
+      outputDir: 'analisis',
+      buildGraphs: false,
+      detailLevel: 'deep',
+      generateSkeletons: true,
+    },
+  });
+  assert.notEqual(ecoRes.isError, true);
+  const ecoPayload = JSON.parse(ecoRes.content[0].text);
+  assert.equal(ecoPayload.schema_version, '2.0.0');
+  assert.equal(ecoPayload.detail_level, 'deep');
+  assert.equal(ecoPayload.projects_count, 2);
+  assert.ok(Array.isArray(ecoPayload.skeleton_files) && ecoPayload.skeleton_files.length >= 6);
+  assert.equal(fs.existsSync(path.join(ecoDir, 'analisis', '.skeletons', '00-resumen-ecosistema.skeleton.md')), true);
+  assert.ok(ecoPayload.recommended_deliverables.includes('analisis/02-modelo-de-datos-y-estados.md'));
+  assert.ok(ecoPayload.recommended_deliverables.includes('analisis/03-flujos-funcionales-e2e.md'));
+  assert.ok(ecoPayload.recommended_deliverables.includes('analisis/04-integracion-y-contratos.md'));
+  assert.ok(ecoPayload.recommended_deliverables.includes('analisis/05-inconsistencias-y-mejoras.md'));
 
   const blocked = await client.callTool({
     name: 'validate_calm_architecture',

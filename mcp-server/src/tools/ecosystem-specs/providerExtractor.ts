@@ -4,11 +4,20 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { reportDebugCatchError } from '../../utils/diagnosticFormatter.js';
+import {
+  extractNodeEndpointMeta,
+  extractOpenApiOpMeta,
+  extractPhpEndpointMeta,
+  extractPythonEndpointMeta,
+} from './endpointMetadataExtractor.js';
 import { stripTrailingSlashes } from './envExtractor.js';
 import { collectProjectSourceFiles, isSafeRegularFile } from './projectDiscovery.js';
+import { extractSchemasAndEnums } from './schemaAndEnumExtractor.js';
 import {
   UTF8_ENCODING,
   type DiscoveredProject,
+  type DomainEnumSymbol,
+  type DomainModelField,
   type DomainModelSymbol,
   type HttpVerb,
   type ProviderEndpoint,
@@ -66,7 +75,7 @@ const NEST_CONTROLLER_EMPTY_RE = /^@Controller\(\s*\)/;
 const NEST_METHOD_HEAD_RE = /^@(Get|Post|Put|Patch|Delete)\(/;
 const NEST_METHOD_ARG_RE = /\(\s*['"`]([^'"`]*)['"`]\s*\)/;
 const NODE_EXPORT_TYPE_RE = /^export\s+(?:interface|type|class)\s+([A-Z]\w*)\b/;
-const NODE_ZOD_SCHEMA_RE = /^const\s+([A-Z]\w*Schema)\s*=\s*z\.object\(/;
+const NODE_ZOD_SCHEMA_RE = /^const\s+([A-Z]\w*)\s*=\s*z\.object\(/;
 
 const PHP_ROUTE_STATIC_RE = /\bRoute::(get|post|put|patch|delete)\(\s*['"]([^'"]+)['"]/i;
 const PHP_ROUTE_API_RES_RE = /\bRoute::apiResource\(\s*['"]([^'"]+)['"]/i;
@@ -162,40 +171,96 @@ function joinCallWindow(lines: readonly string[], startIdx: number): string {
   return parts.join(' ');
 }
 
-function collectPythonImportAliases(lines: readonly string[]): Map<string, string> {
-  const aliasToStem = new Map<string, string>();
+function propagatePrefixHops(
+  directEdges: ReadonlyArray<readonly [string, string, string]>
+): Map<string, string> {
+  const resolved = new Map<string, string>();
+  for (let pass = 0; pass < 3; pass += 1) {
+    for (const [parentFile, childTarget, edgePref] of directEdges) {
+      const parentPref = resolved.get(parentFile) ?? '';
+      resolved.set(childTarget, parentPref ? joinRoutePaths(parentPref, edgePref) : edgePref);
+    }
+  }
+  return resolved;
+}
+
+function resolvePythonModuleToRelFile(
+  modulePath: string,
+  importerRel: string,
+  pyFilesSet: ReadonlySet<string>
+): string | null {
+  let dotCount = 0;
+  while (dotCount < modulePath.length && modulePath[dotCount] === '.') dotCount += 1;
+  if (dotCount > 0) {
+    const upCount = Math.max(0, dotCount - 1);
+    let baseDir = path.posix.dirname(importerRel);
+    for (let u = 0; u < upCount; u += 1) baseDir = path.posix.dirname(baseDir);
+    const tail = modulePath.slice(dotCount).replace(/\./g, '/');
+    const relCand = tail ? path.posix.join(baseDir, `${tail}.py`) : path.posix.join(baseDir, '__init__.py');
+    if (pyFilesSet.has(relCand)) return relCand;
+  }
+  const asPath = modulePath.replace(/\./g, '/');
+  for (const cand of [`${asPath}.py`, `src/${asPath}.py`, `app/${asPath}.py`, `${asPath}/__init__.py`]) {
+    if (pyFilesSet.has(cand)) return cand;
+  }
+  for (const file of pyFilesSet) {
+    if (file.endsWith(`/${asPath}.py`)) return file;
+  }
+  return null;
+}
+
+function collectPythonImportTargets(
+  lines: readonly string[],
+  importerRel: string,
+  pyFilesSet: ReadonlySet<string>
+): Map<string, string> {
+  const aliasToTarget = new Map<string, string>();
   for (const line of lines) {
     const imp = PY_FROM_IMPORT_RE.exec(line);
     if (!imp?.[1] || !imp[2]) continue;
-    const stem = imp[1].split('.').filter(Boolean).pop();
-    if (!stem) continue;
+    const submoduleExpr = imp[1].endsWith('.') ? `${imp[1]}${imp[2]}` : `${imp[1]}.${imp[2]}`;
+    const resolvedFile =
+      resolvePythonModuleToRelFile(submoduleExpr, importerRel, pyFilesSet) ??
+      resolvePythonModuleToRelFile(imp[1], importerRel, pyFilesSet);
+    const fallbackStem = imp[2] !== 'router' ? imp[2] : imp[1].split('.').filter(Boolean).pop();
+    const targetKey = resolvedFile ?? fallbackStem;
+    if (!targetKey) continue;
     const asMatch = PY_IMPORT_AS_RE.exec(line.slice(imp.index + imp[0].length));
-    aliasToStem.set(asMatch?.[1] ?? imp[2], stem);
+    aliasToTarget.set(asMatch?.[1] ?? imp[2], targetKey);
   }
-  return aliasToStem;
+  return aliasToTarget;
+}
+
+function collectFilePyIncludeLinks(
+  lines: readonly string[],
+  relFile: string,
+  aliasToTarget: ReadonlyMap<string, string>
+): Array<readonly [string, string, string]> {
+  const links: Array<readonly [string, string, string]> = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    if (!(lines[i] ?? '').includes('include_router(')) continue;
+    const snippet = joinCallWindow(lines, i);
+    const inc = PY_INCLUDE_CALL_RE.exec(snippet);
+    const pref = inc ? PY_PREFIX_KW_RE.exec(snippet) : null;
+    if (!inc?.[1] || !pref?.[1]) continue;
+    const token = inc[1].split('.')[0] ?? inc[1];
+    links.push([relFile, aliasToTarget.get(token) ?? token, pref[1]]);
+  }
+  return links;
 }
 
 function collectPythonGlobalPrefixes(
   projectAbs: string,
   pyFiles: readonly string[]
 ): Map<string, string> {
-  const includedPrefixes = new Map<string, string>();
+  const pyFilesSet = new Set<string>(pyFiles);
+  const directLinks: Array<readonly [string, string, string]> = [];
   for (const relFile of pyFiles) {
     const lines = readSourceLines(projectAbs, relFile);
-    const aliasToStem = collectPythonImportAliases(lines);
-    for (let i = 0; i < lines.length; i += 1) {
-      if (!(lines[i] ?? '').includes('include_router(')) continue;
-      const snippet = joinCallWindow(lines, i);
-      const inc = PY_INCLUDE_CALL_RE.exec(snippet);
-      const pref = inc ? PY_PREFIX_KW_RE.exec(snippet) : null;
-      if (!inc?.[1] || !pref?.[1]) continue;
-      const token = inc[1].split('.')[0] ?? inc[1];
-      includedPrefixes.set(token, pref[1]);
-      const mappedStem = aliasToStem.get(token);
-      if (mappedStem) includedPrefixes.set(mappedStem, pref[1]);
-    }
+    const aliasToTarget = collectPythonImportTargets(lines, relFile, pyFilesSet);
+    directLinks.push(...collectFilePyIncludeLinks(lines, relFile, aliasToTarget));
   }
-  return includedPrefixes;
+  return propagatePrefixHops(directLinks);
 }
 
 function parseQuotedMethods(rawList: string): HttpVerb[] {
@@ -263,13 +328,16 @@ function scanPythonRouteLine(lines: readonly string[], lineIdx: number, state: P
         state.outerPrefix,
         state.localPrefixes.get(decHead[1]) ?? ''
       );
+      const fullPath = joinRoutePaths(combinedPref, pathMatch[1] ?? '/');
+      const meta = extractPythonEndpointMeta(lines, lineIdx, fullPath);
       pushEndpoint(state.collector, {
         method: verb,
-        path: joinRoutePaths(combinedPref, pathMatch[1] ?? '/'),
+        path: fullPath,
         framework: FW_FASTAPI,
         source_kind: 'code',
         file: state.relFile,
         line: lineNo,
+        ...meta,
       });
     }
   }
@@ -303,7 +371,7 @@ function scanPythonFile(
   const fileStem = path.basename(relFile, '.py');
   const state: PyScanState = {
     relFile,
-    outerPrefix: globalPrefixes.get(fileStem) ?? '',
+    outerPrefix: globalPrefixes.get(relFile) ?? globalPrefixes.get(fileStem) ?? '',
     localPrefixes: new Map<string, string>(),
     collector,
     sawDataclass: false,
@@ -330,39 +398,73 @@ interface NodeScanState {
   readonly collector: ProviderCollector;
 }
 
-function collectNodeFileImports(lines: readonly string[]): Map<string, string> {
+function resolveNodeRelativeImport(
+  importerRel: string,
+  specifier: string,
+  nodeFilesSet: ReadonlySet<string>
+): string | null {
+  const baseNoExt = path.posix
+    .normalize(path.posix.join(path.posix.dirname(importerRel), specifier))
+    .replace(/\.[cm]?[jt]s$/, '');
+  for (const ext of ['.ts', '.js', '.mts', '.mjs', '/index.ts', '/index.js']) {
+    const cand = `${baseNoExt}${ext}`;
+    if (nodeFilesSet.has(cand)) return cand;
+  }
+  return null;
+}
+
+function collectNodeFileImports(
+  lines: readonly string[],
+  importerRel: string,
+  nodeFilesSet: ReadonlySet<string>
+): Map<string, string> {
   const imports = new Map<string, string>();
   for (const line of lines) {
     const m = NODE_IMPORT_DEFAULT_RE.exec(line) ?? NODE_IMPORT_NAMED_RE.exec(line);
     if (!m?.[1] || !m[2] || !m[2].startsWith('.')) continue;
+    const resolved = resolveNodeRelativeImport(importerRel, m[2], nodeFilesSet);
     const stem = path.posix.basename(m[2]).replace(/\.[cm]?[jt]s$/, '');
-    if (stem) imports.set(m[1], stem);
+    if (resolved ?? stem) imports.set(m[1], resolved ?? stem);
   }
   return imports;
+}
+
+function scanFileNodeMounts(
+  lines: readonly string[],
+  relFile: string,
+  imports: ReadonlyMap<string, string>
+): { readonly nestPrefix?: string; readonly mounts: Array<readonly [string, string, string]> } {
+  let nestPrefix: string | undefined;
+  const mounts: Array<readonly [string, string, string]> = [];
+  for (const line of lines) {
+    const nestPref = NEST_GLOBAL_PREFIX_RE.exec(line);
+    if (nestPref?.[1] && !nestPrefix) {
+      nestPrefix = joinRoutePaths('/', nestPref[1]);
+    }
+    const useMatch = NODE_USE_PREFIX_RE.exec(line);
+    const targetKey = useMatch?.[2] ? imports.get(useMatch[2]) : undefined;
+    if (useMatch?.[1] && targetKey) {
+      mounts.push([relFile, targetKey, useMatch[1]]);
+    }
+  }
+  return { ...(nestPrefix ? { nestPrefix } : {}), mounts };
 }
 
 function collectNodeProjectPrefixes(
   projectAbs: string,
   nodeFiles: readonly string[]
 ): NodeProjectPrefixes {
+  const nodeFilesSet = new Set<string>(nodeFiles);
   let globalNestPrefix = '';
-  const routerFilePrefixes = new Map<string, string>();
+  const directMounts: Array<readonly [string, string, string]> = [];
   for (const relFile of nodeFiles) {
     const lines = readSourceLines(projectAbs, relFile);
-    const imports = collectNodeFileImports(lines);
-    for (const line of lines) {
-      const nestPref = NEST_GLOBAL_PREFIX_RE.exec(line);
-      if (nestPref?.[1] && !globalNestPrefix) {
-        globalNestPrefix = joinRoutePaths('/', nestPref[1]);
-      }
-      const useMatch = NODE_USE_PREFIX_RE.exec(line);
-      const targetStem = useMatch?.[2] ? imports.get(useMatch[2]) : undefined;
-      if (useMatch?.[1] && targetStem) {
-        routerFilePrefixes.set(targetStem, useMatch[1]);
-      }
-    }
+    const imports = collectNodeFileImports(lines, relFile, nodeFilesSet);
+    const scanned = scanFileNodeMounts(lines, relFile, imports);
+    if (scanned.nestPrefix && !globalNestPrefix) globalNestPrefix = scanned.nestPrefix;
+    directMounts.push(...scanned.mounts);
   }
-  return { globalNestPrefix, routerFilePrefixes };
+  return { globalNestPrefix, routerFilePrefixes: propagatePrefixHops(directMounts) };
 }
 
 function resolveNestControllerPrefix(rawCtrlPath: string, globalNestPrefix: string): string {
@@ -373,7 +475,14 @@ function resolveNestControllerPrefix(rawCtrlPath: string, globalNestPrefix: stri
   return joinRoutePaths(globalNestPrefix, local);
 }
 
-function scanNodeNestDecorators(line: string, lineNo: number, relFile: string, state: NodeScanState): boolean {
+function scanNodeNestDecorators(
+  lines: readonly string[],
+  lineIdx: number,
+  relFile: string,
+  state: NodeScanState
+): boolean {
+  const line = lines[lineIdx] ?? '';
+  const lineNo = lineIdx + 1;
   const trimmed = line.trim();
   const ctrlMatch = NEST_CONTROLLER_RE.exec(trimmed);
   if (ctrlMatch) {
@@ -389,13 +498,16 @@ function scanNodeNestDecorators(line: string, lineNo: number, relFile: string, s
   const verb = toHttpVerb(headMatch[1]);
   const argMatch = NEST_METHOD_ARG_RE.exec(trimmed);
   if (verb) {
+    const fullPath = joinRoutePaths(state.controllerPrefix, argMatch?.[1] ?? '');
+    const meta = extractNodeEndpointMeta(lines, lineIdx, fullPath, true);
     pushEndpoint(state.collector, {
       method: verb,
-      path: joinRoutePaths(state.controllerPrefix, argMatch?.[1] ?? ''),
+      path: fullPath,
       framework: FW_NESTJS,
       source_kind: 'code',
       file: relFile,
       line: lineNo,
+      ...meta,
     });
   }
   return true;
@@ -428,7 +540,13 @@ function resolveNodeRouteFullPath(receiver: string, rawPath: string, state: Node
   return joinRoutePaths(mountPrefix, rawPath);
 }
 
-function scanNodeExpressOrFastify(line: string, lineNo: number, relFile: string, state: NodeScanState): void {
+function scanNodeExpressOrFastify(
+  lines: readonly string[],
+  lineIdx: number,
+  relFile: string,
+  state: NodeScanState
+): void {
+  const line = lines[lineIdx] ?? '';
   const useMatch = NODE_USE_PREFIX_RE.exec(line);
   if (useMatch?.[1] && useMatch[2]) {
     state.localMountPrefixes.set(useMatch[2], useMatch[1]);
@@ -436,24 +554,33 @@ function scanNodeExpressOrFastify(line: string, lineNo: number, relFile: string,
   const matched = matchNodeRouteVerbAndPath(line);
   if (!matched) return;
   const [receiver, verb, rawPath] = matched;
+  const fullPath = resolveNodeRouteFullPath(receiver, rawPath, state);
+  const meta = extractNodeEndpointMeta(lines, lineIdx, fullPath, false);
   pushEndpoint(state.collector, {
     method: verb,
-    path: resolveNodeRouteFullPath(receiver, rawPath, state),
+    path: fullPath,
     framework: FW_NODE,
     source_kind: 'code',
     file: relFile,
-    line: lineNo,
+    line: lineIdx + 1,
+    ...meta,
   });
 }
 
-function scanNodeLine(line: string, lineNo: number, relFile: string, state: NodeScanState): void {
-  if (scanNodeNestDecorators(line, lineNo, relFile, state)) return;
-  scanNodeExpressOrFastify(line, lineNo, relFile, state);
+function scanNodeLine(
+  lines: readonly string[],
+  lineIdx: number,
+  relFile: string,
+  state: NodeScanState
+): void {
+  if (scanNodeNestDecorators(lines, lineIdx, relFile, state)) return;
+  scanNodeExpressOrFastify(lines, lineIdx, relFile, state);
+  const line = lines[lineIdx] ?? '';
   const trimmed = line.trim();
   const withoutExport = trimmed.startsWith('export ') ? trimmed.slice(7).trim() : trimmed;
   const modelMatch = NODE_EXPORT_TYPE_RE.exec(trimmed) ?? NODE_ZOD_SCHEMA_RE.exec(withoutExport);
   if (modelMatch?.[1]) {
-    pushModel(state.collector, { name: modelMatch[1], kind: 'ts-type-or-schema', file: relFile, line: lineNo });
+    pushModel(state.collector, { name: modelMatch[1], kind: 'ts-type-or-schema', file: relFile, line: lineIdx + 1 });
   }
 }
 
@@ -467,7 +594,7 @@ function scanNodeFile(
   const fileStem = path.basename(relFile, path.extname(relFile));
   const state: NodeScanState = {
     controllerPrefix: '',
-    outerFilePrefix: prefixes.routerFilePrefixes.get(fileStem) ?? '',
+    outerFilePrefix: prefixes.routerFilePrefixes.get(relFile) ?? prefixes.routerFilePrefixes.get(fileStem) ?? '',
     globalNestPrefix: prefixes.globalNestPrefix,
     localMountPrefixes: new Map<string, string>(),
     collector,
@@ -476,7 +603,7 @@ function scanNodeFile(
     const line = lines[i] ?? '';
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('*')) continue;
-    scanNodeLine(line, i + 1, relFile, state);
+    scanNodeLine(lines, i, relFile, state);
   }
 }
 
@@ -551,7 +678,14 @@ function updatePhpScopeDepth(line: string, state: PhpScanState): void {
   }
 }
 
-function scanPhpDirectRoutes(line: string, lineNo: number, relFile: string, state: PhpScanState): void {
+function scanPhpDirectRoutes(
+  lines: readonly string[],
+  lineIdx: number,
+  relFile: string,
+  state: PhpScanState
+): void {
+  const line = lines[lineIdx] ?? '';
+  const lineNo = lineIdx + 1;
   const prefMatch = PHP_ROUTE_PREFIX_RE.exec(line);
   if (prefMatch?.[1]) {
     state.groupStack.push({ prefix: prefMatch[1], depth: state.braceDepth });
@@ -561,13 +695,16 @@ function scanPhpDirectRoutes(line: string, lineNo: number, relFile: string, stat
   if (staticMatch?.[1] && staticMatch[2]) {
     const verb = toHttpVerb(staticMatch[1]);
     if (verb) {
+      const fullPath = joinRoutePaths(activePrefix, staticMatch[2]);
+      const meta = extractPhpEndpointMeta(lines, lineIdx, fullPath);
       pushEndpoint(state.collector, {
         method: verb,
-        path: joinRoutePaths(activePrefix, staticMatch[2]),
+        path: fullPath,
         framework: FW_PHP,
         source_kind: 'code',
         file: relFile,
         line: lineNo,
+        ...meta,
       });
     }
   }
@@ -613,7 +750,7 @@ function scanPhpFile(projectAbs: string, relFile: string, collector: ProviderCol
     const line = lines[i] ?? '';
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('# ')) continue;
-    scanPhpDirectRoutes(line, i + 1, relFile, state);
+    scanPhpDirectRoutes(lines, i, relFile, state);
     scanPhpAttributesAndModels(line, i + 1, relFile, state);
     updatePhpScopeDepth(line, state);
   }
@@ -626,9 +763,10 @@ function recordOpenApiPathOps(
   collector: ProviderCollector
 ): void {
   if (typeof ops !== 'object' || ops === null) return;
-  for (const methodKey of Object.keys(ops)) {
+  for (const [methodKey, opVal] of Object.entries(ops)) {
     const verb = toHttpVerb(methodKey);
     if (!verb) continue;
+    const meta = extractOpenApiOpMeta(routePath, opVal);
     pushEndpoint(collector, {
       method: verb,
       path: routePath,
@@ -636,8 +774,27 @@ function recordOpenApiPathOps(
       source_kind: 'openapi',
       file: relFile,
       line: 1,
+      ...meta,
     });
   }
+}
+
+function resolveOpenApiPropType(prop: Record<string, unknown> | undefined): string {
+  if (typeof prop?.type === 'string') return prop.type;
+  if (typeof prop?.$ref === 'string') return prop.$ref.split('/').pop() ?? 'object';
+  return 'unknown';
+}
+
+function parseOpenApiSchemaFields(schemaVal: unknown): DomainModelField[] {
+  if (typeof schemaVal !== 'object' || schemaVal === null) return [];
+  const rec = schemaVal as { properties?: Record<string, Record<string, unknown>>; required?: unknown[] };
+  if (!rec.properties || typeof rec.properties !== 'object') return [];
+  const reqSet = new Set<string>(Array.isArray(rec.required) ? rec.required.map(String) : []);
+  return Object.entries(rec.properties).map(([name, prop]) => ({
+    name,
+    type: resolveOpenApiPropType(prop),
+    required: reqSet.has(name),
+  }));
 }
 
 function parseOpenApiJsonFile(fullPath: string, relFile: string, collector: ProviderCollector): void {
@@ -651,8 +808,15 @@ function parseOpenApiJsonFile(fullPath: string, relFile: string, collector: Prov
       recordOpenApiPathOps(routePath, ops, relFile, collector);
     }
     const schemas = parsed.components?.schemas ?? {};
-    for (const schemaName of Object.keys(schemas)) {
-      pushModel(collector, { name: schemaName, kind: 'openapi-schema', file: relFile, line: 1 });
+    for (const [schemaName, schemaVal] of Object.entries(schemas)) {
+      const fields = parseOpenApiSchemaFields(schemaVal);
+      pushModel(collector, {
+        name: schemaName,
+        kind: 'openapi-schema',
+        file: relFile,
+        line: 1,
+        ...(fields.length > 0 ? { fields } : {}),
+      });
     }
   } catch (err: unknown) {
     reportDebugCatchError(`providerExtractor.parseOpenApiJsonFile(${relFile})`, err);
@@ -753,6 +917,7 @@ function scanOpenApiSpecs(projectAbs: string, collector: ProviderCollector): voi
 export function extractProjectProviderArtifacts(project: DiscoveredProject): {
   readonly endpoints: ProviderEndpoint[];
   readonly models: DomainModelSymbol[];
+  readonly enums: DomainEnumSymbol[];
 } {
   const collector: ProviderCollector = {
     projectSlug: project.slug,
@@ -770,7 +935,7 @@ export function extractProjectProviderArtifacts(project: DiscoveredProject): {
     }
   }
 
-  if (project.stacks.includes('node-backend')) {
+  if (project.stacks.includes('node-backend') || project.stacks.includes('vue3') || project.stacks.includes('react-frontend')) {
     const nodeFiles = collectProjectSourceFiles(project.absPath, NODE_EXTS, false);
     const nodePrefixes = collectNodeProjectPrefixes(project.absPath, nodeFiles);
     for (const relFile of nodeFiles) {
@@ -785,5 +950,6 @@ export function extractProjectProviderArtifacts(project: DiscoveredProject): {
   }
 
   scanOpenApiSpecs(project.absPath, collector);
-  return { endpoints: collector.endpoints, models: collector.models };
+  const { models, enums } = extractSchemasAndEnums(project, collector.models);
+  return { endpoints: collector.endpoints, models, enums };
 }

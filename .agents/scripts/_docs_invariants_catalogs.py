@@ -18,6 +18,7 @@ from _docs_invariants_config import (
     _FENCED_CODE_RE,
     _HISTORICAL_SPEC_RE,
     _HTML_COMMENT_RE,
+    CANONICAL_GLOBAL_SKILL_DIRS,
     CANONICAL_MCP_TOOLS,
     DOC_TARGETS,
     EXPECTED_SKILLS_COUNT,
@@ -506,6 +507,35 @@ def _check_resources_inventory_counts(root: Path) -> list[str]:
     return errors
 
 
+_PLUGIN_SKILLS_COUNT_RE = re.compile(r"\b(\d+)\s+Modular\s+Skills\b")
+
+
+def _check_plugin_manifest_skills(root: Path, expected_skills: int) -> list[str]:
+    errors: list[str] = []
+    for rel in (".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"):
+        doc = root / rel
+        if not doc.is_file():
+            continue
+        text = doc.read_text(encoding="utf-8")
+        for val in _PLUGIN_SKILLS_COUNT_RE.findall(text):
+            if int(val) != expected_skills:
+                errors.append(
+                    f"{rel}: conteo de skills obsoleto ({val} != {expected_skills})."
+                )
+    return errors
+
+
+def _check_ai_integration_tools_surface(root: Path, tools: list[str]) -> list[str]:
+    if not tools:
+        return []
+    errors: list[str] = []
+    for rel in ("docs/ai-integration.md", "docs/ai-integration.es.md"):
+        doc = root / rel
+        if doc.is_file():
+            errors.extend(_validate_geo_surface(doc, rel, tools, "tools MCP"))
+    return errors
+
+
 def check_global_catalogs_and_geo(root: Path) -> list[str]:
     """Valida llms.txt y catálogos globales contra conteos reales y SHA-256."""
     if not (root / "llms.txt").is_file() and not (root / "catalogs").is_dir():
@@ -522,25 +552,15 @@ def check_global_catalogs_and_geo(root: Path) -> list[str]:
         *_check_llms_and_agents_surface_counts(root),
         *_check_llms_defense_in_depth_count(root),
         *_check_resources_inventory_counts(root),
+        *_check_plugin_manifest_skills(root, counts.skills),
     ]
     s_errors, tools, resources = _validate_skillsllm_manifest(
         root, expected_ver, repo_skills, counts
     )
     errors.extend(s_errors)
     errors.extend(_check_canonical_mcp_tools_sync(root, tools))
-    skill_tokens = repo_skills or [
-        "qa-11x-architect",
-        "qa-11x-devsecops-hardener",
-        "qa-11x-systematic-debugging",
-        "qa-11x-screenplay-builder",
-        "qa-11x-llm-evaluator",
-        "qa-11x-vibe-rescue",
-        "qa-11x-docker-certifier",
-        "docker-trivy-keydb-hardening",
-        "graphify-ast-navigator",
-        "refactoring-ui",
-        "tactical-patterns-11x",
-    ]
+    errors.extend(_check_ai_integration_tools_surface(root, tools))
+    skill_tokens = repo_skills or sorted(CANONICAL_GLOBAL_SKILL_DIRS)
     for rel in ("llms.txt", "catalogs/agenticskills-submission.md"):
         doc = root / rel
         errors.extend(_validate_geo_surface(doc, rel, skill_tokens, "skills"))

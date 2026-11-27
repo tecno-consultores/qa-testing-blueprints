@@ -71,7 +71,7 @@ export default defineConfig({
     include: ['src/**/*.unit.ts', 'src/**/*.unit.tsx'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html'],
+      reporter: ['text', 'json', 'html', 'lcov'],
       thresholds: {
         lines: 95,
         functions: 95,
@@ -120,8 +120,6 @@ export QA_UID QA_GID
 
 build-ui:
 	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-frontend bash -c "pnpm install --silent && pnpm --silent run build"
-	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down --remove-orphans >/dev/null 2>&1 || true" ERR INT TERM; \
-		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait ui-prod'
 
 qa-lint:
 	docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-frontend bash -c "pnpm install --silent && pnpm run audit:deps && pnpm run type-check && pnpm run format:check && pnpm lint"
@@ -131,7 +129,7 @@ qa-unit:
 
 qa-orphans:
 	@if [ -f .agents/scripts/verify_zero_orphan_vue_components.py ]; then \
-		docker run --rm --network none --security-opt=no-new-privileges:true -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp -v "$(PROJECT_DIR):/app:ro" -w /app $(PYTHON_QA_IMAGE) python3 .agents/scripts/verify_zero_orphan_vue_components.py; \
+		docker run --rm --network none --restart=no --security-opt=no-new-privileges:true -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp -v "$(PROJECT_DIR):/app:ro" -w /app $(PYTHON_QA_IMAGE) python3 .agents/scripts/verify_zero_orphan_vue_components.py; \
 	else \
 		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" qa-frontend node -e "const fs=require('fs'),p=require('path');const walk=d=>fs.existsSync(d)?fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(p.join(d,e.name)):[p.join(d,e.name)]):[];const tests=walk('src').concat(walk('tests')).filter(f=>/\.(unit|spec|test)\.(ts|tsx|js|jsx)$$|\.(test)\.(vue|tsx)$$/.test(f));const comps=walk('src/components').concat(walk('src/views')).filter(f=>/\.(vue|tsx)$$/.test(f)&&!/\.(unit|spec|test)\./.test(f));const m=comps.filter(c=>{const b=p.basename(c).replace(/\.(vue|tsx)$$/,'');return !tests.some(t=>p.basename(t).startsWith(b+'.'));});if(m.length){console.error('Orphan UI components:',m);process.exit(1)}"; \
 	fi
@@ -141,12 +139,12 @@ qa-mutation:
 
 qa-bdd: build-ui
 	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down --remove-orphans >/dev/null 2>&1 || true" EXIT; \
-		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait ui-prod && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait --wait-timeout 60 ui-prod && \
 		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T karatelabs mvn -B clean test'
 
 qa-e2e: build-ui
 	bash -c 'trap "docker compose --project-directory \"$(PROJECT_DIR)\" -f docker-compose.qa.yml down --remove-orphans >/dev/null 2>&1 || true" EXIT; \
-		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait ui-prod && \
+		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml up -d --wait --wait-timeout 60 ui-prod && \
 		docker compose --project-directory "$(PROJECT_DIR)" -f docker-compose.qa.yml run --rm -T -u "$(QA_UID):$(QA_GID)" -e HOME=/tmp ui-e2e bash -c "if [ -x ./node_modules/.bin/playwright ]; then ./node_modules/.bin/playwright test; elif command -v pnpm >/dev/null 2>&1; then pnpm install --silent && pnpm exec playwright test; else corepack pnpm install --silent && corepack pnpm exec playwright test; fi"'
 
 qa-perf: build-ui

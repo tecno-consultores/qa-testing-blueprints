@@ -6,6 +6,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { runCli, resolveSubcommandHelpText } from '../src/cli.js';
+import { runAuditCli } from '../src/cli/audit-cli.js';
 import { runCertifyCli } from '../src/cli/certify-cli.js';
 import {
   CLI_COMMAND_CATALOG,
@@ -18,6 +19,27 @@ import {
 } from '../src/cli/commandCatalog.js';
 import { runDoctorCli } from '../src/cli/doctor.js';
 import { runMcpConfigCli } from '../src/cli/mcp-config.js';
+import { stripValidatedLangFlags } from '../src/cli/cliArgHelpers.js';
+import { runCompletionCli } from '../src/cli/completion.js';
+import { reconcileMultiAgentShadowSkills } from '../src/cli/reconcile/repoHygiene.js';
+import { detectGovernanceFiles } from '../src/services/governanceDetector.js';
+import {
+  findFirstCalmArchitectureRelPath,
+  isUpstreamBlueprintsRepo,
+  resolveEffectiveQa11xTier,
+} from '../src/services/projectContextDetector.js';
+import { readQa11xConfig } from '../src/services/qa11xConfig.js';
+import { SurgicalMerger } from '../src/services/surgical-merger.js';
+import { defaultGraphifyBuilder, inspectAstBlastRadius } from '../src/tools/blast-radius.js';
+import { certify11xGate } from '../src/tools/certify-gate.js';
+import { acquireDockerSlotLock } from '../src/tools/ephemeral-runner/dockerGuardrails.js';
+import { inspectProjectConfig } from '../src/tools/inspect-project.js';
+import { proposeSkillEvolutionPr } from '../src/tools/propose-evolution-pr.js';
+import { evaluateStandard11xReadiness } from '../src/tools/standardReadiness.js';
+import {
+  ingestExternalSarifReports,
+  ingestSingleSarifReport,
+} from '../src/utils/sarifIngester.js';
 import {
   findSummaryTagByPrefix,
   parseJunitXmlReport,
@@ -730,5 +752,276 @@ describe('Wave C Audit Remediation Contracts (CLI Catalog, Hints, StructuredCont
 
     const pyramid = await auditTestPyramidGaps(dir);
     expect(pyramid.detected_stacks).toContain('vue3');
+  });
+
+  it('covers v3.12.0 audit remediations (projectContextDetector, --lang, shadow dirs, SARIF symlink, Makefile vars, stacks, pyramid)', async () => {
+    // 1. projectContextDetector: upstream enterprise promotion & CALM discovery (qa-11x, calm.json, custom *.calm.json)
+    const upDir = makeTempDir('qa-up-ctx-');
+    fs.mkdirSync(path.join(upDir, 'scripts'), { recursive: true });
+    fs.mkdirSync(path.join(upDir, 'mcp-server'), { recursive: true });
+    fs.mkdirSync(path.join(upDir, 'architecture'), { recursive: true });
+    fs.writeFileSync(path.join(upDir, 'manifest.json'), '{}', 'utf8');
+    fs.writeFileSync(path.join(upDir, 'scripts', 'generar-manifiesto.py'), '# gen\n', 'utf8');
+    fs.writeFileSync(path.join(upDir, 'mcp-server', 'package.json'), '{}', 'utf8');
+    expect(isUpstreamBlueprintsRepo(upDir)).toBe(true);
+    expect(resolveEffectiveQa11xTier(upDir, readQa11xConfig(upDir))).toBe('enterprise');
+    expect(findFirstCalmArchitectureRelPath(upDir)).toBeNull();
+    fs.writeFileSync(path.join(upDir, 'architecture', 'custom.calm.json'), '{}', 'utf8');
+    expect(findFirstCalmArchitectureRelPath(upDir)).toBe('architecture/custom.calm.json');
+    fs.writeFileSync(path.join(upDir, 'architecture', 'calm.json'), '{}', 'utf8');
+    expect(findFirstCalmArchitectureRelPath(upDir)).toBe('architecture/calm.json');
+    fs.writeFileSync(path.join(upDir, 'architecture', 'qa-11x.calm.json'), '{}', 'utf8');
+    expect(findFirstCalmArchitectureRelPath(upDir)).toBe('architecture/qa-11x.calm.json');
+
+    // 2. stripValidatedLangFlags & completion --toolset
+    expect(stripValidatedLangFlags(['--lang', 'en', '--json'])).toEqual(['--json']);
+    expect(stripValidatedLangFlags(['-l=es', 'src'])).toEqual(['src']);
+    expect(() => stripValidatedLangFlags(['--lang', 'fr'])).toThrow(/Valor inválido/);
+    expect(runCompletionCli(['bash']).output).toContain('--toolset');
+
+    // 3. Multi-agent shadow skill pruning (.gemini, .hermes, .opencode, .copilot)
+    const shadowDir = makeTempDir('qa-shadow-');
+    for (const rel of [
+      '.gemini/skills/qa-11x-architect',
+      '.hermes/skills/qa-11x-architect',
+      '.opencode/skills/qa-11x-architect',
+      '.copilot/skills/qa-11x-architect',
+    ]) {
+      fs.mkdirSync(path.join(shadowDir, rel), { recursive: true });
+      fs.writeFileSync(path.join(shadowDir, rel, 'SKILL.md'), '# shadow\n', 'utf8');
+    }
+    const shadowBackupDir = path.join(shadowDir, '.agents', 'backups', 'test-shadow');
+    const shadowRes = reconcileMultiAgentShadowSkills(shadowDir, false, shadowBackupDir);
+    expect(shadowRes.removedCount).toBe(4);
+    expect(shadowRes.items).toHaveLength(4);
+
+    // 4. SARIF symlink escape rejection
+    const sarifWs = makeTempDir('qa-sarif-sym-');
+    const outsideSarif = makeTempDir('qa-sarif-out-');
+    const outsideFile = path.join(outsideSarif, 'leak.sarif');
+    fs.writeFileSync(outsideFile, JSON.stringify({ version: '2.1.0', runs: [] }), 'utf8');
+    fs.mkdirSync(path.join(sarifWs, '.agents', '.cache', 'sarif'), { recursive: true });
+    fs.symlinkSync(outsideFile, path.join(sarifWs, '.agents', '.cache', 'sarif', 'leak.sarif'));
+    const sarifRes = ingestExternalSarifReports(sarifWs, '.agents/.cache/sarif');
+    expect(sarifRes.findings).toHaveLength(0);
+    expect(sarifRes.skipped_files.length).toBeGreaterThanOrEqual(1);
+
+    // 5. proposeSkillEvolutionPr sanitizes title in prefilled URL and gh CLI title
+    const evoDir = makeTempDir('qa-evo-san-');
+    const capturedGhArgs: string[][] = [];
+    const evoRes = await proposeSkillEvolutionPr(
+      {
+        project_path: evoDir,
+        target_blueprint_file: '.agents/skills/qa-11x-architect/SKILL.md',
+        improvement_title: 'Fix\nHeader Injection\r\nTitle',
+        empirical_rationale: 'Observed newline injection risk in title.',
+        proposed_content_or_snippet: 'Sanitize title before invoking gh CLI.',
+        dry_run: false,
+        prefer_offline_fallback: false,
+      },
+      (file, args) => {
+        if (file === 'gh' && args[0] === 'auth') return Promise.resolve({ stdout: 'Logged in', stderr: '' });
+        if (file === 'git') {
+          return Promise.resolve({
+            stdout: 'origin https://github.com/tecno-consultores/qa-testing-blueprints.git (fetch)\n',
+            stderr: '',
+          });
+        }
+        if (file === 'gh' && args[0] === 'pr') {
+          capturedGhArgs.push([...args]);
+          return Promise.resolve({
+            stdout: 'https://github.com/tecno-consultores/qa-testing-blueprints/pull/999\n',
+            stderr: '',
+          });
+        }
+        return Promise.resolve({ stdout: '', stderr: '' });
+      }
+    );
+    const parsedGhUrl = new URL(evoRes.prefilled_github_url);
+    expect(parsedGhUrl.searchParams.get('title')).not.toMatch(/[\r\n]/);
+    expect(evoRes.email_template.subject).not.toContain('\n');
+    expect(capturedGhArgs).toHaveLength(1);
+    const firstGhCall = capturedGhArgs[0] ?? [];
+    const titleArgIdx = firstGhCall.indexOf('--title');
+    expect(firstGhCall[titleArgIdx + 1]).not.toMatch(/[\r\n]/);
+
+    // 6. SurgicalMerger preserves Makefile header vars even when .PHONY precedes them
+    const merger = new SurgicalMerger();
+    const mkMerged = merger.mergeMakefile(
+      '.PHONY: existing\nexisting:\n\t@echo ok\n',
+      '.PHONY: qa-lint\nQA_UID := 1000\nqa-lint:\n\t@echo lint\n'
+    );
+    expect(mkMerged.merged).toContain('QA_UID := 1000');
+
+    // 7. inspectProjectConfig detects requirements.txt, nuxt, next & test-pyramid detects bash shellcheck/kcov + k6 + L07
+    const reqDir = makeTempDir('qa-req-nuxt-');
+    fs.writeFileSync(path.join(reqDir, 'requirements.txt'), 'fastapi==0.115.0\n', 'utf8');
+    fs.writeFileSync(path.join(reqDir, 'package.json'), JSON.stringify({ dependencies: { nuxt: '^3.14.0', next: '^15.0.0' } }), 'utf8');
+    fs.writeFileSync(
+      path.join(reqDir, 'Makefile'),
+      'qa-lint:\n\tshellcheck run.sh\nqa-unit:\n\tkcov --include-path=. /tmp/cov bats tests/\nqa-load:\n\tk6 run tests/load/smoke.k6.js\n',
+      'utf8'
+    );
+    fs.writeFileSync(path.join(reqDir, 'docker-compose.qa.yml'), 'services:\n  k6:\n    image: grafana/k6:2.4.0\n', 'utf8');
+    fs.writeFileSync(path.join(reqDir, 'run.sh'), '#!/usr/bin/env bash\necho ok\n', 'utf8');
+    fs.mkdirSync(path.join(reqDir, 'tests', 'load'), { recursive: true });
+    fs.writeFileSync(path.join(reqDir, 'tests', 'load', 'smoke.k6.js'), 'export default function() {}\n', 'utf8');
+    const insp = await inspectProjectConfig(reqDir);
+    expect(insp.detected_stacks).toContain('fastapi');
+    expect(insp.detected_stacks).toContain('vue3');
+    expect(insp.detected_stacks).toContain('react-frontend');
+    const pyr = await auditTestPyramidGaps(reqDir);
+    expect(
+      pyr.layers_audit.some(
+        (l) => l.layer_id === 'L01_STATIC_SAST_IAC' && l.detected_evidence.includes('shellcheck configurado')
+      )
+    ).toBe(true);
+    expect(pyr.layers_audit.some((l) => l.layer_id === 'L10_PERF_LOAD_STRESS' && l.status === 'COVERED')).toBe(true);
+  });
+
+  it('covers v3.12.0 diff-coverage edges (blast-radius slot/symlink/unreadable, index options, governance calm.json, SARIF single, certify reverse_import, audit-cli lang)', async () => {
+    // 1. index.ts inspect_ast_blast_radius auto_build_if_missing + refresh_graph & analyze_ecosystem_specs
+    const blastOpts = resolveToolExecutionOptions('inspect_ast_blast_radius', {
+      auto_build_if_missing: true,
+    });
+    expect(blastOpts.readOnly).toBe(false);
+    expect(blastOpts.idempotent).toBe(true);
+    const blastRefreshOpts = resolveToolExecutionOptions('inspect_ast_blast_radius', {
+      refresh_graph: true,
+    });
+    expect(blastRefreshOpts.readOnly).toBe(false);
+    const ecoNoBuildOpts = resolveToolExecutionOptions('analyze_ecosystem_specs', {
+      build_graphs: false,
+    });
+    expect(ecoNoBuildOpts.readOnly).toBe(false);
+
+    // 2. governanceDetector architecture/calm.json + custom.calm.json + standardReadiness files-list fallback
+    const calmDir = makeTempDir('qa-calm-gov-');
+    fs.mkdirSync(path.join(calmDir, 'architecture'), { recursive: true });
+    fs.writeFileSync(path.join(calmDir, 'architecture', 'calm.json'), '{}', 'utf8');
+    const govRes = detectGovernanceFiles(calmDir, {
+      effectiveTier: 'enterprise',
+      detectedStacks: ['fastapi'],
+      files: ['architecture/calm.json'],
+      governanceDocs: {},
+    });
+    expect(
+      govRes.some(
+        (g) =>
+          g.id === 'architecture/calm.json' &&
+          (g.state === 'present_compatible' || g.state === 'present_legacy')
+      )
+    ).toBe(true);
+    const customCalmDir = makeTempDir('qa-calm-custom-');
+    fs.mkdirSync(path.join(customCalmDir, 'architecture'), { recursive: true });
+    fs.writeFileSync(path.join(customCalmDir, 'architecture', 'service.calm.json'), '{}', 'utf8');
+    const govCustom = detectGovernanceFiles(customCalmDir, {
+      effectiveTier: 'enterprise',
+      detectedStacks: ['fastapi'],
+      files: [],
+      governanceDocs: {},
+    });
+    expect(govCustom.some((g) => g.id === 'architecture/calm.json')).toBe(true);
+
+    const filesOnlyDir = makeTempDir('qa-calm-filesonly-');
+    const readiness = evaluateStandard11xReadiness(
+      filesOnlyDir,
+      ['fastapi'],
+      ['architecture/custom.calm.json']
+    );
+    expect(readiness.pillars.length).toBeGreaterThan(0);
+    const readinessGeneric = evaluateStandard11xReadiness(
+      filesOnlyDir,
+      ['fastapi'],
+      ['architecture/calm.json']
+    );
+    expect(readinessGeneric.pillars.length).toBeGreaterThan(0);
+
+    // 3. ingestSingleSarifReport path escape and symlink catch
+    const sarifDir = makeTempDir('qa-sarif-single-');
+    const extDir = makeTempDir('qa-sarif-ext-');
+    const extFile = path.join(extDir, 'ext.sarif');
+    fs.writeFileSync(extFile, '{"version":"2.1.0","runs":[]}', 'utf8');
+    fs.mkdirSync(path.join(sarifDir, '.agents', '.cache', 'sarif'), { recursive: true });
+    fs.symlinkSync(extFile, path.join(sarifDir, '.agents', '.cache', 'sarif', 'sym.sarif'));
+    expect(ingestSingleSarifReport(sarifDir, '../outside.sarif')).toEqual([]);
+    expect(ingestSingleSarifReport(sarifDir, '.agents/.cache/sarif/sym.sarif')).toEqual([]);
+
+    // 4. blast-radius qualifySubgraphPath already-prefixed, symlink, unreadable dir & slot-lock timeout
+    const brDir = makeTempDir('qa-br-edges-');
+    fs.mkdirSync(path.join(brDir, 'sub', 'graphify-out'), { recursive: true });
+    fs.writeFileSync(
+      path.join(brDir, 'sub', 'graphify-out', 'graph.json'),
+      JSON.stringify({
+        nodes: [
+          { id: 'n1', label: 'fnA', source_file: 'sub/app.ts' },
+          { id: 'n2', label: 'fnB', source_file: 'sub/caller.ts' },
+        ],
+        links: [{ source: 'n2', target: 'n1', relation: 'calls' }],
+      }),
+      'utf8'
+    );
+    fs.writeFileSync(path.join(brDir, 'sub', 'app.ts'), 'export function fnA() {}\n', 'utf8');
+    fs.symlinkSync(path.join(brDir, 'sub', 'app.ts'), path.join(brDir, 'link.ts'));
+    const lockedSub = path.join(brDir, 'locked-sub');
+    fs.mkdirSync(lockedSub, { recursive: true });
+    fs.chmodSync(lockedSub, 0o000);
+    try {
+      const brRes = await inspectAstBlastRadius(brDir, 'fnA');
+      expect(brRes.dependent_files).toContain('sub/caller.ts');
+    } finally {
+      fs.chmodSync(lockedSub, 0o700);
+    }
+
+    const lockDir = makeTempDir('qa-slot-lock-');
+    const prevXdg = process.env.XDG_RUNTIME_DIR;
+    process.env.XDG_RUNTIME_DIR = lockDir;
+    const holder = await acquireDockerSlotLock({
+      resolvedPath: brDir,
+      stage: 'hold-test',
+      timeoutMs: 1000,
+    });
+    try {
+      const built = await defaultGraphifyBuilder(brDir, {
+        signal: AbortSignal.timeout(40),
+      });
+      expect(built).toBe(false);
+    } finally {
+      holder?.release();
+      if (prevXdg === undefined) {
+        delete process.env.XDG_RUNTIME_DIR;
+      } else {
+        process.env.XDG_RUNTIME_DIR = prevXdg;
+      }
+    }
+
+    // 5. certify-gate reverse_import cycle detection
+    const cycDir = makeTempDir('qa-cert-rev-');
+    fs.mkdirSync(path.join(cycDir, 'graphify-out'), { recursive: true });
+    fs.writeFileSync(
+      path.join(cycDir, 'graphify-out', 'graph.json'),
+      JSON.stringify({
+        nodes: [
+          { id: 'a', label: 'a', source_file: 'src/a.ts' },
+          { id: 'b', label: 'b', source_file: 'src/b.ts' },
+        ],
+        links: [{ source: 'a', target: 'b', relation: 'imports', reverse_import: true }],
+      }),
+      'utf8'
+    );
+    const certRes = await certify11xGate(cycDir, { requireLintEvidence: false, requireUnitEvidence: false });
+    expect(certRes.checks.ast_topology_clean).toBe(false);
+
+    // 6. audit-cli --lang en / --lang invalid
+    const auditDir = makeTempDir('qa-audit-lang-');
+    const auditRes = await runAuditCli(['--project-path', auditDir, '--mode', 'security', '--lang', 'en'], {
+      cwd: auditDir,
+    });
+    expect(auditRes.exitCode).toBe(0);
+    const auditBadLang = await runAuditCli(
+      ['--project-path', auditDir, '--mode', 'security', '--lang', 'zz'],
+      { cwd: auditDir }
+    );
+    expect(auditBadLang.exitCode).toBe(1);
   });
 });

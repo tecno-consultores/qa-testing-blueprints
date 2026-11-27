@@ -740,8 +740,8 @@ async function assertHeaderSpoofAndIdempotency(
   const firstHeaders = calls[0]?.headers ?? {};
   assert.equal(firstHeaders['X-Tenant-ID'], 'tenant-sec');
   assert.equal(firstHeaders['x-tenant-id'], undefined);
-  assert.equal(firstHeaders['idempotency-key'], 'caller-idem-1234');
-  assert.equal(firstHeaders['Idempotency-Key'], undefined);
+  assert.equal(firstHeaders['Idempotency-Key'], 'caller-idem-1234');
+  assert.equal(firstHeaders['idempotency-key'], undefined);
   assert.equal(firstHeaders['X-Custom'], '1');
 
   await actor.abilityTo(CallMobileApi).request(actor, {

@@ -7,7 +7,7 @@
 **Target Executor Model:** Frontier Coding Model (Gemini / Claude / Antigravity)
 
 > **EXECUTION DIRECTIVE FOR AI AGENTS (Frontier Coding Model (Gemini / Claude / Antigravity)):**
-> 1. Always read the associated technical specification in `docs/specs/` before starting each Milestone.
+> 1. Always read the associated technical specification in `docs/specs/` (or `docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md` + `CHANGELOG.md` for post-`v3.0` evolutionary milestones per `docs/specs/README.md`) before starting each Milestone.
 > 2. Strictly enforce **Rule Zero**: all code checks, linters, and unit/BDD tests MUST run inside ephemeral Docker containers (`sinfallas/*`).
 > 3. Upon completing each subtask or Milestone, check `[x]` in `ROADMAP.md` (and `ROADMAP.es.md`), update `CHANGELOG.{md,es.md}` and `TESTING.{md,es.md}`, and run `./.agents/scripts/certify_task_completion.sh`.
 
@@ -51,6 +51,7 @@
 | **Milestone 32** | `v3.9.0` (`QA-11X v3.9`) — Zero-Blindspot Compliance Audit, Mandatory AST Auto-Build, OpenCode First-Class, Email Evolution Template & `UI-11X-03` Edge/MIME Shield | [`CHANGELOG.md`](CHANGELOG.md) + [`SECURITY.md`](SECURITY.md) §4.34 | ✅ Completed | `100%` |
 | **Milestone 33** | `v3.10.0` (`QA-11X v3.10`) — Conflict Remediation, Explicit Adoption Tiers (`.qa-11x.json` v3), Non-Destructive Governance Detection & Assisted Contextual Templates | [`CHANGELOG.md`](CHANGELOG.md) + [`docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`](docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md) §9 | ✅ Completed | `100%` |
 | **Milestone 34** | `v3.11.0` (`QA-11X v3.11`) — Zero-Footprint Multi-Project Reverse Specs & Integration Mapper (MCP Tool #20 `analyze_ecosystem_specs` & Skill #12 `qa-11x-reverse-specs`) | [`CHANGELOG.md`](CHANGELOG.md) + [`.agents/skills/qa-11x-reverse-specs/SKILL.md`](.agents/skills/qa-11x-reverse-specs/SKILL.md) | ✅ Completed | `100%` |
+| **Milestone 35** | `v3.12.0` (`QA-11X v3.12`) — Deep `analyze_ecosystem_specs` v2.0.0 (`.skeletons/`, 6 Deliverables, 8 Finding Categories) & Full-Repository Audit Remediation | [`CHANGELOG.md`](CHANGELOG.md) + [`docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`](docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md) §10 | ✅ Completed | `100%` |
 
 ---
 
@@ -450,3 +451,13 @@
 - [x] **34.1.** Implement agent-only MCP Tool #20 `analyze_ecosystem_specs` ([`analyzeEcosystemSpecs.ts`](mcp-server/src/tools/analyzeEcosystemSpecs.ts) + modular `ecosystem-specs/` extractors) with zero-footprint `:ro` sequential Graphify Docker extraction into `<outputDir>/.graphs/<slug>/`, `SEC-PATH-01` overlap/symlink confinement, HTTP/REST + `.env` + AST cycle/god-module correlation, and strict `DOCUMENTATION_AND_INTEGRATION_ONLY_NO_VULNERABILITY_AUDIT` scope (`--toolset auto` depth-2 detection).
 - [x] **34.2.** Create modular Skill #12 [`.agents/skills/qa-11x-reverse-specs/SKILL.md`](.agents/skills/qa-11x-reverse-specs/SKILL.md) defining single-language numbered client deliverables (`00-resumen-ecosistema.md`, `01-specs-<slug>.md`, `02-integracion-y-contratos.md`, `03-inconsistencias-y-mejoras.md`) with Mermaid diagrams, `file:line` citations, `<= 20%` `[INFERRED]`, and zero unsolicited CALM or `.es.md` mirrors.
 - [x] **34.3.** Synchronize Dual-Consumer surface counts (`20` MCP tools, `12` modular skills), A2A Agent Card, catalogs, bilingual docs, Karate Scenario 58, Clean-Room E2E (`./scripts/probar-mcp-example.sh`), `100%` differential coverage (`813` Vitest tests across `50` suites), rotate atomically to `3.11.0` (`QA-11X v3.11`), and certify `10/10` (`certify_task_completion.sh`).
+
+---
+
+## ✅ Milestone 35: `v3.12.0` (`QA-11X v3.12`) — Deep `analyze_ecosystem_specs` v2.0.0 & Full-Repository Audit Remediation
+**Mandatory Reference:** [`CHANGELOG.md`](CHANGELOG.md), [`docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`](docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md) §10, and [`.agents/skills/qa-11x-reverse-specs/SKILL.md`](.agents/skills/qa-11x-reverse-specs/SKILL.md)
+
+### Implementation Tasks:
+- [x] **35.1.** Remediate all repository-wide audit findings across MCP core/CLI (`projectContextDetector.ts`, `propose_skill_evolution_pr` URL/title sanitization, `sarifIngester` symlink confinement, `blast-radius` subgraph scoping, `certify-gate` `reverse_import` cycles, `reconcile-agents` shadow dirs, `inspect-project`/`test-pyramid` stack detection, `ephemeral-runner` Karate & `ai-evals`/`vibe-rescue` coverage harvest), Python/Bash governance scripts (`normalize_kcov_cobertura` anti-XXE, `verify_diff_coverage` non-doc `.agents/` exclusion, `lint_workflows` per-token secrets, `inspect_blast_radius` transitive callers, `select_tests_by_blast_radius` multi-subgraph merge, `bump_version_11x.py` `SECURITY.{md,es.md}` superseded-row preservation), CI/hooks, and all `10` stack blueprints + `mcp-server/example/`.
+- [x] **35.2.** Upgrade MCP Tool #20 `analyze_ecosystem_specs` to schema `v2.0.0` (`detailLevel: 'standard' | 'deep' | 'exhaustive'`, `generateSkeletons: true`) with 6 new modular extractors (`schemaAndEnumExtractor.ts`, `endpointMetadataExtractor.ts`, `asyncAndExternalExtractor.ts`, `astFlowTracer.ts`, `deepContractChecks.ts`, `skeletonRenderer.ts`), 8 inconsistency categories (adding `SPEC_VS_CODE_DRIFT`, `PAYLOAD_SCHEMA_DRIFT`, `UNHANDLED_PAGINATION_OR_ERROR_CONTRACT` + pre-truncation `findings_total_counts`), deterministic `.skeletons/00..05-*.skeleton.md` Markdown/Mermaid pre-rendering, and `qa-11x-reverse-specs` skill expansion (`6` numbered deliverables + `references/deliverable-templates.md`).
+- [x] **35.3.** Harden `_docs_invariants_{counts,catalogs}.py` (Skills badge, `.claude-plugin/{plugin,marketplace}.json`, `docs/ai-integration.{md,es.md}`), sync bilingual documentation (`docs/05` §10, `README`, `TESTING`, `SECURITY`, `CONTRIBUTING`, `FAQ`, `CHANGELOG`, `ROADMAP`) within strict cognitive byte budgets, expand Vitest/Pytest/BATS/Karate Scenario 59 + Clean-Room `verify-v2.sh`, rotate atomically to `3.12.0` (`QA-11X v3.12`), refresh Graphify AST graphs, and certify `10/10` (`certify_task_completion.sh --strict`, local commit only under `QA-GIT-GATE-01`).

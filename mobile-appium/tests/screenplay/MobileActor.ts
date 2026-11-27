@@ -445,10 +445,8 @@ function applyIdempotencyHeader(merged: Record<string, string>, spec: MobileApiR
     merged['Idempotency-Key'] = spec.idempotencyKey;
     return;
   }
-  if (existingIdem === undefined) {
-    deleteHeaderIgnoreCase(merged, 'idempotency-key');
-    merged['Idempotency-Key'] = globalThis.crypto.randomUUID();
-  }
+  deleteHeaderIgnoreCase(merged, 'idempotency-key');
+  merged['Idempotency-Key'] = existingIdem?.value ?? globalThis.crypto.randomUUID();
 }
 
 function buildMobileApiHeaders(

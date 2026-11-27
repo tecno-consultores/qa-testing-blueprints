@@ -53,7 +53,6 @@ Thumbs.db
 *.sw?
 
 # QA-11X governance and contracts
-graphify-out/
 .agents/ACTIVE_TASK.md
 .agents/.qa-evidence.json
 .agents/.qa-11x-version

@@ -336,7 +336,7 @@ function addHighActions(
     });
   }
 
-  const l07 = layers.find((l) => l.layer_id === 'L07_BDD_UI_KARATE_REFRESH');
+  const l07 = layers.find((l) => l.layer_id === 'L07_BDD_UI_KARATE');
   if (inventory.untested_ui_views.length > 0 || isLayerIncomplete(l07)) {
     plan.push({
       step: plan.length + 1,

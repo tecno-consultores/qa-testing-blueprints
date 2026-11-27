@@ -87,7 +87,7 @@ export function evaluateLayer06BddApiKarate(
   }
 
   const hasFeature = files.some(
-    (f) => f.endsWith('.feature') && f.includes(API_TEST_FEATURE)
+    (f) => f.endsWith('.feature') && (f.includes(API_TEST_FEATURE) || f.includes('api.feature'))
   );
   const dockerCompose = readMergedConfigFiles(projectPath, files, [DOCKER_COMPOSE_QA]);
   const hasKarateService = dockerCompose.includes('karatelabs') || dockerCompose.includes('karate:');
@@ -426,18 +426,26 @@ export function evaluateLayer10PerfLoad(
 
   const hasLocust = files.some((f) => f.includes(LOCUSTFILE_PY));
   const hasArtillery = files.some((f) => f.includes('load-test.yml') || f.includes('artillery'));
+  const hasK6 = files.some((f) => f.endsWith('.k6.js') || f.endsWith('.k6.ts'));
   const dockerCompose = readMergedConfigFiles(projectPath, files, [DOCKER_COMPOSE_QA]);
   const makefile = readMergedConfigFiles(projectPath, files, [MAKEFILE_NAME]);
 
-  const hasDockerService = dockerCompose.includes('locust') || dockerCompose.includes('artillery');
-  const hasMakeTarget = makefile.includes('qa-perf');
-  const hasFile = hasLocust || hasArtillery;
+  const hasDockerService =
+    dockerCompose.includes('locust') ||
+    dockerCompose.includes('artillery') ||
+    dockerCompose.includes('k6');
+  const hasMakeTarget =
+    makefile.includes('qa-perf') ||
+    makefile.includes('qa-load') ||
+    makefile.includes('qa-stress');
+  const hasFile = hasLocust || hasArtillery || hasK6;
 
   const detected: string[] = [];
   if (hasLocust) detected.push(`Archivo de carga ${LOCUSTFILE_PY}`);
   if (hasArtillery) detected.push('Escenario Artillery load-test.yml');
+  if (hasK6) detected.push('Escenario de carga k6 (*.k6.js)');
   if (hasDockerService) detected.push('Servicio de carga en docker-compose.qa.yml');
-  if (hasMakeTarget) detected.push('Target qa-perf en Makefile');
+  if (hasMakeTarget) detected.push('Target qa-perf/qa-load/qa-stress en Makefile');
 
   const { status, missingReqs } = determinePerfLoadStatus(
     hasFile,

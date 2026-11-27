@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import {
   formatQa11xStatusBanner,
   readQa11xConfig,
 } from '../services/qa11xConfig.js';
+import {
+  findFirstCalmArchitectureRelPath,
+  resolveEffectiveQa11xTier,
+} from '../services/projectContextDetector.js';
 import {
   type AuditVibePrototypeResult,
   auditVibePrototype,
@@ -16,7 +18,6 @@ import { auditTestPyramidGaps } from '../tools/test-pyramid-auditor.js';
 import {
   type CalmValidationProfile,
   type CalmValidationResult,
-  DEFAULT_CALM_ARCHITECTURE_PATH,
   validateCalmArchitecture,
 } from '../tools/validateCalmArchitecture.js';
 import type { SecurityAuditResult, TestPyramidGapResult } from '../types.js';
@@ -31,6 +32,7 @@ import {
   hasHelpFlag,
   matchFlagValue,
   resolveCliProjectPath,
+  stripValidatedLangFlags,
 } from './cliArgHelpers.js';
 import { renderSubcommandHelpText, resolveCliHelpLang } from './commandCatalog.js';
 
@@ -206,6 +208,7 @@ function applyAuditToken(
 }
 
 function parseAuditArgs(args: readonly string[]): ParsedAuditArgs {
+  const cleanArgs = stripValidatedLangFlags(args);
   const state: ParsedAuditArgs = {
     rawDir: undefined,
     mode: MODE_SECURITY,
@@ -216,8 +219,8 @@ function parseAuditArgs(args: readonly string[]): ParsedAuditArgs {
     architecturePath: undefined,
     calmProfile: undefined,
   };
-  for (let i = 0; i < args.length; i++) {
-    i += applyAuditToken(args, i, state);
+  for (let i = 0; i < cleanArgs.length; i++) {
+    i += applyAuditToken(cleanArgs, i, state);
   }
   return state;
 }
@@ -434,9 +437,11 @@ function runCalmAuditWithCap(
   projectPath: string,
   parsed: ParsedAuditArgs
 ): { calm: CalmValidationResult; calmStatus: 'PASSED' | 'FAILED' } {
+  const effectiveArchPath =
+    parsed.architecturePath ?? findFirstCalmArchitectureRelPath(projectPath) ?? undefined;
   const rawCalm = validateCalmArchitecture({
     workspaceRoot: projectPath,
-    ...(parsed.architecturePath !== undefined ? { architecturePath: parsed.architecturePath } : {}),
+    ...(effectiveArchPath !== undefined ? { architecturePath: effectiveArchPath } : {}),
     ...(parsed.calmProfile !== undefined ? { profile: parsed.calmProfile } : {}),
   });
   const calm =
@@ -456,7 +461,7 @@ function shouldRunCalmAudit(projectPath: string, parsed: ParsedAuditArgs): boole
   if (parsed.architecturePath !== undefined) {
     return true;
   }
-  return fs.existsSync(path.join(projectPath, DEFAULT_CALM_ARCHITECTURE_PATH));
+  return findFirstCalmArchitectureRelPath(projectPath) !== null;
 }
 
 interface MutableExecutedAudits {
@@ -545,7 +550,8 @@ export async function runAuditCli(
     const parsed = parseAuditArgs(args);
     const projectPath = resolveCliProjectPath(parsed.rawDir, deps.cwd ?? process.cwd());
     const loadedTierCfg = readQa11xConfig(projectPath);
-    const qa11xBanner = formatQa11xStatusBanner(loadedTierCfg.effectiveTier, 'FULL_11X');
+    const effectiveTier = resolveEffectiveQa11xTier(projectPath, loadedTierCfg);
+    const qa11xBanner = formatQa11xStatusBanner(effectiveTier, 'FULL_11X');
     const audits = await executeRequestedAudits(projectPath, parsed);
     const sarifFindings = collectSarifFindings(audits);
     const exitCode = shouldFailAudit(parsed.failOn, sarifFindings, audits) ? 1 : 0;
@@ -556,7 +562,7 @@ export async function runAuditCli(
     } else if (parsed.format === FORMAT_JSON) {
       output = formatCliJson({
         project_path: projectPath,
-        effective_tier: loadedTierCfg.effectiveTier,
+        effective_tier: effectiveTier,
         tier_confirmed_by_user: loadedTierCfg.tierConfirmedByUser,
         qa_11x_banner: qa11xBanner,
         mode: parsed.mode,

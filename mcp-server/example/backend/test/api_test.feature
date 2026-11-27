@@ -5,6 +5,8 @@ Feature: Contratos BDD 11X para API Multi-Tenant de Telemetría
 
   Scenario: Registro idempotente y consulta inmediata sin mocks intermedios (Anti-Silo)
     Given path '/api/v1/devices'
+    And header X-Tenant-Id = 'tenant-demo'
+    And header X-Auth-Tenant = 'tenant-demo'
     And header Idempotency-Key = java.util.UUID.randomUUID() + ''
     And request { id: 'dev-bdd-01', hostname: 'core-edge-01', cpu_load_pct: 37.5 }
     When method post
@@ -14,6 +16,8 @@ Feature: Contratos BDD 11X para API Multi-Tenant de Telemetría
     And match response.audit_actor == 'operador.noc'
 
     Given path '/api/v1/devices'
+    And header X-Tenant-Id = 'tenant-demo'
+    And header X-Auth-Tenant = 'tenant-demo'
     When method get
     Then status 200
     And match response[*].id contains 'dev-bdd-01'

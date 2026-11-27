@@ -161,6 +161,90 @@ def load_ast_graph(graph_path: Path) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+def _qualify_subgraph_path(prefix: str, raw_file: str) -> str:
+    cleaned = _norm_path(raw_file)
+    if not cleaned:
+        return ""
+    if prefix and not cleaned.startswith(f"{prefix}/"):
+        return f"{prefix}/{cleaned}"
+    return cleaned
+
+
+def _append_prefixed_nodes(
+    merged_nodes: list[dict[str, Any]],
+    raw_nodes: list[Any],
+    prefix: str,
+    id_prefix: str,
+) -> None:
+    for node in raw_nodes:
+        if isinstance(node, dict) and isinstance(node.get("id"), str):
+            merged_nodes.append(
+                {
+                    **node,
+                    "id": f"{id_prefix}{node['id']}",
+                    "source_file": _qualify_subgraph_path(
+                        prefix, str(node.get("source_file") or "")
+                    ),
+                }
+            )
+
+
+def _append_prefixed_links(
+    merged_links: list[dict[str, Any]],
+    raw_links: list[Any],
+    prefix: str,
+    id_prefix: str,
+) -> None:
+    for link in raw_links:
+        if not isinstance(link, dict):
+            continue
+        src = str(link.get("source") or "")
+        tgt = str(link.get("target") or "")
+        if not (src and tgt):
+            continue
+        merged_links.append(
+            {
+                **link,
+                "source": f"{id_prefix}{src}",
+                "target": f"{id_prefix}{tgt}",
+                "source_file": _qualify_subgraph_path(
+                    prefix, str(link.get("source_file") or "")
+                ),
+            }
+        )
+
+
+def _merge_single_graph(
+    merged_nodes: list[dict[str, Any]],
+    merged_links: list[dict[str, Any]],
+    graph_file: Path,
+    prefix: str,
+) -> bool:
+    data = load_ast_graph(graph_file)
+    if data is None:
+        return False
+    id_prefix = f"{prefix}::" if prefix else ""
+    _append_prefixed_nodes(merged_nodes, data.get("nodes", []), prefix, id_prefix)
+    _append_prefixed_links(merged_links, data.get("links", []), prefix, id_prefix)
+    return True
+
+
+def load_ast_graph_merged(graph_path: Path) -> dict[str, Any] | None:
+    """Carga el grafo primario y fusiona subgrafos */graphify-out/graph.json."""
+    merged_nodes: list[dict[str, Any]] = []
+    merged_links: list[dict[str, Any]] = []
+    loaded_any = _merge_single_graph(merged_nodes, merged_links, graph_path, "")
+    if graph_path.parent.name == "graphify-out" and graph_path.name == "graph.json":
+        workspace_root = graph_path.parent.parent
+        for sub_graph in sorted(workspace_root.glob("*/graphify-out/graph.json")):
+            sub_prefix = sub_graph.parent.parent.name
+            if _merge_single_graph(merged_nodes, merged_links, sub_graph, sub_prefix):
+                loaded_any = True
+    if not loaded_any:
+        return None
+    return {"nodes": merged_nodes, "links": merged_links}
+
+
 def _index_node_files(graph: dict[str, Any]) -> dict[str, str]:
     mapping: dict[str, str] = {}
     for node in graph.get("nodes", []):
@@ -346,7 +430,7 @@ def _build_full_or_targeted_plan(
     has_critical: bool,
     high_blast_threshold: int,
 ) -> dict[str, Any]:
-    graph = load_ast_graph(graph_path)
+    graph = load_ast_graph_merged(graph_path)
     union_files, caller_count, graph_loaded = compute_blast_impact(norm_changed, graph)
     has_security = any(
         _has_security_keyword(item)

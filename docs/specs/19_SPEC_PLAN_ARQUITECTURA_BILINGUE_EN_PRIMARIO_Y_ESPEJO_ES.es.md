@@ -19,7 +19,7 @@ Esta especificación define la planificación técnica detallada para migrar tod
 
 ## 2. Inventario Histórico Base (Pre-v3.0) y Métricas Vigentes
 
-> **Nota Histórica (Baseline Pre-v3.0 vs. Métricas Vigentes):** Esta sección preserva el **inventario diagnóstico histórico previo a `v3.0.0`** que motivó las 4 fases. En el estado vigente implementado (`v3.0.0` + evolución `v3.1–v3.10`), el repositorio cuenta con **12** `.agents/skills/*/SKILL.md`, normalización completa de `docs/agent-setup.md` ↔ `docs/agent-setup.es.md` (con el antiguo stub `docs/agent-setup.en.md` retirado tras el ciclo de transición), paridad bilingüe EN+ES en los documentos raíz, manuales de `docs/` (`01..05`), los 10 stacks y las Specs `19..20+`, además de **20 Tools** MCP y **13 Resources** `blueprint://*`.
+> **Nota Histórica (Baseline Pre-v3.0 vs. Métricas Vigentes):** Esta sección preserva el **inventario diagnóstico histórico previo a `v3.0.0`** que motivó las 4 fases. En el estado vigente implementado (`v3.0.0` + evolución `v3.1–v3.12`), el repositorio cuenta con **12** `.agents/skills/*/SKILL.md`, normalización completa de `docs/agent-setup.md` ↔ `docs/agent-setup.es.md` (con el antiguo stub `docs/agent-setup.en.md` retirado tras el ciclo de transición), paridad bilingüe EN+ES en los documentos raíz, manuales de `docs/` (`01..05`), los 10 stacks y las Specs `19..20+`, además de **20 Tools** MCP y **13 Resources** `blueprint://*`.
 
 | Categoría | Archivos Observados (Baseline Histórico Pre-v3.0 / Estado Vigente) | Idioma Baseline | Estado Bilingüe |
 | :--- | :--- | :--- | :--- |

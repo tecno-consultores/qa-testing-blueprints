@@ -4,18 +4,18 @@
   <img src="assets/qa-logo.jpeg" alt="QA Testing Blueprints Logo" width="320" />
 </p>
 
-# QA Testing Blueprints (`QA-11X v3.11`)
+# QA Testing Blueprints (`QA-11X v3.12`)
 
 **Zero-Infra Agentic QA, AI Evals & DevSecOps Governance Blueprint**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Rule Zero: Ephemeral Docker](https://img.shields.io/badge/Rule%20Zero-Non--Root%20Ephemeral%20Docker-0db7ed)](TESTING.md)
 [![Trivy Scan](https://img.shields.io/badge/Trivy-HIGH%2FCRITICAL%20%3D%200-brightgreen)](SECURITY.md)
-[![Modular AI Skills](https://img.shields.io/badge/AI%20Skills-11%20Modular%20(%3C20KB)-6f42c1)](.agents/skills/qa-11x-architect/SKILL.md)
+[![Modular AI Skills](https://img.shields.io/badge/AI%20Skills-12%20Modular%20(%3C20KB)-6f42c1)](.agents/skills/qa-11x-architect/SKILL.md)
 [![AI Coding Agents](https://img.shields.io/badge/AI%20Agents-28%20Supported-ff69b4)](docs/agent-setup.md)
 [![FINOS CALM](https://img.shields.io/badge/Architecture-FINOS%20CALM-orange)](architecture/qa-11x.calm.json)
 
-**QA-11X v3.11** turns both **AI Coding Agents** (28 supported agents including Google Antigravity, Claude Code, Cursor, Windsurf, Codex, Copilot, Hermes Agent, and 21 more) and **human engineering teams** into deterministic Staff-level QA & DevSecOps operators. Every check runs inside **ephemeral, non-root Docker containers (`Rule Zero`)** with zero host contamination, enforcing `>= 95%` coverage, real database/contract parity, dual-mode AI evaluations, and **DISA ASD STIG V6R5 + OWASP v4.2** security controls from day one.
+**QA-11X v3.12** turns both **AI Coding Agents** (28 supported agents including Google Antigravity, Claude Code, Cursor, Windsurf, Codex, Copilot, Hermes Agent, and 21 more) and **human engineering teams** into deterministic Staff-level QA & DevSecOps operators. Every check runs inside **ephemeral, non-root Docker containers (`Rule Zero`)** with zero host contamination, enforcing `>= 95%` coverage, real database/contract parity, dual-mode AI evaluations, and **DISA ASD STIG V6R5 + OWASP v4.2** security controls from day one.
 
 ---
 
@@ -60,7 +60,7 @@ jobs:
 
 ---
 
-## 🧭 Differential Architecture (`QA-11X v3.11`)
+## 🧭 Differential Architecture (`QA-11X v3.12`)
 
 ```mermaid
 flowchart TD
@@ -90,7 +90,7 @@ flowchart TD
 
 All runtime, lint, mutation, contract, and BDD suites execute inside non-root containers (`-u "$(id -u):$(id -g)" -e HOME=/tmp`) with **`Trivy HIGH/CRITICAL = 0`**:
 
-| Ephemeral Image | Role in QA-11X v3.11 | Certified Tags & Pre-Baked Tooling |
+| Ephemeral Image | Role in QA-11X v3.12 | Certified Tags & Pre-Baked Tooling |
 | :--- | :--- | :--- |
 | **[sinfallas/base-python-uv](https://hub.docker.com/r/sinfallas/base-python-uv)** | Python, FastAPI, AI Evals & Vibe-Rescue | `3.11`, `3.12`, `3.13`, `3.14`, `3.15`, `latest` (`uv`, `ruff`, `mypy`, `pytest`, `bandit`, `radon`, `mutmut`, `deepeval`, `pact-python`, `tesseract-ocr`) |
 | **[sinfallas/base-node-ionic](https://hub.docker.com/r/sinfallas/base-node-ionic)** | MCP Server, Node, Vue 3, React & CALM | `22`, `24`, `26`, `latest` (`pnpm`, `promptfoo`, `@finos/calm-cli`, `playwright`, `@axe-core/playwright`, `@pact-foundation/pact`) |
@@ -107,7 +107,7 @@ All runtime, lint, mutation, contract, and BDD suites execute inside non-root co
 
 The matrix covers **10 hydratable stacks** (`python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`) plus **`architecture/`** (FINOS CALM topology) and **`mcp-server/`** (`@sinfallas/mcp-qa-11x`), forming the **12 matrix environments**:
 
-| Directory | Domain | Key Capabilities (QA-11X v3.11) |
+| Directory | Domain | Key Capabilities (QA-11X v3.12) |
 | :--- | :--- | :--- |
 | **[`fastapi/`](fastapi/)** | Python Async APIs | Ruff, Mypy strict, PostgreSQL 17 RLS + Alembic parity, Pact V4 consumer ([`test_pact_consumer.py`](fastapi/tests/contracts/test_pact_consumer.py)), k6 smoke load ([`smoke.k6.js`](fastapi/tests/load/smoke.k6.js)), Karate BDD |
 | **[`python/`](python/)** | Python Libraries & CLIs | UV, Ruff (`CC <= 5`), Mypy strict, Pytest `>= 95%`, Hypothesis, Mutmut (`MSI >= 80%`), Bandit |
@@ -159,7 +159,7 @@ Below is the corporate validation stack summarized across all **12 matrix enviro
 ## 🤖 12 Modular Skills (`< 20 KB`), MCP Server & 28 AI Agents
 
 * **Progressive Skill Routing (`< 20 KB` budget):** Led by [`.agents/skills/qa-11x-architect/SKILL.md`](.agents/skills/qa-11x-architect/SKILL.md) (`<= 12 KB`, `10` on-demand references incl. SDD/EARS), loading 11 specialized sub-skills on demand (`qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `qa-11x-docker-certifier`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui`, JIT [`tactical-patterns-11x`](.agents/skills/tactical-patterns-11x/SKILL.md) `<= 2.5 KB` injected via `[DIRECTIVE-11X]`, and [`qa-11x-reverse-specs`](.agents/skills/qa-11x-reverse-specs/SKILL.md) for zero-footprint multi-project reverse specifications & integration mapping without vulnerability audits) and installable natively via [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) + [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json).
-* **Public MCP Surface (`@sinfallas/mcp-qa-11x` v3.11.0):** Exposes **20 Tools** and **13 Resources** (`blueprint://*`, including `blueprint://{stack}/readme` across all **10 hydratable stacks**: `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`) over `stdio` — combining 12 core v1 tools + 6 v2.0 evaluators + **v3.1** atomic Flight Recorder `session_flight_recorder` (`session_checkpoint.json` `0600` -> `.agents/ACTIVE_TASK.md`) + `analyze_ecosystem_specs` (zero-footprint multi-project reverse specs, HTTP/`.env` contract correlation & AST structural findings) and **v3.1** `blueprint://skills/tactical-patterns-11x` (`12` modular skills total), protected end-to-end by `promptGuard`, `TaskStateGuard`, and **v3.7** Docker anti-saturation guardrails (`QA_MAX_CONCURRENT_CONTAINERS=1`, `COMPOSE_PARALLEL_LIMIT=1`, passive Linux thermal/RAM guard `exit_code=75`, CrashLoop pre-flight remediation, static rule #37 `QA-DOCKER-LOOP-01`, and `qa-11x doctor` `docker_health` telemetry).
+* **Public MCP Surface (`@sinfallas/mcp-qa-11x` v3.12.0):** Exposes **20 Tools** and **13 Resources** (`blueprint://*`, including `blueprint://{stack}/readme` across all **10 hydratable stacks**: `python`, `fastapi`, `node-backend`, `vue3`, `react-frontend`, `bash-scripts`, `php`, `mobile-appium`, `ai-evals`, `vibe-rescue`) over `stdio` — combining 12 core v1 tools + 6 v2.0 evaluators + **v3.1** atomic Flight Recorder `session_flight_recorder` (`session_checkpoint.json` `0600` -> `.agents/ACTIVE_TASK.md`) + `analyze_ecosystem_specs` (zero-footprint multi-project reverse specs, HTTP/`.env` contract correlation & AST structural findings) and **v3.1** `blueprint://skills/tactical-patterns-11x` (`12` modular skills total), protected end-to-end by `promptGuard`, `TaskStateGuard`, and **v3.7** Docker anti-saturation guardrails (`QA_MAX_CONCURRENT_CONTAINERS=1`, `COMPOSE_PARALLEL_LIMIT=1`, passive Linux thermal/RAM guard `exit_code=75`, CrashLoop pre-flight remediation, static rule #37 `QA-DOCKER-LOOP-01`, and `qa-11x doctor` `docker_health` telemetry).
 * **Human-Confirmed Git Closure (`QA-GIT-GATE-01`):** Enforced by [`.agents/rules/git_closure_gate.md`](.agents/rules/git_closure_gate.md) — agents certify locally via `make certify` and stop at a local `git commit`; automatic `git push` or `npm publish` is strictly forbidden.
 * **Setup & Catalog Guides:** See [`docs/agent-setup.md`](docs/agent-setup.md) (English), [`docs/agent-setup.es.md`](docs/agent-setup.es.md) (Spanish), [`server.json`](server.json) (Official MCP Registry: `io.github.tecno-consultores/mcp-qa-11x`), [`RESOURCES.md`](RESOURCES.md), [`llms.txt`](llms.txt) (GEO index), [`catalogs/`](catalogs/agenticskills-submission.md) ([QASkills](catalogs/qaskills-pack.json), [SkillsLLM](catalogs/skillsllm-manifest.json)), [`docs/01_ARQUITECTURA_PIRAMIDE_11X.md`](docs/01_ARQUITECTURA_PIRAMIDE_11X.md), [`TESTING.md`](TESTING.md), [`SECURITY.md`](SECURITY.md), and [`ROADMAP.md`](ROADMAP.md).
 

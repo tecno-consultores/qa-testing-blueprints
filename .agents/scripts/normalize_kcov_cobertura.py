@@ -36,7 +36,7 @@ _ARRAY_START_RE = re.compile(
 _CMD_SUBST_RE = re.compile(r'^(?:local\s+)?[A-Za-z_][A-Za-z0-9_]*="?\$\(')
 _BLOCK_END_RE = re.compile(r"^(?:fi|done|esac|else|elif\b|\}|;;)\b")
 _COND_FRAC_RE = re.compile(r"\((\d+)/(\d+)\)")
-_DOCTYPE_RE = re.compile(r"<!DOCTYPE[^>]*>\s*")
+_DOCTYPE_RE = re.compile(r"<!DOCTYPE\s+[^[\]<>]+>\s*", re.IGNORECASE)
 
 
 @dataclass
@@ -409,12 +409,17 @@ def _parse_xml_safely(raw_xml: str) -> ET.Element:
     """Parsea XML de Cobertura rechazando declaraciones XXE/ENTITY (SEC-04)."""
     if "<!ENTITY" in raw_xml.upper():
         raise ValueError("Declaración XML <!ENTITY prohibida (protección XXE SEC-04).")
+    sanitized = _DOCTYPE_RE.sub("", raw_xml)
+    if "<!DOCTYPE" in sanitized.upper():
+        raise ValueError(
+            "Declaración XML <!DOCTYPE con subconjunto interno prohibida (SEC-04)."
+        )
     try:
         defused_et: Any = importlib.import_module("defusedxml.ElementTree")
-        parsed: ET.Element = defused_et.fromstring(raw_xml)
+        parsed: ET.Element = defused_et.fromstring(sanitized)
         return parsed
     except ImportError:
-        return ET.fromstring(raw_xml)
+        return ET.fromstring(sanitized)
 
 
 def _ingest_cobertura_file(
@@ -422,7 +427,7 @@ def _ingest_cobertura_file(
     idx: _RepoIndex,
     merged: dict[str, dict[int, _LineEntry]],
 ) -> None:
-    raw = _DOCTYPE_RE.sub("", xml_path.read_text(encoding="utf-8"))
+    raw = xml_path.read_text(encoding="utf-8")
     root = _parse_xml_safely(raw)
     srcs = [
         node.text.strip()
@@ -458,11 +463,15 @@ def normalize_kcov_reports(
         _ingest_cobertura_file(xp, idx, merged)
     _reconcile_multiline_hits(idx, merged)
     output_xml.parent.mkdir(parents=True, exist_ok=True)
-    output_xml.write_text(_build_cobertura_xml(merged), encoding="utf-8")
+    tmp_path = output_xml.parent / f".{output_xml.name}.{os.getpid()}.tmp"
+    fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     try:
-        os.chmod(output_xml, 0o600)
-    except OSError:
-        pass
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(_build_cobertura_xml(merged))
+        os.replace(tmp_path, output_xml)
+    except Exception:
+        tmp_path.unlink(missing_ok=True)
+        raise
     return 0
 
 

@@ -1,4 +1,4 @@
-> **[DIRECTIVA DE SISTEMA PARA AGENTES DE IA]:** Actúa como un Ingeniero Staff de Automatización QA y Experto DevOps. Lee, analiza y aplica estrictamente las siguientes restricciones arquitectónicas redactadas en español. Debes generar código que se alinee perfectamente con estas reglas, utilizando exclusivamente los contenedores Docker efímeros, frameworks de pruebas y umbrales estrictos de calidad (p. ej. 95% de cobertura, SAST, Profiling) especificados a continuación. No sugieras instalaciones locales. Procesa la lógica técnica con tu máxima capacidad de razonamiento en inglés, y emite tu respuesta final, explicaciones y comentarios de código en el idioma del prompt del usuario (por defecto español).
+> **[DIRECTIVA DE SISTEMA PARA AGENTES DE IA]:** Actúa como un Ingeniero Staff de Automatización QA y Experto DevOps. Lee, analiza y aplica estrictamente las siguientes restricciones arquitectónicas redactadas en español. Debes generar código que se alinee perfectamente con estas reglas, utilizando exclusivamente los contenedores Docker efímeros, frameworks de pruebas y umbrales estrictos de calidad (p. ej. 95% de cobertura, SAST, Profiling) especificados a continuación. No sugieras instalaciones locales. Interactúa y emite tu respuesta final, explicaciones y comentarios en el idioma del prompt del usuario (por defecto español).
 
 > 🌐 **Idioma:** [🇺🇸 English (Canonical)](README.md) · **Español (Espejo 1:1)**
 
@@ -123,7 +123,7 @@ make qa-sbom
 ```
 
 **Paso 2: Certificación de Observabilidad y Carga en Vivo (Nivel 11X)**
-Usa `qa-backend` abajo para scripts batch con Pushgateway (`push_to_gateway('python_pushgateway:9091', ...)`), mientras los daemons HTTP raspados en `:8000` se ejecutan con `PYTHON_HTTP_CMD` en `python-api` (exponiendo `/health` + `/metrics`); `make qa-load` funciona listo para usar contra el stub `python-api` por defecto o con `PYTHON_HTTP_CMD` / `API_BASE_URL` propios, persistiendo `reports/k6-summary.json`.
+Usa `qa-backend` abajo para scripts batch con Pushgateway (`push_to_gateway('pushgateway:9091', ...)`), mientras los daemons HTTP raspados en `:8000` se ejecutan con `PYTHON_HTTP_CMD` en `python-api` (exponiendo `/health` + `/metrics`); `make qa-load` (o su alias `make qa-perf`) funciona listo para usar contra el stub `python-api` por defecto o con `PYTHON_HTTP_CMD` / `API_BASE_URL` propios, persistiendo `reports/k6-summary.json`.
 ```bash
 make qa-observability
 docker compose -f docker-compose.qa.yml run --rm -T -u "$(id -u):$(id -g)" qa-backend bash -c "uv sync --all-extras -q && uv run python src/main.py"

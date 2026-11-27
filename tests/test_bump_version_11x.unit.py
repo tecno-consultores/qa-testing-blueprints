@@ -364,8 +364,23 @@ def test_major_minor_only_security_rules(tmp_path: Path) -> None:
 
     assert mod.run_rules(tmp_path, sec_rules, "3.1.2", True) == ([], 2)
     assert mod.run_rules(tmp_path, sec_rules, "3.1.9", False) == ([], 0)
-    assert "3.1.x" in (tmp_path / "SECURITY.md").read_text(encoding="utf-8")
-    assert "3.1.x" in (tmp_path / "SECURITY.es.md").read_text(encoding="utf-8")
+    sec_en = (tmp_path / "SECURITY.md").read_text(encoding="utf-8")
+    sec_es = (tmp_path / "SECURITY.es.md").read_text(encoding="utf-8")
+    assert "3.1.x" in sec_en
+    assert "3.1.x" in sec_es
+    # Minor bump preserves prior minor 3.0.x as a superseded row (not overwritten)
+    assert (
+        "| **`3.0.x`** | ⚠️ Security Fixes Only | "
+        "Superseded by `3.1.x` (`upgrade recommended`) |"
+    ) in sec_en
+    assert (
+        "| **`3.0.x`** | ⚠️ Solo Parches de Seguridad | "
+        "Reemplazada por `3.1.x` (`actualización recomendada`) |"
+    ) in sec_es
+    # Idempotent re-run on same minor does not duplicate rows
+    assert mod.run_rules(tmp_path, sec_rules, "3.1.5", True) == ([], 0)
+    sec_en_after = (tmp_path / "SECURITY.md").read_text(encoding="utf-8")
+    assert sec_en_after.count("| **`3.0.x`** |") == 1
 
 
 def test_mcp_test_fixtures_edition_and_version_rules(tmp_path: Path) -> None:

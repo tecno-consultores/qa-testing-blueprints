@@ -20,7 +20,7 @@ Para que un agente comprenda las restricciones corporativas en tiempo real, los 
   docker run --rm --restart=no --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "${PWD}:/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"
 ```
 * **Invariante CLI-First / MCP `stdio`:** Tanto agentes con consola local (Antigravity, Claude Code, Cursor) como agentes conectados a `@sinfallas/mcp-qa-11x` (`inspect_ast_blast_radius`) consultan `graphify-out/graph.json` y `GRAPH_REPORT.md` directamente sin ocupar puertos TCP ni dejar demonios en segundo plano.
-* **Ejemplo Práctico 2 (Recursos Dinámicos Verificados con SHA-256):** El servidor MCP `@sinfallas/mcp-qa-11x` v3.11.0 expone **13 recursos MCP (`blueprint://*`: 11 estáticos vía `resources/list` + 2 plantillas dinámicas vía `resources/templates/list`)** y **20 herramientas MCP** cubriendo **10 stacks hidratables + `architecture/` + `mcp-server/` (= 12 entornos de matriz)** (incluyendo `mobile-appium` sobre `sinfallas/base-mobile-appium:26`). Cuando el agente detecta un stack FastAPI, consulta `blueprint://fastapi/readme` y `blueprint://database/postgres-rls-worm` recibiendo las plantillas verificadas criptográficamente contra `manifest.json`.
+* **Ejemplo Práctico 2 (Recursos Dinámicos Verificados con SHA-256):** El servidor MCP `@sinfallas/mcp-qa-11x` v3.12.0 expone **13 recursos MCP (`blueprint://*`: 11 estáticos vía `resources/list` + 2 plantillas dinámicas vía `resources/templates/list`)** y **20 herramientas MCP** cubriendo **10 stacks hidratables + `architecture/` + `mcp-server/` (= 12 entornos de matriz)** (incluyendo `mobile-appium` sobre `sinfallas/base-mobile-appium:26`). Cuando el agente detecta un stack FastAPI, consulta `blueprint://fastapi/readme` y `blueprint://database/postgres-rls-worm` recibiendo las plantillas verificadas criptográficamente contra `manifest.json`.
 * **Ejemplo Práctico 3 (Lectura Proactiva de Configuraciones QA):** El servidor MCP o la inspección estática no solo debe evaluar la topología. Debe auditar proactivamente los archivos de configuración de QA (como `pyproject.toml`, `eslint.config.mjs`, `tsconfig.json`, `vitest.config.ts`) antes de escribir código.
   * **Regla Inquebrantable a inyectar al Agente Developer:** "Si el Agente Developer va a escribir código, su primer paso autónomo debe ser leer las reglas de linters y tipado, para generar código que cumpla con el estándar estricto (ej. `strict=true` en Mypy) desde el primer intento, ahorrando ciclos de auto-corrección (tokens)."
 
@@ -94,7 +94,7 @@ npx -y @sinfallas/mcp-qa-11x@latest quickstart -T standard --lang es --agents au
 npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile
 
 # Instalación con todas las opciones explícitas (especificando entorno de destino):
-npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|workspace|antigravity|claude|cursor|windsurf|codex|hermes|all] --init-agents --include-scripts
+npx -y @sinfallas/mcp-qa-11x@latest install-skill --target [auto|workspace|antigravity|gemini-cli|claude|cursor|windsurf|codex|hermes|opencode|copilot|agents|all] --init-agents --include-scripts
 
 # O inyectar/actualizar únicamente los conectores QA 11X en AGENTS.md e IDEs configurados:
 npx -y @sinfallas/mcp-qa-11x@latest init-agents [--project-path <ruta>] [--lang auto|en|es] [--agents auto|all|<csv>] [--dry-run]
@@ -118,7 +118,7 @@ npx -y @sinfallas/mcp-qa-11x@latest [--stdio]
 ```
 
 #### Parámetros del instalador `install-skill`:
-* **`--target, -t <entorno>`:** Destino de instalación de las 12 skills modulares (`auto` por defecto — instala exclusivamente en los directorios globales de agentes IA detectados en `$HOME`, usando `workspace` solo como fallback cuando no hay agentes globales—, `workspace`, `antigravity`, `claude`, `cursor`, `windsurf`, `codex`, `hermes` o `all`).
+* **`--target, -t <entorno>`:** Destino de instalación de las 12 skills modulares (`auto` por defecto — instala en los directorios globales de agentes IA detectados en `$HOME`, usando `$HOME/.agents/skills` como fallback cuando no hay directorios IDE presentes —, `workspace`, `antigravity`, `gemini-cli`, `claude`, `cursor`, `windsurf`, `codex`, `hermes`, `opencode`, `copilot`, `agents` o `all`).
 * **`--init-agents`:** Crea `AGENTS.md` o agrega al final del existente el bloque conector canónico de QA 11X sin sobrescribir reglas previas (y sincroniza `~/.gemini/GEMINI.md` junto con conectores Thin-Repo si se indica `--agents`).
 * **`--include-scripts`:** Descarga en el directorio actual únicamente los scripts ejecutables de certificación (`.agents/scripts/*` y `scripts/*`), `.agents/schemas/*.json`, archivos comunes de CI/hooks y `.agents/ACTIVE_TASK.md.example` (`0o755`), sin duplicar `.agents/rules/*.md`.
 * **`--reconcile`:** Reconcilia la gobernanza Thin-Repo del proyecto consumidor, eliminando copias locales de las 8 reglas canónicas y las 12 skills en `<proyecto>/.agents/`, y extrayendo reglas de negocio propias hacia `.agents/rules/domain_<project>_rules.md` con respaldo en `.agents/backups/`.
@@ -215,10 +215,11 @@ mcp_servers:
 | **`audit_vibe_prototype`** | `targetDir`, `workspaceRoot`, `dryRun`, `remediationSubdir`, `maxLines`, `enforce` | Inspecciona scaffolds generados por IA (`Bolt.new`, `Lovable`, `v0`, `Replit`) buscando riesgos `VIBE-SEC-001..QA-005`, fugas de secretos y ausencia de RLS/WORM. |
 | **`sync_enterprise_tms`** | `mode`, `provider`, `targetDir`, `junitXmlPath`, `baseUrl`, `projectKey`, `issueKey`, `testExecutionKey`, `repo`, `requiredKeys`, `dryRun`, `timeoutMs`, `workspaceRoot` | Valida inventarios de trazabilidad `@JIRA`/`@TC` y envía resultados JUnit XML hacia **Jira**, **Zephyr Scale**, **Xray** o **GitHub Issues** protegidos por `TaskStateGuard` y anti-SSRF. |
 | **`session_flight_recorder`** | `project_path`, `action`, `task_id`, `active_step`, `intent_140chars`, `completed_steps`, `planned_steps`, `allowed_globs`, `forbidden_globs`, `reason` | *(v3.1)* Flight Recorder atómico (`save` \| `recover` \| `clear`) que gestiona `.agents/.cache/session_checkpoint.json` (`0600`) -> proyección `<= 40` líneas en `.agents/ACTIVE_TASK.md` + Git en vivo. |
+| **`analyze_ecosystem_specs`** | `containerDir`, `outputDir`, `projects`, `autoBuildAst`, `detailLevel`, `generateSkeletons`, `maxFindingsPerCategory`, `timeoutSeconds` | *(v3.11 / v3.12 Profundo)* Ingeniería inversa multi-proyecto sin huella sobre repositorios hermanos (API, Web, Móvil): construye grafos AST Graphify efímeros (`:ro`), mapea contratos HTTP/`.env`/DTO/enums/tiempo real/async/flujos E2E, detecta 8 categorías de inconsistencias funcionales/AST (sin auditoría de vulnerabilidades) y genera esqueletos deterministas `00..05-*.skeleton.md`. |
 
 ### 6.5. Auto-Sincronización Global en Arranque, Detección `update_available` y Validación Criptográfica
 
-Introducido en `v2.20.0` (y activo en `v3.11.0`), `@sinfallas/mcp-qa-11x` incorpora tres mecanismos automáticos de ciclo de vida:
+Introducido en `v2.20.0` (y activo en `v3.12.0`), `@sinfallas/mcp-qa-11x` incorpora tres mecanismos automáticos de ciclo de vida:
 1. **Sello `.qa-11x-version`:** `install-skill` (tanto vía CLI como `scripts/install-skill.sh`) estampa `.qa-11x-version` en los directorios de skills y en `<proyecto>/.agents/.qa-11x-version` al instalar `--include-scripts`.
 2. **Auto-Sync Silencioso en Segundo Plano (`stdio`):** En cada arranque del servidor MCP sobre `stdio`, sincroniza de forma no bloqueante (verificando `ETag` + `SHA-256` contra `manifest.json`) las skills globales ya instaladas (`~/.gemini`, `~/.claude`, `~/.cursor`, `~/.codeium/windsurf`, `~/.codex`, `~/.hermes`) preservando el idioma configurado en `~/.gemini/GEMINI.md`.
 3. **Aviso Estructurado `update_available` (TTL 24 h *Fail-Open*):** Las herramientas `inspect_project_config` y `certify_11x_gate` devuelven `update_available` para que el propio asistente notifique en el chat si el servidor MCP, las skills globales o los scripts locales del proyecto requieren actualización.
@@ -254,7 +255,7 @@ grep -rn '"version"' ~/.npm/_npx/*/node_modules/@sinfallas/mcp-qa-11x/package.js
 grep -E '"blueprint_version"|"generated_at_utc"' ~/.cache/qa-11x-blueprints/manifest.json
 
 # 3. Validar dentro de Docker efímero (Regla Cero) que cada SHA-256 de Skill coincide con manifest.json:
-docker run --rm --network none -u "$(id -u):$(id -g)" -v "$(pwd):/app:ro" -w /app \
+docker run --rm --network none --restart=no -u "$(id -u):$(id -g)" -v "$(pwd):/app:ro" -w /app \
   -v "${HOME}/.cache/qa-11x-blueprints:/cache:ro" \
   -v "${HOME}/.gemini/config/skills:/skills:ro" \
   sinfallas/base-python-uv:3.15 python3 -c '

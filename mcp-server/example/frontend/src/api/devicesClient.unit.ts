@@ -29,10 +29,22 @@ describe('devicesClient API adapter', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     expect(await fetchDevices()).toEqual(sample);
-    expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/v1/devices', { method: 'GET' });
+    expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/v1/devices', {
+      method: 'GET',
+      headers: {
+        'X-Tenant-Id': 'tenant-demo',
+        'X-Auth-Tenant': 'tenant-demo',
+      },
+    });
 
     expect(await fetchDevices(true)).toEqual(sample);
-    expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/v1/devices?refresh=true', { method: 'GET' });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/v1/devices?refresh=true', {
+      method: 'GET',
+      headers: {
+        'X-Tenant-Id': 'tenant-demo',
+        'X-Auth-Tenant': 'tenant-demo',
+      },
+    });
 
     await expect(fetchDevices()).rejects.toThrow('HTTP 503 loading devices');
   });
@@ -63,6 +75,8 @@ describe('devicesClient API adapter', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-Tenant-Id': 'tenant-demo',
+        'X-Auth-Tenant': 'tenant-demo',
         'Idempotency-Key': 'idem-key-0002',
       },
       body: JSON.stringify(payload),

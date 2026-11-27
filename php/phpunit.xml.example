@@ -33,7 +33,8 @@
 
     <coverage>
         <report>
-            <html outputDirectory="htmlcov" lowUpperBound="80" highLowerBound="95"/>
+            <cobertura outputFile="build/logs/cobertura.xml"/>
+            <html outputDirectory="/tmp/htmlcov" lowUpperBound="80" highLowerBound="95"/>
             <text outputFile="php://stdout" showUncoveredFiles="true" showOnlySummary="false"/>
         </report>
     </coverage>

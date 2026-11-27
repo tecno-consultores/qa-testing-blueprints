@@ -28,6 +28,8 @@ _SECRET_RE = re.compile(
     r"|(?:npm|ghp|gho|ghu|ghs)_[A-Za-z0-9]{30,}"
     r"|github_pat_[A-Za-z0-9_]{30,}"
     r"|glpat-[A-Za-z0-9_-]{20,}"
+    r"|sk-(?:proj-|ant-|live-|test-)?[A-Za-z0-9_-]{20,}"
+    r"|AIza[0-9A-Za-z_-]{35}"
     r"|xox[baprs]-[A-Za-z0-9_-]{12,}"
     r"|AKIA[0-9A-Z]{16}"
     r"|(?:password|passwd|secret|api_key|token)\s*[=:]\s*"
@@ -123,8 +125,11 @@ def _check_ci_escape(src_path: Path, src_txt: str, errors: list[str]) -> None:
 
 def _check_plaintext_secrets(src_path: Path, src_txt: str, errors: list[str]) -> None:
     for line_no, line in enumerate(src_txt.splitlines(), 1):
-        if _SECRET_RE.search(line) and not _IGNORE_SECRET_RE.search(line):
-            errors.append(f"{src_path}:{line_no}: posible secreto en texto plano")
+        for match in _SECRET_RE.finditer(line):
+            token = match.group(0)
+            if not _IGNORE_SECRET_RE.search(token):
+                errors.append(f"{src_path}:{line_no}: posible secreto en texto plano")
+                break
 
 
 def _load_yaml_doc(path: Path, txt: str, errors: list[str]) -> dict[str, Any] | None:

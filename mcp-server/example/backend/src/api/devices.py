@@ -35,17 +35,21 @@ def resolve_verified_claims(
     x_actor_username: Annotated[str, Header()] = "operador.noc",
     x_auth_tenant: Annotated[str | None, Header()] = None,
 ) -> dict[str, str]:
-    """Resuelve identidad de sesión validando consistencia de inquilino."""
+    """Resuelve identidad de sesión validando consistencia fail-closed de inquilino."""
     tenant_id = unicodedata.normalize("NFKC", x_tenant_id).strip()
     role = unicodedata.normalize("NFKC", x_actor_role).strip()
     username = unicodedata.normalize("NFKC", x_actor_username).strip()
-    if x_auth_tenant is not None:
-        bound_tenant = unicodedata.normalize("NFKC", x_auth_tenant).strip()
-        if bound_tenant != tenant_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Cross-tenant access spoofing rejected",
-            )
+    if x_auth_tenant is None:
+        raise HTTPException(
+            status_code=403,
+            detail="Missing verified X-Auth-Tenant header (fail-closed)",
+        )
+    bound_tenant = unicodedata.normalize("NFKC", x_auth_tenant).strip()
+    if not bound_tenant or bound_tenant != tenant_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Cross-tenant access spoofing rejected",
+        )
     return {"tenant_id": tenant_id, "role": role, "username": username}
 
 

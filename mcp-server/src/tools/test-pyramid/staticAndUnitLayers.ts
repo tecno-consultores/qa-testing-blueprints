@@ -48,21 +48,27 @@ import {
 // 📐 Evaluadores de las 13 Capas de la Pirámide 11X (Complejidad Cognitiva <= 8)
 // ============================================================================
 
+interface BashPhpLinterInputs {
+  readonly files: string[];
+  readonly pyproject: string;
+  readonly combinedPkg: string;
+  readonly composer: string;
+  readonly makefile: string;
+}
+
 function hasBashOrPhpLinterConfig(
-  files: string[],
-  pyproject: string,
-  combinedPkg: string,
-  composer: string
+  cfg: BashPhpLinterInputs
 ): { readonly hasBash: boolean; readonly hasPhp: boolean } {
   const hasBash =
-    files.some((f) => f.endsWith('.sh')) &&
-    (files.some((f) => f.includes('shellcheck')) ||
-      pyproject.includes('shellcheck') ||
-      combinedPkg.includes('shellcheck'));
+    cfg.files.some((f) => f.endsWith('.sh')) &&
+    (cfg.files.some((f) => f.includes('shellcheck')) ||
+      cfg.pyproject.includes('shellcheck') ||
+      cfg.combinedPkg.includes('shellcheck') ||
+      cfg.makefile.includes('shellcheck'));
   const hasPhp =
-    files.some((f) => f.includes('phpstan') || f.includes('psalm')) ||
-    composer.includes('phpstan') ||
-    composer.includes('psalm');
+    cfg.files.some((f) => f.includes('phpstan') || f.includes('psalm')) ||
+    cfg.composer.includes('phpstan') ||
+    cfg.composer.includes('psalm');
   return { hasBash, hasPhp };
 }
 
@@ -73,17 +79,19 @@ function detectLinterCapabilities(
   const pyproject = readMergedConfigFiles(projectPath, files, [PYPROJECT_TOML]);
   const combinedPkg = readMergedConfigFiles(projectPath, files, [PACKAGE_JSON]);
   const composer = readMergedConfigFiles(projectPath, files, [COMPOSER_JSON]);
+  const makefile = readMergedConfigFiles(projectPath, files, [MAKEFILE_NAME]);
 
   const hasPythonLinter = pyproject.includes('ruff') && pyproject.includes('bandit');
   const hasNodeLinter =
     combinedPkg.includes('--max-warnings 0') &&
     (combinedPkg.includes('sonarjs') || combinedPkg.includes('security'));
-  const { hasBash: hasBashLinter, hasPhp: hasPhpLinter } = hasBashOrPhpLinterConfig(
+  const { hasBash: hasBashLinter, hasPhp: hasPhpLinter } = hasBashOrPhpLinterConfig({
     files,
     pyproject,
     combinedPkg,
-    composer
-  );
+    composer,
+    makefile,
+  });
 
   const detected: string[] = [];
   if (hasPythonLinter) detected.push('ruff+bandit en pyproject.toml');
@@ -425,6 +433,9 @@ const VITEST_THRESHOLD_RE = /\b(?:lines|branches|statements|functions|thresholds
 const PKG_THRESHOLD_RE = /"(?:lines|branches|statements|functions)"[ \t]*:[ \t]*([0-9.]+)/gi;
 const PHPUNIT_THRESHOLD_RE = /\b(?:minCoverage|highLowerBound)="([0-9.]+)"/gi;
 
+const NODE_TEST_COV_RE = /--test-coverage-(?:lines|branches|functions)[= ]+([0-9.]+)/gi;
+const KCOV_THRESHOLD_RE = /(?:pct\s*>=\s*|kcov[^\n]*-l\s*\d+,)([0-9.]+)/gi;
+
 function hasNumericThresholdAtLeast(content: string, patterns: readonly RegExp[], minVal: number): boolean {
   for (const re of patterns) {
     for (const match of content.matchAll(re)) {
@@ -440,9 +451,9 @@ function hasNumericThresholdAtLeast(content: string, patterns: readonly RegExp[]
 function hasCoverageThreshold95(cfg: CoverageConfigBundle): boolean {
   const checks: ReadonlyArray<readonly [string, readonly RegExp[]]> = [
     [cfg.pyproject, [COV_FAIL_UNDER_RE, PY_FAIL_UNDER_RE]],
-    [cfg.makefile, [COV_FAIL_UNDER_RE, MIN_COVERAGE_CLI_RE]],
+    [cfg.makefile, [COV_FAIL_UNDER_RE, MIN_COVERAGE_CLI_RE, NODE_TEST_COV_RE, KCOV_THRESHOLD_RE]],
     [cfg.vitestConfig, [VITEST_THRESHOLD_RE]],
-    [cfg.pkgJson, [PKG_THRESHOLD_RE, VITEST_THRESHOLD_RE, COV_FAIL_UNDER_RE]],
+    [cfg.pkgJson, [PKG_THRESHOLD_RE, VITEST_THRESHOLD_RE, COV_FAIL_UNDER_RE, NODE_TEST_COV_RE]],
     [cfg.composer, [MIN_COVERAGE_CLI_RE]],
     [cfg.phpunitXml, [PHPUNIT_THRESHOLD_RE]],
   ];

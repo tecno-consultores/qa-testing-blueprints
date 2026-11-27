@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
 
+import {
+  detectPayloadSchemaDrift,
+  detectSpecVsCodeDrift,
+  detectUnhandledContracts,
+} from './deepContractChecks.js';
 import { stripTrailingSlashes } from './envExtractor.js';
 import {
   REDACTED_ENV_VALUE,
@@ -10,6 +15,8 @@ import {
   type ConsumerHttpCall,
   type EcosystemFindingsBundle,
   type EnvConfigDriftFinding,
+  type FindingsCategoryKey,
+  type FindingsTotalCounts,
   type HttpVerb,
   type ImprovementOpportunity,
   type IntegrationEdge,
@@ -448,8 +455,19 @@ function collectAstStructuralFindings(
         severity: 'HIGH',
         project_slug: proj.slug,
         target: cycle,
-        details: 'Directed cross-file dependency cycle detected in Graphify AST graph.',
+        details: 'Directed cross-file symbol dependency cycle detected in Graphify AST graph.',
         message: `[${proj.slug}] Directed AST dependency cycle: ${cycle}.`,
+      });
+    }
+    for (const fileCycle of proj.graph.file_cycles) {
+      findings.push({
+        category: CAT_AST,
+        kind: 'FILE_DEPENDENCY_CYCLE',
+        severity: 'HIGH',
+        project_slug: proj.slug,
+        target: fileCycle,
+        details: 'Directed file-level dependency cycle detected in Graphify AST graph.',
+        message: `[${proj.slug}] Directed file dependency cycle: ${fileCycle}.`,
       });
     }
     for (const gm of proj.graph.god_modules) {
@@ -477,17 +495,56 @@ function collectChannelProjectSlugs(projects: readonly ProjectAnalysisRecord[]):
   return Array.from(slugs).sort((a, b) => a.localeCompare(b));
 }
 
+function appendDeepImprovementOpportunities(
+  findings: EcosystemFindingsBundle,
+  totals: FindingsTotalCounts,
+  opportunities: ImprovementOpportunity[]
+): void {
+  if (totals.SPEC_VS_CODE_DRIFT > 0) {
+    opportunities.push({
+      id: 'IMP-06',
+      priority: 'P1',
+      title: 'Reconcile OpenAPI specification vs live code routes',
+      rationale: `Detected ${totals.SPEC_VS_CODE_DRIFT} OpenAPI-vs-code route discrepancy(ies). Regenerate OpenAPI from source annotations or gate drift in CI.`,
+      impacted_projects: Array.from(new Set(findings.SPEC_VS_CODE_DRIFT.map((f) => f.project_slug))),
+    });
+  }
+  if (totals.PAYLOAD_SCHEMA_DRIFT > 0) {
+    opportunities.push({
+      id: 'IMP-07',
+      priority: 'P1',
+      title: 'Align consumer and provider DTO payload schemas',
+      rationale: `Detected ${totals.PAYLOAD_SCHEMA_DRIFT} payload schema drift finding(s) (missing required fields or camelCase/snake_case mismatches). Generate client DTOs from a shared schema.`,
+      impacted_projects: Array.from(
+        new Set(findings.PAYLOAD_SCHEMA_DRIFT.flatMap((f) => [f.consumer_slug, f.provider_slug]))
+      ),
+    });
+  }
+  if (totals.UNHANDLED_PAGINATION_OR_ERROR_CONTRACT > 0) {
+    opportunities.push({
+      id: 'IMP-08',
+      priority: 'P2',
+      title: 'Harden consumer error handling and pagination envelope reads',
+      rationale: `Detected ${totals.UNHANDLED_PAGINATION_OR_ERROR_CONTRACT} consumer call(s) lacking explicit error handling on mutations or pagination envelope wiring.`,
+      impacted_projects: Array.from(
+        new Set(findings.UNHANDLED_PAGINATION_OR_ERROR_CONTRACT.map((f) => f.consumer_slug))
+      ),
+    });
+  }
+}
+
 function buildImprovementOpportunities(
   findings: EcosystemFindingsBundle,
+  totals: FindingsTotalCounts,
   projects: readonly ProjectAnalysisRecord[]
 ): ImprovementOpportunity[] {
   const opportunities: ImprovementOpportunity[] = [];
-  if (findings.BROKEN_CONSUMER_CALL.length > 0) {
+  if (totals.BROKEN_CONSUMER_CALL > 0) {
     opportunities.push({
       id: 'IMP-01',
       priority: 'P1',
       title: 'Fix broken HTTP consumer calls (404/405 contract mismatches)',
-      rationale: `Detected ${findings.BROKEN_CONSUMER_CALL.length} consumer HTTP call(s) without a matching provider route/method. Adopt shared OpenAPI-generated client types or consumer-driven contract tests.`,
+      rationale: `Detected ${totals.BROKEN_CONSUMER_CALL} consumer HTTP call(s) without a matching provider route/method. Adopt shared OpenAPI-generated client types or consumer-driven contract tests.`,
       impacted_projects: Array.from(new Set(findings.BROKEN_CONSUMER_CALL.map((f) => f.consumer_slug))),
     });
   }
@@ -500,33 +557,34 @@ function buildImprovementOpportunities(
       impacted_projects: collectChannelProjectSlugs(projects),
     });
   }
-  if (findings.ENV_CONFIG_DRIFT.length > 0) {
+  if (totals.ENV_CONFIG_DRIFT > 0) {
     opportunities.push({
       id: 'IMP-03',
       priority: 'P2',
       title: 'Synchronize .env.example templates and API base URLs',
-      rationale: `Detected ${findings.ENV_CONFIG_DRIFT.length} environment configuration drift item(s) across projects. Document all consumed keys in .env.example and align local ports/base prefixes.`,
+      rationale: `Detected ${totals.ENV_CONFIG_DRIFT} environment configuration drift item(s) across projects. Document all consumed keys in .env.example and align local ports/base prefixes.`,
       impacted_projects: Array.from(new Set(findings.ENV_CONFIG_DRIFT.map((f) => f.project_slug))),
     });
   }
-  if (findings.AST_STRUCTURAL_FINDINGS.length > 0) {
+  if (totals.AST_STRUCTURAL_FINDINGS > 0) {
     opportunities.push({
       id: 'IMP-04',
       priority: 'P2',
       title: 'Break AST dependency cycles and decompose god-modules',
-      rationale: `Detected ${findings.AST_STRUCTURAL_FINDINGS.length} structural AST hotspot(s) (cycles/god-modules). Extract shared interfaces/ports to reduce fan-in/fan-out coupling.`,
+      rationale: `Detected ${totals.AST_STRUCTURAL_FINDINGS} structural AST hotspot(s) (cycles/god-modules). Extract shared interfaces/ports to reduce fan-in/fan-out coupling.`,
       impacted_projects: Array.from(new Set(findings.AST_STRUCTURAL_FINDINGS.map((f) => f.project_slug))),
     });
   }
-  if (findings.ORPHAN_PROVIDER_ENDPOINT.length > 0) {
+  if (totals.ORPHAN_PROVIDER_ENDPOINT > 0) {
     opportunities.push({
       id: 'IMP-05',
       priority: 'P3',
       title: 'Document or retire unreferenced provider endpoints',
-      rationale: `Detected ${findings.ORPHAN_PROVIDER_ENDPOINT.length} provider endpoint(s) without callers inside the workspace. Confirm whether external clients depend on them or deprecate unused routes.`,
+      rationale: `Detected ${totals.ORPHAN_PROVIDER_ENDPOINT} provider endpoint(s) without callers inside the workspace. Confirm whether external clients depend on them or deprecate unused routes.`,
       impacted_projects: Array.from(new Set(findings.ORPHAN_PROVIDER_ENDPOINT.map((f) => f.provider_slug))),
     });
   }
+  appendDeepImprovementOpportunities(findings, totals, opportunities);
   return opportunities;
 }
 
@@ -546,10 +604,13 @@ function deduplicateProvidersForCorrelation(
 
 export function correlateEcosystemContracts(
   projects: readonly ProjectAnalysisRecord[],
-  maxFindingsPerCategory: number
+  maxFindingsPerCategory: number,
+  includeDeepChecks = true
 ): {
   readonly integrationEdges: IntegrationEdge[];
   readonly findings: EcosystemFindingsBundle;
+  readonly findingsTotalCounts: FindingsTotalCounts;
+  readonly truncatedCategories: FindingsCategoryKey[];
   readonly improvementOpportunities: ImprovementOpportunity[];
 } {
   const allProviders = deduplicateProvidersForCorrelation(projects.flatMap((p) => p.endpoints));
@@ -570,6 +631,20 @@ export function correlateEcosystemContracts(
     ...collectCrossProjectBaseUrlDrift(projects),
   ];
   const astStructural = collectAstStructuralFindings(projects);
+  const specVsCode = includeDeepChecks ? detectSpecVsCodeDrift(projects) : [];
+  const payloadDrift = includeDeepChecks ? detectPayloadSchemaDrift(projects, integrationEdges) : [];
+  const unhandledContracts = includeDeepChecks ? detectUnhandledContracts(projects, integrationEdges) : [];
+
+  const findingsTotalCounts: FindingsTotalCounts = {
+    BROKEN_CONSUMER_CALL: brokenCalls.length,
+    ORPHAN_PROVIDER_ENDPOINT: orphanEndpoints.length,
+    CHANNEL_ASYMMETRY: channelAsymmetry.length,
+    ENV_CONFIG_DRIFT: envDrift.length,
+    AST_STRUCTURAL_FINDINGS: astStructural.length,
+    SPEC_VS_CODE_DRIFT: specVsCode.length,
+    PAYLOAD_SCHEMA_DRIFT: payloadDrift.length,
+    UNHANDLED_PAGINATION_OR_ERROR_CONTRACT: unhandledContracts.length,
+  };
 
   const findings: EcosystemFindingsBundle = {
     BROKEN_CONSUMER_CALL: brokenCalls.slice(0, maxFindingsPerCategory),
@@ -577,11 +652,20 @@ export function correlateEcosystemContracts(
     CHANNEL_ASYMMETRY: channelAsymmetry.slice(0, maxFindingsPerCategory),
     ENV_CONFIG_DRIFT: envDrift.slice(0, maxFindingsPerCategory),
     AST_STRUCTURAL_FINDINGS: astStructural.slice(0, maxFindingsPerCategory),
+    SPEC_VS_CODE_DRIFT: specVsCode.slice(0, maxFindingsPerCategory),
+    PAYLOAD_SCHEMA_DRIFT: payloadDrift.slice(0, maxFindingsPerCategory),
+    UNHANDLED_PAGINATION_OR_ERROR_CONTRACT: unhandledContracts.slice(0, maxFindingsPerCategory),
   };
+
+  const truncatedCategories = (Object.keys(findingsTotalCounts) as FindingsCategoryKey[]).filter(
+    (cat) => findingsTotalCounts[cat] > findings[cat].length
+  );
 
   return {
     integrationEdges,
     findings,
-    improvementOpportunities: buildImprovementOpportunities(findings, projects),
+    findingsTotalCounts,
+    truncatedCategories,
+    improvementOpportunities: buildImprovementOpportunities(findings, findingsTotalCounts, projects),
   };
 }

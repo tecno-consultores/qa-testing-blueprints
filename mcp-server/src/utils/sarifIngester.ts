@@ -268,8 +268,19 @@ export function ingestSingleSarifReport(
   sarifFilePath: string
 ): readonly SecurityFinding[] {
   const resolvedRoot = path.resolve(projectRoot);
-  const parsed = readSingleSarifFile(resolvedRoot, path.resolve(sarifFilePath));
-  return parsed.ok ? parsed.findings : [];
+  const candidateAbs = path.resolve(resolvedRoot, sarifFilePath);
+  const relCandidate = path.relative(resolvedRoot, candidateAbs);
+  if (!relCandidate || relCandidate.startsWith('..') || path.isAbsolute(relCandidate)) {
+    return [];
+  }
+  try {
+    const safeFile = resolveSafeChildPath(resolvedRoot, relCandidate);
+    assertNoSymlinkSegments(resolvedRoot, relCandidate);
+    const parsed = readSingleSarifFile(resolvedRoot, safeFile);
+    return parsed.ok ? parsed.findings : [];
+  } catch {
+    return [];
+  }
 }
 
 /**

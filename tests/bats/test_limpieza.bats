@@ -149,7 +149,8 @@ EOF
     mkdir -p "${stack_dir}/graphify-out/cache" "${stack_dir}/.trivycache" \
       "${stack_dir}/.pytest_cache" "${stack_dir}/wdio-logs" "${stack_dir}/coverage" \
       "${stack_dir}/.agents/proposals" "${stack_dir}/.agents/backups" \
-      "${stack_dir}/node_modules" "${stack_dir}/.venv" "${stack_dir}/vendor" "${stack_dir}/.phpunit.cache"
+      "${stack_dir}/node_modules" "${stack_dir}/.venv" "${stack_dir}/vendor" "${stack_dir}/.phpunit.cache" \
+      "${stack_dir}/reports" "${stack_dir}/prometheus_data" "${stack_dir}/dist"
     cp "${REPO_ROOT}/${stack}/limpieza.sh" "${stack_dir}/limpieza.sh"
     chmod +x "${stack_dir}/limpieza.sh"
     echo "{}" >"${stack_dir}/graphify-out/graph.json"
@@ -159,6 +160,9 @@ EOF
     echo "v" >"${stack_dir}/.trivycache/db"
     echo "nm" >"${stack_dir}/node_modules/pkg.txt"
     echo "vn" >"${stack_dir}/vendor/pkg.txt"
+    echo "rep" >"${stack_dir}/reports/r.txt"
+    echo "prom" >"${stack_dir}/prometheus_data/p.db"
+    echo "dist" >"${stack_dir}/dist/app.js"
 
     run env HOME="${FAKE_HOME}" TMPDIR="${FAKE_TMP}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C "${stack_dir}/limpieza.sh" --help
     assert_success
@@ -193,6 +197,9 @@ EOF
     [ -d "${stack_dir}/.agents/proposals" ]
     [ -d "${stack_dir}/node_modules" ]
     [ -d "${stack_dir}/vendor" ]
+    [ -d "${stack_dir}/reports" ]
+    [ -d "${stack_dir}/prometheus_data" ]
+    [ -d "${stack_dir}/dist" ]
 
     run env HOME="${FAKE_HOME}" TMPDIR="${FAKE_TMP}" PATH="${FAKE_BIN}:/usr/bin:/bin" LC_ALL=C "${stack_dir}/limpieza.sh" --deep --quiet
     assert_success
@@ -200,6 +207,9 @@ EOF
     assert_success
     [ ! -d "${stack_dir}/.agents/proposals" ]
     [ ! -d "${stack_dir}/.agents/backups" ]
+    [ ! -d "${stack_dir}/reports" ]
+    [ ! -d "${stack_dir}/prometheus_data" ]
+    [ ! -d "${stack_dir}/dist" ]
     if [ "${stack}" = "php" ]; then
       [ ! -d "${stack_dir}/vendor" ]
       [ -d "${stack_dir}/node_modules" ]

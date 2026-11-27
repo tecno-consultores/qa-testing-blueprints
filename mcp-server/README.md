@@ -9,7 +9,7 @@
 [![Node.js >=24](https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/LICENSE)
 
-Official Model Context Protocol (**MCP**) server and zero-friction CLI installer for [**QA Testing Blueprints (QA-11X v3.11 — v3.11.0)**](https://github.com/tecno-consultores/qa-testing-blueprints).
+Official Model Context Protocol (**MCP**) server and zero-friction CLI installer for [**QA Testing Blueprints (QA-11X v3.12 — v3.12.0)**](https://github.com/tecno-consultores/qa-testing-blueprints).
 
 Designed for AI coding agents (**Google Antigravity**, **Claude Code / Desktop**, **Cursor**, **Windsurf**, **OpenAI Codex CLI**, **VS Code Copilot**, **Hermes Agent**, and **28 agents**) to onboard repositories in **< 30 seconds**, audit **20 MCP tools**, query **13 cryptographic `blueprint://*` resources** (11 static URIs + 2 URI templates), and enforce ephemeral **Docker Rule Zero**, **DISA ASD STIG V6R5**, **OWASP v4.2**, **FINOS CALM**, and **Dual-Mode AI Evals** without cloning the full blueprints repository.
 
@@ -85,13 +85,13 @@ See the full 28 client setup matrix in [`docs/agent-setup.md`](https://github.co
 
 ---
 
-## 🛡️ Security & Lifecycle Runtime Guards (v3.11.0)
+## 🛡️ Security & Lifecycle Runtime Guards (v3.12.0)
 
 * **Fail-Closed `promptGuard` Interceptor:** Wraps `tools/call` across all 20 tools with Unicode `NFKC` canonicalization, zero-width / Trojan Source stripping, prompt-injection & `QA-GIT-GATE-01` (`git push` / `npm publish`) bypass blocking, and PII / secret redaction before dispatching handlers.
 * **`SEC-PATH-01` Workspace Path Confinement (`QA11X_WORKSPACE_ROOTS`):** Validates `project_path`, `workspaceRoot`, `targetDir`, `outputDir`, and `projects` via `resolveSafeProjectPath`, blocking directory traversal (`..`), NUL bytes, symlinks outside allowed roots, critical system paths (`/`, `/etc`, `/usr`, ...), `$HOME`, and bare `os.tmpdir()`. Set `QA11X_WORKSPACE_ROOTS` (delimiter-separated paths) to authorize additional workspace roots outside `process.cwd()`.
 * **Docker Anti-Saturation & CrashLoop Guardrails (`QA-DOCKER-LOOP-01`):** `run_ephemeral_qa` enforces an atomic cross-process FIFO slot lock (`QA_MAX_CONCURRENT_CONTAINERS=1`, `COMPOSE_PARALLEL_LIMIT=1`), passive Linux RAM (`< 12%`) and ACPI thermal (`>= 85°C`) guardrails (`exit_code = 75`, exempt from `BREAKER-42`), pre-flight CrashLoop detection (auto-stops workspace `restarting` containers; fails fast on foreign CrashLoops), and guaranteed Compose teardown on timeout/abort. `qa-11x doctor` reports `docker_health` (CrashLoops, custom bridge networks, NetworkManager `veth*` rule, temp/RAM).
 * **`TaskStateGuard` & `Fail-Verbose` Diagnostics:** Bounds concurrent MCP tool execution capacity, isolates hung/broken tasks with explicit timeouts (`60s` standard / `>= 180s` heavy transfers), purges 0-byte failed transfer artifacts, bounds interactive TTY skill auto-sync (`< 5s` fail-open to `stderr`), and formats actionable Allure-ready `Fail-Verbose` reports (`diagnosticFormatter.ts`).
-* **Offline & Local LLM A2A Card (`@sinfallas/mcp-qa-11x/agent-card`):** Supports air-gapped Ollama / vLLM evaluators and exposes the public ESM subpath export `@sinfallas/mcp-qa-11x/agent-card` (`package.json#exports` -> `dist/a2a/agentCard.js`, implemented in [`src/a2a/agentCard.ts`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/src/a2a/agentCard.ts), `v3.11.0`) as a **programmatic library module** (not exposed as a public MCP tool or resource over `stdio`).
+* **Offline & Local LLM A2A Card (`@sinfallas/mcp-qa-11x/agent-card`):** Supports air-gapped Ollama / vLLM evaluators and exposes the public ESM subpath export `@sinfallas/mcp-qa-11x/agent-card` (`package.json#exports` -> `dist/a2a/agentCard.js`, implemented in [`src/a2a/agentCard.ts`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/src/a2a/agentCard.ts), `v3.12.0`) as a **programmatic library module** (not exposed as a public MCP tool or resource over `stdio`).
 
 ---
 
@@ -102,12 +102,12 @@ Led by `qa-11x-architect` (`< 12 KB`), loading 11 specialized sub-skills on dema
 
 ---
 
-## 🛠️ MCP Tools (20 Tools — QA-11X v3.11)
+## 🛠️ MCP Tools (20 Tools — QA-11X v3.12)
 
 1. **`inspect_project_config`:** Inspects stack markers (`pyproject.toml`, `package.json`, `composer.json`), `.qa-11x.json` v3 active tier & `tierConfirmedByUser`, `docker-compose.qa.yml`, `docker_daemon_required`, IDE `companion_mcps` discovery, test pyramid status, Graphify AST graph health, and non-destructive `standard_11x_readiness.governance_files` (8 core/contextual governance docs + `governance_onboarding_needed`).
 2. **`fetch_blueprint_bundle`:** Streams requested blueprint files from GitHub/local mirror verifying SHA-256 checksums against `manifest.json`.
 3. **`bootstrap_or_merge_11x`:** Scaffolds or merges `.example` QA configs, Dockerfiles, Make targets, and workflows safely with `.11x-backup` (`dry_run` defaults to `true`; pass `dry_run: false` to apply disk writes).
-4. **`inspect_ast_blast_radius`:** Bidirectional and differential AST dependency lookup (`declaring_files`, callers, callees, `changed_since_ref` blast scope, risk level `LOW`/`MEDIUM`/`HIGH`) with optional Graphify rebuild (`auto_build_if_missing`).
+4. **`inspect_ast_blast_radius`:** Bidirectional and differential AST dependency lookup (`declaring_files`, callers, callees, `changed_since_ref` blast scope, risk level `LOW`/`MODERATE`/`HIGH`/`CRITICAL`) with optional Graphify rebuild (`auto_build_if_missing`).
 5. **`clean_workspace_11x`:** Safely purges root-owned Docker/cache/build artifacts using Alpine ephemeral fallback without `sudo`, stops workspace `status=restarting` CrashLoop containers (`found_containers`/`removed_containers`), and prunes orphan Compose networks.
 6. **`audit_security_stig_owasp`:** Scans target files across **22 DISA ASD STIG V6R5 / OWASP v4.2 reference controls + 37 static scanner rules** (`SEC-01..SEC-16`, `SEC-CI-ACTION-REF`, `SEC-WS-PUBSUB-01`, `QA-*`, `QA-DOCKER-LOOP-01`, `QA-CONTRACT-SDK-01`, `QA-DOCKER-LOCK-01`, `QA-PLAYWRIGHT-PIN-01`, `QA-SSR-HYDRATION-01`, `QA-STRYKER-CFG-01`, `UI-11X-01..03`) with `confidence` (`HIGH`/`MEDIUM`/`HEURISTIC`), auditable line-scoped `qa-11x-ignore`, federated SARIF `2.1.0` ingestion (`.agents/.cache/sarif/*.sarif`), configurable `max_findings`, and optional `include_examples: true`.
 7. **`run_ephemeral_qa`:** Executes any of the **16 QA stages** (`lint`, `unit`, `migration`, `integration`, `ci`, `parity`, `orphans`, `contracts`, `bdd`, `mutation`, `dast`, `e2e`, `perf`, `chaos`, `profile`, `all`) strictly inside serialized ephemeral Docker containers (`Rule Zero`, `QA_MAX_CONCURRENT_CONTAINERS=1`, `COMPOSE_PARALLEL_LIMIT=1`), supporting TDD `expect_red`, thermal/RAM (`exit_code=75`), CrashLoop pre-flight, Compose abort teardown, and `DOCS_ONLY` fast-path.
@@ -123,11 +123,11 @@ Led by `qa-11x-architect` (`< 12 KB`), loading 11 specialized sub-skills on dema
 17. **`audit_vibe_prototype` *(v2.0)*:** Audits AI-generated prototypes (Bolt.new, Lovable, v0, Replit) for `VIBE-SEC-001..QA-005` risks, hardcoding, missing RLS/WORM, and `dryRun` remediation plans.
 18. **`sync_enterprise_tms` *(v2.0)*:** Synchronizes bidirectional traceability (`inventory`, `push-results`, `pull-stories`) using JUnit XML against enterprise Test Management Systems (**Jira**, **Zephyr Scale**, **Xray**, **GitHub Issues**) with `TaskStateGuard` retry protection (`dryRun` defaults to `true`).
 19. **`session_flight_recorder` *(v3.1)*:** Manages the atomic JSON Flight Recorder (`.agents/.cache/session_checkpoint.json` `0600` -> deterministic `<= 40`-line `.agents/ACTIVE_TASK.md` projection + live Git cross-check via `save` | `recover` | `clear`).
-20. **`analyze_ecosystem_specs` *(v3.10)*:** Zero-footprint multi-project reverse-spec & integration analyzer: discovers sibling projects (current QA-11X stacks + OpenAPI + `.env*`), builds read-only (`:ro`) Graphify AST graphs sequentially into `<outputDir>/.graphs/<slug>/`, correlates HTTP/REST contracts, Web vs Mobile asymmetry, `.env` drift, and AST cycles/god-modules into `<outputDir>/ecosystem-inventory.json` strictly without vulnerability audits or writes inside client source repos.
+20. **`analyze_ecosystem_specs` *(v3.11 / v3.12)*:** Zero-footprint multi-project reverse-spec & integration analyzer (`detailLevel: "standard"|"deep"|"exhaustive"`, `generateSkeletons: true`): discovers sibling projects (current QA-11X stacks + OpenAPI + `.env*`), builds read-only (`:ro`) Graphify AST graphs sequentially into `<outputDir>/.graphs/<slug>/`, extracts endpoints, DTO schemas, enums, realtime/async jobs, external SDKs, and AST-traced E2E UI-to-model flows, detects 8 functional/AST inconsistency categories into `<outputDir>/ecosystem-inventory.json`, and pre-renders deterministic Markdown/Mermaid skeletons (`<outputDir>/.skeletons/00..05-*.skeleton.md`) strictly without vulnerability audits or writes inside client source repos.
 
 ---
 
-## 📚 MCP Resources (13 Resources: 11 Static URIs + 2 URI Templates — QA-11X v3.11)
+## 📚 MCP Resources (13 Resources: 11 Static URIs + 2 URI Templates — QA-11X v3.12)
 
 > **Surface Breakdown:** **11 static URIs** returned by `resources/list` + **2 URI templates** (`blueprint://{stack}/readme`, `blueprint://ui/refactoring-ui/{topic}`) returned by `resources/templates/list`.
 
