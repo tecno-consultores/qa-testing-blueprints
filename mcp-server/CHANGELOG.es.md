@@ -8,6 +8,8 @@ Todos los cambios notables en el paquete npm y servidor MCP `@sinfallas/mcp-qa-1
 
 ## [Unreleased]
 
+## [3.10.0] - 2026-11-27
+
 ### Añadido
 - **Tiers Explícitos (`.qa-11x.json` v3), Detección No Destructiva de Gobernanza y Plantillas Contextuales (Hito 33 — Oleadas 1–2):**
   - Añadido `src/services/qa11xConfig.ts` (esquema `.qa-11x.json` v3 con valor por defecto unificado `standard`, `tierConfirmedByUser`, persistencia `governanceDocs` y banner de estado `[QA-11X | Tier: <tier> | Path: <DOCS_ONLY|MICRO_CHANGE|FULL_11X>]`), selección interactiva TTY de tier en `qa-11x quickstart`, enforcement proporcional por tier en `certify_11x_gate` y `audit_test_pyramid_gaps`, y alineación de `CORE_TOOLSET_NAMES` (`13` entradas núcleo de `19` herramientas MCP).

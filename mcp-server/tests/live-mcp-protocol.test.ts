@@ -566,7 +566,7 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
     const card = buildAgentCard();
     expect(card.version).toBe(MCP_SERVER_VERSION);
     expect(DEFAULT_STANDARD_VERSION).toBe(MCP_STANDARD_EDITION);
-    expect(card.standardVersion).toBe('QA-11X v3.9');
+    expect(card.standardVersion).toBe('QA-11X v3.10');
     expect(card.standardVersion).toBe(DEFAULT_STANDARD_VERSION);
     expect(card.standardVersion).toBe(deriveStandardVersion(MCP_SERVER_VERSION));
     expect(deriveStandardVersion('3.1.0')).toBe('QA-11X v3.1');

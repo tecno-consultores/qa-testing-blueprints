@@ -8,6 +8,8 @@ All notable changes to the `@sinfallas/mcp-qa-11x` npm package and MCP server ar
 
 ## [Unreleased]
 
+## [3.10.0] - 2026-11-27
+
 ### Added
 - **Explicit Tiers (`.qa-11x.json` v3), Non-Destructive Governance Detection & Contextual Templates (Milestone 33 — Waves 1–2):**
   - Added `src/services/qa11xConfig.ts` (`.qa-11x.json` schema v3 with unified default `standard`, `tierConfirmedByUser`, `governanceDocs` persistence, and status banner `[QA-11X | Tier: <tier> | Path: <DOCS_ONLY|MICRO_CHANGE|FULL_11X>]`), interactive TTY tier selection in `qa-11x quickstart`, proportional tier enforcement in `certify_11x_gate` and `audit_test_pyramid_gaps`, and aligned `CORE_TOOLSET_NAMES` (`13` core entries out of `19` MCP tools).

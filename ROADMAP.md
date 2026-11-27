@@ -49,7 +49,7 @@
 | **Milestone 30** | `v3.7.0` (`QA-11X v3.7`) — Docker Anti-Saturation Guardrails, FIFO Slot Lock, Thermal/RAM/CrashLoop Protection & Static Rule #37 (`QA-DOCKER-LOOP-01`) | [`SECURITY.md`](SECURITY.md) §4.33 + [`docs/docker-troubleshooting.md`](docs/docker-troubleshooting.md) §15 | ✅ Completed | `100%` |
 | **Milestone 31** | `v3.8.0` (`QA-11X v3.8`) — Hard `Rule Zero` Doctor, Companion MCP Discovery, Federated SARIF 2.1.0, Dual `lint`+`unit` Evidence, `expect_red`, `--toolset` & CSO Skills | [`CHANGELOG.md`](CHANGELOG.md) + [`TESTING.md`](TESTING.md) | ✅ Completed | `100%` |
 | **Milestone 32** | `v3.9.0` (`QA-11X v3.9`) — Zero-Blindspot Compliance Audit, Mandatory AST Auto-Build, OpenCode First-Class, Email Evolution Template & `UI-11X-03` Edge/MIME Shield | [`CHANGELOG.md`](CHANGELOG.md) + [`SECURITY.md`](SECURITY.md) §4.34 | ✅ Completed | `100%` |
-| **Milestone 33** | Conflict Remediation, Explicit Adoption Tiers (`.qa-11x.json` v3), Non-Destructive Governance Detection & Assisted Contextual Templates | [`CHANGELOG.md`](CHANGELOG.md) + [`docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`](docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md) §9 | ✅ Completed | `100%` |
+| **Milestone 33** | `v3.10.0` (`QA-11X v3.10`) — Conflict Remediation, Explicit Adoption Tiers (`.qa-11x.json` v3), Non-Destructive Governance Detection & Assisted Contextual Templates | [`CHANGELOG.md`](CHANGELOG.md) + [`docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`](docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md) §9 | ✅ Completed | `100%` |
 
 ---
 
@@ -429,7 +429,7 @@
 
 ---
 
-## ✅ Milestone 33: Conflict Remediation, Explicit Adoption Tiers (`.qa-11x.json` v3), Non-Destructive Governance Detection & Assisted Contextual Templates
+## ✅ Milestone 33: `v3.10.0` (`QA-11X v3.10`) — Conflict Remediation, Explicit Adoption Tiers (`.qa-11x.json` v3), Non-Destructive Governance Detection & Assisted Contextual Templates
 **Mandatory Reference:** [`CHANGELOG.md`](CHANGELOG.md), [`TESTING.md`](TESTING.md), and [`docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md`](docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.md) §9
 
 ### Implementation Tasks:

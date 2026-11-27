@@ -49,7 +49,7 @@
 | **Hito 30** | `v3.7.0` (`QA-11X v3.7`) — Guardrails Anti-Saturación Docker, Candado FIFO, Protección Térmica/RAM/CrashLoop y Regla Estática #37 (`QA-DOCKER-LOOP-01`) | [`SECURITY.es.md`](SECURITY.es.md) §4.33 + [`docs/docker-troubleshooting.es.md`](docs/docker-troubleshooting.es.md) §15 | ✅ Completado | `100%` |
 | **Hito 31** | `v3.8.0` (`QA-11X v3.8`) — `Rule Zero` Duro en Doctor, *Companion MCPs*, SARIF 2.1.0 Federado, Evidencia Dual `lint`+`unit`, `expect_red`, `--toolset` y Skills CSO | [`CHANGELOG.es.md`](CHANGELOG.es.md) + [`TESTING.es.md`](TESTING.es.md) | ✅ Completado | `100%` |
 | **Hito 32** | `v3.9.0` (`QA-11X v3.9`) — Auditoría Integral sin Puntos Ciegos, Auto-Build AST Obligatorio, OpenCode First-Class, Plantilla de Correo y Blindaje Edge `UI-11X-03` | [`CHANGELOG.es.md`](CHANGELOG.es.md) + [`SECURITY.es.md`](SECURITY.es.md) §4.34 | ✅ Completado | `100%` |
-| **Hito 33** | Saneamiento de Conflictos, Tiers Explícitos (`.qa-11x.json` v3), Detección No Destructiva de Gobernanza y Plantillas Contextuales Asistidas | [`CHANGELOG.es.md`](CHANGELOG.es.md) + [`docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md`](docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md) §9 | ✅ Completado | `100%` |
+| **Hito 33** | `v3.10.0` (`QA-11X v3.10`) — Saneamiento de Conflictos, Tiers Explícitos (`.qa-11x.json` v3), Detección No Destructiva de Gobernanza y Plantillas Contextuales Asistidas | [`CHANGELOG.es.md`](CHANGELOG.es.md) + [`docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md`](docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md) §9 | ✅ Completado | `100%` |
 
 ---
 
@@ -429,7 +429,7 @@
 
 ---
 
-## ✅ Hito 33: Saneamiento de Conflictos, Tiers Explícitos (`.qa-11x.json` v3), Detección No Destructiva de Gobernanza y Plantillas Contextuales Asistidas
+## ✅ Hito 33: `v3.10.0` (`QA-11X v3.10`) — Saneamiento de Conflictos, Tiers Explícitos (`.qa-11x.json` v3), Detección No Destructiva de Gobernanza y Plantillas Contextuales Asistidas
 **Referencia Obligatoria:** [`CHANGELOG.es.md`](CHANGELOG.es.md), [`TESTING.es.md`](TESTING.es.md) y [`docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md`](docs/05_ARQUITECTURA_Y_GOBERNANZA_AGENTES_IA.es.md) §9
 
 ### Tareas de Implementación:

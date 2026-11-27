@@ -2,7 +2,7 @@
 
 # Quality Philosophy (QA Philosophy)
 
-This document sets out the engineering principles and strategic decisions that underpin the `qa-testing-blueprints` (`QA-11X v3.9`) ecosystem.
+This document sets out the engineering principles and strategic decisions that underpin the `qa-testing-blueprints` (`QA-11X v3.10`) ecosystem.
 
 ## 1. 95% Coverage Is a Floor, Not a Target
 Requiring 95% coverage in `kcov`, `Vitest`, `PCOV`, or `pytest` is not a vanity metric; it is a containment barrier against silent regressions. We enforce writing tests for `catch` blocks and obscure logic branches.
@@ -14,7 +14,7 @@ Tools such as `Stryker`, `Infection`, and `mutmut` attack our own tests by mutat
 The greatest enemy of CI is persistent state. Running commands encapsulated inside `Makefiles` (e.g., `make qa-all`) guarantees that the environment starts stateless, evaluates code in an absolute vacuum, purges memory, and destroys itself safely.
 
 ## 4. AI-First Design
-The imperative wording of our guides narrows the AI toolset strictly to certified `sinfallas/*` images across **10 hydratable stacks + `architecture/` + `mcp-server/` (= 12 matrix environments)** (including `sinfallas/base-mobile-appium:26`) and the **19 MCP tools / 13 resources** exposed by `@sinfallas/mcp-qa-11x` v3.9.0, ensuring generated code fits seamlessly with zero hallucinations.
+The imperative wording of our guides narrows the AI toolset strictly to certified `sinfallas/*` images across **10 hydratable stacks + `architecture/` + `mcp-server/` (= 12 matrix environments)** (including `sinfallas/base-mobile-appium:26`) and the **19 MCP tools / 13 resources** exposed by `@sinfallas/mcp-qa-11x` v3.10.0, ensuring generated code fits seamlessly with zero hallucinations.
 
 ## 5. Technical Debt Prevention (Complexity and Performance)
 Working code is not enough; it must be scalable and efficient. We incorporate tools such as `radon` (Python) and `eslint-plugin-sonarjs` (JS/TS) to statically analyze cyclomatic and cognitive complexity. We complement this with `py-spy` and `clinic.js` to audit CPU and memory profiles from inside the container, catching bottlenecks prior to external load spikes.

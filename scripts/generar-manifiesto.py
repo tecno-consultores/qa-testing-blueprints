@@ -70,7 +70,7 @@ from sync_governance import (  # noqa: E402
     scan_stack as scan_stack,
 )
 
-DEFAULT_BLUEPRINT_VERSION = "3.9.0"
+DEFAULT_BLUEPRINT_VERSION = "3.10.0"
 
 
 def build_manifest(
