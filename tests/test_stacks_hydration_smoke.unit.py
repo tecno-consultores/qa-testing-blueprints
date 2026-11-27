@@ -860,7 +860,7 @@ class TestStacksHydrationSmoke(unittest.TestCase):
             and str(entry.get("path", "")).startswith(".agents/skills/")
             and str(entry.get("path", "")).endswith("/SKILL.md")
         )
-        self.assertEqual(len(skill_paths), 11)
+        self.assertEqual(len(skill_paths), 12)
 
         feature_text = (
             REPO_ROOT / "mcp-server" / "test" / "mcp_cli_test.feature"

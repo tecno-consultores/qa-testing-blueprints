@@ -149,6 +149,12 @@ REQUIRED_SKILL_CONTRACTS: Mapping[str, tuple[str, ...]] = {
         "OKLCH",
         "tabular-nums",
     ),
+    "qa-11x-reverse-specs": (
+        "analyze_ecosystem_specs",
+        ":ro",
+        "00-resumen-ecosistema.md",
+        "<= 20%",
+    ),
 }
 REQUIRED_MATRIX_PROVIDERS = ("openai:", "anthropic:", "google:", "ollama:")
 REQUIRED_MATRIX_REDTEAM = ("prompt-injection", "hijacking", "excessive-agency")
@@ -164,6 +170,7 @@ REQUIRED_MATRIX_SKILLS = (
     "graphify-ast-navigator",
     "refactoring-ui",
     "tactical-patterns-11x",
+    "qa-11x-reverse-specs",
 )
 
 
@@ -235,7 +242,7 @@ def _validate_skill_desc(desc_val: str, skill_dir: str) -> list[str]:
 
 
 def verify_cso_trigger_only_frontmatters(repo_root: Path = REPO_ROOT) -> list[str]:
-    """Verifica CSO en las 11 skills (Use when/whenever/before sin pasos numerados)."""
+    """Verifica CSO en las 12 skills (Use when/whenever/before sin pasos numerados)."""
     skills_dir = repo_root / ".agents" / "skills"
     violations: list[str] = []
     for skill_path in sorted(skills_dir.glob("*/SKILL.md")):
@@ -748,7 +755,7 @@ class _OfflineSkillJudgeStub(DeepEvalBaseLLM):  # type: ignore[no-untyped-call]
 
 def test_offline_master_prompt_and_skills_contracts(tmp_path: Path) -> None:
     report = audit_master_prompt_and_skills(REPO_ROOT)
-    assert report.skills_count == 11
+    assert report.skills_count == 12
     assert report.master_prompt_valid
     assert report.all_budgets_ok
     assert report.violations == ()
@@ -941,8 +948,8 @@ def test_offline_plan_act_verify_batch_evaluator() -> None:
 
 
 def test_offline_promptfoo_skills_matrix_contract(tmp_path: Path) -> None:
-    assert len(REQUIRED_MATRIX_SKILLS) == 11
-    assert len(REQUIRED_SKILL_CONTRACTS) == 11
+    assert len(REQUIRED_MATRIX_SKILLS) == 12
+    assert len(REQUIRED_SKILL_CONTRACTS) == 12
     summary = validate_skills_promptfoo_matrix(MATRIX_YAML_PATH)
     assert summary.providers_count == 4
     assert summary.tests_count >= 7

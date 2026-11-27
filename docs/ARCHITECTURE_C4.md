@@ -14,13 +14,13 @@ flowchart TD
     Human["Developer / QA Staff"]
     Agent["AI Agent (Antigravity, Claude, Cursor, Hermes)"]
     MCP["Node.js/TS MCP Server (@sinfallas/mcp-qa-11x v3.10.0)"]
-    Skill["Zero-Clone Skills (11 Modular Skills < 20 KB)"]
+    Skill["Zero-Clone Skills (12 Modular Skills < 20 KB)"]
     Gate["11X Certification Gate (certify_task_completion.sh - 10 Stages)"]
     QA["QA Testing Blueprints (10 Hydratable Stacks + architecture/ + mcp-server/ = 12 Matrix Environments / Ephemeral Docker)"]
     Host["Host Machine (Docker Engine)"]
     Reports["Reports & Artifacts (Coverage, ZAP, Chaos, RED Metrics)"]
 
-    Agent -->|"1. Queries 13 Resources & executes 19 Tools (stdio)"| MCP
+    Agent -->|"1. Queries 13 Resources & executes 20 Tools (stdio)"| MCP
     Agent -->|"2. Ingests directives & rules"| Skill
     Human -->|"3. Installs skills (npx install-skill) or clones repo"| Skill
     Human -->|"4. Delegates tasks / Pair Programming"| Agent

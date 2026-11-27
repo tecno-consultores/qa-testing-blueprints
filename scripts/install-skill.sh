@@ -5,11 +5,11 @@
 # ==============================================================================
 # 🧠 scripts/install-skill.sh — Instalador Universal de Skills QA 11X
 #
-# Descarga e instala el catálogo completo de 11 skills QA-11X modulares
+# Descarga e instala el catálogo completo de 12 skills QA-11X modulares
 # ('qa-11x-architect', 'qa-11x-devsecops-hardener', 'qa-11x-systematic-debugging',
 # 'qa-11x-screenplay-builder', 'qa-11x-llm-evaluator', 'qa-11x-vibe-rescue',
 # 'qa-11x-docker-certifier', 'docker-trivy-keydb-hardening',
-# 'graphify-ast-navigator', 'refactoring-ui' y 'tactical-patterns-11x') con verificación criptográfica SHA-256
+# 'graphify-ast-navigator', 'refactoring-ui', 'tactical-patterns-11x' y 'qa-11x-reverse-specs') con verificación criptográfica SHA-256
 # (DISA ASD STIG V6R5 V-222513 / APSC-DV-001430) sin necesidad de clonar el
 # repositorio completo (Arquitectura Zero-Clone).
 #
@@ -840,7 +840,7 @@ sync_global_agent_connectors 0
 
 if [ "${IN_HOME_DIR}" -eq 1 ] && { [ "${INCLUDE_SCRIPTS}" -eq 1 ] || [ "${INIT_AGENTS}" -eq 1 ]; }; then
   log_info "[Modo Global \$HOME] Omitiendo escritura de archivos de proyecto (AGENTS.md, scripts/, .agents/, lefthook.yml) en el directorio personal (${HOME_DIR})."
-  printf "✅ Instalación de Skills QA 11X Completada con Éxito (11 skills modulares instaladas y verificadas por SHA-256).\n"
+  printf "✅ Instalación de Skills QA 11X Completada con Éxito (12 skills modulares instaladas y verificadas por SHA-256).\n"
   exit 0
 fi
 
@@ -946,4 +946,4 @@ if [ "${INIT_AGENTS}" -eq 1 ]; then
   sync_project_agents_md
 fi
 
-printf "✅ Instalación de Skills QA 11X Completada con Éxito (11 skills modulares instaladas y verificadas por SHA-256).\n"
+printf "✅ Instalación de Skills QA 11X Completada con Éxito (12 skills modulares instaladas y verificadas por SHA-256).\n"

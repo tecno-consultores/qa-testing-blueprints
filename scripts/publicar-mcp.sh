@@ -385,7 +385,7 @@ else
 fi
 
 # 7. Paso 4: Certificación E2E Real sobre stdio con mcp-server/example/ + verify-v2.sh
-echo "🎯 [4/6] Certificando 19 tools + 13 resources + quickstart + Clean-Room tarball..."
+echo "🎯 [4/6] Certificando 20 tools + 13 resources + quickstart + Clean-Room tarball..."
 docker run --rm --network none --restart=no --security-opt=no-new-privileges:true -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp -e QA_BLUEPRINTS_LOCAL_PATH=/repo -e pnpm_config_manage_package_manager_versions=false -v "${REPO_ROOT}:/repo:ro" -v "${MCP_DIR}:/app" -w /app "${IMAGE_NAME}" sh -c 'pnpm --silent run test:example && bash ./example/verify-v2.sh'
 
 # 8. Paso 5: Verificación explícita de compilación pre-pack y Auditoría de empaquetado (Dry-Run de npm pack)

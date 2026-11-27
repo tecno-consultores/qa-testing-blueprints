@@ -15,7 +15,7 @@ Structured submission bundle ready for `https://agenticskills.io/submit` and `ht
 * **Supported Agent IDs (`28`):** `antigravity`, `claude-code`, `claude-desktop`, `cursor`, `windsurf`, `copilot`, `codex`, `gemini-cli`, `gemini-code-assist`, `cline`, `roo-code`, `aider`, `continue`, `zed`, `devin`, `cody`, `amazon-q`, `jetbrains-ai`, `augment`, `trae`, `hermes`, `opencode`, `goose`, `kilo-code`, `bolt`, `lovable`, `v0`, `replit` (plus standard MCP `stdio` clients).
 * **Runtime Guards:** Fail-closed `promptGuard` (`NFKC`, Trojan Source & prompt-injection blocking, `QA-GIT-GATE-01` bypass prevention, PII redaction), `TaskStateGuard` bounded concurrency, and programmatic A2A `v1.0` Agent Card subpath export (`@sinfallas/mcp-qa-11x/agent-card`).
 
-### 1.1. 19 MCP Tools (`tools/list`)
+### 1.1. 20 MCP Tools (`tools/list`)
 
 | # | Tool Name | Purpose |
 | :--- | :--- | :--- |
@@ -38,6 +38,7 @@ Structured submission bundle ready for `https://agenticskills.io/submit` and `ht
 | 17 | `audit_vibe_prototype` | Audits AI-generated prototypes (`VIBE-SEC-001..QA-005`) and plans RLS rescue |
 | 18 | `sync_enterprise_tms` | Normalizes JUnit XML / Allure / SARIF traces for Jira, Zephyr Scale, Xray & GitHub Issues |
 | 19 | `session_flight_recorder` | Manages the atomic JSON Flight Recorder (`session_checkpoint.json` -> `ACTIVE_TASK.md`) |
+| 20 | `analyze_ecosystem_specs` | Zero-footprint multi-project reverse specs, HTTP/`.env` contract correlation & AST findings (no vuln audit) |
 
 ### 1.2. 13 MCP Resources (`blueprint://*`)
 
@@ -59,7 +60,7 @@ Structured submission bundle ready for `https://agenticskills.io/submit` and `ht
 
 ---
 
-## Section 2 — 11 Individual `SKILL.md` Listings
+## Section 2 — 12 Individual `SKILL.md` Listings
 
 | # | Skill Name | Category | Upstream `SKILL.md` Path | Summary (`< 160` chars) |
 | :--- | :--- | :--- | :--- | :--- |
@@ -74,6 +75,7 @@ Structured submission bundle ready for `https://agenticskills.io/submit` and `ht
 | 9 | `graphify-ast-navigator` | `architecture` | [`SKILL.md`](../.agents/skills/graphify-ast-navigator/SKILL.md) | AST Knowledge Graph navigation for Code Q&A, caller/callee blast-radius checks, and layer boundaries. |
 | 10 | `refactoring-ui` | `ui` | [`SKILL.md`](../.agents/skills/refactoring-ui/SKILL.md) | Tactical spacing, type scale, OKLCH contrast (WCAG 2.1 AA), depth, and Anti-JSDOM layout rules. |
 | 11 | `tactical-patterns-11x` | `architecture` | [`SKILL.md`](../.agents/skills/tactical-patterns-11x/SKILL.md) | JIT tactical patterns (<= 2.5 KB): complexity rescue (CC <= 5, max-params: 4), Port/Adapter, Outbox. |
+| 12 | `qa-11x-reverse-specs` | `architecture` | [`SKILL.md`](../.agents/skills/qa-11x-reverse-specs/SKILL.md) | Zero-footprint multi-project reverse specs, cross-project HTTP/.env contracts & AST findings (no vuln audit). |
 
 ### Individual Submission Cards
 
@@ -121,12 +123,16 @@ Structured submission bundle ready for `https://agenticskills.io/submit` and `ht
     - **Upstream Path:** [`.agents/skills/tactical-patterns-11x/SKILL.md`](../.agents/skills/tactical-patterns-11x/SKILL.md) (`https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/tactical-patterns-11x/SKILL.md`)
     - **Summary:** JIT tactical patterns (<= 2.5 KB): complexity rescue (CC <= 5, max-params: 4), Port/Adapter, Outbox.
     - **Key Capabilities:** Complexity gate rescue (`Radon CC <= 5`, `SonarJS <= 15`, `max-params: 4`, `max-depth: 3`), offline Port & Adapter boundaries (`--network none`), Transactional Outbox, and `[DIRECTIVE-11X]` JIT guidance.
+12. **`qa-11x-reverse-specs`** (`architecture`)
+    - **Upstream Path:** [`.agents/skills/qa-11x-reverse-specs/SKILL.md`](../.agents/skills/qa-11x-reverse-specs/SKILL.md) (`https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-reverse-specs/SKILL.md`)
+    - **Summary:** Zero-footprint multi-project reverse specs, cross-project HTTP/.env contracts & AST findings (no vuln audit).
+    - **Key Capabilities:** Read-only (`:ro`) Graphify AST graphs under `<outputDir>/.graphs/<slug>/`, HTTP/REST + `.env` correlation (`404`/`405`, orphans, Web vs Mobile asymmetry, `.env` drift, AST cycles/god-modules), and single-language deliverables (`00..03-*.md`).
 
 ---
 
 ## Section 3 — Workflow Bundle (`QA-11X Zero-Infra Agentic Quality Gate`)
 
-Combines **Knowledge** (the 11 modular `SKILL.md` files under `< 20 KB`) with **Access** (all 19 tools — 12 v1 + 6 v2.0 + v3.1 `session_flight_recorder` — and 13 `blueprint://*` resources — including v3.1 `blueprint://skills/tactical-patterns-11x` — in `@sinfallas/mcp-qa-11x` v3.10.0) into a deterministic, auditable engineering workflow:
+Combines **Knowledge** (the 12 modular `SKILL.md` files under `< 20 KB`) with **Access** (all 20 tools — 12 v1 + 6 v2.0 + v3.1 `session_flight_recorder` + `analyze_ecosystem_specs` — and 13 `blueprint://*` resources — including v3.1 `blueprint://skills/tactical-patterns-11x` — in `@sinfallas/mcp-qa-11x` v3.10.0) into a deterministic, auditable engineering workflow:
 
 1. **Onboard (`30s`):** Run `npx -y @sinfallas/mcp-qa-11x@latest quickstart` to detect stack/vibe markers, generate `.qa-11x.json`, inject the `AGENTS.md` connector across 28 AI agents, and scaffold PR-aware CI.
 2. **Route & Inspect (`Knowledge + AST`):** Load `qa-11x-architect` and `graphify-ast-navigator`, then call `inspect_project_config` and `inspect_ast_blast_radius` before modifying code.

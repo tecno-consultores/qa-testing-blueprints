@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Jesus Palencia <sinfallas@gmail.com> (Creado en Tecno Consultores)
-# Propósito: Certificar en contenedor Docker efímero (Rule Zero) las 19 tools,
+# Propósito: Certificar en contenedor Docker efímero (Rule Zero) las 20 tools,
 #            13 resources, 12 subcomandos CLI y tarball v3.10.0 de @sinfallas/mcp-qa-11x
 #            contra mcp-server/example/, verify-v2.sh y validación funcional del
 #            tarball empaquetado (Clean-Room por defecto).
@@ -200,4 +200,4 @@ QA_UID="${CURRENT_UID}" QA_GID="${CURRENT_GID}" \
 
 run_example_backend_python_qa "${CLEANROOM_DIR}/mcp-server/example"
 
-echo "✅ [Clean-Room E2E] Instalación limpia + compilación + 19 tools / 13 resources / 12 CLI / verify-v2.sh / tarball CLI / example backend Python QA verificados."
+echo "✅ [Clean-Room E2E] Instalación limpia + compilación + 20 tools / 13 resources / 12 CLI / verify-v2.sh / tarball CLI / example backend Python QA verificados."

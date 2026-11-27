@@ -4,7 +4,7 @@
 //
 // Arnés End-to-End (E2E) sobre stdio real para @sinfallas/mcp-qa-11x v3.10.0.
 // Conecta un cliente MCP oficial (@modelcontextprotocol/sdk) contra el binario
-// compilado dist/index.js y certifica empíricamente los 13 recursos, las 19 tools
+// compilado dist/index.js y certifica empíricamente los 13 recursos, las 20 tools
 // (en escenarios negativos y limpios) y los 12 subcomandos CLI sobre una copia
 // temporal aislada del proyecto híbrido Full-Stack mcp-server/example/.
 
@@ -217,12 +217,13 @@ async function verifyAllResources(client, expectedVersion) {
   logStep(`13 Recursos MCP (11 estáticos/catálogo + 2 templates dinámicos) leídos y validados (v${expectedVersion})`);
 }
 
-async function verifyAllNineteenTools(client, ctx) {
+async function verifyAllTwentyTools(client, ctx) {
   const { projectDir, docsOnlyDir, expectedVersion } = ctx;
 
   const toolsResp = await client.listTools();
   const toolNames = toolsResp.tools.map((t) => t.name).sort();
   const expectedTools = [
+    'analyze_ecosystem_specs',
     'audit_security_stig_owasp',
     'audit_test_pyramid_gaps',
     'audit_vibe_prototype',
@@ -243,7 +244,7 @@ async function verifyAllNineteenTools(client, ctx) {
     'sync_enterprise_tms',
     'validate_calm_architecture',
   ];
-  assert.deepEqual(toolNames, expectedTools, 'El catálogo de 19 herramientas MCP no coincide');
+  assert.deepEqual(toolNames, expectedTools, 'El catálogo de 20 herramientas MCP no coincide');
 
   // 1. inspect_project_config
   const inspected = await callJsonTool(client, 'inspect_project_config', { project_path: projectDir });
@@ -255,7 +256,7 @@ async function verifyAllNineteenTools(client, ctx) {
   assert.equal(inspected.browser_testing_readiness.applicable, true);
   assert.equal(inspected.browser_testing_readiness.browser_mcp_configured_in_ide, true);
   assert.equal(inspected.update_available.running_mcp_version, expectedVersion);
-  logStep('Tool 1/19 inspect_project_config: stacks híbridos (fastapi + vue3), flags estrictos y update_available');
+  logStep('Tool 1/20 inspect_project_config: stacks híbridos (fastapi + vue3), flags estrictos y update_available');
 
   // 2. fetch_blueprint_bundle (modo índice ligero y modo contenido completo con SHA-256)
   const bundleIndex = await callJsonTool(client, 'fetch_blueprint_bundle', {
@@ -273,7 +274,7 @@ async function verifyAllNineteenTools(client, ctx) {
   });
   assert.ok(bundleFull.files.length > 0);
   assert.ok(bundleFull.files.every((f) => f.sha256_verified === true && f.content.length > 0));
-  logStep('Tool 2/19 fetch_blueprint_bundle: descarga bajo demanda y verificación SHA-256 (índice + contenido)');
+  logStep('Tool 2/20 fetch_blueprint_bundle: descarga bajo demanda y verificación SHA-256 (índice + contenido)');
 
   // 3. bootstrap_or_merge_11x (default dry_run=true + dry_run explícito + fusión quirúrgica real sin destruir archivos del usuario)
   const mergeDefaultDry = await callJsonTool(client, 'bootstrap_or_merge_11x', {
@@ -306,7 +307,7 @@ async function verifyAllNineteenTools(client, ctx) {
       fs.rmSync(path.join(projectDir, f), { force: true });
     }
   }
-  logStep('Tool 3/19 bootstrap_or_merge_11x: simulación dry_run y fusión quirúrgica Thin-Repo verificadas');
+  logStep('Tool 3/20 bootstrap_or_merge_11x: simulación dry_run y fusión quirúrgica Thin-Repo verificadas');
 
   // 4. inspect_ast_blast_radius
   const blast = await callJsonTool(client, 'inspect_ast_blast_radius', {
@@ -327,7 +328,7 @@ async function verifyAllNineteenTools(client, ctx) {
     blast.ast_graph_action_required.includes('QA-TEST-SYNC-01'),
     'inspect_ast_blast_radius no incluyó el recordatorio QA-TEST-SYNC-01'
   );
-  logStep('Tool 4/19 inspect_ast_blast_radius: navegación bidireccional AST (declarante + llamadores entrantes)');
+  logStep('Tool 4/20 inspect_ast_blast_radius: navegación bidireccional AST (declarante + llamadores entrantes)');
 
   // 5. audit_test_pyramid_gaps (detección de componente huérfano + estado limpio)
   const orphanVuePath = path.join(projectDir, 'frontend', 'src', 'views', 'OrphanPanel.vue');
@@ -359,7 +360,7 @@ async function verifyAllNineteenTools(client, ctx) {
     ),
     false
   );
-  logStep('Tool 5/19 audit_test_pyramid_gaps: 13 capas evaluadas y detección real de vista .vue huérfana');
+  logStep('Tool 5/20 audit_test_pyramid_gaps: 13 capas evaluadas y detección real de vista .vue huérfana');
 
   // 6. audit_security_stig_owasp (inyección de defectos reales UI-11X-01 + QA-KARATE-IDEMP + QA-DOCKER-LOOP-01 y limpieza posterior)
   const badVueFooter = path.join(projectDir, 'frontend', 'src', 'views', 'FloatingFooterBad.vue');
@@ -406,7 +407,7 @@ async function verifyAllNineteenTools(client, ctx) {
   });
   assert.equal(secClean.passed, true, `Hallazgos inesperados en proyecto limpio: ${JSON.stringify(secClean.findings)}`);
   assert.equal(secClean.findings.length, 0, `Hallazgo residual: ${JSON.stringify(secClean.findings)}`);
-  logStep('Tool 6/19 audit_security_stig_owasp: cacería real de UI-11X-01 + QA-KARATE-IDEMP + QA-DOCKER-LOOP-01 y certificación 0 hallazgos');
+  logStep('Tool 6/20 audit_security_stig_owasp: cacería real de UI-11X-01 + QA-KARATE-IDEMP + QA-DOCKER-LOOP-01 y certificación 0 hallazgos');
 
   // 7. clean_workspace_11x (creación de residuos efímeros -> dry_run -> borrado real preservando graph.json)
   const covResidue = path.join(projectDir, '.coverage');
@@ -445,7 +446,7 @@ async function verifyAllNineteenTools(client, ctx) {
     true,
     'clean_workspace_11x no debe borrar graphify-out/graph.json'
   );
-  logStep('Tool 7/19 clean_workspace_11x: purga física de artefactos efímeros preservando graphify-out/graph.json');
+  logStep('Tool 7/20 clean_workspace_11x: purga física de artefactos efímeros preservando graphify-out/graph.json');
 
   // 8. init_or_append_agents_md (preservación de reglas previas + idempotencia)
   const agentsRes1 = await callJsonTool(client, 'init_or_append_agents_md', {
@@ -466,7 +467,7 @@ async function verifyAllNineteenTools(client, ctx) {
   assert.equal(agentsRes2.action, 'updated_block');
   const agentsContent2 = fs.readFileSync(path.join(projectDir, 'AGENTS.md'), 'utf8');
   assert.equal(agentsContent2, agentsContent1, 'Segunda inyección idempotente alteró AGENTS.md');
-  logStep('Tool 8/19 init_or_append_agents_md: inyección aditiva preservando cabecera de negocio e idempotencia');
+  logStep('Tool 8/20 init_or_append_agents_md: inyección aditiva preservando cabecera de negocio e idempotencia');
 
   // 9. reconcile_agents_governance (poda de duplicados canónicos + aislamiento de reglas de dominio)
   const rulesDir = path.join(projectDir, '.agents', 'rules');
@@ -503,7 +504,7 @@ async function verifyAllNineteenTools(client, ctx) {
   );
   const extractedDomain = fs.readFileSync(domainFullFile, 'utf8');
   assert.ok(extractedDomain.includes('LoRaWAN Duty-Cycle Regional Budget'));
-  logStep('Tool 9/19 reconcile_agents_governance: backup automático, poda global y extracción de regla de dominio');
+  logStep('Tool 9/20 reconcile_agents_governance: backup automático, poda global y extracción de regla de dominio');
 
   // 10 & 11. run_ephemeral_qa + certify_11x_gate (bloqueo sin evidencia lint -> qa-lint + qa-unit -> aprobación 10/10)
   // Primero comprobamos Fast-Path DOCS_ONLY en un repo con cambio exclusivo en README.md
@@ -555,7 +556,7 @@ async function verifyAllNineteenTools(client, ctx) {
     assert.equal(checkVal, true, `Check '${checkName}' no pasó en certify_11x_gate`);
   }
   assert.equal(gatePassed.update_available.running_mcp_version, expectedVersion);
-  logStep(`Tools 10 & 11/19 run_ephemeral_qa + certify_11x_gate: DOCS_ONLY SKIPPED, cobertura ${unitRun.coverage.percent}% y Gate 10/10 PASSED`);
+  logStep(`Tools 10 & 11/20 run_ephemeral_qa + certify_11x_gate: DOCS_ONLY SKIPPED, cobertura ${unitRun.coverage.percent}% y Gate 10/10 PASSED`);
 
   // 12. propose_skill_evolution_pr (fallback offline determinista con matriz Dual-Consumer)
   const proposal = await callJsonTool(client, 'propose_skill_evolution_pr', {
@@ -563,7 +564,7 @@ async function verifyAllNineteenTools(client, ctx) {
     target_blueprint_file: '.agents/skills/qa-11x-architect/SKILL.md',
     improvement_title: 'Certificación E2E de tools MCP sobre proyecto ejemplo real',
     empirical_rationale:
-      'Validar las 19 herramientas y 13 recursos sobre stdio contra un proyecto híbrido evita escapes por mocks o entornos locales prehidratados.',
+      'Validar las 20 herramientas y 13 recursos sobre stdio contra un proyecto híbrido evita escapes por mocks o entornos locales prehidratados.',
     proposed_content_or_snippet:
       '- Enforce E2E smoke execution (`mcp-server/example/run-example-e2e.mjs`) prior to git push and npm publish.',
     dry_run: false,
@@ -573,7 +574,7 @@ async function verifyAllNineteenTools(client, ctx) {
   assert.equal(proposal.target_human_doc_file, 'docs/02_BUENAS_PRACTICAS_PROGRAMACION_11X.md');
   assert.ok(proposal.prefilled_github_url.startsWith('https://github.com/tecno-consultores/qa-testing-blueprints/'));
   assert.equal(fs.existsSync(proposal.local_proposal_file), true);
-  logStep('Tool 12/19 propose_skill_evolution_pr: propuesta Dual-Consumer generada y verificada en disco');
+  logStep('Tool 12/20 propose_skill_evolution_pr: propuesta Dual-Consumer generada y verificada en disco');
 
   // 13. validate_calm_architecture (modelo FINOS CALM oficial del monorepo)
   const calmRes = await client.callTool({
@@ -667,6 +668,26 @@ async function verifyAllNineteenTools(client, ctx) {
   const activeTaskClear = fs.readFileSync(activeTaskPath, 'utf8');
   assert.ok(activeTaskClear.includes('CERTIFIED_CLEAN'), 'Proyección ACTIVE_TASK.md no reflejó CERTIFIED_CLEAN');
 
+  // 20. analyze_ecosystem_specs (análisis multiproyecto huella cero sin auditoría de vulnerabilidades)
+  const ecoPayload = await callJsonTool(client, 'analyze_ecosystem_specs', {
+    workspaceRoot: projectDir,
+    outputDir: 'analisis-e2e',
+    buildGraphs: false,
+  });
+  assert.equal(ecoPayload.status, 'PASSED');
+  assert.equal(ecoPayload.zero_footprint_verified, true);
+  assert.equal(
+    ecoPayload.scope_policy,
+    'DOCUMENTATION_AND_INTEGRATION_ONLY_NO_VULNERABILITY_AUDIT'
+  );
+  assert.ok(ecoPayload.projects_count >= 2, 'analyze_ecosystem_specs debe descubrir backend y frontend');
+  assert.equal(
+    fs.existsSync(path.join(projectDir, 'analisis-e2e', 'ecosystem-inventory.json')),
+    true,
+    'Falta analisis-e2e/ecosystem-inventory.json'
+  );
+  fs.rmSync(path.join(projectDir, 'analisis-e2e'), { recursive: true, force: true });
+
   // Guardia PromptGuard extremo a extremo sobre herramientas v2.0
   const blockedV2 = await client.callTool({
     name: 'evaluate_release_gate',
@@ -678,7 +699,7 @@ async function verifyAllNineteenTools(client, ctx) {
   });
   assert.equal(blockedV2.isError, true);
   assert.ok(blockedV2.content[0].text.includes('[QA-PROMPT-GUARD]'));
-  logStep('Tools 13..19/19 v2.0 + PromptGuard extremo a extremo certificados sobre stdio real');
+  logStep('Tools 13..20/20 v2.0/v3.x + PromptGuard extremo a extremo certificados sobre stdio real');
 }
 
 async function verifyCliAndBackgroundAutoSync(ctx) {
@@ -727,6 +748,7 @@ async function verifyCliAndBackgroundAutoSync(ctx) {
     'qa-11x-llm-evaluator',
     'qa-11x-vibe-rescue',
     'tactical-patterns-11x',
+    'qa-11x-reverse-specs',
   ]) {
     assert.equal(
       fs.existsSync(path.join(globalSkillsDir, skillName, 'SKILL.md')),
@@ -1022,7 +1044,7 @@ async function main() {
     await client.connect(transport);
 
     await verifyAllResources(client, expectedVersion);
-    await verifyAllNineteenTools(client, { projectDir, docsOnlyDir, expectedVersion });
+    await verifyAllTwentyTools(client, { projectDir, docsOnlyDir, expectedVersion });
     await client.close();
     client = null;
 
@@ -1037,7 +1059,7 @@ async function main() {
     });
 
     console.log('══════════════════════════════════════════════════════════════════════');
-    console.log(`  🎉 E2E CERTIFICADO: 13 Recursos + 19 Tools + 12 CLI operativos (v${expectedVersion})`);
+    console.log(`  🎉 E2E CERTIFICADO: 13 Recursos + 20 Tools + 12 CLI operativos (v${expectedVersion})`);
     console.log('══════════════════════════════════════════════════════════════════════');
   } finally {
     if (client) {

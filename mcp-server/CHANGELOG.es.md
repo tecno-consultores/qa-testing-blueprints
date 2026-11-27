@@ -8,6 +8,12 @@ Todos los cambios notables en el paquete npm y servidor MCP `@sinfallas/mcp-qa-1
 
 ## [Unreleased]
 
+### Añadido
+- **Tool MCP #20 (`analyze_ecosystem_specs`) y Skill #12 (`qa-11x-reverse-specs`) — Especificaciones Inversas Multiproyecto y Mapeo de Integración con Huella Cero:**
+  - Añadidos `src/tools/analyzeEcosystemSpecs.ts` y `src/tools/ecosystem-specs/{types,projectDiscovery,graphBuilder,providerExtractor,consumerExtractor,envExtractor,contractCorrelator}.ts` registrados como Tool MCP #20 (`20` herramientas, `13` recursos; invocación exclusiva por agente IA sin subcomando CLI independiente; auto-habilitada en `--toolset auto` ante `>= 2` subproyectos hermanos).
+  - Impone construcción secuencial Graphify AST en solo lectura (`:ro`) hacia `<outputDir>/.graphs/<slug>/` y genera `<outputDir>/ecosystem-inventory.json` estrictamente sin auditoría de vulnerabilidades (`DOCUMENTATION_AND_INTEGRATION_ONLY_NO_VULNERABILITY_AUDIT`), correlacionando contratos HTTP/REST, llamadas rotas `404`/`405`, endpoints huérfanos, asimetría Web vs Móvil, desalineación `.env` sanitizada y ciclos/god-modules AST.
+  - Registrada `qa-11x-reverse-specs` en `src/a2a/agentCard.ts` (`12` skills), `src/cli/reconcile-agents.ts`, `src/services/agents-connector.ts` y `src/server/{toolResults,toolsetFilter,v2Registry,v2Schemas}.ts` (`812` pruebas Vitest en `50` suites, `100%` cobertura diferencial, Escenario Karate `58`, E2E Clean-Room).
+
 ## [3.10.0] - 2026-11-27
 
 ### Añadido

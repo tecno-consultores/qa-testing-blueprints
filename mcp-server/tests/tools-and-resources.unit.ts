@@ -2799,7 +2799,7 @@ describe('Tools and Resources Integration Suite', () => {
       }
     });
 
-    it('expone annotations en las 19 tools, rechaza claves extra (.strict()) y sirve evals/tactical desde caché GitHubFetcher', async () => {
+    it('expone annotations en las 20 tools, rechaza claves extra (.strict()) y sirve evals/tactical desde caché GitHubFetcher', async () => {
       const cacheRoot = fs.mkdtempSync(path.join(tmpDir, 'fetcher-cache-srv-'));
       const cachedEvalPath = path.join(cacheRoot, 'files', 'ai-evals', 'promptfooconfig.yaml');
       const cachedSkillPath = path.join(
@@ -2824,7 +2824,7 @@ describe('Tools and Resources Integration Suite', () => {
 
       try {
         const listed = await client.listTools();
-        expect(listed.tools).toHaveLength(19);
+        expect(listed.tools).toHaveLength(20);
         for (const tool of listed.tools) {
           expect(tool.annotations).toBeDefined();
           expect(typeof tool.annotations?.readOnlyHint).toBe('boolean');

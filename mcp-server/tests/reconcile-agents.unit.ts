@@ -252,6 +252,7 @@ describe('reconcile-agents (Hito 13: Governance Reconciliation & Deduplication)'
         'graphify-ast-navigator',
         'refactoring-ui',
         'tactical-patterns-11x',
+        'qa-11x-reverse-specs',
       ]) {
         expect(CANONICAL_GLOBAL_SKILL_DIRS.has(expectedSkill)).toBe(true);
       }

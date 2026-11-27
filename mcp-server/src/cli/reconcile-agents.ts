@@ -59,6 +59,7 @@ export const CANONICAL_GLOBAL_SKILL_DIRS = new Set([
   'graphify-ast-navigator',
   'refactoring-ui',
   'tactical-patterns-11x',
+  'qa-11x-reverse-specs',
 ]);
 
 /**

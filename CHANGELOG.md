@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+* **Zero-Footprint Multi-Project Reverse Specs & Integration Mapper (MCP Tool #20 `analyze_ecosystem_specs` + Modular Skill #12 `qa-11x-reverse-specs`):**
+  * Added MCP tool #20 `analyze_ecosystem_specs` (`mcp-server/src/tools/analyzeEcosystemSpecs.ts` + modular extractors under `mcp-server/src/tools/ecosystem-specs/`), invoked exclusively by the AI agent (no standalone CLI subcommand; auto-exposed in `--toolset auto` when `>= 2` sibling subprojects exist), operating across current QA-11X stacks (`FastAPI`, `Python`, `Node/Express/Fastify/NestJS`, `PHP`, `Vue 3`, `React`, `Mobile`, `OpenAPI`, `.env*`) strictly without vulnerability audits (`DOCUMENTATION_AND_INTEGRATION_ONLY_NO_VULNERABILITY_AUDIT`).
+  * Enforced zero-footprint read-only (`:ro`) sequential Graphify AST extraction into `<outputDir>/.graphs/<slug>/` alongside atomic `<outputDir>/ecosystem-inventory.json` (correlating HTTP/REST contracts, `404`/`405` broken calls, orphan provider endpoints, Web vs Mobile channel asymmetry, `.env` drift with secret redaction, AST dependency cycles/god-modules, and prioritized `P1`–`P3` improvement opportunities) with `SEC-PATH-01` overlap/symlink guards.
+  * Added modular skill #12 [`.agents/skills/qa-11x-reverse-specs/SKILL.md`](.agents/skills/qa-11x-reverse-specs/SKILL.md) guiding single-language client deliverables (`00-resumen-ecosistema.md`, `01-specs-<slug>.md`, `02-integracion-y-contratos.md`, `03-inconsistencias-y-mejoras.md` with Mermaid diagrams, `file:line` citations, `<= 20%` `[INFERRED]`, and no unsolicited CALM or `.es.md` mirrors), synced A2A Agent Card (`12` skills), catalogs, bilingual docs, Karate Scenario 58, Clean-Room E2E (`20` tools), and `100%` differential coverage (`812` Vitest tests across `50` suites).
+
 ### Fixed
 * **Publisher `lefthook.yml` Volume Mount (`scripts/publicar-mcp.sh`):** Mounted root `lefthook.yml:/lefthook.yml:ro` in `MCP_EXTRA_VOLS` so Vitest unit checks during live npmjs publishing have full parity with `Makefile`, `lefthook.yml`, and `instalar-hooks.sh`.
 

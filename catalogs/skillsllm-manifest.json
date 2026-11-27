@@ -10,7 +10,7 @@
   "llms_txt_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/llms.txt",
   "mcp_package": "@sinfallas/mcp-qa-11x",
   "mcp_capabilities": {
-    "tools_count": 19,
+    "tools_count": 20,
     "resources_count": 13,
     "tools": [
       "inspect_project_config",
@@ -31,7 +31,8 @@
       "run_llm_red_team",
       "audit_vibe_prototype",
       "sync_enterprise_tms",
-      "session_flight_recorder"
+      "session_flight_recorder",
+      "analyze_ecosystem_specs"
     ],
     "resources": [
       "blueprint://manifest",
@@ -118,8 +119,8 @@
       "name": "qa-11x-architect",
       "path": ".agents/skills/qa-11x-architect/SKILL.md",
       "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-architect/SKILL.md",
-      "size_bytes": 12155,
-      "sha256": "2b93fe2de7e851930e2cff8f8cb8d980bdc623b58912728008a38fcdf59242be",
+      "size_bytes": 12235,
+      "sha256": "68ff55c919493cb882290bee2eea9b1a970691d963cc4cf1b9b70aeffdb55f02",
       "description": "Master QA 11X & DevSecOps orchestrator (@sinfallas/mcp-qa-11x). Use whenever initializing or auditing QA in a repository, merging .example blueprints, writing or updating unit/BDD/mutation/E2E tests, enforcing STIG/OWASP controls, running ephemeral Docker QA, or certifying tasks before local commit."
     },
     {
@@ -211,6 +212,15 @@
       "size_bytes": 2518,
       "sha256": "85081732d1907ceebb7ae7680305139a935182b81361d19ca2458f17f6fd1a68",
       "description": "Just-in-time refactoring and concurrency patterns for Standard 11X. Use when resolving cyclomatic/cognitive complexity or parameter-count violations, isolating external network ports offline, or implementing transactional outbox, atomic idempotency, and WebSocket pub/sub."
+    },
+    {
+      "id": "qa-11x-reverse-specs",
+      "name": "qa-11x-reverse-specs",
+      "path": ".agents/skills/qa-11x-reverse-specs/SKILL.md",
+      "upstream_url": "https://raw.githubusercontent.com/tecno-consultores/qa-testing-blueprints/main/.agents/skills/qa-11x-reverse-specs/SKILL.md",
+      "size_bytes": 8137,
+      "sha256": "efcd27ec90a41c3ca33fa747d5d75c028aa8a9bd614e7ce6d61dab4d221a0c5f",
+      "description": "Multi-project reverse specifications, cross-project integration mapping, and functional/AST inconsistency reporting skill (@sinfallas/mcp-qa-11x). Use whenever documenting sibling client repositories (API, web, mobile) inside a container workspace into an isolated analysis folder without writing to source repos or running vulnerability audits."
     }
   ]
 }

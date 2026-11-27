@@ -11,14 +11,14 @@
 * **`README.md`:** Portada primaria *English-First* con `quickstart` en 30 segundos, niveles progresivos (`starter` / `standard` / `enterprise`), matriz de 15 columnas × 12 entornos de pruebas, matriz Docker y escudo AI Evals.
 * **[`README.es.md`](README.es.md):** Espejo 1:1 en español con la matriz completa de herramientas y puntos de entrada bilingües.
 * **[`.github/actions/qa-11x-pr-check/action.yml`](.github/actions/qa-11x-pr-check/action.yml):** Composite Action endurecida para Pull Requests con selección por Blast Radius AST y perfiles progresivos.
-* **[`mcp-server/README.es.md`](mcp-server/README.es.md) (`mcp-server/README.md`):** Documentación oficial bilingüe del paquete npm `@sinfallas/mcp-qa-11x` v3.10.0 (**19 herramientas**, **13 recursos** públicos incluyendo `session_flight_recorder` + `blueprint://skills/tactical-patterns-11x` en **v3.1**, y 12 subcomandos CLI: `quickstart`, `install-skill`, `init-agents`, `reconcile-agents`, `tms-sync`, `doctor`, `upgrade`, `certify`, `audit`, `blast-radius`, `mcp-config`, `completion`, protegidos con `promptGuard` y `TaskStateGuard`).
+* **[`mcp-server/README.es.md`](mcp-server/README.es.md) (`mcp-server/README.md`):** Documentación oficial bilingüe del paquete npm `@sinfallas/mcp-qa-11x` v3.10.0 (**20 herramientas**, **13 recursos** públicos incluyendo `session_flight_recorder` + `blueprint://skills/tactical-patterns-11x` en **v3.1** y `analyze_ecosystem_specs`, y 12 subcomandos CLI: `quickstart`, `install-skill`, `init-agents`, `reconcile-agents`, `tms-sync`, `doctor`, `upgrade`, `certify`, `audit`, `blast-radius`, `mcp-config`, `completion`, protegidos con `promptGuard` y `TaskStateGuard`).
 * **[`llms.txt`](llms.txt) y Catálogos Globales (`catalogs/` y `.claude-plugin/`):** Índice GEO para LLMs/agentes ([`llms.txt`](llms.txt)), manifiestos nativos de plugin Claude Code ([`.claude-plugin/plugin.json`](.claude-plugin/plugin.json), [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json)), junto a los descriptores canónicos [`catalogs/qaskills-pack.json`](catalogs/qaskills-pack.json) (QASkills.sh), [`catalogs/skillsllm-manifest.json`](catalogs/skillsllm-manifest.json) (SkillsLLM.com) y [`catalogs/agenticskills-submission.md`](catalogs/agenticskills-submission.md) (AgenticSkills.io).
 * **[`docs/agent-setup.es.md`](docs/agent-setup.es.md) (`docs/agent-setup.md`):** Guías paso a paso para configurar 28 agentes y clientes MCP (`Antigravity`, `Claude Code`, `Cursor`, `Windsurf`, `Codex`, `Copilot`, `Hermes`, `Zed`, `JetBrains`, etc.).
 * **[`AI_MASTER_PROMPT.es.md`](AI_MASTER_PROMPT.es.md) (`AI_MASTER_PROMPT.md`):** Prompt maestro de adopción integral para agentes autónomos y su espejo 1:1 en español.
 
 ---
 
-## 2. Las 11 Skills Modulares (`< 20 KB`) y 8 Reglas Activas (`.agents/`)
+## 2. Las 12 Skills Modulares (`< 20 KB`) y 8 Reglas Activas (`.agents/`)
 
 ### 2.1. Catálogo de Skills Modulares (`.agents/skills/`)
 
@@ -35,6 +35,7 @@
 | **`graphify-ast-navigator`** | Grafo AST bidireccional `graph.json`, Blast Radius y límites de capas | [`SKILL.md`](.agents/skills/graphify-ast-navigator/SKILL.md) |
 | **`refactoring-ui`** | Jerarquía visual, escala tipográfica, contraste OKLCH y layout Anti-JSDOM | [`SKILL.md`](.agents/skills/refactoring-ui/SKILL.md) |
 | **`tactical-patterns-11x`** | Patrones tácticos JIT (`<= 2.5 KB`, `CC <= 5`, `max-params: 4`, Port/Adapter, Outbox) | [`SKILL.md`](.agents/skills/tactical-patterns-11x/SKILL.md) |
+| **`qa-11x-reverse-specs`** | Specs inversas multiproyecto con huella cero, contratos HTTP/`.env` y hallazgos AST (sin auditoría de vulnerabilidades) | [`SKILL.md`](.agents/skills/qa-11x-reverse-specs/SKILL.md) |
 
 ### 2.2. Reglas Canónicas Activas (`.agents/rules/`)
 

@@ -52,7 +52,7 @@ export interface HelpSurfaceCounts {
   readonly resources: number;
 }
 
-const DEFAULT_COUNTS: HelpSurfaceCounts = { tools: 19, resources: 13 };
+const DEFAULT_COUNTS: HelpSurfaceCounts = { tools: 20, resources: 13 };
 const BIN_INVOCATION = 'npx -y @sinfallas/mcp-qa-11x';
 const USAGE_DIR_OPTIONS: BilingualText = {
   en: '[dir] [options]',
@@ -792,8 +792,8 @@ export const CLI_COMMAND_CATALOG: readonly CliSubcommandSpec[] = [
         values: ['core', 'auto', 'full'],
         zshMeta: 'toolset',
         desc: {
-          en: 'MCP toolset exposure profile: core (8) | auto | full (19, default)',
-          es: 'Perfil de exposición de herramientas MCP: core (8) | auto | full (19, por defecto)',
+          en: 'MCP toolset exposure profile: core (13) | auto | full (20, default)',
+          es: 'Perfil de exposición de herramientas MCP: core (13) | auto | full (20, por defecto)',
         },
       },
       COMMON_DRY_RUN_FLAG,

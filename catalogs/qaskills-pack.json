@@ -173,6 +173,20 @@
         "refactoring"
       ],
       "description": "Just-in-time refactoring and concurrency patterns for Standard 11X. Use when resolving cyclomatic/cognitive complexity or parameter-count violations, isolating external network ports offline, or implementing transactional outbox, atomic idempotency, and WebSocket pub/sub."
+    },
+    {
+      "id": "qa-11x-reverse-specs",
+      "name": "qa-11x-reverse-specs",
+      "path": ".agents/skills/qa-11x-reverse-specs/SKILL.md",
+      "max_size_kb": 20,
+      "tags": [
+        "architecture",
+        "reverse-specs",
+        "contracts",
+        "integration",
+        "graphify"
+      ],
+      "description": "Multi-project reverse specifications, cross-project integration mapping, and functional/AST inconsistency reporting skill (@sinfallas/mcp-qa-11x). Use whenever documenting sibling client repositories (API, web, mobile) inside a container workspace into an isolated analysis folder without writing to source repos or running vulnerability audits."
     }
   ]
 }

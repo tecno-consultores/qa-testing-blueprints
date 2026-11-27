@@ -361,8 +361,8 @@ class TestVerifyDocsInvariants(unittest.TestCase):
         import tempfile
 
         counts = verify_docs.derive_expected_counts(REPO_ROOT)
-        self.assertEqual(counts.skills, 11)
-        self.assertEqual(counts.tools, 19)
+        self.assertEqual(counts.skills, 12)
+        self.assertEqual(counts.tools, 20)
         self.assertEqual(counts.resources, 13)
         self.assertEqual(counts.blueprints, 10)
         self.assertEqual(counts.calm_controls, 7)
@@ -1867,7 +1867,7 @@ class TestVerifyDocsInvariants(unittest.TestCase):
             )
         )
         real_tools = skillsllm["mcp_capabilities"]["tools"]
-        self.assertEqual(len(CANONICAL_MCP_TOOLS), 19)
+        self.assertEqual(len(CANONICAL_MCP_TOOLS), 20)
         self.assertEqual(CANONICAL_MCP_TOOLS, frozenset(real_tools))
 
         with tempfile.TemporaryDirectory() as tmp:

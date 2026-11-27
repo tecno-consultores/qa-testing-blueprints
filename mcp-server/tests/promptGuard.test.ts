@@ -430,10 +430,10 @@ describe('Zero-Infra PromptGuard & MCP Interceptor (T2.4)', () => {
         });
         expect(noArgsRes.isError).toBe(true);
 
-        // 4. Superficie pública consolidada v2.0.0+ (19 tools y 13 resources)
+        // 4. Superficie pública consolidada v2.0.0+ (20 tools y 13 resources)
         const toolsList = await client.listTools();
         const listedToolNames = toolsList.tools.map((t) => t.name);
-        expect(listedToolNames).toHaveLength(19);
+        expect(listedToolNames).toHaveLength(20);
         for (const v2Tool of [
           'validate_calm_architecture',
           'evaluate_release_gate',
@@ -442,6 +442,7 @@ describe('Zero-Infra PromptGuard & MCP Interceptor (T2.4)', () => {
           'audit_vibe_prototype',
           'sync_enterprise_tms',
           'session_flight_recorder',
+          'analyze_ecosystem_specs',
         ]) {
           expect(listedToolNames).toContain(v2Tool);
         }

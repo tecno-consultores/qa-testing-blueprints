@@ -44,7 +44,7 @@ help:
 	@echo "  make test-meta-qa    - Audita scripts de .agents/scripts/ contra fixtures trimodales en Docker efímero"
 	@echo "  make diff-cov        - Verifica 100% cobertura delta multi-stack, ramas >=90% y bloqueo anti-evasión"
 	@echo "  make pr-verdict      - Exporta .agents/artifacts/PR_VERDICT.md y atestación SHA-256/HMAC QA 11X"
-	@echo "  make test-example    - Certifica las 19 tools, 13 resources, quickstart y verify-v2.sh Clean-Room Docker"
+	@echo "  make test-example    - Certifica las 20 tools, 13 resources, quickstart y verify-v2.sh Clean-Room Docker"
 	@echo "  make lint            - Ejecuta verificación de tipos y linters (ESLint --max-warnings 0, TypeScript)"
 	@echo "  make build           - Compila la distribución de producción del Servidor MCP"
 	@echo "  make publish-mcp     - Publica de forma autónoma el Servidor MCP en npmjs usando credenciales de .env"

@@ -52,7 +52,7 @@ afterEach(async () => {
 });
 
 describe('Agent2Agent Card Generator (buildAgentCard)', () => {
-  it('genera el manifiesto por defecto con las 11 skills QA-11X, extensión task-capacity y seguridad 11X', () => {
+  it('genera el manifiesto por defecto con las 12 skills QA-11X, extensión task-capacity y seguridad 11X', () => {
     const card = buildAgentCard();
     const expectedStandardVersion = deriveStandardVersion(MCP_SERVER_VERSION);
 
@@ -84,7 +84,7 @@ describe('Agent2Agent Card Generator (buildAgentCard)', () => {
       pushNotifications: false,
       stateTransitionHistory: true,
     });
-    expect(card.skills).toHaveLength(11);
+    expect(card.skills).toHaveLength(12);
     expect(QA_11X_V2_SKILLS).toBe(QA_11X_SKILLS);
     expect(card.skills.map((s) => s.id)).toEqual(QA_11X_SKILLS.map((s) => s.id));
     expect(card.extensions).toHaveLength(1);

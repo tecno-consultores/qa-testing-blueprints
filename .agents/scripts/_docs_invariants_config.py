@@ -71,9 +71,11 @@ CANONICAL_GLOBAL_SKILL_DIRS: frozenset[str] = frozenset({
     "qa-11x-llm-evaluator",
     "qa-11x-vibe-rescue",
     "tactical-patterns-11x",
+    "qa-11x-reverse-specs",
 })
 
 CANONICAL_MCP_TOOLS: frozenset[str] = frozenset({
+    "analyze_ecosystem_specs",
     "audit_security_stig_owasp",
     "audit_test_pyramid_gaps",
     "audit_vibe_prototype",
@@ -101,8 +103,8 @@ MAX_TACTICAL_SKILL_BYTES = TACTICAL_SKILL_MAX_BYTES
 MAX_ACTIVE_TASK_LINES = ACTIVE_TASK_MAX_LINES
 MAX_ACTIVE_TASK_RULE_LINES = ACTIVE_TASK_RULE_MAX_LINES
 
-EXPECTED_SKILLS_COUNT = 11
-EXPECTED_TOOLS_COUNT = 19
+EXPECTED_SKILLS_COUNT = 12
+EXPECTED_TOOLS_COUNT = 20
 EXPECTED_RESOURCES_COUNT = 13
 EXPECTED_BLUEPRINTS_COUNT = 10
 EXPECTED_CALM_CONTROLS = 7

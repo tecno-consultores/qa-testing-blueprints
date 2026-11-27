@@ -26,7 +26,7 @@ This directory implements the portable, open agent-governance layout across Goog
 │   └── git_closure_gate.md                           # QA-GIT-GATE-01 (certified local git commit; zero automatic git push)
 ├── schemas/                                          # JSON Schema Draft 2020-12 state & telemetry schemas
 │   └── session_checkpoint.schema.json                # Strict 0600 schema for session_checkpoint.json (Flight Recorder)
-├── skills/                                           # Domain playbooks & progressive-disclosure skills (11 modular skills)
+├── skills/                                           # Domain playbooks & progressive-disclosure skills (12 modular skills)
 │   ├── qa-11x-architect/                             # Master orchestrator: 13 layers, 10 laws, 11 UAT Anti-Blindness rules & 10 references/
 │   ├── qa-11x-docker-certifier/                      # Ephemeral Docker Rule Zero certification (>=95% coverage)
 │   ├── qa-11x-devsecops-hardener/                    # DISA ASD STIG V6R5 & OWASP v4.2 hardening (22 ref controls / 37 scanner rules)
@@ -37,7 +37,8 @@ This directory implements the portable, open agent-governance layout across Goog
 │   ├── docker-trivy-keydb-hardening/                 # Non-root container hardening, Trivy = 0 & multi-threaded KeyDB
 │   ├── graphify-ast-navigator/                       # Bidirectional AST Knowledge Graph navigation & blast-radius analysis
 │   ├── refactoring-ui/                               # Visual hierarchy, discrete scales, OKLCH contrast, tabular-nums & WCAG 2.1 AA (SKILL.md + 9 references/)
-│   └── tactical-patterns-11x/                        # Ultra-compact JIT tactical patterns <= 2.5 KB (CC <= 5, max-params: 4, Port/Adapter, Outbox)
+│   ├── tactical-patterns-11x/                        # Ultra-compact JIT tactical patterns <= 2.5 KB (CC <= 5, max-params: 4, Port/Adapter, Outbox)
+│   └── qa-11x-reverse-specs/                         # Zero-footprint multi-project reverse specs, HTTP/.env integration contracts & AST findings (no vuln audit)
 └── scripts/                                          # Deterministic automation gates & utilities (30 files: 6 internal _*.py helpers + 24 CLI scripts)
     ├── _budgets.py                                   # Single-source cognitive budgets (incl. 36 KB rules cap) & AST blast-radius thresholds
     ├── _common.py                                    # Shared CANONICAL_IGNORED_DIRS, SECRET_PATTERNS, private-leak guards, atomic writes & safe.directory
@@ -96,7 +97,7 @@ This directory implements the portable, open agent-governance layout across Goog
 
 1. **Google Antigravity:** Auto-loads `.agents/rules/` directives and hydrates `.agents/skills/` playbooks on demand.
 2. **Anthropic Claude Code / Claude Desktop:** Consumes `.agents/skills/` playbooks and `.agents/rules/` as contextual governance.
-3. **Nous Research Hermes Agent:** Natively compatible with terminal MCP workflows (`@sinfallas/mcp-qa-11x` exposing **19 MCP Tools** and **13 MCP Resources** across **10 stacks**).
+3. **Nous Research Hermes Agent:** Natively compatible with terminal MCP workflows (`@sinfallas/mcp-qa-11x` exposing **20 MCP Tools** and **13 MCP Resources** across **10 stacks**).
 4. **Cursor / Windsurf / Codex:** Reads root `AGENTS.md` and `.agents/rules/` automatically as contextual coding constraints.
 5. **Human Engineers:** Serves as a single auditable source of truth for test pyramids, security invariants, and release gates.
 

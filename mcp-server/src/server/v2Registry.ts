@@ -8,6 +8,10 @@ import type { z } from 'zod';
 import { SYNC_ENTERPRISE_TMS_TOOL, handleSyncEnterpriseTms } from '../integrations/tmsSyncCli.js';
 import { resolveSafeProjectPath } from '../security/workspacePathValidator.js';
 import {
+  ANALYZE_ECOSYSTEM_SPECS_TOOL,
+  handleAnalyzeEcosystemSpecs,
+} from '../tools/analyzeEcosystemSpecs.js';
+import {
   AUDIT_VIBE_PROTOTYPE_TOOL,
   handleAuditVibePrototype,
 } from '../tools/auditVibePrototype.js';
@@ -31,6 +35,7 @@ import {
 import { throwIfSignalAborted } from '../utils/diagnosticFormatter.js';
 import { ensureStructuredToolResult, getToolAnnotations } from './toolResults.js';
 import {
+  AnalyzeEcosystemSpecsInputSchema,
   AuditVibeInputSchema,
   EvaluateReleaseGateInputSchema,
   EvaluateTrajectoryInputSchema,
@@ -120,6 +125,13 @@ export const V2_TOOL_REGISTRATIONS: readonly V2ToolRegistration[] = [
     execute: async (args, extra) =>
       await handleSessionFlightRecorder(args, { signal: extra?.signal }),
   },
+  {
+    definition: ANALYZE_ECOSYSTEM_SPECS_TOOL,
+    annotations: getToolAnnotations(ANALYZE_ECOSYSTEM_SPECS_TOOL.name),
+    inputSchema: AnalyzeEcosystemSpecsInputSchema,
+    execute: async (args, extra) =>
+      await handleAnalyzeEcosystemSpecs(args, { signal: extra?.signal }),
+  },
 ];
 
 function isRecordObject(value: unknown): value is Record<string, unknown> {
@@ -143,7 +155,18 @@ function resolveV2TargetDirPath(rawTargetDir: string, rawWorkspaceRoot: unknown)
   return resolveSafeProjectPath(path.resolve(baseRoot, normalizedTarget));
 }
 
-/** Validates SEC-PATH-01 workspace/project/targetDir boundaries for V2/V3 MCP tool calls. */
+function validateRelativePathsArray(rawList: unknown, rawWorkspaceRoot: unknown): void {
+  if (!Array.isArray(rawList)) {
+    return;
+  }
+  for (const item of rawList) {
+    if (typeof item === 'string') {
+      resolveV2TargetDirPath(item, rawWorkspaceRoot);
+    }
+  }
+}
+
+/** Validates SEC-PATH-01 workspace/project/targetDir/outputDir boundaries for V2/V3 MCP tool calls. */
 export function validateV2ToolWorkspaceArgs(rawArgs: unknown): void {
   if (!isRecordObject(rawArgs)) {
     return;
@@ -157,6 +180,10 @@ export function validateV2ToolWorkspaceArgs(rawArgs: unknown): void {
   if (typeof rawArgs.targetDir === 'string') {
     resolveV2TargetDirPath(rawArgs.targetDir, rawArgs.workspaceRoot);
   }
+  if (typeof rawArgs.outputDir === 'string') {
+    resolveV2TargetDirPath(rawArgs.outputDir, rawArgs.workspaceRoot);
+  }
+  validateRelativePathsArray(rawArgs.projects, rawArgs.workspaceRoot);
 }
 
 export function registerV2Tools(server: McpServer): void {

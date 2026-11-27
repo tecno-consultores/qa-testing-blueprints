@@ -69,7 +69,7 @@ All files inside the 10 stack directories follow a strict 3-category convention 
 
 ### When improving Documentation, MCP, or Skills
 1. When updating the MCP server (`mcp-server/`), verify everything inside ephemeral Docker (`Rule Zero`): run `make lint`, `make test-mcp`, and `make -C mcp-server qa-all` (`>= 95%` coverage, `0` ESLint/SonarJS warnings, strict TS).
-2. When updating any of the 11 modular skills in `.agents/skills/`, keep within cognitive budgets (`qa-11x-architect/SKILL.md <= 12 KB`, `tactical-patterns-11x/SKILL.md <= 2.5 KB`, others `< 20 KB`), update `catalogs/skillsllm-manifest.json`, and synchronize `docs/specs/`.
+2. When updating any of the 12 modular skills in `.agents/skills/`, keep within cognitive budgets (`qa-11x-architect/SKILL.md <= 12 KB`, `tactical-patterns-11x/SKILL.md <= 2.5 KB`, others `< 20 KB`), update `catalogs/skillsllm-manifest.json`, and synchronize `docs/specs/`.
 3. Maintain the "zero complacency" philosophy and keep bilingual pairs (`*.md` + `*.es.md`) in exact 1:1 structural parity.
 
 ### Commit Message Convention (Single Source of Truth)

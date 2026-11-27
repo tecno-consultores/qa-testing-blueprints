@@ -114,7 +114,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
   # Grupo 3: Contratos de Esquema de Herramientas MCP (Tools 1 a 19)
   # ==============================================================================
 
-  Scenario: 3. Definición de contratos y esquemas JSON para las 19 Herramientas MCP
+  Scenario: 3. Definición de contratos y esquemas JSON para las 20 Herramientas MCP
     * def serverSrc3 = readModule(mcpRoot + '/src/server.ts')
     * def typesSrc3 = karate.readAsString(mcpRoot + '/src/types.ts')
     * def calmToolSrc3 = karate.readAsString(mcpRoot + '/src/tools/validateCalmArchitecture.ts')
@@ -124,7 +124,8 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * def vibeToolSrc3 = karate.readAsString(mcpRoot + '/src/tools/auditVibePrototype.ts')
     * def tmsToolSrc3 = readModule(mcpRoot + '/src/integrations/tmsSyncCli.ts')
     * def flightToolSrc3 = karate.readAsString(mcpRoot + '/src/tools/sessionFlightRecorder.ts')
-    * def allToolSources3 = serverSrc3 + '\n' + calmToolSrc3 + '\n' + gateToolSrc3 + '\n' + trajToolSrc3 + '\n' + redToolSrc3 + '\n' + vibeToolSrc3 + '\n' + tmsToolSrc3 + '\n' + flightToolSrc3
+    * def ecoToolSrc3 = karate.readAsString(mcpRoot + '/src/tools/analyzeEcosystemSpecs.ts')
+    * def allToolSources3 = serverSrc3 + '\n' + calmToolSrc3 + '\n' + gateToolSrc3 + '\n' + trajToolSrc3 + '\n' + redToolSrc3 + '\n' + vibeToolSrc3 + '\n' + tmsToolSrc3 + '\n' + flightToolSrc3 + '\n' + ecoToolSrc3
     * def coreTools3 =
       """
       [
@@ -151,11 +152,12 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
         'run_llm_red_team',
         'audit_vibe_prototype',
         'sync_enterprise_tms',
-        'session_flight_recorder'
+        'session_flight_recorder',
+        'analyze_ecosystem_specs'
       ]
       """
     * match coreTools3 == '#[12]'
-    * match v2Tools3 == '#[7]'
+    * match v2Tools3 == '#[8]'
     * def missingCore3 = karate.filter(coreTools3, function(t) { return !serverSrc3.contains("'" + t + "'") })
     * match missingCore3 == '#[0]'
     * def missingV23 = karate.filter(v2Tools3, function(t) { return !allToolSources3.contains("name: '" + t + "'") && !allToolSources3.contains("= '" + t + "'") })
@@ -233,15 +235,15 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert typesSrc5.contains("'SKIPPED'")
 
   # ==============================================================================
-  # Grupo 6: Contrato CLI para install-skill (Autodetección y 11 Skills v3.1)
+  # Grupo 6: Contrato CLI para install-skill (Autodetección y 12 Skills)
   # ==============================================================================
 
-  Scenario: 6. El catálogo de gobernanza indexa las 11 skills corporativas y soporta autodetección
+  Scenario: 6. El catálogo de gobernanza indexa las 12 skills corporativas y soporta autodetección
     * def isSkill = function(item) { return item.path.startsWith('.agents/skills/') && item.path.endsWith('/SKILL.md') }
     * def skillFiles = karate.filter(manifest.agent_governance_files, isSkill)
-    * match skillFiles == '#[11]'
+    * match skillFiles == '#[12]'
 
-    # Verificar que las 11 skills corporativas y sub-skills modulares estén presentes
+    # Verificar que las 12 skills corporativas y sub-skills modulares estén presentes
     * def skillPaths = karate.map(skillFiles, function(x) { return x.path })
     * match skillPaths contains '.agents/skills/qa-11x-architect/SKILL.md'
     * match skillPaths contains '.agents/skills/refactoring-ui/SKILL.md'
@@ -254,6 +256,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * match skillPaths contains '.agents/skills/qa-11x-llm-evaluator/SKILL.md'
     * match skillPaths contains '.agents/skills/qa-11x-vibe-rescue/SKILL.md'
     * match skillPaths contains '.agents/skills/tactical-patterns-11x/SKILL.md'
+    * match skillPaths contains '.agents/skills/qa-11x-reverse-specs/SKILL.md'
 
     # Contrato real de opciones CLI de install-skill
     * def installSkillSrc6 = karate.readAsString(mcpRoot + '/src/cli/install-skill.ts')
@@ -816,12 +819,12 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert e2eRunner.contains('verifyAllResources')
     * assert e2eRunner.contains('staticUris.length, 11')
     * assert e2eRunner.contains('templateUris.length, 2')
-    * assert e2eRunner.contains('verifyAllNineteenTools')
+    * assert e2eRunner.contains('verifyAllTwentyTools')
     * assert e2eRunner.contains('verifyCliAndBackgroundAutoSync')
 
     * def verifyV2Script = karate.readAsString(mcpRoot + '/example/verify-v2.sh')
     * assert verifyV2Script.contains('npm pack')
-    * assert verifyV2Script.contains('toolsList.tools.length, 19')
+    * assert verifyV2Script.contains('toolsList.tools.length, 20')
     * assert verifyV2Script.contains('resourcesList.resources.length, 11')
     * assert verifyV2Script.contains('templatesList.resourceTemplates.length, 2')
 
@@ -965,22 +968,23 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert llmsTxt.contains('qa-11x-architect')
     * assert llmsTxt.contains('validate_calm_architecture')
     * assert llmsTxt.contains('session_flight_recorder')
+    * assert llmsTxt.contains('analyze_ecosystem_specs')
     * assert llmsTxt.contains('blueprint://skills/tactical-patterns-11x')
     * string qaskillsRaw = karate.readAsString(repoRoot + '/catalogs/qaskills-pack.json')
     * json qaskills = qaskillsRaw
     * match qaskills.version == pkg.version
     * match qaskills.license == 'MIT'
-    * match qaskills.skills == '#[11]'
+    * match qaskills.skills == '#[12]'
     * string skillsllmRaw = karate.readAsString(repoRoot + '/catalogs/skillsllm-manifest.json')
     * json skillsllm = skillsllmRaw
     * match skillsllm.version == pkg.version
     * match skillsllm.license == 'MIT'
-    * match skillsllm.mcp_capabilities.tools_count == 19
+    * match skillsllm.mcp_capabilities.tools_count == 20
     * match skillsllm.mcp_capabilities.resources_count == 13
-    * match skillsllm.mcp_capabilities.tools == '#[19]'
+    * match skillsllm.mcp_capabilities.tools == '#[20]'
     * match skillsllm.mcp_capabilities.resources == '#[13]'
     * match skillsllm.blueprints == '#[10]'
-    * match skillsllm.skills == '#[11]'
+    * match skillsllm.skills == '#[12]'
     * def agenticskills = karate.readAsString(repoRoot + '/catalogs/agenticskills-submission.md')
     * assert agenticskills.contains(pkg.version)
     * assert agenticskills.contains('qa-11x-architect')
@@ -1150,7 +1154,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert docs05.contains('BREAKER-42')
     * assert docs05.contains('track_findings_state.py')
     * def pkgJson = karate.readAsString(repoRoot + '/mcp-server/package.json')
-    * assert pkgJson.contains('19 Tools, 13 Resources')
+    * assert pkgJson.contains('20 Tools, 13 Resources')
 
   Scenario: 36. Hito 23: Modo diferencial en inspect_ast_blast_radius (cero inflacion MCP) y exportador PR_VERDICT.md
     * def findEntry = function(list, pathStr) { return karate.filter(list, function(x) { return x.path == pathStr })[0] }
@@ -1178,7 +1182,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert docs05Verdict.contains('PR_VERDICT.md')
     * assert docs05Verdict.contains('diff-bundle.ts')
     * def pkgJson = karate.readAsString(repoRoot + '/mcp-server/package.json')
-    * assert pkgJson.contains('19 Tools, 13 Resources')
+    * assert pkgJson.contains('20 Tools, 13 Resources')
 
   Scenario: 37. Contrato QA-11X v3.x (Hito 24) — bump_version_11x.py, Protocolo MCP en Vivo, Planificación 19_SPEC/20_SPEC y Catálogo
     * match pkg.version == expectedSemver3x
@@ -1286,7 +1290,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert pyExample.contains('PLR0913')
     * def activeRule = karate.readAsString(repoRoot + '/.agents/rules/active_task_and_planning_resilience.md')
     * assert activeRule.contains('session_flight_recorder')
-    * assert pkg.description.includes('19 Tools, 13 Resources')
+    * assert pkg.description.includes('20 Tools, 13 Resources')
 
   Scenario: 40. Contratos Fase 1 (F1.6-F1.9) — Fail-Closed JSON, Cero Falsos Positivos SKIPPED, Modo strict en certify_11x_gate y parseTestsDetected
     * def typesTs40 = karate.readAsString(mcpRoot + '/src/types.ts')
@@ -1737,7 +1741,7 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert verifyV250.contains('audit "${PROJ_DIR}" --mode security --fail-on none --sarif')
     * assert verifyV250.contains('mcp-config --client antigravity --pin-version')
     * assert verifyV250.contains('completion fish')
-    * assert verifyV250.contains('toolsList.tools.length, 19')
+    * assert verifyV250.contains('toolsList.tools.length, 20')
     * assert verifyV250.contains('resourcesList.resources.length + templatesList.resourceTemplates.length, 13')
 
   Scenario: 51. Contratos W1B — Rutas IDE Compartidas (ideConfigPaths), CLI Unificado 12 Subcomandos, Example Hardening y Verificador Clean-Room
@@ -1980,6 +1984,37 @@ Feature: Validación BDD de Contratos y Comportamiento del MCP Server y CLI (@si
     * assert rmPy57.contains('legacy_preserved')
     * def action57 = karate.readAsString(repoRoot + '/.github/actions/qa-11x-pr-check/action.yml')
     * assert action57.contains("default: 'auto'")
+
+  Scenario: 58. Tool MCP #20 (analyze_ecosystem_specs) y Skill modular #12 (qa-11x-reverse-specs) con huella cero (:ro) y sin auditoría de vulnerabilidades
+    * def findEntry58 = function(list, pathStr) { return karate.filter(list, function(x) { return x.path == pathStr })[0] }
+    * def reverseSkillEntry58 = findEntry58(manifest.agent_governance_files, '.agents/skills/qa-11x-reverse-specs/SKILL.md')
+    * match reverseSkillEntry58.sha256 == '#regex ^[0-9a-f]{64}$'
+    * def reverseSkillMd58 = karate.readAsString(repoRoot + '/.agents/skills/qa-11x-reverse-specs/SKILL.md')
+    * assert reverseSkillMd58.contains('analyze_ecosystem_specs')
+    * assert reverseSkillMd58.contains('00-resumen-ecosistema.md')
+    * assert reverseSkillMd58.contains('01-specs-<slug>.md')
+    * assert reverseSkillMd58.contains('02-integracion-y-contratos.md')
+    * assert reverseSkillMd58.contains('03-inconsistencias-y-mejoras.md')
+    * assert reverseSkillMd58.contains('<= 20%')
+    * def ecoTool58 = karate.readAsString(mcpRoot + '/src/tools/analyzeEcosystemSpecs.ts')
+    * assert ecoTool58.contains("name: 'analyze_ecosystem_specs'")
+    * assert ecoTool58.contains('zero_footprint_verified: true')
+    * def ecoTypes58 = karate.readAsString(mcpRoot + '/src/tools/ecosystem-specs/types.ts')
+    * assert ecoTypes58.contains('DOCUMENTATION_AND_INTEGRATION_ONLY_NO_VULNERABILITY_AUDIT')
+    * def ecoGraph58 = karate.readAsString(mcpRoot + '/src/tools/ecosystem-specs/graphBuilder.ts')
+    * assert ecoGraph58.contains(':/src:ro')
+    * assert ecoGraph58.contains('--network')
+    * def v2Reg58 = karate.readAsString(mcpRoot + '/src/server/v2Registry.ts')
+    * assert v2Reg58.contains('ANALYZE_ECOSYSTEM_SPECS_TOOL')
+    * def toolRes58 = karate.readAsString(mcpRoot + '/src/server/toolResults.ts')
+    * assert toolRes58.contains('analyze_ecosystem_specs')
+    * def a2aCard58 = karate.readAsString(mcpRoot + '/src/a2a/agentCard.ts')
+    * assert a2aCard58.contains('qa-11x-reverse-specs')
+    * def invCfg58 = karate.readAsString(repoRoot + '/.agents/scripts/_docs_invariants_config.py')
+    * assert invCfg58.contains('"analyze_ecosystem_specs"')
+    * assert invCfg58.contains('"qa-11x-reverse-specs"')
+    * assert invCfg58.contains('EXPECTED_TOOLS_COUNT = 20')
+    * assert invCfg58.contains('EXPECTED_SKILLS_COUNT = 12')
 
 
 

@@ -30,7 +30,7 @@ Docker Engine is a **mandatory, non-negotiable physical prerequisite** (`qa-11x 
 
 ---
 
-## 3. Skills Catalog in `.agents/skills/` (11 Modular Skills)
+## 3. Skills Catalog in `.agents/skills/` (12 Modular Skills)
 
 1. `qa-11x-architect` (`<= 12 KB` + 10 references): Master pyramid (13 layers), 10 laws, 11 UAT rules, 22 STIG/OWASP controls, 37 static scanner rules, Token Economy + Objective Critique.
 2. `qa-11x-docker-certifier`: Ephemeral Docker QA (`>= 95%` coverage, SonarJS, Karate, Stryker/Mutmut).
@@ -43,6 +43,7 @@ Docker Engine is a **mandatory, non-negotiable physical prerequisite** (`qa-11x 
 9. `qa-11x-llm-evaluator`: Offline CI deterministic contracts + live DeepEval/Promptfoo red-teaming.
 10. `qa-11x-vibe-rescue`: 5-stage Vibe-to-Enterprise prototype rescue (`CC <= 5`, RLS, `>= 95%` coverage).
 11. `tactical-patterns-11x` (`<= 2.5 KB`): JIT refactor patterns (`CC <= 5`, `SonarJS <= 15`, `max-params: 4`, `max-depth: 3`, Outbox).
+12. `qa-11x-reverse-specs`: Zero-footprint multi-repo reverse specs, HTTP/`.env` contracts & AST findings (no vuln audit).
 
 ---
 

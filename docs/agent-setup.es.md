@@ -146,7 +146,7 @@ Claude Code soporta registro MCP tanto a nivel de usuario como de proyecto.
   }
   ```
 - **Referencia de Reglas en `CLAUDE.md`:** Puedes referenciar las directivas de gobernanza añadiendo `@AGENTS.md` al `CLAUDE.md` de tu proyecto.
-- **Plugin Marketplace Nativo (`.claude-plugin/`):** Instala las 11 skills y el servidor MCP `@sinfallas/mcp-qa-11x` de forma nativa dentro de Claude Code:
+- **Plugin Marketplace Nativo (`.claude-plugin/`):** Instala las 12 skills y el servidor MCP `@sinfallas/mcp-qa-11x` de forma nativa dentro de Claude Code:
   ```text
   /plugin marketplace add tecno-consultores/qa-testing-blueprints
   /plugin install qa-11x@tecno-consultores-qa-11x
@@ -444,4 +444,4 @@ npx -y @sinfallas/mcp-qa-11x@latest completion zsh > ~/.zsh/completions/_mcp-qa-
 > [!NOTE]
 > **Por qué `npx --no-install @sinfallas/mcp-qa-11x --version` falla con `npm ERR! canceled`:** Cuando el servidor se registra mediante `mcpServers` (`npx -y @sinfallas/mcp-qa-11x@latest`), npm guarda el paquete en un entorno aislado bajo `~/.npm/_npx/<hash>/` y no en el `$PATH` global. En npm v7+, `--no-install` solo busca en `./node_modules/.bin` y en `$PATH`, ignorando `~/.npm/_npx/`.
 >
-> **Cómo verificar la versión activa dentro de tu IDE (Antigravity, Cursor, Claude, VS Code):** Abre el panel MCP / Customizations del IDE — `v3.10.0` registra **19 herramientas MCP** y **13 recursos MCP** (`11` URIs estáticas + `2` plantillas URI). Si aparecen menos herramientas por una versión anterior en caché, ejecuta `npx -y @sinfallas/mcp-qa-11x@latest upgrade` y **recarga/reinicia el servidor MCP (o la ventana del IDE)** para que el proceso `stdio` persistente cargue el nuevo binario. También puedes revisar `update_available` en `doctor`, `inspect_project_config` o `certify_11x_gate`, y validar el empaquetado *clean-room* cubriendo los **12 subcomandos CLI** y las **19 herramientas** mediante `mcp-server/example/verify-v2.sh` (`make test-example`).
+> **Cómo verificar la versión activa dentro de tu IDE (Antigravity, Cursor, Claude, VS Code):** Abre el panel MCP / Customizations del IDE — `v3.10.0` registra **20 herramientas MCP** y **13 recursos MCP** (`11` URIs estáticas + `2` plantillas URI). Si aparecen menos herramientas por una versión anterior en caché, ejecuta `npx -y @sinfallas/mcp-qa-11x@latest upgrade` y **recarga/reinicia el servidor MCP (o la ventana del IDE)** para que el proceso `stdio` persistente cargue el nuevo binario. También puedes revisar `update_available` en `doctor`, `inspect_project_config` o `certify_11x_gate`, y validar el empaquetado *clean-room* cubriendo los **12 subcomandos CLI** y las **20 herramientas** mediante `mcp-server/example/verify-v2.sh` (`make test-example`).

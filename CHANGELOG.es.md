@@ -8,6 +8,12 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### Añadido
+* **Especificaciones Inversas Multiproyecto y Mapeo de Integración con Huella Cero (Tool MCP #20 `analyze_ecosystem_specs` + Skill Modular #12 `qa-11x-reverse-specs`):**
+  * Añadida la herramienta MCP #20 `analyze_ecosystem_specs` (`mcp-server/src/tools/analyzeEcosystemSpecs.ts` + extractores modulares en `mcp-server/src/tools/ecosystem-specs/`), invocada exclusivamente por el agente IA (sin subcomando CLI independiente; auto-expuesta en `--toolset auto` ante `>= 2` subproyectos hermanos), operando sobre los stacks QA-11X actuales (`FastAPI`, `Python`, `Node/Express/Fastify/NestJS`, `PHP`, `Vue 3`, `React`, `Móvil`, `OpenAPI`, `.env*`) estrictamente sin auditoría de vulnerabilidades (`DOCUMENTATION_AND_INTEGRATION_ONLY_NO_VULNERABILITY_AUDIT`).
+  * Aplicada extracción Graphify AST secuencial en solo lectura (`:ro`) con huella cero hacia `<outputDir>/.graphs/<slug>/` junto a `<outputDir>/ecosystem-inventory.json` atómico (correlacionando contratos HTTP/REST, llamadas rotas `404`/`405`, endpoints huérfanos, asimetría Web vs Móvil, desalineación `.env` con redacción de secretos, ciclos/god-modules AST y oportunidades de mejora priorizadas `P1`–`P3`) bajo guardias `SEC-PATH-01` anti-solapamiento y anti-symlinks.
+  * Añadida la skill modular #12 [`.agents/skills/qa-11x-reverse-specs/SKILL.md`](.agents/skills/qa-11x-reverse-specs/SKILL.md) para guiar entregables de cliente en un solo idioma (`00-resumen-ecosistema.md`, `01-specs-<slug>.md`, `02-integracion-y-contratos.md`, `03-inconsistencias-y-mejoras.md` con diagramas Mermaid, citas `archivo:línea`, `<= 20%` `[INFERRED]` y sin CALM ni espejos `.es.md` no solicitados), sincronizados A2A Agent Card (`12` skills), catálogos, docs bilingües, Escenario Karate 58, E2E Clean-Room (`20` tools) y cobertura diferencial al `100%` (`812` pruebas Vitest en `50` suites).
+
 ### Corregido
 * **Montaje de Volumen `lefthook.yml` en Publicador (`scripts/publicar-mcp.sh`):** Montado `lefthook.yml:/lefthook.yml:ro` en `MCP_EXTRA_VOLS` para que las pruebas unitarias Vitest durante la publicación en npmjs mantengan paridad total con `Makefile`, `lefthook.yml` e `instalar-hooks.sh`.
 

@@ -11,14 +11,14 @@ Verified corporate index of entrypoints, modular skills, active rules, stack blu
 * **[`README.md`](README.md):** Primary *English-First* landing page featuring the 30-second `quickstart`, progressive adoption tiers (`starter` / `standard` / `enterprise`), the 15-column × 12-environment testing tools matrix, the ephemeral Docker matrix, and the AI Evals shield.
 * **[`README.es.md`](README.es.md):** 1:1 Spanish mirror with the full testing tools matrix and bilingual entrypoints.
 * **[`.github/actions/qa-11x-pr-check/action.yml`](.github/actions/qa-11x-pr-check/action.yml):** Hardened Composite Action for Pull Requests with AST Blast-Radius selection and progressive tiers.
-* **[`mcp-server/README.md`](mcp-server/README.md) / [`mcp-server/README.es.md`](mcp-server/README.es.md):** Official bilingual documentation for the `@sinfallas/mcp-qa-11x` v3.10.0 npm package (**19 Tools**, **13 Resources** including **v3.1** `session_flight_recorder` + `blueprint://skills/tactical-patterns-11x`, and 12 CLI subcommands: `quickstart`, `install-skill`, `init-agents`, `reconcile-agents`, `tms-sync`, `doctor`, `upgrade`, `certify`, `audit`, `blast-radius`, `mcp-config`, `completion`, protected by `promptGuard` and `TaskStateGuard`).
+* **[`mcp-server/README.md`](mcp-server/README.md) / [`mcp-server/README.es.md`](mcp-server/README.es.md):** Official bilingual documentation for the `@sinfallas/mcp-qa-11x` v3.10.0 npm package (**20 Tools**, **13 Resources** including **v3.1** `session_flight_recorder` + `blueprint://skills/tactical-patterns-11x` and `analyze_ecosystem_specs`, and 12 CLI subcommands: `quickstart`, `install-skill`, `init-agents`, `reconcile-agents`, `tms-sync`, `doctor`, `upgrade`, `certify`, `audit`, `blast-radius`, `mcp-config`, `completion`, protected by `promptGuard` and `TaskStateGuard`).
 * **[`llms.txt`](llms.txt) & Global Catalogs (`catalogs/` & `.claude-plugin/`):** GEO index for LLMs/agents ([`llms.txt`](llms.txt)), native Claude Code plugin manifests ([`.claude-plugin/plugin.json`](.claude-plugin/plugin.json), [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json)), alongside canonical descriptors [`catalogs/qaskills-pack.json`](catalogs/qaskills-pack.json) (QASkills.sh), [`catalogs/skillsllm-manifest.json`](catalogs/skillsllm-manifest.json) (SkillsLLM.com), and [`catalogs/agenticskills-submission.md`](catalogs/agenticskills-submission.md) (AgenticSkills.io).
 * **[`docs/agent-setup.md`](docs/agent-setup.md) / [`docs/agent-setup.es.md`](docs/agent-setup.es.md):** Step-by-step setup guides for 28 AI coding agents and MCP clients (`Antigravity`, `Claude Code`, `Cursor`, `Windsurf`, `Codex`, `Copilot`, `Hermes`, `Zed`, `JetBrains`, etc.).
 * **[`AI_MASTER_PROMPT.md`](AI_MASTER_PROMPT.md):** Master adoption prompt for autonomous AI agents ([Spanish mirror](AI_MASTER_PROMPT.es.md)).
 
 ---
 
-## 2. The 11 Modular Skills (`< 20 KB`) & 8 Active Rules (`.agents/`)
+## 2. The 12 Modular Skills (`< 20 KB`) & 8 Active Rules (`.agents/`)
 
 ### 2.1. Modular Skills Catalog (`.agents/skills/`)
 
@@ -35,6 +35,7 @@ Verified corporate index of entrypoints, modular skills, active rules, stack blu
 | **`graphify-ast-navigator`** | Bidirectional AST graph `graph.json`, Blast Radius & layer boundaries | [`SKILL.md`](.agents/skills/graphify-ast-navigator/SKILL.md) |
 | **`refactoring-ui`** | Visual hierarchy, typographic scale, OKLCH contrast & Anti-JSDOM layout | [`SKILL.md`](.agents/skills/refactoring-ui/SKILL.md) |
 | **`tactical-patterns-11x`** | JIT tactical design patterns (`<= 2.5 KB`, `CC <= 5`, `max-params: 4`, Port/Adapter, Outbox) | [`SKILL.md`](.agents/skills/tactical-patterns-11x/SKILL.md) |
+| **`qa-11x-reverse-specs`** | Zero-footprint multi-project reverse specs, HTTP/`.env` contracts & AST findings (no vuln audit) | [`SKILL.md`](.agents/skills/qa-11x-reverse-specs/SKILL.md) |
 
 ### 2.2. Active Canonical Rules (`.agents/rules/`)
 

@@ -64,6 +64,30 @@ function hasAnyWorkspacePath(projectDir: string, relPaths: readonly string[]): b
   return relPaths.some((relPath) => fs.existsSync(path.join(projectDir, relPath)));
 }
 
+const SUBPROJECT_MARKERS = ['package.json', 'pyproject.toml', 'composer.json', 'requirements.txt'] as const;
+
+function isSubprojectDir(projectDir: string, entry: fs.Dirent): boolean {
+  if (!entry.isDirectory() || entry.name.startsWith('.') || entry.name === 'node_modules') {
+    return false;
+  }
+  const child = path.join(projectDir, entry.name);
+  return SUBPROJECT_MARKERS.some((marker) => fs.existsSync(path.join(child, marker)));
+}
+
+function hasMultipleSubprojects(projectDir: string): boolean {
+  try {
+    let count = 0;
+    for (const entry of fs.readdirSync(projectDir, { withFileTypes: true })) {
+      if (!isSubprojectDir(projectDir, entry)) continue;
+      count += 1;
+      if (count >= 2) return true;
+    }
+  } catch (err: unknown) {
+    reportDebugCatchError('toolsetFilter.hasMultipleSubprojects', err);
+  }
+  return false;
+}
+
 function detectAutoExtensionTools(projectDir: string): string[] {
   const extra: string[] = [];
   const pkgText = safeReadPkgText(projectDir);
@@ -89,12 +113,15 @@ function detectAutoExtensionTools(projectDir: string): string[] {
   if (loadedCfg.exists) {
     extra.push('evaluate_release_gate', 'sync_enterprise_tms');
   }
+  if (hasMultipleSubprojects(projectDir)) {
+    extra.push('analyze_ecosystem_specs');
+  }
   return extra;
 }
 
 /**
  * Computes the allowed MCP tool names for the given toolset mode.
- * Returns null when mode === 'full' so all 19 tools are registered unchanged.
+ * Returns null when mode === 'full' so all 20 tools are registered unchanged.
  */
 export function resolveAllowedToolNames(
   mode: ToolsetMode = 'full',

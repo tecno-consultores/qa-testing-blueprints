@@ -11,7 +11,7 @@
 
 Official Model Context Protocol (**MCP**) server and zero-friction CLI installer for [**QA Testing Blueprints (QA-11X v3.10 — v3.10.0)**](https://github.com/tecno-consultores/qa-testing-blueprints).
 
-Designed for AI coding agents (**Google Antigravity**, **Claude Code / Desktop**, **Cursor**, **Windsurf**, **OpenAI Codex CLI**, **VS Code Copilot**, **Hermes Agent**, and **28 agents**) to onboard repositories in **< 30 seconds**, audit **19 MCP tools**, query **13 cryptographic `blueprint://*` resources** (11 static URIs + 2 URI templates), and enforce ephemeral **Docker Rule Zero**, **DISA ASD STIG V6R5**, **OWASP v4.2**, **FINOS CALM**, and **Dual-Mode AI Evals** without cloning the full blueprints repository.
+Designed for AI coding agents (**Google Antigravity**, **Claude Code / Desktop**, **Cursor**, **Windsurf**, **OpenAI Codex CLI**, **VS Code Copilot**, **Hermes Agent**, and **28 agents**) to onboard repositories in **< 30 seconds**, audit **20 MCP tools**, query **13 cryptographic `blueprint://*` resources** (11 static URIs + 2 URI templates), and enforce ephemeral **Docker Rule Zero**, **DISA ASD STIG V6R5**, **OWASP v4.2**, **FINOS CALM**, and **Dual-Mode AI Evals** without cloning the full blueprints repository.
 
 **Prerequisites:** **Node.js >= 24.0.0** and an active **Docker Engine** (**mandatory, non-negotiable physical prerequisite** under `Rule Zero`: `qa-11x doctor` fails with `exit 1` if the Docker daemon is missing/stopped, and any external CLI scanner fallback such as `Semgrep`/`Trivy` runs strictly inside non-root ephemeral containers `--rm --restart=no --network none` serialized under `QA_MAX_CONCURRENT_CONTAINERS=1`).
 
@@ -87,22 +87,22 @@ See the full 28 client setup matrix in [`docs/agent-setup.md`](https://github.co
 
 ## 🛡️ Security & Lifecycle Runtime Guards (v3.10.0)
 
-* **Fail-Closed `promptGuard` Interceptor:** Wraps `tools/call` across all 19 tools with Unicode `NFKC` canonicalization, zero-width / Trojan Source stripping, prompt-injection & `QA-GIT-GATE-01` (`git push` / `npm publish`) bypass blocking, and PII / secret redaction before dispatching handlers.
-* **`SEC-PATH-01` Workspace Path Confinement (`QA11X_WORKSPACE_ROOTS`):** Validates `project_path`, `workspaceRoot`, and `targetDir` via `resolveSafeProjectPath`, blocking directory traversal (`..`), NUL bytes, symlinks outside allowed roots, critical system paths (`/`, `/etc`, `/usr`, ...), `$HOME`, and bare `os.tmpdir()`. Set `QA11X_WORKSPACE_ROOTS` (delimiter-separated paths) to authorize additional workspace roots outside `process.cwd()`.
+* **Fail-Closed `promptGuard` Interceptor:** Wraps `tools/call` across all 20 tools with Unicode `NFKC` canonicalization, zero-width / Trojan Source stripping, prompt-injection & `QA-GIT-GATE-01` (`git push` / `npm publish`) bypass blocking, and PII / secret redaction before dispatching handlers.
+* **`SEC-PATH-01` Workspace Path Confinement (`QA11X_WORKSPACE_ROOTS`):** Validates `project_path`, `workspaceRoot`, `targetDir`, `outputDir`, and `projects` via `resolveSafeProjectPath`, blocking directory traversal (`..`), NUL bytes, symlinks outside allowed roots, critical system paths (`/`, `/etc`, `/usr`, ...), `$HOME`, and bare `os.tmpdir()`. Set `QA11X_WORKSPACE_ROOTS` (delimiter-separated paths) to authorize additional workspace roots outside `process.cwd()`.
 * **Docker Anti-Saturation & CrashLoop Guardrails (`QA-DOCKER-LOOP-01`):** `run_ephemeral_qa` enforces an atomic cross-process FIFO slot lock (`QA_MAX_CONCURRENT_CONTAINERS=1`, `COMPOSE_PARALLEL_LIMIT=1`), passive Linux RAM (`< 12%`) and ACPI thermal (`>= 85°C`) guardrails (`exit_code = 75`, exempt from `BREAKER-42`), pre-flight CrashLoop detection (auto-stops workspace `restarting` containers; fails fast on foreign CrashLoops), and guaranteed Compose teardown on timeout/abort. `qa-11x doctor` reports `docker_health` (CrashLoops, custom bridge networks, NetworkManager `veth*` rule, temp/RAM).
 * **`TaskStateGuard` & `Fail-Verbose` Diagnostics:** Bounds concurrent MCP tool execution capacity, isolates hung/broken tasks with explicit timeouts (`60s` standard / `>= 180s` heavy transfers), purges 0-byte failed transfer artifacts, bounds interactive TTY skill auto-sync (`< 5s` fail-open to `stderr`), and formats actionable Allure-ready `Fail-Verbose` reports (`diagnosticFormatter.ts`).
 * **Offline & Local LLM A2A Card (`@sinfallas/mcp-qa-11x/agent-card`):** Supports air-gapped Ollama / vLLM evaluators and exposes the public ESM subpath export `@sinfallas/mcp-qa-11x/agent-card` (`package.json#exports` -> `dist/a2a/agentCard.js`, implemented in [`src/a2a/agentCard.ts`](https://github.com/tecno-consultores/qa-testing-blueprints/blob/main/mcp-server/src/a2a/agentCard.ts), `v3.10.0`) as a **programmatic library module** (not exposed as a public MCP tool or resource over `stdio`).
 
 ---
 
-## 🤖 11 Modular Skills (`< 20 KB` Token Budget)
+## 🤖 12 Modular Skills (`< 20 KB` Token Budget)
 
-Led by `qa-11x-architect` (`< 12 KB`), loading 10 specialized sub-skills on demand:
-`qa-11x-architect`, `qa-11x-docker-certifier`, `qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui`, and JIT `tactical-patterns-11x` (`<= 2.5 KB`).
+Led by `qa-11x-architect` (`< 12 KB`), loading 11 specialized sub-skills on demand:
+`qa-11x-architect`, `qa-11x-docker-certifier`, `qa-11x-devsecops-hardener`, `qa-11x-systematic-debugging`, `qa-11x-screenplay-builder`, `qa-11x-llm-evaluator`, `qa-11x-vibe-rescue`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui`, JIT `tactical-patterns-11x` (`<= 2.5 KB`), and `qa-11x-reverse-specs` (zero-footprint multi-project reverse specs & contract mapper).
 
 ---
 
-## 🛠️ MCP Tools (19 Tools — QA-11X v3.10)
+## 🛠️ MCP Tools (20 Tools — QA-11X v3.10)
 
 1. **`inspect_project_config`:** Inspects stack markers (`pyproject.toml`, `package.json`, `composer.json`), `.qa-11x.json` v3 active tier & `tierConfirmedByUser`, `docker-compose.qa.yml`, `docker_daemon_required`, IDE `companion_mcps` discovery, test pyramid status, Graphify AST graph health, and non-destructive `standard_11x_readiness.governance_files` (8 core/contextual governance docs + `governance_onboarding_needed`).
 2. **`fetch_blueprint_bundle`:** Streams requested blueprint files from GitHub/local mirror verifying SHA-256 checksums against `manifest.json`.
@@ -123,6 +123,7 @@ Led by `qa-11x-architect` (`< 12 KB`), loading 10 specialized sub-skills on dema
 17. **`audit_vibe_prototype` *(v2.0)*:** Audits AI-generated prototypes (Bolt.new, Lovable, v0, Replit) for `VIBE-SEC-001..QA-005` risks, hardcoding, missing RLS/WORM, and `dryRun` remediation plans.
 18. **`sync_enterprise_tms` *(v2.0)*:** Synchronizes bidirectional traceability (`inventory`, `push-results`, `pull-stories`) using JUnit XML against enterprise Test Management Systems (**Jira**, **Zephyr Scale**, **Xray**, **GitHub Issues**) with `TaskStateGuard` retry protection (`dryRun` defaults to `true`).
 19. **`session_flight_recorder` *(v3.1)*:** Manages the atomic JSON Flight Recorder (`.agents/.cache/session_checkpoint.json` `0600` -> deterministic `<= 40`-line `.agents/ACTIVE_TASK.md` projection + live Git cross-check via `save` | `recover` | `clear`).
+20. **`analyze_ecosystem_specs` *(v3.10)*:** Zero-footprint multi-project reverse-spec & integration analyzer: discovers sibling projects (current QA-11X stacks + OpenAPI + `.env*`), builds read-only (`:ro`) Graphify AST graphs sequentially into `<outputDir>/.graphs/<slug>/`, correlates HTTP/REST contracts, Web vs Mobile asymmetry, `.env` drift, and AST cycles/god-modules into `<outputDir>/ecosystem-inventory.json` strictly without vulnerability audits or writes inside client source repos.
 
 ---
 
@@ -146,4 +147,4 @@ Led by `qa-11x-architect` (`< 12 KB`), loading 10 specialized sub-skills on dema
 
 ---
 
-> **Clean-Room E2E Verification (`example/` + `verify-v2.sh`):** Every release is certified in an ephemeral non-root Docker container (`./scripts/probar-mcp-example.sh` / `pnpm run test:example`), packing `@sinfallas/mcp-qa-11x` with `npm pack`, installing the `.tgz` into an isolated clean-room workspace in `/tmp`, and asserting **all 12 CLI subcommands** (`quickstart`, `install-skill`, `init-agents`, `reconcile-agents`, `tms-sync`, `doctor`, `upgrade`, `certify`, `audit`, `blast-radius`, `mcp-config`, `completion`), `QA-CLI-TTY-01`, all **13 resources** (11 static + 2 templates), **19 tools**, `promptGuard`, and hybrid `FastAPI + Vue 3` integration end-to-end before local certification.
+> **Clean-Room E2E Verification (`example/` + `verify-v2.sh`):** Every release is certified in an ephemeral non-root Docker container (`./scripts/probar-mcp-example.sh` / `pnpm run test:example`), packing `@sinfallas/mcp-qa-11x` with `npm pack`, installing the `.tgz` into an isolated clean-room workspace in `/tmp`, and asserting **all 12 CLI subcommands** (`quickstart`, `install-skill`, `init-agents`, `reconcile-agents`, `tms-sync`, `doctor`, `upgrade`, `certify`, `audit`, `blast-radius`, `mcp-config`, `completion`), `QA-CLI-TTY-01`, all **13 resources** (11 static + 2 templates), **20 tools**, `promptGuard`, and hybrid `FastAPI + Vue 3` integration end-to-end before local certification.

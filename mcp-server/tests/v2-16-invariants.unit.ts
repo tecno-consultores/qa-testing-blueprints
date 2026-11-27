@@ -73,31 +73,31 @@ describe('v2.16.0 Invariants, SEC-16, Gate Parity & CLI Suite', () => {
       expect(CLI_HELP_TEXT).toContain('quickstart');
       expect(CLI_HELP_TEXT).toContain('mcp-config');
       expect(CLI_HELP_TEXT).toContain('blast-radius');
-      expect(CLI_HELP_TEXT).toContain('(19 tools, 13 resources)');
+      expect(CLI_HELP_TEXT).toContain('(20 tools, 13 resources)');
       expect(INTERACTIVE_TTY_NOTICE).toBe(getInteractiveTtyNotice());
       expect(INTERACTIVE_TTY_NOTICE).toContain('install-skill');
       expect(INTERACTIVE_TTY_NOTICE).toContain('quickstart');
       expect(INTERACTIVE_TTY_NOTICE).toContain('mcp-config');
-      expect(INTERACTIVE_TTY_NOTICE).toContain('(19 tools, 13 resources)');
+      expect(INTERACTIVE_TTY_NOTICE).toContain('(20 tools, 13 resources)');
 
       const customServer = createMcpServer();
       const surface = getRegisteredServerSurface(customServer);
-      expect(surface?.toolNames.size).toBe(19);
+      expect(surface?.toolNames.size).toBe(20);
       expect(surface?.resourceUris.size).toBe(13);
-      expect(getRegisteredSurfaceCounts(customServer)).toEqual({ tools: 19, resources: 13 });
+      expect(getRegisteredSurfaceCounts(customServer)).toEqual({ tools: 20, resources: 13 });
       customServer.registerTool('dynamic_extra_probe', { description: 'Extra probe tool' }, () => ({
         content: [{ type: 'text', text: 'ok' }],
       }));
-      expect(getRegisteredSurfaceCounts(customServer)).toEqual({ tools: 20, resources: 13 });
+      expect(getRegisteredSurfaceCounts(customServer)).toEqual({ tools: 21, resources: 13 });
 
       const rawUntracked = new McpServer({ name: 'raw-untracked', version: '1.0.0' });
       expect(getRegisteredServerSurface(rawUntracked)).toBeUndefined();
       expect(getRegisteredSurfaceCounts(rawUntracked)).toEqual({ tools: 0, resources: 0 });
 
       const configured = createConfiguredMcpServer();
-      expect(configured.counts).toEqual({ tools: 19, resources: 13 });
-      expect(getCliHelpText({ tools: 20, resources: 14 })).toContain('(20 tools, 14 resources)');
-      expect(getInteractiveTtyNotice({ tools: 20, resources: 14 })).toContain('(20 tools, 14 resources)');
+      expect(configured.counts).toEqual({ tools: 20, resources: 13 });
+      expect(getCliHelpText({ tools: 21, resources: 14 })).toContain('(21 tools, 14 resources)');
+      expect(getInteractiveTtyNotice({ tools: 21, resources: 14 })).toContain('(21 tools, 14 resources)');
 
       expect(await dispatchCliArgs(['init-agents', '--project-path', tmpDir, '--dry-run'])).toBe(0);
       expect(await dispatchCliArgs(['init-agents-md', '--project-path', tmpDir, '--dry-run'])).toBe(0);

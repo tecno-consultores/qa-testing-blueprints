@@ -69,7 +69,7 @@ Todos los archivos dentro de los 10 directorios de stack siguen una convención 
 
 ### Si estás mejorando la Documentación, MCP o Skills
 1. Si mejoras el servidor MCP (`mcp-server/`), verifica todo dentro de Docker efímero (`Rule Zero`): ejecuta `make lint`, `make test-mcp` y `make -C mcp-server qa-all` (`>= 95%` de cobertura, `0` warnings en ESLint/SonarJS y TypeScript estricto).
-2. Si actualizas cualquiera de las 11 skills modulares en `.agents/skills/`, mantén el presupuesto cognitivo (`qa-11x-architect/SKILL.md <= 12 KB`, `tactical-patterns-11x/SKILL.md <= 2.5 KB`, resto `< 20 KB`), actualiza `catalogs/skillsllm-manifest.json` y sincroniza `docs/specs/`.
+2. Si actualizas cualquiera de las 12 skills modulares en `.agents/skills/`, mantén el presupuesto cognitivo (`qa-11x-architect/SKILL.md <= 12 KB`, `tactical-patterns-11x/SKILL.md <= 2.5 KB`, resto `< 20 KB`), actualiza `catalogs/skillsllm-manifest.json` y sincroniza `docs/specs/`.
 3. Mantén la filosofía de "cero complacencia" y preserva la paridad estructural 1:1 entre parejas bilingües (`*.md` + `*.es.md`).
 
 ### Convención de Mensajes de Commit (Fuente Única de Verdad)

@@ -29,6 +29,7 @@ export const CANONICAL_GLOBAL_SKILL_DIRS: ReadonlySet<string> = new Set([
   'graphify-ast-navigator',
   'refactoring-ui',
   'tactical-patterns-11x',
+  'qa-11x-reverse-specs',
 ]);
 
 export interface GlobalConnectorTargetSpec {

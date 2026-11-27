@@ -202,6 +202,13 @@ export const QA_11X_SKILLS: readonly AgentSkillDescriptor[] = [
     description: 'JIT tactical patterns for complexity rescue, offline port/adapters, and anti-overengineering.',
     tags: [TAG_GOVERNANCE, TAG_TESTING, 'patterns'],
   },
+  {
+    id: 'qa-11x-reverse-specs',
+    name: 'QA 11X Reverse Specs & Integration Mapper',
+    description:
+      'Zero-footprint multi-project reverse specifications, cross-project HTTP/.env contract mapping, and functional/AST inconsistency reports without vulnerability audits.',
+    tags: [TAG_ARCHITECTURE, 'reverse-specs', 'contracts'],
+  },
 ] as const;
 
 export const QA_11X_V2_SKILLS = QA_11X_SKILLS;

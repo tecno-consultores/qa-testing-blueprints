@@ -457,7 +457,7 @@ describe('Companion MCPs, Federated SARIF, Rule Zero Blocker, expect_red & --too
     expect(autoServer.counts.tools).toBe(19);
 
     const fullServer = createConfiguredMcpServer({ toolset: 'full', projectPath: projDir });
-    expect(fullServer.counts.tools).toBe(19);
+    expect(fullServer.counts.tools).toBe(20);
 
     expect(await dispatchCliArgs(['--stdio', '--toolset', 'core'])).toBe('stdio-forced');
     expect(process.env.QA_11X_TOOLSET).toBe('core');

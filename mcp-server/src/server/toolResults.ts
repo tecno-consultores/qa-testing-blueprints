@@ -54,7 +54,7 @@ const WRITE_NON_IDEMPOTENT_OPEN: ToolAnnotations = Object.freeze({
   openWorldHint: true,
 });
 
-/** Single source of truth for MCP tool annotations across all 19 registered tools. */
+/** Single source of truth for MCP tool annotations across all 20 registered tools. */
 export const TOOL_ANNOTATIONS: Readonly<Record<string, ToolAnnotations>> = Object.freeze({
   inspect_project_config: READ_ONLY_OPEN,
   fetch_blueprint_bundle: READ_ONLY_OPEN,
@@ -75,6 +75,7 @@ export const TOOL_ANNOTATIONS: Readonly<Record<string, ToolAnnotations>> = Objec
   audit_vibe_prototype: WRITE_SAFE_LOCAL,
   sync_enterprise_tms: WRITE_NON_IDEMPOTENT_OPEN,
   session_flight_recorder: WRITE_SAFE_LOCAL,
+  analyze_ecosystem_specs: WRITE_SAFE_LOCAL,
 });
 
 /** Resolves ToolAnnotations for a registered tool name with fail-closed defaults. */

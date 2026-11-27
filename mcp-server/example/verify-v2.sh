@@ -416,7 +416,7 @@ const client = new Client({ name: 'verify-v2-cleanroom', version: pkgVersion });
 try {
   await client.connect(transport);
   const toolsList = await client.listTools();
-  assert.equal(toolsList.tools.length, 19, `Esperadas 19 tools, obtenidas ${toolsList.tools.length}`);
+  assert.equal(toolsList.tools.length, 20, `Esperadas 20 tools, obtenidas ${toolsList.tools.length}`);
 
   for (const stackToolName of ['fetch_blueprint_bundle', 'bootstrap_or_merge_11x']) {
     const toolDef = toolsList.tools.find((t) => t.name === stackToolName);
@@ -606,4 +606,4 @@ EOF
 
 END_TS="$(date +%s)"
 ELAPSED_S=$((END_TS - START_TS))
-echo "✔ [verify-v2] Tarball ${TARBALL_NAME} | 19 tools / 13 resources (11 static + 2 templates) / 10 stacks / quickstart / TTY PASS (${ELAPSED_S}s)"
+echo "✔ [verify-v2] Tarball ${TARBALL_NAME} | 20 tools / 13 resources (11 static + 2 templates) / 10 stacks / quickstart / TTY PASS (${ELAPSED_S}s)"

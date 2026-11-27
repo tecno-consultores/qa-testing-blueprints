@@ -305,3 +305,43 @@ export const SessionFlightRecorderInputSchema = z
     reason: z.string().optional().describe("Optional closure/abort reason for 'clear'."),
   })
   .strict();
+
+export const AnalyzeEcosystemSpecsInputSchema = z
+  .object({
+    workspaceRoot: z
+      .string()
+      .optional()
+      .describe(
+        'Container workspace directory holding one or more client projects (defaults to cwd).'
+      ),
+    outputDir: z
+      .string()
+      .optional()
+      .describe(
+        "Relative output directory inside workspaceRoot for .graphs/ and ecosystem-inventory.json (default 'analisis'). Must NOT overlap any source project."
+      ),
+    projects: z
+      .array(z.string())
+      .optional()
+      .describe(
+        'Optional relative paths of specific projects inside workspaceRoot to analyze (auto-discovers all sibling projects when omitted).'
+      ),
+    buildGraphs: z
+      .boolean()
+      .optional()
+      .describe(
+        'Build or incrementally refresh Graphify AST graphs sequentially in read-only (:ro) ephemeral Docker containers into <outputDir>/.graphs/<slug>/ (default true).'
+      ),
+    refreshGraphs: z
+      .boolean()
+      .optional()
+      .describe('Force full Graphify AST rebuild even when cached graphs are fresh (default false).'),
+    maxFindingsPerCategory: z
+      .number()
+      .int()
+      .min(1)
+      .max(500)
+      .optional()
+      .describe('Maximum findings returned per inconsistency category (default 100).'),
+  })
+  .strict();

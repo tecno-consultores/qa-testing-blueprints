@@ -24,7 +24,7 @@ import { GitHubFetcher, MCP_SERVER_VERSION, MCP_STANDARD_EDITION } from '../src/
 import { toAllureDiagnosticEnvelope } from '../src/utils/diagnosticFormatter.js';
 import { TaskStateGuard } from '../src/utils/taskStateGuard.js';
 
-const EXPECTED_TOOLS_COUNT = 19;
+const EXPECTED_TOOLS_COUNT = 20;
 const EXPECTED_STATIC_RESOURCES_COUNT = 11;
 const EXPECTED_TEMPLATES_COUNT = 2;
 const EXPECTED_RESOURCES_COUNT = EXPECTED_STATIC_RESOURCES_COUNT + EXPECTED_TEMPLATES_COUNT;
@@ -251,7 +251,7 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
     return dir;
   }
 
-  it('SIRVE 19 tools, 13 resources y 2 resource templates por JSON-RPC en vivo sobre InMemoryTransport', async () => {
+  it('SIRVE 20 tools, 13 resources y 2 resource templates por JSON-RPC en vivo sobre InMemoryTransport', async () => {
     const tmpRoot = createTempRoot();
     const wsDir = path.join(tmpRoot, 'target-project');
     const cacheDir = path.join(tmpRoot, 'cache');
@@ -289,6 +289,7 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
         'audit_vibe_prototype',
         'sync_enterprise_tms',
         'session_flight_recorder',
+        'analyze_ecosystem_specs',
       ]) {
         const toolEntry = toolsList.tools.find((t) => t.name === v2ToolName);
         const props = (toolEntry?.inputSchema?.properties ?? {}) as Record<
@@ -752,7 +753,7 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
     expect(completionOut).toContain('completion');
   }, 15_000);
 
-  it('GARANTIZA structuredContent JSON en las 19 tools MCP (éxito, PromptGuard block y error)', async () => {
+  it('GARANTIZA structuredContent JSON en las 20 tools MCP (éxito, PromptGuard block y error)', async () => {
     const tmpRoot = createTempRoot();
     const wsDir = path.join(tmpRoot, 'struct-ws');
     fs.mkdirSync(wsDir, { recursive: true });
@@ -822,6 +823,11 @@ describe('Live MCP Protocol & CLI Parity Integration (InMemoryTransport + StdioC
         session_flight_recorder: {
           project_path: wsDir,
           action: 'recover',
+        },
+        analyze_ecosystem_specs: {
+          workspaceRoot: wsDir,
+          outputDir: 'analisis-struct',
+          buildGraphs: false,
         },
       };
 

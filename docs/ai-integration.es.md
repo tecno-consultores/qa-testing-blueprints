@@ -20,7 +20,7 @@ Para que un agente comprenda las restricciones corporativas en tiempo real, los 
   docker run --rm --restart=no --network none -u "$(id -u):$(id -g)" -e HOME=/tmp -v "${PWD}:/app:ro" -w /app sinfallas/base-python-uv:3.15 python3 .agents/scripts/inspect_blast_radius.py "<simbolo>"
 ```
 * **Invariante CLI-First / MCP `stdio`:** Tanto agentes con consola local (Antigravity, Claude Code, Cursor) como agentes conectados a `@sinfallas/mcp-qa-11x` (`inspect_ast_blast_radius`) consultan `graphify-out/graph.json` y `GRAPH_REPORT.md` directamente sin ocupar puertos TCP ni dejar demonios en segundo plano.
-* **Ejemplo Práctico 2 (Recursos Dinámicos Verificados con SHA-256):** El servidor MCP `@sinfallas/mcp-qa-11x` v3.10.0 expone **13 recursos MCP (`blueprint://*`: 11 estáticos vía `resources/list` + 2 plantillas dinámicas vía `resources/templates/list`)** y **19 herramientas MCP** cubriendo **10 stacks hidratables + `architecture/` + `mcp-server/` (= 12 entornos de matriz)** (incluyendo `mobile-appium` sobre `sinfallas/base-mobile-appium:26`). Cuando el agente detecta un stack FastAPI, consulta `blueprint://fastapi/readme` y `blueprint://database/postgres-rls-worm` recibiendo las plantillas verificadas criptográficamente contra `manifest.json`.
+* **Ejemplo Práctico 2 (Recursos Dinámicos Verificados con SHA-256):** El servidor MCP `@sinfallas/mcp-qa-11x` v3.10.0 expone **13 recursos MCP (`blueprint://*`: 11 estáticos vía `resources/list` + 2 plantillas dinámicas vía `resources/templates/list`)** y **20 herramientas MCP** cubriendo **10 stacks hidratables + `architecture/` + `mcp-server/` (= 12 entornos de matriz)** (incluyendo `mobile-appium` sobre `sinfallas/base-mobile-appium:26`). Cuando el agente detecta un stack FastAPI, consulta `blueprint://fastapi/readme` y `blueprint://database/postgres-rls-worm` recibiendo las plantillas verificadas criptográficamente contra `manifest.json`.
 * **Ejemplo Práctico 3 (Lectura Proactiva de Configuraciones QA):** El servidor MCP o la inspección estática no solo debe evaluar la topología. Debe auditar proactivamente los archivos de configuración de QA (como `pyproject.toml`, `eslint.config.mjs`, `tsconfig.json`, `vitest.config.ts`) antes de escribir código.
   * **Regla Inquebrantable a inyectar al Agente Developer:** "Si el Agente Developer va a escribir código, su primer paso autónomo debe ser leer las reglas de linters y tipado, para generar código que cumpla con el estándar estricto (ej. `strict=true` en Mypy) desde el primer intento, ahorrando ciclos de auto-corrección (tokens)."
 
@@ -90,7 +90,7 @@ El paquete oficial de Node.js **`@sinfallas/mcp-qa-11x`** permite a cualquier Ag
 # Adopción rápida en 30 segundos (`quickstart`, soporta `--tier`/`-T`, `--lang`, `--agents`):
 npx -y @sinfallas/mcp-qa-11x@latest quickstart -T standard --lang es --agents auto
 
-# Instalación completa recomendada en un repositorio (instala las 11 Skills modulares, scripts .agents/scripts/* e inyecta el conector en AGENTS.md; alias: `install`):
+# Instalación completa recomendada en un repositorio (instala las 12 Skills modulares, scripts .agents/scripts/* e inyecta el conector en AGENTS.md; alias: `install`):
 npx -y @sinfallas/mcp-qa-11x@latest install-skill --init-agents --include-scripts --reconcile
 
 # Instalación con todas las opciones explícitas (especificando entorno de destino):
@@ -118,10 +118,10 @@ npx -y @sinfallas/mcp-qa-11x@latest [--stdio]
 ```
 
 #### Parámetros del instalador `install-skill`:
-* **`--target, -t <entorno>`:** Destino de instalación de las 11 skills modulares (`auto` por defecto — instala exclusivamente en los directorios globales de agentes IA detectados en `$HOME`, usando `workspace` solo como fallback cuando no hay agentes globales—, `workspace`, `antigravity`, `claude`, `cursor`, `windsurf`, `codex`, `hermes` o `all`).
+* **`--target, -t <entorno>`:** Destino de instalación de las 12 skills modulares (`auto` por defecto — instala exclusivamente en los directorios globales de agentes IA detectados en `$HOME`, usando `workspace` solo como fallback cuando no hay agentes globales—, `workspace`, `antigravity`, `claude`, `cursor`, `windsurf`, `codex`, `hermes` o `all`).
 * **`--init-agents`:** Crea `AGENTS.md` o agrega al final del existente el bloque conector canónico de QA 11X sin sobrescribir reglas previas (y sincroniza `~/.gemini/GEMINI.md` junto con conectores Thin-Repo si se indica `--agents`).
 * **`--include-scripts`:** Descarga en el directorio actual únicamente los scripts ejecutables de certificación (`.agents/scripts/*` y `scripts/*`), `.agents/schemas/*.json`, archivos comunes de CI/hooks y `.agents/ACTIVE_TASK.md.example` (`0o755`), sin duplicar `.agents/rules/*.md`.
-* **`--reconcile`:** Reconcilia la gobernanza Thin-Repo del proyecto consumidor, eliminando copias locales de las 8 reglas canónicas y las 11 skills en `<proyecto>/.agents/`, y extrayendo reglas de negocio propias hacia `.agents/rules/domain_<project>_rules.md` con respaldo en `.agents/backups/`.
+* **`--reconcile`:** Reconcilia la gobernanza Thin-Repo del proyecto consumidor, eliminando copias locales de las 8 reglas canónicas y las 12 skills en `<proyecto>/.agents/`, y extrayendo reglas de negocio propias hacia `.agents/rules/domain_<project>_rules.md` con respaldo en `.agents/backups/`.
 
 ### 6.2. Configuración en Clientes de IA
 
@@ -243,7 +243,7 @@ rm -rf ~/.npm/_npx ~/.cache/qa-11x-blueprints && npx -y @sinfallas/mcp-qa-11x@la
 * **Cursor / Claude Desktop:** Ejecuta `Developer: Reload Window` o reinicia la aplicación para levantar el nuevo proceso `npx`.
 
 #### 3. Comandos de Validación de Versión e Integridad SHA-256 (`DISA STIG V-222513`)
-Para auditar que tanto el binario del servidor MCP como los archivos de las 11 Skills modulares y la documentación en caché corresponden a la última versión publicada:
+Para auditar que tanto el binario del servidor MCP como los archivos de las 12 Skills modulares y la documentación en caché corresponden a la última versión publicada:
 
 ```bash
 # 1. Comparar versión publicada en npmjs contra la instalada en la caché de npx:

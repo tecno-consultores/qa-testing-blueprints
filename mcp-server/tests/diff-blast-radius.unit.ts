@@ -367,7 +367,7 @@ describe('Modo Diferencial en inspect_ast_blast_radius y diff-bundle (Hito 23)',
     expect(emptyCheckpoint.boundary_globs).toBeUndefined();
   });
 
-  it('cubre utilidades auxiliares y el registro MCP preservando exactamente 19 Tools', async () => {
+  it('cubre utilidades auxiliares y el registro MCP preservando exactamente 20 Tools', async () => {
     expect(estimateTokens('')).toBe(0);
     expect(estimateTokens('12345')).toBe(2);
     expect(classifyDiffTier('dist/bundle.js', false)).toBe('PRUNED_NOISE');
@@ -436,7 +436,7 @@ describe('Modo Diferencial en inspect_ast_blast_radius y diff-bundle (Hito 23)',
     await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
     try {
       const listed = await client.listTools();
-      expect(listed.tools).toHaveLength(19);
+      expect(listed.tools).toHaveLength(20);
       const callRes = await client.callTool({
         name: 'inspect_ast_blast_radius',
         arguments: {

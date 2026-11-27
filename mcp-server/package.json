@@ -2,7 +2,7 @@
   "name": "@sinfallas/mcp-qa-11x",
   "version": "3.10.0",
   "mcpName": "io.github.tecno-consultores/mcp-qa-11x",
-  "description": "Official MCP Server & Thin-Repo Skill Installer for QA Testing Blueprints (QA-11X v3.10: 19 Tools, 13 Resources, AI Evals, FINOS CALM, Screenplay & DevSecOps)",
+  "description": "Official MCP Server & Thin-Repo Skill Installer for QA Testing Blueprints (QA-11X v3.10: 20 Tools, 13 Resources, AI Evals, FINOS CALM, Screenplay & DevSecOps)",
   "keywords": [
     "mcp",
     "model-context-protocol",

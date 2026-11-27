@@ -16,13 +16,13 @@ Corporate orchestrator for Standard 11X: 3-path routing, 13-layer pyramid, Rule 
 
 ## 1. Adoption Tier, 3-Path Routing & MCP Execution (`QA-GIT-GATE-01`)
 
-Check `.qa-11x.json` v3 (`tier: starter|standard|enterprise`; default `standard` without TTY) and classify the Execution Path. Always open mutating tasks with **`[QA-11X | Tier: <tier> | Path: <DOCS_ONLY|MICRO_CHANGE|FULL_11X>]`**. On the first mutating task (`MICRO_CHANGE`/`FULL_11X`, never `Code Q&A`), if `tierConfirmedByUser === false` or `inspect_project_config` reports applicable `missing_unprompted`/`present_legacy` governance docs, ask once and persist decisions in `.qa-11x.json` (never overwrite legacy docs). During `/plan`, read `<=80L` of `ROADMAP.md`, `docs/adr/`, and `.agents/boundaries.json` if present. Before local `git commit` (**NEVER auto-`git push`**, `QA-GIT-GATE-01`), update `CHANGELOG.md` (`## [Unreleased]`), sync `TESTING.md` on count/cov/cmd shifts, and check off `[x]` + `%` in `ROADMAP.md` for milestone work (skip micro-fix noise):
+Check `.qa-11x.json` v3 (`tier: starter|standard|enterprise`; default `standard` without TTY) and classify Path. Open mutating tasks with **`[QA-11X | Tier: <tier> | Path: <DOCS_ONLY|MICRO_CHANGE|FULL_11X>]`**. On first mutating task (`MICRO_CHANGE`/`FULL_11X`, never `Code Q&A`), if `tierConfirmedByUser === false` or `inspect_project_config` reports `missing_unprompted`/`present_legacy` docs, ask once and persist in `.qa-11x.json` (never overwrite legacy docs). In `/plan`, read `<=80L` of `ROADMAP.md`, `docs/adr/`, `.agents/boundaries.json`. Pre-commit (**NEVER auto-`git push`**, `QA-GIT-GATE-01`): update `CHANGELOG.md` (`## [Unreleased]`), sync `TESTING.md` on count/cov/cmd shifts, check `[x]` + `%` in `ROADMAP.md` for milestones (skip micro-fix noise):
 
 - **`DOCS_ONLY` (human `*.md`/`docs/**`; excludes `.agents/{skills,rules,schemas}/`):** `0` Docker QA/AST -> sync docs/`CHANGELOG.md` -> `make sync-governance` -> `certify_11x_gate` -> local `git commit`.
 - **`MICRO_CHANGE` (`<= 3` files, `< 5` callers, `0` routes/ORM):** 3-line plan -> `inspect_ast_blast_radius` -> sync unit/BDD (`QA-TEST-SYNC-01`) + stack QA (`run_ephemeral_qa`) -> AST refresh -> `CHANGELOG.md` -> `certify_11x_gate` -> local `git commit`.
 - **`FULL_11X` (`> 3` files, new API/UI, ORM, security, or `MED`/`HIGH` blast):** 11-step flow (`/plan`, `session_flight_recorder` -> `ACTIVE_TASK.md <= 40L`, full pyramid + `QA-TEST-SYNC-01`, docs, AST, `certify_11x_gate` 10/10, local `git commit`).
 
-### 1.1. MCP Server `qa-11x` (`@sinfallas/mcp-qa-11x` v3.10.0 — 19 Tools + 13 Resources)
+### 1.1. MCP Server `qa-11x` (`@sinfallas/mcp-qa-11x` v3.10.0 — 20 Tools + 13 Resources)
 1. `inspect_ast_blast_radius` — Code Q&A & pre-edit impact.
 2. `inspect_project_config` — stack, `standard_11x_readiness` (AST, tier, governance docs), `update_available`.
 3. `audit_test_pyramid_gaps` — 13-layer audit + `meta_gates_audit` (AST, Thin-Repo, CI, CALM).
@@ -30,11 +30,11 @@ Check `.qa-11x.json` v3 (`tier: starter|standard|enterprise`; default `standard`
 5. `bootstrap_or_merge_11x` — surgical `.example` merge.
 6. `audit_security_stig_owasp` — 37 static rules (`SEC-01..16`, `SEC-CI-ACTION-REF`, `SEC-WS-PUBSUB-01`, `QA-*`, `UI-11X-01..03`).
 7. `run_ephemeral_qa` — `lint|unit|migration|integration|ci|parity|orphans|contracts|bdd|mutation|dast|e2e|perf|chaos|profile|all` (`.qa-evidence.json`).
-8. `clean_workspace_11x` — rootless purge (keeps `dist`, `graphify-out/`, `certify_state.json`, coverage in normal mode).
-9. `certify_11x_gate` — 10/10 gate scaled by tier (AST, lint+unit evidence, orphans, manifest, security).
+8. `clean_workspace_11x` — rootless purge (keeps `dist`, `graphify-out/`, `certify_state.json`, cov in normal mode).
+9. `certify_11x_gate` — 10/10 gate by tier (AST, lint+unit evidence, orphans, manifest, security).
 10. `init_or_append_agents_md` — Thin-Repo `AGENTS.md` connector, tier & governance templates.
 11. `reconcile_agents_governance` — prunes local duplicates; isolates `domain_<project>_*.md`.
-12. `propose_skill_evolution_pr` — email template for `soporte@tecnoconsultores.net` (primary, no auto-send) + GitHub URL.
+12. `propose_skill_evolution_pr` — email template (`soporte@tecnoconsultores.net`, no auto-send) + GitHub URL.
 13. `validate_calm_architecture` — FINOS CALM JSON & 11X controls.
 14. `evaluate_release_gate` — `GO`/`NO_GO` (JUnit, latency/`5xx`/MSI/cov, defects SLA).
 15. `evaluate_agent_trajectory` — offline / DeepEval trajectory evals.
@@ -42,8 +42,9 @@ Check `.qa-11x.json` v3 (`tier: starter|standard|enterprise`; default `standard`
 17. `audit_vibe_prototype` — `VIBE-SEC-001..QA-005` & RLS rescue.
 18. `sync_enterprise_tms` — Jira/Zephyr/Xray/GitHub Issues sync.
 19. `session_flight_recorder` — `0600` JSON checkpoint + `ACTIVE_TASK.md` + Git.
+20. `analyze_ecosystem_specs` — zero-footprint multi-repo specs & HTTP/`.env`/AST map (no vuln audit).
 
-*Fallback (No MCP):* Load one `references/01..10.md` (§4), verify `manifest.json` (`sync_governance.py --check`), run `make sync-governance`.
+*Fallback (No MCP):* Load `references/01..10.md` (§4), check `manifest.json` (`sync_governance.py --check`), run `make sync-governance`.
 
 ---
 
@@ -81,7 +82,7 @@ Check `.qa-11x.json` v3 (`tier: starter|standard|enterprise`; default `standard`
 
 ---
 
-## 3. Progressive Hydration Matrix of Modular Sub-Skills (v3.9)
+## 3. Progressive Hydration Matrix of Modular Sub-Skills (v3.10)
 
 Hydrate specialized sub-skills **strictly on demand** by domain (zero eager loading):
 
@@ -93,6 +94,7 @@ Hydrate specialized sub-skills **strictly on demand** by domain (zero eager load
 | `qa-11x-llm-evaluator` | Dual-Mode LLM/RAG evals: offline contracts + DeepEval/Promptfoo red-team. |
 | `qa-11x-vibe-rescue` | Vibe-to-Enterprise (`>=95%` cov, STIG, architecture, non-root Docker). |
 | `tactical-patterns-11x` | Hydrate ONLY on concurrency/idempotency/external ports or CC/max-params fails. |
+| `qa-11x-reverse-specs` | Zero-footprint multi-repo specs & HTTP/`.env`/AST contracts (no vuln audit). |
 
 *(Companions: `qa-11x-docker-certifier`, `docker-trivy-keydb-hardening`, `graphify-ast-navigator`, `refactoring-ui`.)*
 

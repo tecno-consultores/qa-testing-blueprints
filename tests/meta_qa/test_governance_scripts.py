@@ -1758,8 +1758,9 @@ def _seed_nominal_catalog_repo(root: Path) -> tuple[dict[str, Any], dict[str, An
         "graphify-ast-navigator",
         "refactoring-ui",
         "tactical-patterns-11x",
+        "qa-11x-reverse-specs",
     )
-    tools = [f"tool_{i:02d}" for i in range(19)]
+    tools = [f"tool_{i:02d}" for i in range(20)]
     resources = [f"blueprint://res/{i:02d}" for i in range(13)]
     blueprints = [{"id": f"bp_{i}", "path": f"bp_{i}"} for i in range(10)]
 
@@ -1797,7 +1798,7 @@ def _seed_nominal_catalog_repo(root: Path) -> tuple[dict[str, Any], dict[str, An
         "version": "2.21.0",
         "license": "MIT",
         "mcp_capabilities": {
-            "tools_count": 19,
+            "tools_count": 20,
             "resources_count": 13,
             "tools": tools,
             "resources": resources,
@@ -1829,7 +1830,7 @@ def test_verify_docs_invariants_global_catalogs_trimodal(
     # 1. Virgin: sin llms.txt ni catalogs/ no falla en proyectos sin GEO
     assert mod.check_global_catalogs_and_geo(tmp_path) == []
 
-    # 2. Nominal: 11 skills + 19 tools + 13 resources + SHA-256 consistentes
+    # 2. Nominal: 12 skills + 20 tools + 13 resources + SHA-256 consistentes
     pack_doc, skillsllm_doc = _seed_nominal_catalog_repo(tmp_path)
     assert mod.check_global_catalogs_and_geo(tmp_path) == []
 
