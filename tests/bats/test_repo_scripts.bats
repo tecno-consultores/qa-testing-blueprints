@@ -545,6 +545,8 @@ EOF
   [ -x "${WORK}/custom-hooks/commit-msg" ]
   [ -x "${WORK}/custom-hooks/pre-push" ]
   [ ! -f "${WORK}/.git/hooks/pre-commit" ]
+  run grep -F "lefthook.yml:/lefthook.yml:ro" "${WORK}/custom-hooks/pre-push"
+  assert_success
 
   # Verificar manejo seguro de nombres con espacios vía while IFS= read -r
   run grep -F "while IFS= read -r" "${WORK}/custom-hooks/pre-commit"

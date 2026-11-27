@@ -170,6 +170,9 @@ fi
 if [ "${MCP_CHANGED}" = true ] && [ -f "./mcp-server/package.json" ]; then
 	mkdir -p .agents/.cache/coverage && chmod 0700 .agents/.cache
 	MCP_EXTRA_VOLS=()
+	if [ -f "./lefthook.yml" ]; then
+		MCP_EXTRA_VOLS+=(-v "$(pwd)/lefthook.yml:/lefthook.yml:ro")
+	fi
 	for dir in mobile-appium vibe-rescue .github architecture .agents fastapi python node-backend vue3 react-frontend php bash-scripts ai-evals; do
 		if [ -d "./${dir}" ]; then
 			MCP_EXTRA_VOLS+=(-v "$(pwd)/${dir}:/${dir}:ro")

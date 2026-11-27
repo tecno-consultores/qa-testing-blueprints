@@ -975,6 +975,7 @@ describe('QA-11X v3.9.0 — Compliance Audit, AST Auto-Build, OpenCode, Email Te
 
     // Verify SurgicalMerger preserves parallel: false in both pre-commit and pre-push from canonical lefthook.yml
     const repoLefthook = fs.readFileSync(path.resolve(import.meta.dirname, '..', '..', 'lefthook.yml'), 'utf-8');
+    expect(repoLefthook).toContain('lefthook.yml:/lefthook.yml:ro');
     const mergedLefthook = new SurgicalMerger().mergeLefthookYaml('', repoLefthook, qDir);
     expect(mergedLefthook.merged.match(/^\s{2}parallel:\s*false\s*$/gm)).toHaveLength(2);
   });
