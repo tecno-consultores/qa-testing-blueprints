@@ -8,6 +8,9 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ## [Unreleased]
 
+### Añadido
+* **Autenticación Local de Organización (`MCP_GITHUB_TOKEN`) para Publicación en MCP Registry:** Añadido soporte opcional de `MCP_GITHUB_TOKEN` (Classic PAT de GitHub con scope `read:org`, cargado desde `.env` o entorno e inyectado por nombre de variable sin exposición en `argv`) en `scripts/publicar-mcp.sh` (`--registry` / `--registry-only`) y `.env.example`, habilitando la publicación local desatendida en `registry.modelcontextprotocol.io` bajo namespaces de organización (`io.github.tecno-consultores/*`), preservando prioridad `github-oidc` en GitHub Actions y fallback interactivo Device Flow.
+
 ---
 
 ## [3.12.0] - 2026-11-27

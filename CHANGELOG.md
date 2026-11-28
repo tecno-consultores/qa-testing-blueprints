@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+* **Local Organization Auth (`MCP_GITHUB_TOKEN`) for MCP Registry Publishing:** Added optional `MCP_GITHUB_TOKEN` (GitHub Classic PAT with `read:org` scope, loaded from `.env` or environment and injected by env name without argv exposure) to `scripts/publicar-mcp.sh` (`--registry` / `--registry-only`) and `.env.example`, enabling unattended local publishing to `registry.modelcontextprotocol.io` under organization namespaces (`io.github.tecno-consultores/*`) while preserving `github-oidc` priority in GitHub Actions and interactive Device Flow fallback.
+
 ---
 
 ## [3.12.0] - 2026-11-27

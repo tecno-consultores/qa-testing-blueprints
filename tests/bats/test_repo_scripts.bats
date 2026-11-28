@@ -2308,6 +2308,9 @@ if [[ "$*" == *"npm publish"* ]]; then
   exit 0
 fi
 if [[ "$*" == *"mcp-publisher"* ]]; then
+  if [ -n "${MOCK_DOCKER_ARGS_LOG:-}" ]; then
+    printf '%s\n' "$*" >"${MOCK_DOCKER_ARGS_LOG}"
+  fi
   [ "${MOCK_PUBLISHER_FAIL:-0}" = "1" ] && exit 1
   exit 0
 fi
@@ -2386,6 +2389,26 @@ EOF
   run env QA11X_REPO_ROOT="${reg_ws}" NPM_TOKEN="npm_realMock1234567890" MOCK_NPM_STAMP="${BATS_TEST_TMPDIR}/npm_pub.stamp" MOCK_REMOTE_MCP_NAME="io.github.tecno-consultores/mcp-qa-11x" MOCK_INDEXED=1 PATH="${reg_bin}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --registry --skip-tests # qa-secret-fixture-ok
   assert_success
   assert_output --partial "PUBLICACIÓN EXITOSA"
+
+  # 11. --registry-only con MCP_GITHUB_TOKEN en .env -> auth: github-token sin exponer el valor en argv de docker
+  local pub_args_log="${BATS_TEST_TMPDIR}/mcp_pub_docker_args.log"
+  printf 'MCP_GITHUB_TOKEN=ghp_mockReadOrgToken12345\n' >"${reg_ws}/.env" # qa-secret-fixture-ok
+  chmod 600 "${reg_ws}/.env"
+  run env QA11X_REPO_ROOT="${reg_ws}" MOCK_REMOTE_MCP_NAME="io.github.tecno-consultores/mcp-qa-11x" MOCK_INDEXED=1 MOCK_DOCKER_ARGS_LOG="${pub_args_log}" PATH="${reg_bin}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --registry-only
+  assert_success
+  assert_output --partial "auth: github-token"
+  assert_output --partial "visible en"
+  run grep -F -- "-e MCP_GITHUB_TOKEN" "${pub_args_log}"
+  assert_success
+  run grep -F -- "ghp_mockReadOrgToken12345" "${pub_args_log}" # qa-secret-fixture-ok
+  assert_failure 1
+
+  # 12. --registry-only con MCP_GITHUB_TOKEN placeholder -> ignora placeholder y cae a auth: github
+  printf 'MCP_GITHUB_TOKEN=ghp_placeholder_TU_TOKEN_READ_ORG_AQUI\n' >"${reg_ws}/.env"
+  run env QA11X_REPO_ROOT="${reg_ws}" MOCK_REMOTE_MCP_NAME="io.github.tecno-consultores/mcp-qa-11x" MOCK_INDEXED=0 PATH="${reg_bin}:/usr/bin:/bin" LC_ALL=C bash "${REPO_ROOT}/scripts/publicar-mcp.sh" --registry-only
+  assert_success
+  assert_output --partial "auth: github"
+  rm -f "${reg_ws}/.env"
 }
 
 @test "certify_task_completion.sh (Hito 33): tiers starter/enterprise, QA11X_TIER, CALM en Gate 6 y GITHUB_BASE_REF en Gate 10" {

@@ -84,6 +84,8 @@ while [[ $# -gt 0 ]]; do
       echo "  Crea un archivo '.env' en la raíz con: NPM_TOKEN=npm_tu_token_aqui"
       echo "  o expórtalo en tu sesión: export NPM_TOKEN=npm_..."
       echo "  (Para publicar sin que pida 2FA/OTP, marca 'Bypass 2FA' al crear el token en npmjs.com)"
+      echo "  Para MCP Registry bajo namespaces de organización (--registry / --registry-only):"
+      echo "  configura MCP_GITHUB_TOKEN=<Classic PAT con scope read:org> en .env o entorno."
       echo "══════════════════════════════════════════════════════════════════════"
       exit 0
       ;;
@@ -161,6 +163,16 @@ if [ -f "${ENV_FILE}" ]; then
   OTP_VAL="$(read_dotenv_value 'NPM_OTP' "${ENV_FILE}")"
   if [ -z "${NPM_OTP:-}" ] && [ -n "${OTP_VAL}" ]; then
     NPM_OTP="${OTP_VAL}"
+  fi
+  MCP_GH_TOKEN_VAL="$(read_dotenv_value 'MCP_GITHUB_TOKEN' "${ENV_FILE}")"
+  if [ -z "${MCP_GITHUB_TOKEN:-}" ] && [ -n "${MCP_GH_TOKEN_VAL}" ]; then
+    MCP_GITHUB_TOKEN="${MCP_GH_TOKEN_VAL}"
+  fi
+fi
+
+if [ -n "${MCP_GITHUB_TOKEN:-}" ]; then
+  if [[ "${MCP_GITHUB_TOKEN}" == *"TU_TOKEN"* ]] || [[ "${MCP_GITHUB_TOKEN}" == *"placeholder"* ]] || [[ "${MCP_GITHUB_TOKEN}" =~ ^ghp_[xX]+$ ]]; then
+    MCP_GITHUB_TOKEN=""
   fi
 fi
 
@@ -276,14 +288,18 @@ publish_mcp_registry() {
   fi
 
   local reg_tty_args=()
-  local reg_oidc_args=()
+  local reg_auth_env_args=()
   local auth_method="github"
   local reg_mode="validate"
   if [ "${DRY_RUN}" = false ]; then
     reg_mode="publish"
     if [ "${GITHUB_ACTIONS:-false}" = "true" ] && [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
       auth_method="github-oidc"
-      reg_oidc_args+=(-e GITHUB_ACTIONS -e ACTIONS_ID_TOKEN_REQUEST_URL -e ACTIONS_ID_TOKEN_REQUEST_TOKEN)
+      reg_auth_env_args+=(-e GITHUB_ACTIONS -e ACTIONS_ID_TOKEN_REQUEST_URL -e ACTIONS_ID_TOKEN_REQUEST_TOKEN)
+    elif [ -n "${MCP_GITHUB_TOKEN:-}" ]; then
+      auth_method="github-token"
+      export MCP_GITHUB_TOKEN
+      reg_auth_env_args+=(-e MCP_GITHUB_TOKEN)
     elif [ -t 0 ] && [ -t 1 ]; then reg_tty_args=(-it); fi
     echo "🚀 Publicando ${SERVER_NAME}@${SERVER_VERSION} en ${MCP_REGISTRY_URL} (auth: ${auth_method})..."
   fi
@@ -292,11 +308,11 @@ publish_mcp_registry() {
     -u "${CURRENT_UID}:${CURRENT_GID}" -e HOME=/tmp \
     -e MCP_PUB_URL="${MCP_PUB_URL}" -e MCP_PUB_SHA="${MCP_PUB_SHA}" \
     -e MCP_MODE="${reg_mode}" -e MCP_AUTH="${auth_method}" \
-    ${reg_oidc_args[@]+"${reg_oidc_args[@]}"} \
+    ${reg_auth_env_args[@]+"${reg_auth_env_args[@]}"} \
     -v "${SERVER_JSON}:/app/server.json:ro" -w /app "${IMAGE_NAME}" \
-    sh -c 'set -eu; curl -fsSL "$MCP_PUB_URL" -o /tmp/m.tgz; printf "%s  /tmp/m.tgz\n" "$MCP_PUB_SHA" | sha256sum -c - >/dev/null; tar -xzf /tmp/m.tgz -C /tmp mcp-publisher; /tmp/mcp-publisher validate /app/server.json; if [ "$MCP_MODE" = publish ]; then /tmp/mcp-publisher login "$MCP_AUTH" && /tmp/mcp-publisher publish /app/server.json; fi'; then
+    sh -c 'set -eu; curl -fsSL "$MCP_PUB_URL" -o /tmp/m.tgz; printf "%s  /tmp/m.tgz\n" "$MCP_PUB_SHA" | sha256sum -c - >/dev/null; tar -xzf /tmp/m.tgz -C /tmp mcp-publisher; /tmp/mcp-publisher validate /app/server.json; if [ "$MCP_MODE" = publish ]; then if [ "$MCP_AUTH" = github-token ]; then /tmp/mcp-publisher login github --token "$MCP_GITHUB_TOKEN"; else /tmp/mcp-publisher login "$MCP_AUTH"; fi && /tmp/mcp-publisher publish /app/server.json; fi'; then
     echo -e "\e[31m❌ ERROR [MCP Registry]: Falló la validación o publicación con mcp-publisher (${MCP_PUBLISHER_VERSION}).\e[0m" >&2
-    echo "💡 Para namespaces de organización (io.github.tecno-consultores/*), confirme ser Owner con membresía pública o ejecute con GitHub OIDC." >&2
+    echo "💡 Para namespaces de organización (io.github.tecno-consultores/*), configure MCP_GITHUB_TOKEN (Classic PAT con scope read:org en .env) o ejecute con GitHub OIDC." >&2
     exit 1
   fi
 
